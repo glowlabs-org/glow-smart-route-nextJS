@@ -3,8 +3,11 @@ import type { ApplicationRewardScore } from "@/hooks/control-farms";
 import type { ApplicationMiningScore } from "@/lib/mining-score";
 import {
   calculateLaunchpadPerShareRewards,
+  normalizeDelegationCurrency,
   parseTokenAmountFromBaseUnits,
+  resolveDelegationCurrencyFromSplitActivity,
   resolveDelegationCurrency,
+  type DelegationCurrency,
 } from "@/utils/launchpad-rewards";
 
 export interface SponsorshipInProgress {
@@ -13,6 +16,7 @@ export interface SponsorshipInProgress {
   fractionType: "launchpad" | "mining-center";
   userSteps: number;
   progressPercent: number;
+  delegationCurrency?: DelegationCurrency;
 }
 
 export interface SponsorshipInProgressWithEstimate
@@ -36,6 +40,7 @@ function deriveInProgress(params: {
       application: AuctionApplication | null;
       userSteps: number;
       progressPercent: number;
+      delegationCurrency?: DelegationCurrency;
     }
   >();
 
@@ -55,18 +60,32 @@ function deriveInProgress(params: {
       progress >= 100;
     if (isFilled) continue;
 
-    const key = evt.applicationId;
+    const delegationCurrency =
+      fractionType === "launchpad"
+        ? resolveDelegationCurrencyFromSplitActivity({
+            currency: evt.currency,
+            amount: evt.amount,
+            stepPrice: evt.stepPrice,
+            transactionHash: evt.transactionHash,
+            application: app,
+          })
+        : undefined;
+    const key =
+      fractionType === "launchpad"
+        ? `${evt.applicationId}:${delegationCurrency}`
+        : evt.applicationId;
     const existing = byApp.get(key);
     byApp.set(key, {
       application: app,
       userSteps: (existing?.userSteps ?? 0) + (evt.stepsPurchased ?? 0),
       progressPercent: progress,
+      delegationCurrency,
     });
   }
 
   return Array.from(byApp.entries())
-    .map(([applicationId, data]) => ({
-      applicationId,
+    .map(([key, data]) => ({
+      applicationId: key.split(":")[0],
       fractionType,
       ...data,
     }))
@@ -87,7 +106,10 @@ export function attachEstimatedWeeklyLaunchpadRewards(params: {
   return sponsorshipsInProgress.map((item) => {
     const totalSteps = item.application?.activeFraction?.totalSteps ?? null;
     const rewardScore = rewardScoreMap.get(item.applicationId) ?? null;
-    const delegationCurrency = resolveDelegationCurrency(item.application);
+    const currentCurrency = resolveDelegationCurrency(item.application);
+    const delegationCurrency = item.delegationCurrency ?? currentCurrency;
+    const isHistoricalCurrencyEstimate =
+      item.delegationCurrency != null && item.delegationCurrency !== currentCurrency;
 
     const { estimatedUserWeeklyGlw, estimatedUserWeeklyUsd } = (() => {
       if (!rewardScore) {
@@ -98,6 +120,26 @@ export function attachEstimatedWeeklyLaunchpadRewards(params: {
       }
       if (!item.userSteps || item.userSteps <= 0) {
         return { estimatedUserWeeklyGlw: 0, estimatedUserWeeklyUsd: 0 };
+      }
+
+      if (isHistoricalCurrencyEstimate) {
+        const emissionPerShare = parseTokenAmountFromBaseUnits(
+          rewardScore.userWeeklyGlwRewards,
+          18
+        ) / totalSteps;
+        const emissionUsdPerShare =
+          Number.parseFloat(String(rewardScore.userWeeklyGlwValueUsd ?? "0")) /
+          totalSteps;
+
+        const estimatedGlw = emissionPerShare * item.userSteps;
+        const estimatedUsd = emissionUsdPerShare * item.userSteps;
+
+        return {
+          estimatedUserWeeklyGlw:
+            Number.isFinite(estimatedGlw) && estimatedGlw > 0 ? estimatedGlw : 0,
+          estimatedUserWeeklyUsd:
+            Number.isFinite(estimatedUsd) && estimatedUsd > 0 ? estimatedUsd : 0,
+        };
       }
 
       const perShare = calculateLaunchpadPerShareRewards({

@@ -30,6 +30,7 @@ import { useWalletRewardClaims } from "@/hooks/useWalletRewardClaims";
 import type { WalletRewardClaimRow } from "@/lib/api/wallet-reward-claims-index";
 import { SDKAddresses } from "@/web3/constants/addresses";
 import { nonceToWeek } from "@/hooks/useMerkleProofs";
+import { resolveDelegationCurrencyFromSplitActivity } from "@/utils/launchpad-rewards";
 
 type ActivityKind =
   | "mint"
@@ -265,14 +266,23 @@ function buildSplitActivity(split: SplitActivity): ActivityItem | null {
   const timestampMs = split.timestamp * 1000;
   if (!Number.isFinite(timestampMs)) return null;
 
+  const launchpadCurrency =
+    split.fractionType === "launchpad"
+      ? resolveDelegationCurrencyFromSplitActivity({
+          currency: split.currency,
+          amount: split.amount,
+          stepPrice: split.stepPrice,
+          transactionHash: split.transactionHash,
+        })
+      : split.currency;
   const decimals =
-    DECIMALS_BY_TOKEN[split.currency as keyof typeof DECIMALS_BY_TOKEN] ?? 18;
+    DECIMALS_BY_TOKEN[launchpadCurrency as keyof typeof DECIMALS_BY_TOKEN] ?? 18;
   const amount = safeFormatUnits(split.amount, decimals);
 
   const isMiningCenter = split.fractionType === "mining-center";
   const title = isMiningCenter
     ? `Purchased ${split.stepsPurchased ?? 0} miners`
-    : `Delegated ${formatCompactNumber(amount, 0)} ${split.currency}`;
+    : `Delegated ${formatCompactNumber(amount, 0)} ${launchpadCurrency}`;
 
   const subtitle = isMiningCenter
     ? `${formatCompactNumber(amount, 0)} ${split.currency}`

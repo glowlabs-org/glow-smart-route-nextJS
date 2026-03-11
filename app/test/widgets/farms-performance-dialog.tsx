@@ -55,8 +55,10 @@ import {
   deriveMiningCenterSponsorshipsInProgress,
 } from "@/utils/sponsorships-in-progress";
 import {
+  calculateLaunchpadPerShareRewards,
   normalizeDelegationCurrency,
   parseDelegationAmountFromBaseUnits,
+  resolveDelegationCurrencyFromSplitActivity,
   resolveDelegationCurrency,
 } from "@/utils/launchpad-rewards";
 import { GlowSymbol } from "@/components/glow-symbol";
@@ -85,6 +87,106 @@ function formatProtocolDepositAsset(asset: string | null | undefined): string {
   const normalized = asset.toUpperCase();
   if (normalized === "GCTL") return "SGCTL";
   return normalized;
+}
+
+type DelegationAmountsByAsset = Partial<Record<"GLW" | "SGCTL", number>>;
+
+function formatTokenAmountByAsset(
+  value: number,
+  asset: string | null | undefined
+): string {
+  if (!Number.isFinite(value)) return "—";
+  const normalized = formatProtocolDepositAsset(asset);
+  const maximumFractionDigits =
+    normalized === "SGCTL" || normalized === "USDC" || normalized === "USDG"
+      ? 2
+      : 0;
+  return value.toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits,
+  });
+}
+
+function formatEstimatedWeeklyRewards(params: {
+  estimatedUserWeeklyGlw?: number;
+  estimatedUserWeeklyUsd?: number;
+  estimatedUserWeeklyPd?: number;
+  estimatedUserWeeklyPdAsset?: string | null;
+}) {
+  const pdAsset = formatProtocolDepositAsset(params.estimatedUserWeeklyPdAsset);
+
+  if (
+    pdAsset !== "GLW" &&
+    (params.estimatedUserWeeklyPd ?? 0) > 0 &&
+    Number.isFinite(params.estimatedUserWeeklyPd)
+  ) {
+    const parts: string[] = [];
+    if (
+      (params.estimatedUserWeeklyGlw ?? 0) > 0 &&
+      Number.isFinite(params.estimatedUserWeeklyGlw)
+    ) {
+      parts.push(
+        `${formatGlwPrecise(params.estimatedUserWeeklyGlw ?? 0)} GLW`
+      );
+    }
+    parts.push(
+      `${formatTokenAmountByAsset(
+        params.estimatedUserWeeklyPd ?? 0,
+        pdAsset
+      )} ${pdAsset}`
+    );
+    return `~${parts.join(" + ")}/wk`;
+  }
+
+  if (
+    (params.estimatedUserWeeklyGlw ?? 0) > 0 &&
+    Number.isFinite(params.estimatedUserWeeklyGlw)
+  ) {
+    return `~${formatGlwPrecise(params.estimatedUserWeeklyGlw ?? 0)} GLW/wk`;
+  }
+
+  if (
+    (params.estimatedUserWeeklyUsd ?? 0) > 0 &&
+    Number.isFinite(params.estimatedUserWeeklyUsd)
+  ) {
+    return `~$${fmtUsdAmount(params.estimatedUserWeeklyUsd ?? 0)}/wk`;
+  }
+
+  return null;
+}
+
+function resolveLaunchpadActivityFarmId(params: {
+  applicationId?: string | null;
+  activityFarmId?: string | null;
+  listingFarmId?: string | null;
+}) {
+  return (
+    params.activityFarmId ?? params.listingFarmId ?? params.applicationId ?? null
+  );
+}
+
+function formatDelegatedAmountsByAsset(params: {
+  amounts?: DelegationAmountsByAsset;
+  fallbackAmount: number;
+  fallbackAsset: string | null | undefined;
+}) {
+  const entries = (["GLW", "SGCTL"] as const)
+    .map((asset) => {
+      const amount = params.amounts?.[asset] ?? 0;
+      if (!Number.isFinite(amount) || amount <= 0) return null;
+      return `${formatTokenAmountByAsset(amount, asset)} ${asset}`;
+    })
+    .filter((value): value is string => value !== null);
+
+  if (entries.length > 0) {
+    return entries.join(" + ");
+  }
+
+  const fallbackAsset = formatProtocolDepositAsset(params.fallbackAsset);
+  return `${formatTokenAmountByAsset(
+    params.fallbackAmount,
+    fallbackAsset
+  )} ${fallbackAsset}`;
 }
 
 export const FILTER_VALUES = [
@@ -120,6 +222,9 @@ interface PerformanceRowData {
   inProgressUserSteps?: number;
   estimatedUserWeeklyGlw?: number;
   estimatedUserWeeklyUsd?: number;
+  estimatedUserWeeklyPd?: number;
+  estimatedUserWeeklyPdAsset?: string | null;
+  delegatedAmountsByAsset?: DelegationAmountsByAsset;
   inProgressKind?: "launchpad" | "mining-center";
 }
 
@@ -155,8 +260,9 @@ function getTotalRewardsLabel(data: PerformanceRowData) {
   if (data.type === "miner") return `${fmtGlw(data.inflationGlw)} GLW`;
   if (data.type === "delegation") {
     if (protocolDepositAsset !== "GLW") {
-      return `${fmtGlw(data.inflationGlw)} GLW + ${fmtGlw(
-        data.recovered
+      return `${fmtGlw(data.inflationGlw)} GLW + ${formatTokenAmountByAsset(
+        data.recovered,
+        protocolDepositAsset
       )} ${protocolDepositAsset}`;
     }
     return `${fmtGlw(data.recovered + data.inflation)} GLW`;
@@ -170,8 +276,9 @@ function getTotalRewardsLabel(data: PerformanceRowData) {
   }
 
   if (protocolDepositAsset !== "GLW") {
-    return `${fmtGlw(data.inflationGlw)} GLW + ${fmtGlw(
-      data.recovered
+    return `${fmtGlw(data.inflationGlw)} GLW + ${formatTokenAmountByAsset(
+      data.recovered,
+      protocolDepositAsset
     )} ${protocolDepositAsset}`;
   }
   return `${fmtGlw(data.inflationGlw + data.recovered)} GLW`;
@@ -222,6 +329,22 @@ function parseProtocolDepositTokenAmount(
   return parseDelegationAmountFromBaseUnits(value, delegationCurrency);
 }
 
+function resolveLaunchpadSplitCurrency(params: {
+  currency?: string | null;
+  listingCurrency?: string | null;
+  amount?: string | null;
+  stepPrice?: string | null;
+  transactionHash?: string | null;
+}) {
+  return resolveDelegationCurrencyFromSplitActivity({
+    currency: params.currency,
+    amount: params.amount,
+    stepPrice: params.stepPrice,
+    transactionHash: params.transactionHash,
+    listingCurrency: params.listingCurrency,
+  });
+}
+
 // --- COMPONENT: THE FARM ROW ---
 const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
   const [isExpanded, setIsExpanded] = React.useState(false);
@@ -238,8 +361,26 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
   );
   const recoveredLabel = data.isProtocolDepositUsd
     ? `${fmtUsdAmount(data.recovered)} ${protocolDepositAssetLabel}`
-    : `${fmtGlw(data.recovered)} ${protocolDepositAssetLabel}`;
+    : `${formatTokenAmountByAsset(
+        data.recovered,
+        protocolDepositAssetLabel
+      )} ${protocolDepositAssetLabel}`;
   const totalRewardsLabel = getTotalRewardsLabel(data);
+  const delegatedLabel = isMiner
+    ? fmtUsd(data.initialCost)
+    : formatDelegatedAmountsByAsset({
+        amounts: data.delegatedAmountsByAsset,
+        fallbackAmount: data.initialCost,
+        fallbackAsset: protocolDepositAssetLabel,
+      });
+  const estimatedWeeklyLabel =
+    formatEstimatedWeeklyRewards({
+      estimatedUserWeeklyGlw: data.estimatedUserWeeklyGlw,
+      estimatedUserWeeklyUsd: data.estimatedUserWeeklyUsd,
+      estimatedUserWeeklyPd: data.estimatedUserWeeklyPd,
+      estimatedUserWeeklyPdAsset:
+        data.estimatedUserWeeklyPdAsset ?? data.protocolDepositAsset,
+    }) ?? "—";
 
   const {
     totalEarned,
@@ -413,9 +554,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                     : "text-delegation-purple dark:text-delegation-purple"
                 )}
               >
-                {data.estimatedUserWeeklyUsd && data.estimatedUserWeeklyUsd > 0
-                  ? `~$${fmtUsdAmount(data.estimatedUserWeeklyUsd)}/wk`
-                  : `${formatGlwPrecise(data.estimatedUserWeeklyGlw ?? 0)} GLW/wk`}
+                {estimatedWeeklyLabel}
               </div>
             </div>
           </div>
@@ -434,15 +573,8 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                   ) : (
                     <>
                       <span className="text-sm font-bold font-mono text-foreground tabular-nums">
-                        {isMiner
-                          ? fmtUsd(data.initialCost)
-                          : fmtGlw(data.initialCost)}
+                        {delegatedLabel}
                       </span>
-                      {!isMiner && (
-                        <span className="text-[10px] font-mono text-muted-foreground">
-                          {protocolDepositAssetLabel}
-                        </span>
-                      )}
                     </>
                   )}
                 </div>
@@ -465,26 +597,11 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                     )}
                   >
                     {isPendingStart
-                      ? data.estimatedUserWeeklyGlw
-                        ? data.estimatedUserWeeklyUsd &&
-                          data.estimatedUserWeeklyUsd > 0
-                          ? `~$${fmtUsdAmount(data.estimatedUserWeeklyUsd)}`
-                          : `~${fmtGlw(data.estimatedUserWeeklyGlw)}`
-                        : "—"
+                      ? estimatedWeeklyLabel
                       : isMiner
                       ? fmtGlw(totalEarnedGlw)
                       : getTotalRewardsLabel(data)}
                   </span>
-                  {(!isPendingStart || data.estimatedUserWeeklyGlw) && (
-                    <span className="text-[10px] font-mono text-muted-foreground">
-                      {isPendingStart
-                        ? data.estimatedUserWeeklyUsd &&
-                          data.estimatedUserWeeklyUsd > 0
-                          ? "/wk"
-                          : "GLW/wk"
-                        : ""}
-                    </span>
-                  )}
                 </div>
               </div>
             </div>
@@ -642,15 +759,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                         : "text-delegation-purple dark:text-delegation-purple"
                     )}
                   >
-                    {data.estimatedUserWeeklyUsd && data.estimatedUserWeeklyUsd > 0
-                      ? `~$${fmtUsdAmount(data.estimatedUserWeeklyUsd)}`
-                      : formatGlwPrecise(data.estimatedUserWeeklyGlw ?? 0)}
-                  </div>
-                  <div className="text-[10px] font-mono text-muted-foreground">
-                    {data.estimatedUserWeeklyUsd &&
-                    data.estimatedUserWeeklyUsd > 0
-                      ? "/wk est."
-                      : "GLW/wk est."}
+                    {estimatedWeeklyLabel}
                   </div>
                 </div>
               </div>
@@ -668,15 +777,8 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                     ) : (
                       <>
                           <span className="text-lg font-bold font-mono text-foreground tabular-nums leading-tight">
-                            {isMiner
-                              ? fmtUsd(data.initialCost)
-                              : fmtGlw(data.initialCost)}
+                            {delegatedLabel}
                           </span>
-                          {!isMiner && (
-                            <span className="text-[10px] font-mono text-muted-foreground">
-                              {protocolDepositAssetLabel}
-                            </span>
-                          )}
                         </>
                       )}
                   </div>
@@ -699,26 +801,11 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                       )}
                     >
                       {isPendingStart
-                        ? data.estimatedUserWeeklyGlw
-                          ? data.estimatedUserWeeklyUsd &&
-                            data.estimatedUserWeeklyUsd > 0
-                            ? `~$${fmtUsdAmount(data.estimatedUserWeeklyUsd)}`
-                            : `~${fmtGlw(data.estimatedUserWeeklyGlw)}`
-                          : "—"
+                        ? estimatedWeeklyLabel
                         : isMiner
                         ? fmtGlw(totalEarnedGlw)
                         : getTotalRewardsLabel(data)}
                     </span>
-                    {(!isPendingStart || data.estimatedUserWeeklyGlw) && (
-                      <span className="text-[10px] font-mono text-muted-foreground">
-                        {isPendingStart
-                          ? data.estimatedUserWeeklyUsd &&
-                            data.estimatedUserWeeklyUsd > 0
-                            ? "/wk"
-                            : "GLW/wk"
-                          : ""}
-                      </span>
-                    )}
                   </div>
                 </div>
                 <div className="text-center min-w-[70px]">
@@ -766,7 +853,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                         <span className="text-foreground">
                           {isMiner
                             ? fmtUsd(data.initialCost)
-                            : `${fmtGlw(data.initialCost)} ${protocolDepositAssetLabel}`}
+                            : delegatedLabel}
                         </span>
                       </div>
                     )}
@@ -916,18 +1003,6 @@ export function FarmsPerformanceDialogContent({
     limit: 200,
   });
 
-  const farmNameByFarmId = React.useMemo(() => {
-    const map = new Map<string, string>();
-    for (const evt of splitsActivity) {
-      const farmId = evt.farmId;
-      const farmName = evt.farmName;
-      if (!farmId) continue;
-      if (!farmName) continue;
-      if (!map.has(farmId)) map.set(farmId, farmName);
-    }
-    return map;
-  }, [splitsActivity]);
-
   const {
     applications: sponsorListings,
     isLoading: isSponsorListingsLoading,
@@ -935,6 +1010,34 @@ export function FarmsPerformanceDialogContent({
   } = useGlowLaunchpad({
     enabled: shouldLoadInProgress && splitsActivity.length > 0,
   });
+
+  const sponsorListingById = React.useMemo(() => {
+    const map = new Map<string, (typeof sponsorListings)[number]>();
+    for (const app of sponsorListings) {
+      map.set(app.id, app);
+    }
+    return map;
+  }, [sponsorListings]);
+
+  const farmNameByFarmId = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const evt of splitsActivity) {
+      const listing = sponsorListingById.get(evt.applicationId);
+      const farmId =
+        evt.fractionType === "launchpad"
+          ? resolveLaunchpadActivityFarmId({
+              applicationId: evt.applicationId,
+              activityFarmId: evt.farmId,
+              listingFarmId: listing?.farmId,
+            })
+          : evt.farmId;
+      const farmName = evt.farmName;
+      if (!farmId) continue;
+      if (!farmName) continue;
+      if (!map.has(farmId)) map.set(farmId, farmName);
+    }
+    return map;
+  }, [splitsActivity, sponsorListingById]);
 
   const sponsorshipsInProgress = React.useMemo(() => {
     return deriveLaunchpadSponsorshipsInProgress({
@@ -966,6 +1069,125 @@ export function FarmsPerformanceDialogContent({
       rewardScoreMap,
     }).sort((a, b) => (b.progressPercent ?? 0) - (a.progressPercent ?? 0));
   }, [rewardScoreMap, sponsorshipsInProgress]);
+
+  const launchpadCurrenciesByFarmId = React.useMemo(() => {
+    const map = new Map<string, Set<"GLW" | "SGCTL">>();
+
+    for (const evt of splitsActivity) {
+      if (evt.fractionType !== "launchpad") continue;
+
+      const listing = sponsorListingById.get(evt.applicationId);
+      const farmId = resolveLaunchpadActivityFarmId({
+        applicationId: evt.applicationId,
+        activityFarmId: evt.farmId,
+        listingFarmId: listing?.farmId,
+      });
+      if (!farmId) continue;
+
+      const currency = resolveLaunchpadSplitCurrency({
+        currency: evt.currency,
+        amount: evt.amount,
+        stepPrice: evt.stepPrice,
+        transactionHash: evt.transactionHash,
+        listingCurrency: listing ? resolveDelegationCurrency(listing) : null,
+      });
+
+      const existing = map.get(farmId) ?? new Set<"GLW" | "SGCTL">();
+      existing.add(currency);
+      map.set(farmId, existing);
+    }
+
+    return map;
+  }, [splitsActivity, sponsorListingById]);
+
+  const currentLaunchpadCurrencyByFarmId = React.useMemo(() => {
+    const map = new Map<string, "GLW" | "SGCTL">();
+
+    for (const app of sponsorListings) {
+      const currency = resolveDelegationCurrency(app);
+      map.set(app.id, currency);
+      if (app.farmId) {
+        map.set(app.farmId, currency);
+      }
+    }
+
+    return map;
+  }, [sponsorListings]);
+
+  const launchpadDelegatedAmountsByFarmId = React.useMemo(() => {
+    const map = new Map<string, DelegationAmountsByAsset>();
+
+    for (const evt of splitsActivity) {
+      if (evt.fractionType !== "launchpad") continue;
+
+      const listing = sponsorListingById.get(evt.applicationId);
+      const farmId = resolveLaunchpadActivityFarmId({
+        applicationId: evt.applicationId,
+        activityFarmId: evt.farmId,
+        listingFarmId: listing?.farmId,
+      });
+      if (!farmId) continue;
+
+      const currency = resolveLaunchpadSplitCurrency({
+        currency: evt.currency,
+        amount: evt.amount,
+        stepPrice: evt.stepPrice,
+        transactionHash: evt.transactionHash,
+        listingCurrency: listing ? resolveDelegationCurrency(listing) : null,
+      });
+      const amount = parseDelegationAmountFromBaseUnits(evt.amount, currency);
+      if (!Number.isFinite(amount) || amount <= 0) continue;
+
+      const existing = map.get(farmId) ?? {};
+      existing[currency] = (existing[currency] ?? 0) + amount;
+      map.set(farmId, existing);
+    }
+
+    return map;
+  }, [splitsActivity, sponsorListingById]);
+
+  const inProgressLaunchpadPdByApplication = React.useMemo(() => {
+    const pdMap = new Map<
+      string,
+      { amount: number; asset: "GLW" | "SGCTL" | null }
+    >();
+
+    for (const item of sponsorshipsInProgressWithEstimates) {
+      if (item.fractionType !== "launchpad") continue;
+
+      const delegationCurrency =
+        item.delegationCurrency ?? resolveDelegationCurrency(item.application);
+      const currentDelegationCurrency = resolveDelegationCurrency(
+        item.application
+      );
+      const totalSteps = item.application?.activeFraction?.totalSteps ?? null;
+      const rewardScore = rewardScoreMap.get(item.applicationId) ?? null;
+
+      if (!rewardScore) continue;
+      if (typeof totalSteps !== "number" || totalSteps <= 0) continue;
+      if (!item.userSteps || item.userSteps <= 0) continue;
+      if (delegationCurrency !== currentDelegationCurrency) {
+        pdMap.set(`${item.applicationId}:${delegationCurrency}`, {
+          amount: 0,
+          asset: delegationCurrency,
+        });
+        continue;
+      }
+
+      const perShare = calculateLaunchpadPerShareRewards({
+        reward: rewardScore,
+        totalShares: totalSteps,
+        delegationCurrency,
+      });
+      const pdAmount = perShare.pdPerShare * item.userSteps;
+      pdMap.set(`${item.applicationId}:${delegationCurrency}`, {
+        amount: Number.isFinite(pdAmount) && pdAmount > 0 ? pdAmount : 0,
+        asset: delegationCurrency,
+      });
+    }
+
+    return pdMap;
+  }, [rewardScoreMap, sponsorshipsInProgressWithEstimates]);
 
   const hasMiningCenterSplits = React.useMemo(() => {
     return splitsActivity.some((s) => s.fractionType === "mining-center");
@@ -1070,6 +1292,8 @@ export function FarmsPerformanceDialogContent({
             isProtocolDepositUsd: false,
             weeksActive: farm.totalWeeksEarned,
             totalWeeks: 100,
+            delegatedAmountsByAsset:
+              launchpadDelegatedAmountsByFarmId.get(farm.farmId),
           };
         }
 
@@ -1148,6 +1372,7 @@ export function FarmsPerformanceDialogContent({
     return [...farmRows, ...otherRows];
   }, [
     farmNameByFarmId,
+    launchpadDelegatedAmountsByFarmId,
     purchasedFarms,
     regions,
     rewardsBreakdown,
@@ -1179,6 +1404,7 @@ export function FarmsPerformanceDialogContent({
         farmId: string;
         farmName: string;
         fractionType: "launchpad" | "mining-center";
+        launchpadCurrency?: "GLW" | "SGCTL";
         totalAmount: bigint;
       }
     >();
@@ -1194,10 +1420,45 @@ export function FarmsPerformanceDialogContent({
           (status === "filled" || status === "expired"));
       if (!isPendingStart) continue;
 
-      const farmId = evt.farmId ?? evt.applicationId;
+      const listing = sponsorListingById.get(evt.applicationId);
+      const farmId =
+        fractionType === "launchpad"
+          ? resolveLaunchpadActivityFarmId({
+              applicationId: evt.applicationId,
+              activityFarmId: evt.farmId,
+              listingFarmId: listing?.farmId,
+            })
+          : evt.farmId ?? evt.applicationId;
       if (!farmId) continue;
       const farmTypeKey = `${farmId}:${fractionType}`;
-      if (rewardedFarmTypeKeys.has(farmTypeKey)) continue;
+
+      const launchpadCurrency =
+        fractionType === "launchpad"
+          ? resolveLaunchpadSplitCurrency({
+              currency: evt.currency,
+              amount: evt.amount,
+              stepPrice: evt.stepPrice,
+              transactionHash: evt.transactionHash,
+              listingCurrency: currentLaunchpadCurrencyByFarmId.get(farmId),
+            })
+          : undefined;
+
+      if (rewardedFarmTypeKeys.has(farmTypeKey)) {
+        if (fractionType !== "launchpad") continue;
+
+        const currencies = launchpadCurrenciesByFarmId.get(farmId);
+        const hasMultipleLaunchpadCurrencies = (currencies?.size ?? 0) > 1;
+        const currentLaunchpadCurrency = currentLaunchpadCurrencyByFarmId.get(farmId);
+
+        if (
+          !hasMultipleLaunchpadCurrencies ||
+          !launchpadCurrency ||
+          !currentLaunchpadCurrency ||
+          launchpadCurrency !== currentLaunchpadCurrency
+        ) {
+          continue;
+        }
+      }
 
       let amount = BigInt(0);
       try {
@@ -1206,23 +1467,40 @@ export function FarmsPerformanceDialogContent({
         amount = BigInt(0);
       }
 
-      const existing = byFarm.get(farmTypeKey) ?? {
+      const pendingKey = launchpadCurrency
+        ? `${farmTypeKey}:${launchpadCurrency}`
+        : farmTypeKey;
+
+      const existing = byFarm.get(pendingKey) ?? {
         farmId,
         farmName: evt.farmName || `Farm ${farmId.substring(0, 8)}`,
         fractionType,
+        launchpadCurrency,
         totalAmount: BigInt(0),
       };
       existing.totalAmount += amount;
-      byFarm.set(farmTypeKey, existing);
+      byFarm.set(pendingKey, existing);
     }
 
     return Array.from(byFarm.values()).map((item): PerformanceRowData => {
       const farmData = purchasedFarms.find((f) => f.farmId === item.farmId);
 
       let estimatedUserWeeklyGlw: number | undefined = undefined;
+      let estimatedUserWeeklyPd: number | undefined = undefined;
+      let estimatedUserWeeklyPdAsset: string | null | undefined = undefined;
       if (farmData?.userWeeklyRewards) {
         // Use source-specific breakdown if available (prevents double-counting for farms with both delegation + miner)
         const isMiningCenter = item.fractionType === "mining-center";
+        const hasMultipleLaunchpadCurrencies =
+          (launchpadCurrenciesByFarmId.get(item.farmId)?.size ?? 0) > 1;
+        const pdAsset = formatProtocolDepositAsset(
+          farmData.userWeeklyRewards.protocolDepositAsset
+        );
+        const canUsePdForLaunchpadEstimate =
+          !hasMultipleLaunchpadCurrencies ||
+          item.fractionType !== "launchpad" ||
+          pdAsset === "GLW" ||
+          pdAsset === item.launchpadCurrency;
 
         if (
           isMiningCenter &&
@@ -1240,39 +1518,48 @@ export function FarmsPerformanceDialogContent({
           const delegationInflationGlw = parseGlwFromWei(
             farmData.userWeeklyRewards.glwInflationRewardsFromDelegation
           );
-          const pdAsset = formatProtocolDepositAsset(
-            farmData.userWeeklyRewards.protocolDepositAsset
-          );
           const pdGlw =
-            pdAsset === "GLW"
+            canUsePdForLaunchpadEstimate && pdAsset === "GLW"
               ? parseProtocolDepositTokenAmount(
                   farmData.userWeeklyRewards.protocolDepositRewards,
                   pdAsset
                 )
               : 0;
+          const pdAmount = canUsePdForLaunchpadEstimate
+            ? parseProtocolDepositTokenAmount(
+                farmData.userWeeklyRewards.protocolDepositRewards,
+                pdAsset
+              )
+            : 0;
+          if (canUsePdForLaunchpadEstimate && pdAsset !== "GLW" && pdAmount > 0) {
+            estimatedUserWeeklyPd = pdAmount;
+            estimatedUserWeeklyPdAsset = pdAsset;
+          }
           estimatedUserWeeklyGlw = delegationInflationGlw + pdGlw;
         } else {
           // Fallback for old API response (no breakdown fields)
           const inflationGlw = parseGlwFromWei(
             farmData.userWeeklyRewards.glwInflationRewards
           );
-          const pdAsset = formatProtocolDepositAsset(
-            farmData.userWeeklyRewards.protocolDepositAsset
-          );
-          const isPdGlw = pdAsset === "GLW";
-          const pdGlw = isPdGlw
+          const pdAmount = canUsePdForLaunchpadEstimate
             ? parseProtocolDepositTokenAmount(
                 farmData.userWeeklyRewards.protocolDepositRewards,
                 pdAsset
               )
             : 0;
+          const pdGlw = pdAsset === "GLW" ? pdAmount : 0;
+          if (canUsePdForLaunchpadEstimate && pdAsset !== "GLW" && pdAmount > 0) {
+            estimatedUserWeeklyPd = pdAmount;
+            estimatedUserWeeklyPdAsset = pdAsset;
+          }
           estimatedUserWeeklyGlw = inflationGlw + pdGlw;
         }
       }
 
       if (item.fractionType === "launchpad") {
         const launchpadApp = sponsorListings.find((a) => a.id === item.farmId);
-        const launchpadCurrency = resolveDelegationCurrency(launchpadApp);
+        const launchpadCurrency =
+          item.launchpadCurrency ?? resolveDelegationCurrency(launchpadApp);
         const investedDelegationAmount = parseDelegationAmountFromBaseUnits(
           item.totalAmount.toString(),
           launchpadCurrency
@@ -1293,6 +1580,10 @@ export function FarmsPerformanceDialogContent({
           totalWeeks: 100,
           lastWeekRewardsGlw: 0,
           estimatedUserWeeklyGlw,
+          estimatedUserWeeklyPd,
+          estimatedUserWeeklyPdAsset,
+          delegatedAmountsByAsset:
+            launchpadDelegatedAmountsByFarmId.get(item.farmId),
         };
       }
 
@@ -1315,7 +1606,16 @@ export function FarmsPerformanceDialogContent({
         estimatedUserWeeklyGlw,
       };
     });
-  }, [purchasedFarms, rewardedFarmTypeKeys, splitsActivity, sponsorListings]);
+  }, [
+    launchpadDelegatedAmountsByFarmId,
+    purchasedFarms,
+    rewardedFarmTypeKeys,
+    splitsActivity,
+    sponsorListings,
+    sponsorListingById,
+    launchpadCurrenciesByFarmId,
+    currentLaunchpadCurrencyByFarmId,
+  ]);
 
   const visibleRows = React.useMemo(() => {
     if (filter === "in-progress") return [] as PerformanceRowData[];
@@ -1347,12 +1647,14 @@ export function FarmsPerformanceDialogContent({
     ];
     if (!combined.length) return [];
 
-    return combined.map((item) => {
+    const rowsByKey = new Map<string, PerformanceRowData>();
+
+    combined.forEach((item) => {
       const app = item.application;
       const zoneName = app?.zone?.name || "Launchpad";
       const delegationCurrency =
         item.fractionType === "launchpad"
-          ? resolveDelegationCurrency(app)
+          ? item.delegationCurrency ?? resolveDelegationCurrency(app)
           : "GLW";
       const remainingSteps = app?.activeFraction?.remainingSteps ?? null;
       const totalSteps = app?.activeFraction?.totalSteps ?? null;
@@ -1365,9 +1667,14 @@ export function FarmsPerformanceDialogContent({
 
       const displayName =
         app?.farmName || `Farm ${item.applicationId.substring(0, 8)}`;
+      const rowFarmId = app?.farmId ?? item.applicationId;
+      const rowKey =
+        item.fractionType === "launchpad"
+          ? `${rowFarmId}:in-progress:${item.fractionType}`
+          : `${item.applicationId}:in-progress:${item.fractionType}`;
 
-      return {
-        farmId: item.applicationId,
+      const baseRow: PerformanceRowData = {
+        farmId: rowFarmId,
         id: displayName,
         region: zoneName,
         type: "in-progress",
@@ -1377,7 +1684,9 @@ export function FarmsPerformanceDialogContent({
         inflationGlw: 0,
         lastWeekRewardsGlw: 0,
         protocolDepositAsset:
-          item.fractionType === "launchpad" ? delegationCurrency : "USDC",
+          item.fractionType === "launchpad"
+            ? resolveDelegationCurrency(app)
+            : "USDC",
         isProtocolDepositUsd: false,
         weeksActive: 0,
         totalWeeks: 1,
@@ -1386,10 +1695,69 @@ export function FarmsPerformanceDialogContent({
         inProgressUserSteps: item.userSteps,
         estimatedUserWeeklyGlw: item.estimatedUserWeeklyGlw ?? 0,
         estimatedUserWeeklyUsd: item.estimatedUserWeeklyUsd ?? 0,
+        estimatedUserWeeklyPd:
+          item.fractionType === "launchpad"
+            ? inProgressLaunchpadPdByApplication.get(
+                `${item.applicationId}:${delegationCurrency}`
+              )?.amount ?? 0
+            : 0,
+        estimatedUserWeeklyPdAsset:
+          item.fractionType === "launchpad"
+            ? inProgressLaunchpadPdByApplication.get(
+                `${item.applicationId}:${delegationCurrency}`
+              )?.asset ?? delegationCurrency
+            : null,
+        delegatedAmountsByAsset:
+          item.fractionType === "launchpad"
+            ? launchpadDelegatedAmountsByFarmId.get(rowFarmId)
+            : undefined,
         inProgressKind: item.fractionType,
       };
+
+      const existing = rowsByKey.get(rowKey);
+      if (!existing) {
+        rowsByKey.set(rowKey, baseRow);
+        return;
+      }
+
+      existing.inProgressPercent = Math.max(
+        existing.inProgressPercent ?? 0,
+        baseRow.inProgressPercent ?? 0
+      );
+      existing.inProgressUserSteps =
+        (existing.inProgressUserSteps ?? 0) + (baseRow.inProgressUserSteps ?? 0);
+      existing.estimatedUserWeeklyGlw =
+        (existing.estimatedUserWeeklyGlw ?? 0) +
+        (baseRow.estimatedUserWeeklyGlw ?? 0);
+      existing.estimatedUserWeeklyUsd =
+        (existing.estimatedUserWeeklyUsd ?? 0) +
+        (baseRow.estimatedUserWeeklyUsd ?? 0);
+      existing.delegatedAmountsByAsset =
+        item.fractionType === "launchpad"
+          ? launchpadDelegatedAmountsByFarmId.get(rowFarmId)
+          : existing.delegatedAmountsByAsset;
+
+      if (
+        item.fractionType === "launchpad" &&
+        existing.protocolDepositAsset !== delegationCurrency
+      ) {
+        existing.estimatedUserWeeklyUsd = 0;
+        existing.estimatedUserWeeklyPd = 0;
+        existing.estimatedUserWeeklyPdAsset = null;
+      } else {
+        existing.estimatedUserWeeklyPd =
+          (existing.estimatedUserWeeklyPd ?? 0) +
+          (baseRow.estimatedUserWeeklyPd ?? 0);
+        existing.estimatedUserWeeklyPdAsset =
+          baseRow.estimatedUserWeeklyPdAsset ??
+          existing.estimatedUserWeeklyPdAsset;
+      }
     });
+
+    return Array.from(rowsByKey.values());
   }, [
+    inProgressLaunchpadPdByApplication,
+    launchpadDelegatedAmountsByFarmId,
     miningCenterInProgressWithEstimates,
     sponsorshipsInProgressWithEstimates,
   ]);

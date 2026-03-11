@@ -158,11 +158,7 @@ function DashboardConnectingSkeleton() {
 export default function GlowSoftDashboard({
   walletAddressOverride,
 }: GlowSoftDashboardProps) {
-  const {
-    address: connectedAddress,
-    isConnected,
-    isConnecting,
-  } = useAccount();
+  const { address: connectedAddress, isConnected, isConnecting } = useAccount();
   const walletAddress = walletAddressOverride ?? connectedAddress ?? null;
   const hasWallet = Boolean(walletAddress);
   const isOwnWallet =
@@ -651,7 +647,7 @@ export default function GlowSoftDashboard({
                         />
                       </WidgetErrorBoundary>
                     </div>
-                    <div className="py-8 lg:py-0 lg:px-10 flex lg:col-span-3">
+                    <div className="py-8 lg:py-0 lg:pl-10 flex lg:col-span-3">
                       <WidgetErrorBoundary>
                         <PortfolioSummaryWidget
                           walletAddress={walletAddress}

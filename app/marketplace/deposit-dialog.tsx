@@ -896,7 +896,7 @@ export function DepositDialog({
       setTransactionSteps(steps);
 
       if (runtimeSelectedCurrency === "SGCTL") {
-        if (!signer) {
+        if (!signer && !walletClient) {
           throw new Error("Wallet signer not available");
         }
         if (!Number.isFinite(controlChainId)) {
@@ -973,11 +973,19 @@ export function DepositDialog({
 
         const delegateTypes =
           delegateSgctlEIP712Types as unknown as Record<string, any[]>;
-        const signature = await signer.signTypedData(
-          stakeControlEIP712Domain(controlChainId),
-          delegateTypes,
-          signatureMessage
-        );
+        const signature = signer
+          ? await signer.signTypedData(
+              stakeControlEIP712Domain(controlChainId),
+              delegateTypes,
+              signatureMessage
+            )
+          : await walletClient!.signTypedData({
+              account: userAddress,
+              domain: stakeControlEIP712Domain(controlChainId),
+              types: delegateTypes as any,
+              primaryType: "DelegateSgctl",
+              message: signatureMessage as any,
+            });
 
         if (!signature) {
           throw new Error("Failed to sign SGCTL delegation");

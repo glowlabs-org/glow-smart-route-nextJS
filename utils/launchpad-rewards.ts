@@ -42,6 +42,54 @@ export function normalizeDelegationCurrency(
   return "GLW";
 }
 
+function looksLikeSixDecimalDelegation(
+  value: string | number | bigint | null | undefined
+): boolean {
+  try {
+    if (value == null) return false;
+    const raw = BigInt(value);
+    return raw > 0n && raw < 1_000_000_000_000n;
+  } catch {
+    return false;
+  }
+}
+
+export function resolveDelegationCurrencyFromSplitActivity(params: {
+  currency?: string | null;
+  amount?: string | number | bigint | null;
+  stepPrice?: string | number | bigint | null;
+  transactionHash?: string | null;
+  listingCurrency?: string | null;
+  application?: DelegationApplicationLike | null;
+}): DelegationCurrency {
+  const activityCurrency = normalizeDelegationCurrency(params.currency);
+  const listingCurrency = params.application
+    ? resolveDelegationCurrency(params.application)
+    : normalizeDelegationCurrency(params.listingCurrency);
+
+  if (activityCurrency === "SGCTL" || listingCurrency === "SGCTL") {
+    return "SGCTL";
+  }
+
+  const hasSyntheticSgctlMarker = Boolean(
+    params.transactionHash?.toLowerCase().startsWith("sgctl-delegation:")
+  );
+  const looksLikeSixDecimalAmount = looksLikeSixDecimalDelegation(params.amount);
+  const looksLikeSixDecimalStepPrice = looksLikeSixDecimalDelegation(
+    params.stepPrice
+  );
+
+  if (
+    hasSyntheticSgctlMarker ||
+    looksLikeSixDecimalAmount ||
+    looksLikeSixDecimalStepPrice
+  ) {
+    return "SGCTL";
+  }
+
+  return activityCurrency;
+}
+
 export function getDelegationCurrencyDecimals(
   currency: DelegationCurrency
 ): number {
