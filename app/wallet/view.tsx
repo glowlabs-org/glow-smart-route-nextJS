@@ -332,6 +332,8 @@ export default function View() {
         userSteps: number;
         progressPercent: number;
         estimatedUserWeeklyGlw: number;
+        estimatedUserWeeklyPd: number;
+        estimatedUserWeeklyPdAsset: "GLW" | "SGCTL" | null;
         delegatedAmountsByAsset: DelegatedAmountsByAsset;
       }
     >();
@@ -349,6 +351,13 @@ export default function View() {
         estimatedUserWeeklyGlw:
           (existing?.estimatedUserWeeklyGlw ?? 0) +
           (item.estimatedUserWeeklyGlw ?? 0),
+        estimatedUserWeeklyPd:
+          (existing?.estimatedUserWeeklyPd ?? 0) +
+          (item.estimatedUserWeeklyPd ?? 0),
+        estimatedUserWeeklyPdAsset:
+          existing?.estimatedUserWeeklyPdAsset ??
+          item.estimatedUserWeeklyPdAsset ??
+          null,
         delegatedAmountsByAsset:
           delegatedAmountsByApplication.get(item.applicationId) ?? {},
       });
