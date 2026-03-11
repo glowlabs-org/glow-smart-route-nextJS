@@ -70,9 +70,14 @@ import { ConnectButton } from "@/components/connect-button";
 import { DiscordLogoIcon } from "@radix-ui/react-icons";
 import { trackEvent } from "@/lib/telemetry";
 import {
-  calculateLaunchpadPerShareRewards,
+  normalizeDelegationCurrency,
+  parseDelegationAmountFromBaseUnits,
   resolveDelegationCurrency,
 } from "@/utils/launchpad-rewards";
+import {
+  attachEstimatedWeeklyLaunchpadRewards,
+  deriveLaunchpadSponsorshipsInProgress,
+} from "@/utils/sponsorships-in-progress";
 
 // Lazy-load RecentActivity to defer its network work off the critical path
 const RecentActivity = dynamic(
@@ -117,6 +122,30 @@ export const tokens = {
     toFixed: 6,
   },
 } as const;
+
+type DelegatedAmountsByAsset = Partial<Record<"GLW" | "SGCTL", number>>;
+
+function formatTokenAmountByAsset(
+  value: number,
+  asset: "GLW" | "SGCTL"
+): string {
+  return value.toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: asset === "SGCTL" ? 2 : 0,
+  });
+}
+
+function formatDelegatedAmountsByAsset(amounts: DelegatedAmountsByAsset) {
+  const parts = (["GLW", "SGCTL"] as const)
+    .map((asset) => {
+      const value = amounts[asset] ?? 0;
+      if (!Number.isFinite(value) || value <= 0) return null;
+      return `${formatTokenAmountByAsset(value, asset)} ${asset}`;
+    })
+    .filter((value): value is string => value !== null);
+
+  return parts.join(" + ") || "0 GLW";
+}
 
 export type Token = (typeof tokens)[keyof typeof tokens];
 
@@ -219,53 +248,25 @@ export default function View() {
       ),
     });
 
-  // Compute sponsorships that are not yet filled, grouped by application
-  const sponsorshipsInProgress = React.useMemo(() => {
-    if (!splitsActivity || splitsActivity.length === 0)
-      return [] as Array<{
-        applicationId: string;
-        application: any | null;
-        userSteps: number;
-        progressPercent: number;
-      }>;
-
-    const byApp = new Map<
-      string,
-      { application: any | null; userSteps: number; progressPercent: number }
-    >();
-
-    for (const evt of splitsActivity) {
-      if (evt.fractionType !== "launchpad") continue;
-      const app = sponsorListings.find((a: any) => a.id === evt.applicationId);
-      const isFilled = app?.activeFraction?.isFilled ?? evt.isFilled;
-      if (isFilled) continue;
-
-      const key = evt.applicationId;
-      const existing = byApp.get(key);
-      const progress =
-        app?.activeFraction?.progressPercent ?? evt.progressPercent ?? 0;
-      const next = {
-        application: app || null,
-        userSteps: (existing?.userSteps || 0) + (evt.stepsPurchased || 0),
-        progressPercent: progress,
-      };
-      byApp.set(key, next);
-    }
-
-    return Array.from(byApp.entries())
-      .map(([applicationId, data]) => ({
-        applicationId,
-        ...data,
-      }))
-      .filter((item) => item.userSteps > 0);
-  }, [splitsActivity, sponsorListings]);
+  const launchpadSponsorshipsInProgress = React.useMemo(
+    () =>
+      deriveLaunchpadSponsorshipsInProgress({
+        splitsActivity,
+        sponsorListings,
+      }),
+    [splitsActivity, sponsorListings]
+  );
 
   // Get reward scores for applications in progress
   const applicationsForRewards = React.useMemo(() => {
-    return sponsorshipsInProgress
-      .map((item) => item.application)
-      .filter((app): app is any => app !== null);
-  }, [sponsorshipsInProgress]);
+    const unique = new Map<string, any>();
+    launchpadSponsorshipsInProgress.forEach((item) => {
+      if (item.application?.id) {
+        unique.set(item.application.id, item.application);
+      }
+    });
+    return Array.from(unique.values());
+  }, [launchpadSponsorshipsInProgress]);
 
   const { rewardScoreMap, isLoading: isRewardScoresLoading } = useRewardScore({
     applications: applicationsForRewards,
@@ -273,6 +274,93 @@ export default function View() {
     enabled: applicationsForRewards.length > 0,
     walletAddress: address || null,
   });
+  const {
+    rewardScoreMap: sgctlRewardScoreMap,
+    isLoading: isSgctlRewardScoresLoading,
+  } = useRewardScore({
+    applications: applicationsForRewards,
+    paymentCurrency: "SGCTL",
+    enabled: applicationsForRewards.length > 0,
+    walletAddress: address || null,
+  });
+
+  const delegatedAmountsByApplication = React.useMemo(() => {
+    const byApp = new Map<string, DelegatedAmountsByAsset>();
+
+    for (const evt of splitsActivity) {
+      if (evt.fractionType !== "launchpad") continue;
+      if ((evt.fractionStatus ?? "").toLowerCase() !== "committed") continue;
+
+      const app = sponsorListings.find((a: any) => a.id === evt.applicationId);
+      const progress =
+        app?.activeFraction?.progressPercent ?? evt.progressPercent ?? 0;
+      const isFilled =
+        Boolean(app?.activeFraction?.isFilled) ||
+        Boolean(evt.isFilled) ||
+        Boolean(evt.fractionStatus === "filled") ||
+        progress >= 100;
+      if (isFilled) continue;
+
+      const currency = evt.currency
+        ? normalizeDelegationCurrency(evt.currency)
+        : resolveDelegationCurrency(app);
+      const amount = parseDelegationAmountFromBaseUnits(evt.amount, currency);
+      if (!Number.isFinite(amount) || amount <= 0) continue;
+
+      const existing = byApp.get(evt.applicationId) ?? {};
+      existing[currency] = (existing[currency] ?? 0) + amount;
+      byApp.set(evt.applicationId, existing);
+    }
+
+    return byApp;
+  }, [splitsActivity, sponsorListings]);
+
+  const sponsorshipsInProgress = React.useMemo(() => {
+    const estimated = attachEstimatedWeeklyLaunchpadRewards({
+      sponsorshipsInProgress: launchpadSponsorshipsInProgress,
+      rewardScoreMap,
+      rewardScoreMapByCurrency: {
+        GLW: rewardScoreMap,
+        SGCTL: sgctlRewardScoreMap,
+      },
+    });
+    const byApp = new Map<
+      string,
+      {
+        applicationId: string;
+        application: any | null;
+        userSteps: number;
+        progressPercent: number;
+        estimatedUserWeeklyGlw: number;
+        delegatedAmountsByAsset: DelegatedAmountsByAsset;
+      }
+    >();
+
+    estimated.forEach((item) => {
+      const existing = byApp.get(item.applicationId);
+      byApp.set(item.applicationId, {
+        applicationId: item.applicationId,
+        application: item.application,
+        userSteps: (existing?.userSteps ?? 0) + item.userSteps,
+        progressPercent: Math.max(
+          existing?.progressPercent ?? 0,
+          item.progressPercent ?? 0
+        ),
+        estimatedUserWeeklyGlw:
+          (existing?.estimatedUserWeeklyGlw ?? 0) +
+          (item.estimatedUserWeeklyGlw ?? 0),
+        delegatedAmountsByAsset:
+          delegatedAmountsByApplication.get(item.applicationId) ?? {},
+      });
+    });
+
+    return Array.from(byApp.values()).filter((item) => item.userSteps > 0);
+  }, [
+    delegatedAmountsByApplication,
+    launchpadSponsorshipsInProgress,
+    rewardScoreMap,
+    sgctlRewardScoreMap,
+  ]);
 
   const { data: rewardsBreakdownData, isLoading: isRewardsBreakdownLoading } =
     useRewardsBreakdown({
@@ -1289,8 +1377,8 @@ export default function View() {
                 Delegations In Progress
               </CardTitle>
               <CardDescription className="text-base mt-2">
-                Farms you've delegated GLW to that are waiting for full funding
-                to start earning rewards
+                Farms you've delegated to that are waiting for full funding to
+                start earning rewards
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -1368,90 +1456,46 @@ export default function View() {
 
                             <div className="space-y-2">
                               <Progress value={progress} />
-                              <div className="flex items-center justify-between text-sm text-muted-foreground">
+                              <div className="flex items-center justify-between gap-4 text-sm text-muted-foreground">
                                 <span>{progress}% filled</span>
+                                <span className="text-right">
+                                  Delegated:{" "}
+                                  {formatDelegatedAmountsByAsset(
+                                    item.delegatedAmountsByAsset
+                                  )}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between gap-4 text-sm text-muted-foreground">
+                                <span>Est. Weekly Rewards</span>
                                 <span>
-                                  Est. Weekly Rewards:{" "}
-                                  {(() => {
-                                    if (!app || !app.id) return "...";
-
-                                    const rewardScore =
-                                      getRewardScoreForApplication(
-                                        rewardScoreMap,
-                                        app.id,
-                                      );
-
-                                    if (
-                                      !rewardScore?.userWeeklyGlwRewards ||
-                                      !rewardScore?.userWeeklyPdRewards ||
-                                      !app?.activeFraction?.totalSteps
-                                    ) {
-                                      return isRewardScoresLoading
-                                        ? "..."
-                                        : "0 GLW";
-                                    }
-
-                                    try {
-                                      const delegationCurrency =
-                                        resolveDelegationCurrency(app);
-                                      const perShareRewards =
-                                        calculateLaunchpadPerShareRewards({
-                                          reward: rewardScore,
-                                          totalShares:
-                                            app.activeFraction.totalSteps,
-                                          delegationCurrency,
-                                          glwSpotPrice: glowSpotPrice || 0,
-                                        });
-                                      const userGlwRewards =
-                                        perShareRewards.totalGlwPerShare *
-                                        item.userSteps;
-                                      const userPdRewards =
-                                        perShareRewards.pdPerShare *
-                                        item.userSteps;
-                                      const userWeeklyUsd =
-                                        perShareRewards.totalUsdPerShare *
-                                        item.userSteps;
-
-                                      if (delegationCurrency === "SGCTL") {
-                                        if (
-                                          Number.isFinite(userWeeklyUsd) &&
-                                          userWeeklyUsd > 0
-                                        ) {
-                                          return `~$${userWeeklyUsd.toLocaleString(
+                                  {isRewardScoresLoading ||
+                                  isSgctlRewardScoresLoading
+                                    ? "..."
+                                    : item.estimatedUserWeeklyPd &&
+                                        item.estimatedUserWeeklyPdAsset ===
+                                          "SGCTL"
+                                      ? `~${item.estimatedUserWeeklyGlw.toLocaleString(
+                                          undefined,
+                                          {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2,
+                                          }
+                                        )} GLW + ${item.estimatedUserWeeklyPd.toLocaleString(
+                                          undefined,
+                                          {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2,
+                                          }
+                                        )} SGCTL`
+                                      : item.estimatedUserWeeklyGlw > 0
+                                        ? `~${item.estimatedUserWeeklyGlw.toLocaleString(
                                             undefined,
                                             {
                                               minimumFractionDigits: 2,
                                               maximumFractionDigits: 2,
-                                            },
-                                          )} / wk`;
-                                        }
-
-                                        return `${userGlwRewards.toLocaleString(
-                                          undefined,
-                                          {
-                                            minimumFractionDigits: 2,
-                                            maximumFractionDigits: 2,
-                                          },
-                                        )} GLW + ${userPdRewards.toLocaleString(
-                                          undefined,
-                                          {
-                                            minimumFractionDigits: 2,
-                                            maximumFractionDigits: 2,
-                                          },
-                                        )} SGCTL`;
-                                      }
-
-                                      return `${userGlwRewards.toLocaleString(
-                                        undefined,
-                                        {
-                                          minimumFractionDigits: 2,
-                                          maximumFractionDigits: 2,
-                                        },
-                                      )} GLW`;
-                                    } catch {
-                                      return "0 GLW";
-                                    }
-                                  })()}
+                                            }
+                                          )} GLW`
+                                        : "0 GLW"}
                                 </span>
                               </div>
                             </div>

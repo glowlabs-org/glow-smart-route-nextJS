@@ -55,7 +55,6 @@ import {
   deriveMiningCenterSponsorshipsInProgress,
 } from "@/utils/sponsorships-in-progress";
 import {
-  calculateLaunchpadPerShareRewards,
   normalizeDelegationCurrency,
   parseDelegationAmountFromBaseUnits,
   resolveDelegationCurrencyFromSplitActivity,
@@ -1062,13 +1061,26 @@ export function FarmsPerformanceDialogContent({
     enabled: shouldLoadInProgress && applicationsForRewards.length > 0,
     walletAddress: walletAddress ?? null,
   });
+  const {
+    rewardScoreMap: sgctlRewardScoreMap,
+    isLoading: isSgctlRewardScoresLoading,
+  } = useRewardScore({
+    applications: applicationsForRewards,
+    paymentCurrency: "SGCTL",
+    enabled: shouldLoadInProgress && applicationsForRewards.length > 0,
+    walletAddress: walletAddress ?? null,
+  });
 
   const sponsorshipsInProgressWithEstimates = React.useMemo(() => {
     return attachEstimatedWeeklyLaunchpadRewards({
       sponsorshipsInProgress,
       rewardScoreMap,
+      rewardScoreMapByCurrency: {
+        GLW: rewardScoreMap,
+        SGCTL: sgctlRewardScoreMap,
+      },
     }).sort((a, b) => (b.progressPercent ?? 0) - (a.progressPercent ?? 0));
-  }, [rewardScoreMap, sponsorshipsInProgress]);
+  }, [rewardScoreMap, sgctlRewardScoreMap, sponsorshipsInProgress]);
 
   const launchpadCurrenciesByFarmId = React.useMemo(() => {
     const map = new Map<string, Set<"GLW" | "SGCTL">>();
@@ -1146,49 +1158,6 @@ export function FarmsPerformanceDialogContent({
     return map;
   }, [splitsActivity, sponsorListingById]);
 
-  const inProgressLaunchpadPdByApplication = React.useMemo(() => {
-    const pdMap = new Map<
-      string,
-      { amount: number; asset: "GLW" | "SGCTL" | null }
-    >();
-
-    for (const item of sponsorshipsInProgressWithEstimates) {
-      if (item.fractionType !== "launchpad") continue;
-
-      const delegationCurrency =
-        item.delegationCurrency ?? resolveDelegationCurrency(item.application);
-      const currentDelegationCurrency = resolveDelegationCurrency(
-        item.application
-      );
-      const totalSteps = item.application?.activeFraction?.totalSteps ?? null;
-      const rewardScore = rewardScoreMap.get(item.applicationId) ?? null;
-
-      if (!rewardScore) continue;
-      if (typeof totalSteps !== "number" || totalSteps <= 0) continue;
-      if (!item.userSteps || item.userSteps <= 0) continue;
-      if (delegationCurrency !== currentDelegationCurrency) {
-        pdMap.set(`${item.applicationId}:${delegationCurrency}`, {
-          amount: 0,
-          asset: delegationCurrency,
-        });
-        continue;
-      }
-
-      const perShare = calculateLaunchpadPerShareRewards({
-        reward: rewardScore,
-        totalShares: totalSteps,
-        delegationCurrency,
-      });
-      const pdAmount = perShare.pdPerShare * item.userSteps;
-      pdMap.set(`${item.applicationId}:${delegationCurrency}`, {
-        amount: Number.isFinite(pdAmount) && pdAmount > 0 ? pdAmount : 0,
-        asset: delegationCurrency,
-      });
-    }
-
-    return pdMap;
-  }, [rewardScoreMap, sponsorshipsInProgressWithEstimates]);
-
   const hasMiningCenterSplits = React.useMemo(() => {
     return splitsActivity.some((s) => s.fractionType === "mining-center");
   }, [splitsActivity]);
@@ -1236,6 +1205,7 @@ export function FarmsPerformanceDialogContent({
     (isSplitsActivityLoading ||
       isSponsorListingsLoading ||
       isRewardScoresLoading ||
+      isSgctlRewardScoresLoading ||
       isMiningCenterListingsLoading ||
       isMiningScoresLoading);
   const isInProgressError =
@@ -1697,15 +1667,11 @@ export function FarmsPerformanceDialogContent({
         estimatedUserWeeklyUsd: item.estimatedUserWeeklyUsd ?? 0,
         estimatedUserWeeklyPd:
           item.fractionType === "launchpad"
-            ? inProgressLaunchpadPdByApplication.get(
-                `${item.applicationId}:${delegationCurrency}`
-              )?.amount ?? 0
+            ? item.estimatedUserWeeklyPd ?? 0
             : 0,
         estimatedUserWeeklyPdAsset:
           item.fractionType === "launchpad"
-            ? inProgressLaunchpadPdByApplication.get(
-                `${item.applicationId}:${delegationCurrency}`
-              )?.asset ?? delegationCurrency
+            ? item.estimatedUserWeeklyPdAsset ?? null
             : null,
         delegatedAmountsByAsset:
           item.fractionType === "launchpad"
@@ -1737,10 +1703,14 @@ export function FarmsPerformanceDialogContent({
           ? launchpadDelegatedAmountsByFarmId.get(rowFarmId)
           : existing.delegatedAmountsByAsset;
 
-      if (
-        item.fractionType === "launchpad" &&
-        existing.protocolDepositAsset !== delegationCurrency
-      ) {
+      const existingPdAsset = existing.estimatedUserWeeklyPdAsset ?? null;
+      const basePdAsset = baseRow.estimatedUserWeeklyPdAsset ?? null;
+      const canMergePdEstimate =
+        !existingPdAsset ||
+        !basePdAsset ||
+        existingPdAsset === basePdAsset;
+
+      if (!canMergePdEstimate) {
         existing.estimatedUserWeeklyUsd = 0;
         existing.estimatedUserWeeklyPd = 0;
         existing.estimatedUserWeeklyPdAsset = null;
@@ -1749,14 +1719,12 @@ export function FarmsPerformanceDialogContent({
           (existing.estimatedUserWeeklyPd ?? 0) +
           (baseRow.estimatedUserWeeklyPd ?? 0);
         existing.estimatedUserWeeklyPdAsset =
-          baseRow.estimatedUserWeeklyPdAsset ??
-          existing.estimatedUserWeeklyPdAsset;
+          existingPdAsset ?? basePdAsset;
       }
     });
 
     return Array.from(rowsByKey.values());
   }, [
-    inProgressLaunchpadPdByApplication,
     launchpadDelegatedAmountsByFarmId,
     miningCenterInProgressWithEstimates,
     sponsorshipsInProgressWithEstimates,

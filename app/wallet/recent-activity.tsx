@@ -276,7 +276,9 @@ function buildSplitActivity(split: SplitActivity): ActivityItem | null {
         })
       : split.currency;
   const decimals =
-    DECIMALS_BY_TOKEN[launchpadCurrency as keyof typeof DECIMALS_BY_TOKEN] ?? 18;
+    split.currencyDecimals ??
+    (DECIMALS_BY_TOKEN[launchpadCurrency as keyof typeof DECIMALS_BY_TOKEN] ??
+      18);
   const amount = safeFormatUnits(split.amount, decimals);
 
   const isMiningCenter = split.fractionType === "mining-center";

@@ -317,6 +317,8 @@ export interface SplitActivity {
   fractionType?: "mining-center" | "launchpad";
   fractionStatus: string;
   currency: PaymentCurrency;
+  currencyDecimals?: number;
+  activityAssetKey?: string;
   isFilled: boolean;
   progressPercent: number;
   rewardScore: number | null;

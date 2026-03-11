@@ -30,6 +30,10 @@ import {
   weekToTimestamp,
 } from "@/lib/rewards/weekly-delegations";
 import { GlowCommit } from "@/components/glow-commit";
+import {
+  normalizeDelegationCurrency,
+  parseTokenAmountFromBaseUnits,
+} from "@/utils/launchpad-rewards";
 
 const rewardClaimedEvent = parseAbiItem(
   "event RewardClaimed(address indexed user, address indexed to, uint256 indexed nonce, address from, (address token,uint256 amount)[] taa, bool[] isGuarded)"
@@ -149,24 +153,58 @@ function getExplorerUrl(txHash: `0x${string}`) {
     : `https://etherscan.io/tx/${txHash}`;
 }
 
+function getLaunchpadSplitAmount(split: SplitActivity) {
+  const currency = normalizeDelegationCurrency(split.currency);
+  const decimals =
+    split.currencyDecimals ??
+    (currency === "SGCTL"
+      ? DECIMALS_BY_TOKEN.GCTL
+      : DECIMALS_BY_TOKEN.GLW);
+
+  return {
+    currency,
+    amount: parseTokenAmountFromBaseUnits(split.amount, decimals),
+  };
+}
+
+function getDelegationAssetTotals(splits: SplitActivity[]) {
+  return splits
+    .filter((split) => split.fractionType === "launchpad")
+    .reduce(
+      (totals, split) => {
+        const { currency, amount } = getLaunchpadSplitAmount(split);
+        if (amount > 0) {
+          totals[currency] += amount;
+        }
+        return totals;
+      },
+      { GLW: 0, SGCTL: 0 }
+    );
+}
+
+function formatDelegationAssetTotals(amounts: { GLW: number; SGCTL: number }) {
+  const parts: string[] = [];
+  if (amounts.GLW > 0) {
+    parts.push(`${formatNumber(amounts.GLW, 2)} GLW`);
+  }
+  if (amounts.SGCTL > 0) {
+    parts.push(`${formatNumber(amounts.SGCTL, 2)} SGCTL`);
+  }
+  return parts.join(" + ") || "0 GLW";
+}
+
 function getTotalsFromRewards(data: RewardsBreakdownResponse | null): {
-  delegatedGlw: number;
   totalEarnedGlw: number;
   weeklyDelegations: Map<number, number>;
   usdgSpentOnMiners: number;
 } {
   if (!data) {
     return {
-      delegatedGlw: 0,
       totalEarnedGlw: 0,
       weeklyDelegations: new Map(),
       usdgSpentOnMiners: 0,
     };
   }
-
-  const delegatedGlw =
-    getGlwFromWei(data.totals.totalGlwDelegated) +
-    getGlwFromWei(data.delegatedAfterWeekRange.totalGlwDelegatedAfter);
 
   const totalEarnedGlw =
     getGlwFromWei(data.rewards.delegator.allWeeks) +
@@ -179,7 +217,6 @@ function getTotalsFromRewards(data: RewardsBreakdownResponse | null): {
   const weeklyDelegations = buildWeeklyDelegations(data);
 
   return {
-    delegatedGlw,
     totalEarnedGlw,
     weeklyDelegations,
     usdgSpentOnMiners,
@@ -249,8 +286,12 @@ export function WalletActivityKpis({ walletAddress }: WalletActivityKpisProps) {
   const hasError = Boolean(swapError) || claimsError || rewardsError;
   const safeProtocolTotals = protocolTotals ?? {};
 
-  const { delegatedGlw, totalEarnedGlw, weeklyDelegations, usdgSpentOnMiners } =
+  const { totalEarnedGlw, weeklyDelegations, usdgSpentOnMiners } =
     React.useMemo(() => getTotalsFromRewards(rewardsData), [rewardsData]);
+  const delegatedAssetTotals = React.useMemo(
+    () => getDelegationAssetTotals(splitsActivity),
+    [splitsActivity]
+  );
 
   const { data: claimEventData } = useQuery({
     queryKey: ["wallet-claim-events", walletAddress],
@@ -418,15 +459,17 @@ export function WalletActivityKpis({ walletAddress }: WalletActivityKpisProps) {
     splitsActivity
       .filter((split) => split.fractionType === "launchpad")
       .forEach((split) => {
-        const glwAmount = Number(formatUnits(BigInt(split.amount), 18));
-        if (glwAmount <= 0) return;
+        const { currency, amount } = getLaunchpadSplitAmount(split);
+        if (amount <= 0) return;
         events.push({
           id: `delegation-${split.transactionHash}`,
-          title: "GLW Delegated",
-          amount: `${formatNumber(glwAmount, 0)} GLW`,
+          title: `${currency} Delegated`,
+          amount: `${formatNumber(amount, 0)} ${currency}`,
           subtitle: split.farmName?.substring(0, 20) || "Farm",
           date: split.timestamp * 1000, // Convert to ms
-          link: getExplorerUrl(split.transactionHash as `0x${string}`),
+          link: split.transactionHash.startsWith("0x")
+            ? getExplorerUrl(split.transactionHash as `0x${string}`)
+            : undefined,
         });
       });
 
@@ -523,9 +566,13 @@ export function WalletActivityKpis({ walletAddress }: WalletActivityKpisProps) {
                 helper={`Generated ${formatNumber(usdFromSwaps, 0)} USDG`}
               />
               <ActivityTile
-                label="GLW Delegated"
-                value={`${formatNumber(delegatedGlw, 2)} GLW`}
-                helper="Total spent on miners/delegations"
+                label={
+                  delegatedAssetTotals.SGCTL > 0
+                    ? "Delegated Assets"
+                    : "GLW Delegated"
+                }
+                value={formatDelegationAssetTotals(delegatedAssetTotals)}
+                helper="Launchpad delegation principal by asset"
               />
               <ActivityTile
                 label="GLW Redelegated (Est.)"

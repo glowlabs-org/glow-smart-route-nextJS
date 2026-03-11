@@ -30,6 +30,10 @@ import {
   getWeekNumberFromTimestamp,
   weekToTimestamp,
 } from "@/lib/rewards/weekly-delegations";
+import {
+  normalizeDelegationCurrency,
+  parseTokenAmountFromBaseUnits,
+} from "@/utils/launchpad-rewards";
 import { useAccount } from "wagmi";
 
 type WeekStatus = "missed" | "delegated" | "miner" | "both";
@@ -47,19 +51,55 @@ interface WeekCell {
   status: WeekStatus;
   weekStart: Date;
   rangeLabel: string;
-  delegationAmount: number;
+  delegationAmounts: {
+    GLW: number;
+    SGCTL: number;
+  };
   minerAmount: number;
 }
 
+function getLaunchpadSplitAmount(split: SplitActivity) {
+  const currency = normalizeDelegationCurrency(split.currency);
+  const decimals =
+    split.currencyDecimals ?? (currency === "SGCTL" ? 6 : 18);
+  return {
+    currency,
+    amount: parseTokenAmountFromBaseUnits(split.amount, decimals),
+  };
+}
+
+function formatDelegationAmounts(amounts: WeekCell["delegationAmounts"]) {
+  const parts: string[] = [];
+  if (amounts.GLW > 0) {
+    parts.push(
+      `${amounts.GLW.toLocaleString(undefined, {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+      })} GLW`
+    );
+  }
+  if (amounts.SGCTL > 0) {
+    parts.push(
+      `${amounts.SGCTL.toLocaleString(undefined, {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+      })} SGCTL`
+    );
+  }
+  return parts.join(" + ");
+}
+
 function groupDelegationsByWeek(splits: SplitActivity[]) {
-  const map = new Map<number, number>();
+  const map = new Map<number, WeekCell["delegationAmounts"]>();
   splits
     .filter((split) => split.fractionType === "launchpad")
     .forEach((split) => {
-      const amount = getGlwFromWei(split.amount);
+      const { currency, amount } = getLaunchpadSplitAmount(split);
       if (amount <= 0) return;
       const weekNumber = getWeekNumberFromTimestamp(split.timestamp);
-      map.set(weekNumber, (map.get(weekNumber) ?? 0) + amount);
+      const existing = map.get(weekNumber) ?? { GLW: 0, SGCTL: 0 };
+      existing[currency] += amount;
+      map.set(weekNumber, existing);
     });
   return map;
 }
@@ -204,12 +244,20 @@ export default function WeeklyActivityWidget({
   });
 
   const rewardsDelegations = React.useMemo(
-    () => buildWeeklyDelegations(rewardsData),
+    () => {
+      const fallback = new Map<number, WeekCell["delegationAmounts"]>();
+      buildWeeklyDelegations(rewardsData).forEach((amount, week) => {
+        fallback.set(week, { GLW: amount, SGCTL: 0 });
+      });
+      return fallback;
+    },
     [rewardsData]
   );
 
   const splitDelegations = React.useMemo(() => {
-    if (!splitsActivity.length) return new Map<number, number>();
+    if (!splitsActivity.length) {
+      return new Map<number, WeekCell["delegationAmounts"]>();
+    }
     return groupDelegationsByWeek(splitsActivity);
   }, [splitsActivity]);
 
@@ -315,9 +363,13 @@ export default function WeeklyActivityWidget({
     const cells: WeekCell[] = [];
     for (let week = startWeek; week <= endWeek; week++) {
       const weekStart = new Date(weekToTimestamp(week));
-      const delegationAmount = weeklyDelegations.get(week) ?? 0;
+      const delegationAmounts = weeklyDelegations.get(week) ?? {
+        GLW: 0,
+        SGCTL: 0,
+      };
       const minerAmount = minerPurchases.get(week) ?? 0;
-      const hasDelegation = delegationAmount > 0;
+      const hasDelegation =
+        delegationAmounts.GLW > 0 || delegationAmounts.SGCTL > 0;
       const hasMinerPurchase = minerAmount > 0;
       const status = getWeekStatus({ hasDelegation, hasMinerPurchase });
 
@@ -327,7 +379,7 @@ export default function WeeklyActivityWidget({
         status,
         weekStart,
         rangeLabel: formatWeekRange(weekStart),
-        delegationAmount,
+        delegationAmounts,
         minerAmount,
       });
     }
@@ -605,20 +657,16 @@ export default function WeeklyActivityWidget({
                             </div>
                             {cell.status !== "missed" && (
                               <div className="mt-2 space-y-1 pt-2 border-t border-border/50">
-                                {cell.delegationAmount > 0 && (
+                                {(cell.delegationAmounts.GLW > 0 ||
+                                  cell.delegationAmounts.SGCTL > 0) && (
                                   <div className="flex items-center justify-between gap-3 text-xs">
                                     <span className="text-muted-foreground">
                                       Delegated
                                     </span>
                                     <span className="font-mono font-semibold tabular-nums text-delegation-purple">
-                                      {cell.delegationAmount.toLocaleString(
-                                        undefined,
-                                        {
-                                          minimumFractionDigits: 0,
-                                          maximumFractionDigits: 2,
-                                        }
-                                      )}{" "}
-                                      GLW
+                                      {formatDelegationAmounts(
+                                        cell.delegationAmounts
+                                      )}
                                     </span>
                                   </div>
                                 )}

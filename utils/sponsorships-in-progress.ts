@@ -23,6 +23,8 @@ export interface SponsorshipInProgressWithEstimate
   extends SponsorshipInProgress {
   estimatedUserWeeklyGlw: number;
   estimatedUserWeeklyUsd?: number;
+  estimatedUserWeeklyPd?: number;
+  estimatedUserWeeklyPdAsset?: DelegationCurrency | null;
   delegationCurrency?: "GLW" | "SGCTL";
 }
 
@@ -72,7 +74,7 @@ function deriveInProgress(params: {
         : undefined;
     const key =
       fractionType === "launchpad"
-        ? `${evt.applicationId}:${delegationCurrency}`
+        ? evt.activityAssetKey ?? `${evt.applicationId}:${delegationCurrency}`
         : evt.applicationId;
     const existing = byApp.get(key);
     byApp.set(key, {
@@ -99,30 +101,63 @@ function deriveInProgress(params: {
 export function attachEstimatedWeeklyLaunchpadRewards(params: {
   sponsorshipsInProgress: SponsorshipInProgress[];
   rewardScoreMap: Map<string, ApplicationRewardScore>;
+  rewardScoreMapByCurrency?: Partial<
+    Record<DelegationCurrency, Map<string, ApplicationRewardScore>>
+  >;
 }): SponsorshipInProgressWithEstimate[] {
-  const { sponsorshipsInProgress, rewardScoreMap } = params;
+  const { sponsorshipsInProgress, rewardScoreMap, rewardScoreMapByCurrency } =
+    params;
   if (!sponsorshipsInProgress.length) return [];
 
   return sponsorshipsInProgress.map((item) => {
     const totalSteps = item.application?.activeFraction?.totalSteps ?? null;
-    const rewardScore = rewardScoreMap.get(item.applicationId) ?? null;
     const currentCurrency = resolveDelegationCurrency(item.application);
     const delegationCurrency = item.delegationCurrency ?? currentCurrency;
-    const isHistoricalCurrencyEstimate =
-      item.delegationCurrency != null && item.delegationCurrency !== currentCurrency;
+    const preferredRewardScoreMap =
+      rewardScoreMapByCurrency?.[delegationCurrency] ?? rewardScoreMap;
+    const fallbackRewardScoreMap =
+      rewardScoreMapByCurrency?.[currentCurrency] ?? rewardScoreMap;
+    const rewardScore =
+      preferredRewardScoreMap.get(item.applicationId) ??
+      fallbackRewardScoreMap.get(item.applicationId) ??
+      null;
+    const isFallbackDifferentCurrency =
+      preferredRewardScoreMap !== fallbackRewardScoreMap &&
+      !preferredRewardScoreMap.has(item.applicationId) &&
+      fallbackRewardScoreMap.has(item.applicationId);
 
-    const { estimatedUserWeeklyGlw, estimatedUserWeeklyUsd } = (() => {
+    const {
+      estimatedUserWeeklyGlw,
+      estimatedUserWeeklyUsd,
+      estimatedUserWeeklyPd,
+      estimatedUserWeeklyPdAsset,
+    } = (() => {
       if (!rewardScore) {
-        return { estimatedUserWeeklyGlw: 0, estimatedUserWeeklyUsd: 0 };
+        return {
+          estimatedUserWeeklyGlw: 0,
+          estimatedUserWeeklyUsd: 0,
+          estimatedUserWeeklyPd: 0,
+          estimatedUserWeeklyPdAsset: null,
+        };
       }
       if (typeof totalSteps !== "number" || totalSteps <= 0) {
-        return { estimatedUserWeeklyGlw: 0, estimatedUserWeeklyUsd: 0 };
+        return {
+          estimatedUserWeeklyGlw: 0,
+          estimatedUserWeeklyUsd: 0,
+          estimatedUserWeeklyPd: 0,
+          estimatedUserWeeklyPdAsset: null,
+        };
       }
       if (!item.userSteps || item.userSteps <= 0) {
-        return { estimatedUserWeeklyGlw: 0, estimatedUserWeeklyUsd: 0 };
+        return {
+          estimatedUserWeeklyGlw: 0,
+          estimatedUserWeeklyUsd: 0,
+          estimatedUserWeeklyPd: 0,
+          estimatedUserWeeklyPdAsset: null,
+        };
       }
 
-      if (isHistoricalCurrencyEstimate) {
+      if (isFallbackDifferentCurrency) {
         const emissionPerShare = parseTokenAmountFromBaseUnits(
           rewardScore.userWeeklyGlwRewards,
           18
@@ -139,6 +174,8 @@ export function attachEstimatedWeeklyLaunchpadRewards(params: {
             Number.isFinite(estimatedGlw) && estimatedGlw > 0 ? estimatedGlw : 0,
           estimatedUserWeeklyUsd:
             Number.isFinite(estimatedUsd) && estimatedUsd > 0 ? estimatedUsd : 0,
+          estimatedUserWeeklyPd: 0,
+          estimatedUserWeeklyPdAsset: delegationCurrency,
         };
       }
 
@@ -148,14 +185,27 @@ export function attachEstimatedWeeklyLaunchpadRewards(params: {
         delegationCurrency,
       });
 
-      const estimatedGlw = perShare.totalGlwPerShare * item.userSteps;
+      const estimatedEmissionGlw = perShare.emissionGlwPerShare * item.userSteps;
+      const estimatedPd = perShare.pdPerShare * item.userSteps;
       const estimatedUsd = perShare.totalUsdPerShare * item.userSteps;
+      const estimatedGlw =
+        delegationCurrency === "GLW"
+          ? estimatedEmissionGlw + estimatedPd
+          : estimatedEmissionGlw;
 
       return {
         estimatedUserWeeklyGlw:
           Number.isFinite(estimatedGlw) && estimatedGlw > 0 ? estimatedGlw : 0,
         estimatedUserWeeklyUsd:
           Number.isFinite(estimatedUsd) && estimatedUsd > 0 ? estimatedUsd : 0,
+        estimatedUserWeeklyPd:
+          delegationCurrency !== "GLW" &&
+          Number.isFinite(estimatedPd) &&
+          estimatedPd > 0
+            ? estimatedPd
+            : 0,
+        estimatedUserWeeklyPdAsset:
+          delegationCurrency !== "GLW" ? delegationCurrency : null,
       };
     })();
 
@@ -163,6 +213,8 @@ export function attachEstimatedWeeklyLaunchpadRewards(params: {
       ...item,
       estimatedUserWeeklyGlw,
       estimatedUserWeeklyUsd,
+      estimatedUserWeeklyPd,
+      estimatedUserWeeklyPdAsset,
       delegationCurrency,
     };
   });

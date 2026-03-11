@@ -17,7 +17,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Dialog } from "@/components/ui/dialog";
-import { useRewardsBreakdown } from "@/hooks";
+import { useRewardsBreakdown, useSplitsActivity, useWalletFarms } from "@/hooks";
 import { useWalletPortfolio } from "./use-wallet-portfolio";
 import { cn } from "@/lib/utils";
 import { GlowSymbol } from "@/components/glow-symbol";
@@ -25,6 +25,7 @@ import {
   FarmsPerformanceDialogContent,
   type FilterValue,
 } from "./farms-performance-dialog";
+import { normalizeDelegationCurrency, parseDelegationAmountFromBaseUnits } from "@/utils/launchpad-rewards";
 
 interface PortfolioSummaryWidgetProps {
   walletAddress?: string | null;
@@ -36,6 +37,40 @@ function formatGlwCompact(value: number) {
   return value.toLocaleString("en-US", {
     maximumFractionDigits: 0,
   });
+}
+
+type DelegatedAmountsByAsset = Partial<Record<"GLW" | "SGCTL", number>>;
+
+type WalletFarmWithAssetBreakdown = {
+  userWeeklyRewards?: {
+    assetBreakdown?: Array<{
+      currency?: string | null;
+      delegatedPrincipalAmount?: string | null;
+      recoveredRewards?: string | null;
+    }>;
+  };
+};
+
+function formatDelegatedAmountByAsset(
+  value: number,
+  asset: "GLW" | "SGCTL"
+) {
+  return value.toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: asset === "SGCTL" ? 2 : 0,
+  });
+}
+
+function formatDelegatedAssets(amounts: DelegatedAmountsByAsset) {
+  const parts = (["GLW", "SGCTL"] as const)
+    .map((asset) => {
+      const value = amounts[asset] ?? 0;
+      if (!Number.isFinite(value) || value <= 0) return null;
+      return `${formatDelegatedAmountByAsset(value, asset)} ${asset}`;
+    })
+    .filter((value): value is string => value !== null);
+
+  return parts.join(" + ") || "0 GLW";
 }
 
 export default function PortfolioSummaryWidget({
@@ -59,13 +94,48 @@ export default function PortfolioSummaryWidget({
       walletAddress: walletAddress ?? null,
       enabled: hasWallet,
     });
+  const { farms: walletFarms = [] } = useWalletFarms({
+    walletAddress: walletAddress ?? undefined,
+    enabled: hasWallet,
+  });
+  const { activity: splitsActivity = [] } = useSplitsActivity({
+    walletAddress: walletAddress ?? undefined,
+    enabled: hasWallet,
+    limit: 200,
+  });
 
-  const delegatedActiveGlw = React.useMemo(() => {
-    if (!hasWallet) return 0;
-    const last = glowWorthChartData.at(-1);
-    const value = last?.delegatedActiveGlw ?? 0;
-    return Number.isFinite(value) && value > 0 ? value : 0;
-  }, [glowWorthChartData, hasWallet]);
+  const delegatedActiveAssets = React.useMemo(() => {
+    const totals: DelegatedAmountsByAsset = { GLW: 0, SGCTL: 0 };
+
+    (walletFarms as WalletFarmWithAssetBreakdown[]).forEach((farm) => {
+      farm.userWeeklyRewards?.assetBreakdown?.forEach((row) => {
+        const asset = normalizeDelegationCurrency(row.currency);
+        const principal = parseDelegationAmountFromBaseUnits(
+          row.delegatedPrincipalAmount,
+          asset
+        );
+        const recovered = parseDelegationAmountFromBaseUnits(
+          row.recoveredRewards,
+          asset
+        );
+        const activePrincipal = Math.max(0, principal - recovered);
+        totals[asset] = (totals[asset] ?? 0) + activePrincipal;
+      });
+    });
+
+    splitsActivity.forEach((split) => {
+      if (split.fractionType !== "launchpad") return;
+      if ((split.fractionStatus ?? "").toLowerCase() !== "committed") return;
+      if (split.isFilled) return;
+
+      const asset = normalizeDelegationCurrency(split.currency);
+      const amount = parseDelegationAmountFromBaseUnits(split.amount, asset);
+      if (amount <= 0) return;
+      totals[asset] = (totals[asset] ?? 0) + amount;
+    });
+
+    return totals;
+  }, [splitsActivity, walletFarms]);
 
   const stats = React.useMemo(() => {
     const activeMiners = rewardsData
@@ -84,7 +154,9 @@ export default function PortfolioSummaryWidget({
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [dialogFilter, setDialogFilter] = React.useState<FilterValue>("all");
 
-  const isDelegatedClickable = hasWallet && delegatedActiveGlw > 0;
+  const delegatedActiveTotal =
+    (delegatedActiveAssets.GLW ?? 0) + (delegatedActiveAssets.SGCTL ?? 0);
+  const isDelegatedClickable = hasWallet && delegatedActiveTotal > 0;
   const isMinersClickable = hasWallet && stats.activeMiners > 0;
   const isDelegationsClickable = hasWallet && stats.activeDelegations > 0;
 
@@ -138,14 +210,11 @@ export default function PortfolioSummaryWidget({
             </div>
             <div className="flex flex-col">
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono">
-                Delegated GLW
+                {delegatedActiveAssets.SGCTL ? "Delegated Assets" : "Delegated GLW"}
               </span>
               <div className="flex items-center gap-1.5">
                 <span className="text-lg font-bold font-mono text-foreground">
-                  {formatGlwCompact(delegatedActiveGlw)}
-                </span>
-                <span className="text-xs font-bold text-muted-foreground font-mono">
-                  GLW
+                  {formatDelegatedAssets(delegatedActiveAssets)}
                 </span>
               </div>
             </div>
@@ -161,7 +230,8 @@ export default function PortfolioSummaryWidget({
                 </div>
               </TooltipTrigger>
               <TooltipContent className="max-w-[200px] text-[11px] font-mono">
-                Actively delegated GLW minus protocol deposit recovery.
+                Active launchpad principal across GLW and SGCTL, net of
+                recovered rewards when available.
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

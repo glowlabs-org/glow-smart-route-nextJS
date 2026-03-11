@@ -62,14 +62,15 @@ export function resolveDelegationCurrencyFromSplitActivity(params: {
   listingCurrency?: string | null;
   application?: DelegationApplicationLike | null;
 }): DelegationCurrency {
-  const activityCurrency = normalizeDelegationCurrency(params.currency);
+  if (params.currency) {
+    return normalizeDelegationCurrency(params.currency);
+  }
+
   const listingCurrency = params.application
     ? resolveDelegationCurrency(params.application)
-    : normalizeDelegationCurrency(params.listingCurrency);
-
-  if (activityCurrency === "SGCTL" || listingCurrency === "SGCTL") {
-    return "SGCTL";
-  }
+    : params.listingCurrency
+      ? normalizeDelegationCurrency(params.listingCurrency)
+      : null;
 
   const hasSyntheticSgctlMarker = Boolean(
     params.transactionHash?.toLowerCase().startsWith("sgctl-delegation:")
@@ -87,7 +88,11 @@ export function resolveDelegationCurrencyFromSplitActivity(params: {
     return "SGCTL";
   }
 
-  return activityCurrency;
+  if (listingCurrency) {
+    return listingCurrency;
+  }
+
+  return "GLW";
 }
 
 export function getDelegationCurrencyDecimals(

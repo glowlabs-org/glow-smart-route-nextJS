@@ -74,7 +74,6 @@ import {
   deriveMiningCenterSponsorshipsInProgress,
 } from "@/utils/sponsorships-in-progress";
 import {
-  calculateLaunchpadPerShareRewards,
   normalizeDelegationCurrency,
   parseDelegationAmountFromBaseUnits,
   resolveDelegationCurrencyFromSplitActivity,
@@ -1506,6 +1505,15 @@ export default function MyFarmsGridSection({
     enabled: shouldLoadInProgress && applicationsForRewards.length > 0,
     walletAddress: walletAddress ?? null,
   });
+  const {
+    rewardScoreMap: sgctlRewardScoreMap,
+    isLoading: isSgctlRewardScoresLoading,
+  } = useRewardScore({
+    applications: applicationsForRewards,
+    paymentCurrency: "SGCTL",
+    enabled: shouldLoadInProgress && applicationsForRewards.length > 0,
+    walletAddress: walletAddress ?? null,
+  });
 
   const { miningScoreMap, isLoading: isMiningScoresLoading } = useMiningScore({
     applications: miningCenterAppsForScores,
@@ -1516,8 +1524,12 @@ export default function MyFarmsGridSection({
     return attachEstimatedWeeklyLaunchpadRewards({
       sponsorshipsInProgress,
       rewardScoreMap,
+      rewardScoreMapByCurrency: {
+        GLW: rewardScoreMap,
+        SGCTL: sgctlRewardScoreMap,
+      },
     });
-  }, [rewardScoreMap, sponsorshipsInProgress]);
+  }, [rewardScoreMap, sgctlRewardScoreMap, sponsorshipsInProgress]);
 
   const launchpadCurrenciesByFarmId = React.useMemo(() => {
     const map = new Map<string, Set<"GLW" | "SGCTL">>();
@@ -1630,47 +1642,6 @@ export default function MyFarmsGridSection({
     }
     return amounts;
   }, [splitsActivity, sponsorListingById]);
-
-  const inProgressLaunchpadPdByApplication = React.useMemo(() => {
-    const pdMap = new Map<
-      string,
-      { amount: number; asset: "GLW" | "SGCTL" | null }
-    >();
-
-    for (const item of sponsorshipsInProgress) {
-      const delegationCurrency =
-        item.delegationCurrency ?? resolveDelegationCurrency(item.application);
-      const currentDelegationCurrency = resolveDelegationCurrency(
-        item.application
-      );
-      const totalSteps = item.application?.activeFraction?.totalSteps ?? null;
-      const rewardScore = rewardScoreMap.get(item.applicationId) ?? null;
-
-      if (!rewardScore) continue;
-      if (typeof totalSteps !== "number" || totalSteps <= 0) continue;
-      if (!item.userSteps || item.userSteps <= 0) continue;
-      if (delegationCurrency !== currentDelegationCurrency) {
-        pdMap.set(`${item.applicationId}:${delegationCurrency}`, {
-          amount: 0,
-          asset: delegationCurrency,
-        });
-        continue;
-      }
-
-      const perShare = calculateLaunchpadPerShareRewards({
-        reward: rewardScore,
-        totalShares: totalSteps,
-        delegationCurrency,
-      });
-      const pdAmount = perShare.pdPerShare * item.userSteps;
-      pdMap.set(`${item.applicationId}:${delegationCurrency}`, {
-        amount: Number.isFinite(pdAmount) && pdAmount > 0 ? pdAmount : 0,
-        asset: delegationCurrency,
-      });
-    }
-
-    return pdMap;
-  }, [rewardScoreMap, sponsorshipsInProgress]);
 
   const farmNameByFarmId = React.useMemo(() => {
     const map = new Map<string, string>();
@@ -2114,12 +2085,6 @@ export default function MyFarmsGridSection({
               launchpadDelegationCurrency
             )
           : parseUsdcFromBaseUnits(amountAtomic.toString());
-      const pdEstimate =
-        item.fractionType === "launchpad"
-          ? inProgressLaunchpadPdByApplication.get(
-              `${item.applicationId}:${launchpadCurrency}`
-            )
-          : undefined;
       const farmKey =
         item.fractionType === "launchpad"
           ? `${rowFarmId}:in-progress:${item.fractionType}`
@@ -2147,8 +2112,14 @@ export default function MyFarmsGridSection({
         inProgressPercent: item.progressPercent ?? 0,
         estimatedUserWeeklyGlw: item.estimatedUserWeeklyGlw ?? 0,
         estimatedUserWeeklyUsd: item.estimatedUserWeeklyUsd ?? 0,
-        estimatedUserWeeklyPd: pdEstimate?.amount ?? 0,
-        estimatedUserWeeklyPdAsset: pdEstimate?.asset ?? null,
+        estimatedUserWeeklyPd:
+          item.fractionType === "launchpad"
+            ? item.estimatedUserWeeklyPd ?? 0
+            : 0,
+        estimatedUserWeeklyPdAsset:
+          item.fractionType === "launchpad"
+            ? item.estimatedUserWeeklyPdAsset ?? null
+            : null,
         lastWeekRewardsGlw: 0,
         delegatedAmountsByAsset:
           item.fractionType === "launchpad"
@@ -2178,10 +2149,14 @@ export default function MyFarmsGridSection({
           ? launchpadDelegatedAmountsByFarmId.get(rowFarmId)
           : existing.delegatedAmountsByAsset;
 
-      if (
-        item.fractionType === "launchpad" &&
-        existing.protocolDepositAsset !== launchpadCurrency
-      ) {
+      const existingPdAsset = existing.estimatedUserWeeklyPdAsset ?? null;
+      const basePdAsset = baseCard.estimatedUserWeeklyPdAsset ?? null;
+      const canMergePdEstimate =
+        !existingPdAsset ||
+        !basePdAsset ||
+        existingPdAsset === basePdAsset;
+
+      if (!canMergePdEstimate) {
         existing.estimatedUserWeeklyUsd = 0;
         existing.estimatedUserWeeklyPd = 0;
         existing.estimatedUserWeeklyPdAsset = null;
@@ -2190,8 +2165,7 @@ export default function MyFarmsGridSection({
           (existing.estimatedUserWeeklyPd ?? 0) +
           (baseCard.estimatedUserWeeklyPd ?? 0);
         existing.estimatedUserWeeklyPdAsset =
-          baseCard.estimatedUserWeeklyPdAsset ??
-          existing.estimatedUserWeeklyPdAsset;
+          existingPdAsset ?? basePdAsset;
       }
     });
 
@@ -2209,7 +2183,6 @@ export default function MyFarmsGridSection({
     rewardedFarmTypeKeys,
     splitsActivity,
     inProgressAmountByApplicationType,
-    inProgressLaunchpadPdByApplication,
     launchpadDelegatedAmountsByFarmId,
     sponsorListings,
     sponsorListingById,
@@ -2282,6 +2255,7 @@ export default function MyFarmsGridSection({
     isSponsorListingsLoading ||
     isMiningCenterListingsLoading ||
     isRewardScoresLoading ||
+    isSgctlRewardScoresLoading ||
     isMiningScoresLoading ||
     isSponsoredFarmsLoading;
 
