@@ -43,7 +43,6 @@ import {
   useMiningScore,
   getRewardScoreForApplication,
   getMiningScoreForApplication,
-  calculateProtocolDepositAmount,
   type AuctionApplication,
 } from "@/hooks";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -347,15 +346,6 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                 DECIMALS_BY_TOKEN.USDC,
               ),
             );
-          }
-          const protocolDeposit = calculateProtocolDepositAmount(
-            application.finalProtocolFee,
-            application.applicationPriceQuotes,
-            delegationCurrency || "GLW",
-          );
-          if (protocolDeposit) {
-            const parsed = Number(protocolDeposit);
-            if (Number.isFinite(parsed)) return parsed;
           }
           return parseFloat(
             formatUnits(
