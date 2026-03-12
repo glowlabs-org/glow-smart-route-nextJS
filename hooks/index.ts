@@ -7,5 +7,6 @@ export * from "@/hooks/control-regions";
 export * from "@/hooks/control-wallets";
 export * from "@/hooks/control-farms";
 export * from "@/hooks/control-gctl";
+export * from "@/hooks/use-wallet-launchpad-in-progress";
 
 export * from "@/hooks/useGctlPreparationOrchestrator";

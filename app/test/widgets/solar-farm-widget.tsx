@@ -17,9 +17,9 @@ import {
   useMiningCenter,
   useMiningScore,
   useRewardsBreakdown,
-  useRewardScore,
   useSponsorListings,
   useSplitsActivity,
+  useWalletFarms,
 } from "@/hooks";
 import { useAccount } from "wagmi";
 import { useQueryClient } from "@tanstack/react-query";
@@ -54,15 +54,10 @@ import {
   useCountdownTo,
 } from "@/app/components/animated-countdown";
 import {
-  attachEstimatedWeeklyLaunchpadRewards,
   attachEstimatedWeeklyMiningCenterRewards,
-  deriveLaunchpadSponsorshipsInProgress,
   deriveMiningCenterSponsorshipsInProgress,
 } from "@/utils/sponsorships-in-progress";
-import {
-  calculateLaunchpadPerShareRewards,
-  resolveDelegationCurrency,
-} from "@/utils/launchpad-rewards";
+import { useWalletLaunchpadInProgress } from "@/hooks/use-wallet-launchpad-in-progress";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { trackEvent } from "@/lib/telemetry";
 import { GENESIS_TIMESTAMP, getCurrentEpoch } from "@/utils/getCurrentEpoch";
@@ -206,6 +201,17 @@ function parseAssetFromBaseUnits(value: string, asset: string) {
   if (!Number.isFinite(num)) return 0;
   const symbol = asset.toUpperCase();
   return num / (SIX_DECIMAL_ASSETS.has(symbol) ? 1e6 : 1e18);
+}
+
+function formatProtocolDepositAsset(asset: string | null | undefined): string {
+  if (!asset) return "GLW";
+  const normalized = asset.toUpperCase();
+  if (normalized === "GCTL") return "SGCTL";
+  return normalized;
+}
+
+function parseProtocolDepositTokenAmount(value: string, asset: string) {
+  return parseAssetFromBaseUnits(value, formatProtocolDepositAsset(asset));
 }
 
 function getAssetBarColor(asset: string) {
@@ -634,6 +640,10 @@ export default function SolarFarmWidget({
     startWeek: FIRST_V2_WEEK,
     enabled: hasWallet,
   });
+  const { farms: purchasedFarms = [] } = useWalletFarms({
+    walletAddress: walletAddress ?? undefined,
+    enabled: hasWallet,
+  });
 
   const { applications: launchpadApplications } = useGlowLaunchpad();
   const { applications: minersApplications } = useSponsorListings({
@@ -649,33 +659,16 @@ export default function SolarFarmWidget({
     enabled: hasWallet,
     limit: 200,
   });
-
-  const sponsorshipsInProgress = React.useMemo(() => {
-    return deriveLaunchpadSponsorshipsInProgress({
-      splitsActivity,
-      sponsorListings: launchpadApplications,
-    });
-  }, [launchpadApplications, splitsActivity]);
-
-  const applicationsForRewards = React.useMemo(() => {
-    return sponsorshipsInProgress
-      .map((item) => item.application)
-      .filter((app): app is NonNullable<typeof app> => app !== null);
-  }, [sponsorshipsInProgress]);
-
-  const { rewardScoreMap, isLoading: isRewardScoresLoading } = useRewardScore({
-    applications: applicationsForRewards,
-    paymentCurrency: "GLW",
-    enabled: hasWallet && applicationsForRewards.length > 0,
+  const {
+    sponsorshipsInProgress,
+    sponsorshipsInProgressWithEstimates,
+    isRewardScoresLoading,
+    isSgctlRewardScoresLoading,
+  } = useWalletLaunchpadInProgress({
+    splitsActivity,
     walletAddress: walletAddress ?? null,
+    enabled: hasWallet,
   });
-
-  const sponsorshipsInProgressWithEstimates = React.useMemo(() => {
-    return attachEstimatedWeeklyLaunchpadRewards({
-      sponsorshipsInProgress,
-      rewardScoreMap,
-    });
-  }, [rewardScoreMap, sponsorshipsInProgress]);
 
   const hasMiningCenterSplits = React.useMemo(() => {
     return splitsActivity.some((s) => s.fractionType === "mining-center");
@@ -723,6 +716,51 @@ export default function SolarFarmWidget({
   const activeListingsCount =
     activeDelegationsListingsCount + activeMinersListingsCount;
 
+  const pendingStartLaunchpadStats = React.useMemo(() => {
+    const byFarm = new Map<
+      string,
+      { estimatedUserWeeklyGlw: number; estimatedUserWeeklyPd: number; pdAsset: string | null }
+    >();
+
+    for (const evt of splitsActivity) {
+      if (evt.fractionType !== "launchpad") continue;
+      const status = (evt.fractionStatus ?? "").toLowerCase();
+      if (status !== "filled") continue;
+
+      const farmId = evt.farmId ?? evt.applicationId;
+      if (!farmId) continue;
+
+      const farmMetadata = purchasedFarms.find((farm) => farm.farmId === farmId);
+      const rewards = farmMetadata?.userWeeklyRewards;
+      if (!rewards) continue;
+
+      const pdAsset = formatProtocolDepositAsset(rewards.protocolDepositAsset);
+      const delegationInflationGlw = rewards.glwInflationRewardsFromDelegation
+        ? parseGlwFromWei(rewards.glwInflationRewardsFromDelegation)
+        : parseGlwFromWei(rewards.glwInflationRewards);
+      const pdAmount = parseProtocolDepositTokenAmount(
+        rewards.protocolDepositRewards,
+        pdAsset
+      );
+      const pdGlw = pdAsset === "GLW" ? pdAmount : 0;
+
+      const existing = byFarm.get(farmId) ?? {
+        estimatedUserWeeklyGlw: 0,
+        estimatedUserWeeklyPd: 0,
+        pdAsset: pdAsset === "GLW" ? null : pdAsset,
+      };
+
+      existing.estimatedUserWeeklyGlw += delegationInflationGlw + pdGlw;
+      if (pdAsset !== "GLW" && pdAmount > 0) {
+        existing.estimatedUserWeeklyPd += pdAmount;
+        existing.pdAsset = pdAsset;
+      }
+      byFarm.set(farmId, existing);
+    }
+
+    return Array.from(byFarm.values());
+  }, [purchasedFarms, splitsActivity]);
+
   const inProgressEstimatedByAsset = React.useMemo(() => {
     const totals = new Map<string, number>();
 
@@ -734,36 +772,54 @@ export default function SolarFarmWidget({
 
     for (const item of sponsorshipsInProgressWithEstimates) {
       add("GLW", item.estimatedUserWeeklyGlw ?? 0);
+      if (item.estimatedUserWeeklyPdAsset) {
+        add(item.estimatedUserWeeklyPdAsset, item.estimatedUserWeeklyPd ?? 0);
+      }
     }
     for (const item of miningCenterInProgressWithEstimates) {
       add("GLW", item.estimatedUserWeeklyGlw ?? 0);
     }
-
-    for (const item of sponsorshipsInProgress) {
-      const delegationCurrency = resolveDelegationCurrency(item.application);
-      if (delegationCurrency !== "SGCTL") continue;
-
-      const totalSteps = item.application?.activeFraction?.totalSteps ?? null;
-      const rewardScore = rewardScoreMap.get(item.applicationId) ?? null;
-      if (!rewardScore) continue;
-      if (typeof totalSteps !== "number" || totalSteps <= 0) continue;
-      if (!item.userSteps || item.userSteps <= 0) continue;
-
-      const perShare = calculateLaunchpadPerShareRewards({
-        reward: rewardScore,
-        totalShares: totalSteps,
-        delegationCurrency: "SGCTL",
-      });
-      add("SGCTL", perShare.pdPerShare * item.userSteps);
+    for (const item of pendingStartLaunchpadStats) {
+      add("GLW", item.estimatedUserWeeklyGlw ?? 0);
+      if (item.pdAsset) {
+        add(item.pdAsset, item.estimatedUserWeeklyPd ?? 0);
+      }
     }
 
     return totals;
   }, [
+    pendingStartLaunchpadStats,
     miningCenterInProgressWithEstimates,
-    rewardScoreMap,
-    sponsorshipsInProgress,
     sponsorshipsInProgressWithEstimates,
   ]);
+
+  const inProgressDelegationsCount = React.useMemo(() => {
+    const farmKeys = new Set<string>();
+
+    for (const item of sponsorshipsInProgress) {
+      const farmKey = item.application?.farmId ?? item.applicationId;
+      if (farmKey) {
+        farmKeys.add(farmKey);
+      }
+    }
+
+    return farmKeys.size;
+  }, [sponsorshipsInProgress]);
+
+  const inProgressMinersCount = React.useMemo(() => {
+    const farmKeys = new Set<string>();
+
+    for (const item of miningCenterInProgress) {
+      const farmKey = item.application?.farmId ?? item.applicationId;
+      if (farmKey) {
+        farmKeys.add(farmKey);
+      }
+    }
+
+    return farmKeys.size;
+  }, [miningCenterInProgress]);
+
+  const pendingStartDelegationsCount = pendingStartLaunchpadStats.length;
 
   const {
     availableAssets,
@@ -928,14 +984,24 @@ export default function SolarFarmWidget({
     return {
       weeklyPayout,
       isEstimatedWeeklyPayout,
-      activeMiners,
-      activeDelegations,
+      activeMiners: activeMiners + inProgressMinersCount,
+      activeDelegations:
+        activeDelegations +
+        inProgressDelegationsCount +
+        pendingStartDelegationsCount,
       activeOtherRewards:
         data?.otherFarmsWithRewards?.count ??
         data?.otherFarmsWithRewards?.farms.length ??
         0,
     };
-  }, [data, selectedAssetEstimatedInProgress, selectedAssetRawHistory]);
+  }, [
+    data,
+    inProgressDelegationsCount,
+    inProgressMinersCount,
+    pendingStartDelegationsCount,
+    selectedAssetEstimatedInProgress,
+    selectedAssetRawHistory,
+  ]);
 
   const visibleStatsItems = React.useMemo(() => {
     const items = [
@@ -1008,7 +1074,9 @@ export default function SolarFarmWidget({
   const hasInProgressSponsorships =
     sponsorshipsInProgressWithEstimates.length > 0 ||
     miningCenterInProgressWithEstimates.length > 0 ||
-    (isRewardScoresLoading && sponsorshipsInProgress.length > 0) ||
+    pendingStartLaunchpadStats.length > 0 ||
+    ((isRewardScoresLoading || isSgctlRewardScoresLoading) &&
+      sponsorshipsInProgress.length > 0) ||
     (isMiningScoreLoading && miningCenterInProgress.length > 0);
 
   const isEmptyButConnected =

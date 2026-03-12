@@ -37,31 +37,32 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ConnectButton } from "@/components/connect-button";
 
 import {
-  useGlowLaunchpad,
   useMiningCenter,
   useMiningScore,
   useRegions,
   useRewardsBreakdown,
-  useRewardScore,
   useSplitsActivity,
   useWalletFarms,
 } from "@/hooks";
+import { useWalletLaunchpadInProgress } from "@/hooks/use-wallet-launchpad-in-progress";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { Progress } from "@/components/ui/progress";
 import {
-  attachEstimatedWeeklyLaunchpadRewards,
   attachEstimatedWeeklyMiningCenterRewards,
-  deriveLaunchpadSponsorshipsInProgress,
   deriveMiningCenterSponsorshipsInProgress,
 } from "@/utils/sponsorships-in-progress";
 import {
   normalizeDelegationCurrency,
   parseDelegationAmountFromBaseUnits,
-  resolveDelegationCurrencyFromSplitActivity,
   resolveDelegationCurrency,
 } from "@/utils/launchpad-rewards";
 import { GlowSymbol } from "@/components/glow-symbol";
 import { CashMinerIcon, DelegationIcon } from "@/components/impact-icons";
+import {
+  resolveLaunchpadActivityFarmId,
+  resolveLaunchpadSplitCurrency,
+  type DelegationAmountsByAsset,
+} from "@/utils/wallet-launchpad";
 
 // --- HELPER: FORMATTERS ---
 const fmtGlw = (n: number) =>
@@ -87,8 +88,6 @@ function formatProtocolDepositAsset(asset: string | null | undefined): string {
   if (normalized === "GCTL") return "SGCTL";
   return normalized;
 }
-
-type DelegationAmountsByAsset = Partial<Record<"GLW" | "SGCTL", number>>;
 
 function formatTokenAmountByAsset(
   value: number,
@@ -152,16 +151,6 @@ function formatEstimatedWeeklyRewards(params: {
   }
 
   return null;
-}
-
-function resolveLaunchpadActivityFarmId(params: {
-  applicationId?: string | null;
-  activityFarmId?: string | null;
-  listingFarmId?: string | null;
-}) {
-  return (
-    params.activityFarmId ?? params.listingFarmId ?? params.applicationId ?? null
-  );
 }
 
 function formatDelegatedAmountsByAsset(params: {
@@ -326,22 +315,6 @@ function parseProtocolDepositTokenAmount(
 ): number {
   const delegationCurrency = normalizeDelegationCurrency(asset);
   return parseDelegationAmountFromBaseUnits(value, delegationCurrency);
-}
-
-function resolveLaunchpadSplitCurrency(params: {
-  currency?: string | null;
-  listingCurrency?: string | null;
-  amount?: string | null;
-  stepPrice?: string | null;
-  transactionHash?: string | null;
-}) {
-  return resolveDelegationCurrencyFromSplitActivity({
-    currency: params.currency,
-    amount: params.amount,
-    stepPrice: params.stepPrice,
-    transactionHash: params.transactionHash,
-    listingCurrency: params.listingCurrency,
-  });
 }
 
 // --- COMPONENT: THE FARM ROW ---
@@ -1003,20 +976,23 @@ export function FarmsPerformanceDialogContent({
   });
 
   const {
-    applications: sponsorListings,
-    isLoading: isSponsorListingsLoading,
-    isError: isSponsorListingsError,
-  } = useGlowLaunchpad({
-    enabled: shouldLoadInProgress && splitsActivity.length > 0,
+    sponsorListings,
+    sponsorListingById,
+    sponsorshipsInProgress,
+    sponsorshipsInProgressWithEstimates,
+    currentLaunchpadCurrencyByFarmId,
+    launchpadCurrenciesByFarmId,
+    launchpadDelegatedAmountsByFarmId,
+    isSponsorListingsLoading,
+    isSponsorListingsError,
+    isRewardScoresLoading,
+    isRewardScoresError,
+    isSgctlRewardScoresLoading,
+  } = useWalletLaunchpadInProgress({
+    splitsActivity,
+    walletAddress: walletAddress ?? null,
+    enabled: shouldLoadInProgress,
   });
-
-  const sponsorListingById = React.useMemo(() => {
-    const map = new Map<string, (typeof sponsorListings)[number]>();
-    for (const app of sponsorListings) {
-      map.set(app.id, app);
-    }
-    return map;
-  }, [sponsorListings]);
 
   const farmNameByFarmId = React.useMemo(() => {
     const map = new Map<string, string>();
@@ -1035,126 +1011,6 @@ export function FarmsPerformanceDialogContent({
       if (!farmName) continue;
       if (!map.has(farmId)) map.set(farmId, farmName);
     }
-    return map;
-  }, [splitsActivity, sponsorListingById]);
-
-  const sponsorshipsInProgress = React.useMemo(() => {
-    return deriveLaunchpadSponsorshipsInProgress({
-      splitsActivity,
-      sponsorListings,
-    });
-  }, [splitsActivity, sponsorListings]);
-
-  const applicationsForRewards = React.useMemo(() => {
-    return sponsorshipsInProgress
-      .map((item) => item.application)
-      .filter((app): app is NonNullable<typeof app> => app !== null);
-  }, [sponsorshipsInProgress]);
-
-  const {
-    rewardScoreMap,
-    isLoading: isRewardScoresLoading,
-    isError: isRewardScoresError,
-  } = useRewardScore({
-    applications: applicationsForRewards,
-    paymentCurrency: "GLW",
-    enabled: shouldLoadInProgress && applicationsForRewards.length > 0,
-    walletAddress: walletAddress ?? null,
-  });
-  const {
-    rewardScoreMap: sgctlRewardScoreMap,
-    isLoading: isSgctlRewardScoresLoading,
-  } = useRewardScore({
-    applications: applicationsForRewards,
-    paymentCurrency: "SGCTL",
-    enabled: shouldLoadInProgress && applicationsForRewards.length > 0,
-    walletAddress: walletAddress ?? null,
-  });
-
-  const sponsorshipsInProgressWithEstimates = React.useMemo(() => {
-    return attachEstimatedWeeklyLaunchpadRewards({
-      sponsorshipsInProgress,
-      rewardScoreMap,
-      rewardScoreMapByCurrency: {
-        GLW: rewardScoreMap,
-        SGCTL: sgctlRewardScoreMap,
-      },
-    }).sort((a, b) => (b.progressPercent ?? 0) - (a.progressPercent ?? 0));
-  }, [rewardScoreMap, sgctlRewardScoreMap, sponsorshipsInProgress]);
-
-  const launchpadCurrenciesByFarmId = React.useMemo(() => {
-    const map = new Map<string, Set<"GLW" | "SGCTL">>();
-
-    for (const evt of splitsActivity) {
-      if (evt.fractionType !== "launchpad") continue;
-
-      const listing = sponsorListingById.get(evt.applicationId);
-      const farmId = resolveLaunchpadActivityFarmId({
-        applicationId: evt.applicationId,
-        activityFarmId: evt.farmId,
-        listingFarmId: listing?.farmId,
-      });
-      if (!farmId) continue;
-
-      const currency = resolveLaunchpadSplitCurrency({
-        currency: evt.currency,
-        amount: evt.amount,
-        stepPrice: evt.stepPrice,
-        transactionHash: evt.transactionHash,
-        listingCurrency: listing ? resolveDelegationCurrency(listing) : null,
-      });
-
-      const existing = map.get(farmId) ?? new Set<"GLW" | "SGCTL">();
-      existing.add(currency);
-      map.set(farmId, existing);
-    }
-
-    return map;
-  }, [splitsActivity, sponsorListingById]);
-
-  const currentLaunchpadCurrencyByFarmId = React.useMemo(() => {
-    const map = new Map<string, "GLW" | "SGCTL">();
-
-    for (const app of sponsorListings) {
-      const currency = resolveDelegationCurrency(app);
-      map.set(app.id, currency);
-      if (app.farmId) {
-        map.set(app.farmId, currency);
-      }
-    }
-
-    return map;
-  }, [sponsorListings]);
-
-  const launchpadDelegatedAmountsByFarmId = React.useMemo(() => {
-    const map = new Map<string, DelegationAmountsByAsset>();
-
-    for (const evt of splitsActivity) {
-      if (evt.fractionType !== "launchpad") continue;
-
-      const listing = sponsorListingById.get(evt.applicationId);
-      const farmId = resolveLaunchpadActivityFarmId({
-        applicationId: evt.applicationId,
-        activityFarmId: evt.farmId,
-        listingFarmId: listing?.farmId,
-      });
-      if (!farmId) continue;
-
-      const currency = resolveLaunchpadSplitCurrency({
-        currency: evt.currency,
-        amount: evt.amount,
-        stepPrice: evt.stepPrice,
-        transactionHash: evt.transactionHash,
-        listingCurrency: listing ? resolveDelegationCurrency(listing) : null,
-      });
-      const amount = parseDelegationAmountFromBaseUnits(evt.amount, currency);
-      if (!Number.isFinite(amount) || amount <= 0) continue;
-
-      const existing = map.get(farmId) ?? {};
-      existing[currency] = (existing[currency] ?? 0) + amount;
-      map.set(farmId, existing);
-    }
-
     return map;
   }, [splitsActivity, sponsorListingById]);
 

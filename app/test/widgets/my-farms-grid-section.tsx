@@ -58,27 +58,28 @@ import {
   useWalletFarms,
   useRegions,
   useSplitsActivity,
-  useGlowLaunchpad,
   useMiningCenter,
-  useRewardScore,
   useMiningScore,
 } from "@/hooks";
+import { useWalletLaunchpadInProgress } from "@/hooks/use-wallet-launchpad-in-progress";
 import { useQuery } from "@tanstack/react-query";
 import { getRegionRouter } from "@/lib/api/control-routers";
 import type { SponsoredFarm } from "@glowlabs-org/utils/browser";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import {
-  attachEstimatedWeeklyLaunchpadRewards,
   attachEstimatedWeeklyMiningCenterRewards,
-  deriveLaunchpadSponsorshipsInProgress,
   deriveMiningCenterSponsorshipsInProgress,
 } from "@/utils/sponsorships-in-progress";
 import {
   normalizeDelegationCurrency,
   parseDelegationAmountFromBaseUnits,
-  resolveDelegationCurrencyFromSplitActivity,
   resolveDelegationCurrency,
 } from "@/utils/launchpad-rewards";
+import {
+  resolveLaunchpadActivityFarmId,
+  resolveLaunchpadSplitCurrency,
+  type DelegationAmountsByAsset,
+} from "@/utils/wallet-launchpad";
 
 const fmtGlw = (n: number) =>
   new Intl.NumberFormat("en-US", {
@@ -132,34 +133,6 @@ function parseProtocolDepositTokenAmount(
   const delegationCurrency = normalizeDelegationCurrency(asset);
   return parseDelegationAmountFromBaseUnits(value, delegationCurrency);
 }
-
-function resolveLaunchpadSplitCurrency(params: {
-  currency?: string | null;
-  listingCurrency?: string | null;
-  amount?: string | null;
-  stepPrice?: string | null;
-  transactionHash?: string | null;
-}) {
-  return resolveDelegationCurrencyFromSplitActivity({
-    currency: params.currency,
-    amount: params.amount,
-    stepPrice: params.stepPrice,
-    transactionHash: params.transactionHash,
-    listingCurrency: params.listingCurrency,
-  });
-}
-
-function resolveLaunchpadActivityFarmId(params: {
-  applicationId?: string | null;
-  activityFarmId?: string | null;
-  listingFarmId?: string | null;
-}) {
-  return (
-    params.activityFarmId ?? params.listingFarmId ?? params.applicationId ?? null
-  );
-}
-
-type DelegationAmountsByAsset = Partial<Record<"GLW" | "SGCTL", number>>;
 
 function formatDelegatedAmountsByAsset(params: {
   amounts?: DelegationAmountsByAsset;
@@ -1451,19 +1424,22 @@ export default function MyFarmsGridSection({
     });
 
   const shouldLoadInProgress = hasWallet && splitsActivity.length > 0;
-
-  const { applications: sponsorListings, isLoading: isSponsorListingsLoading } =
-    useGlowLaunchpad({
-      enabled: shouldLoadInProgress,
-    });
-
-  const sponsorListingById = React.useMemo(() => {
-    const map = new Map<string, (typeof sponsorListings)[number]>();
-    for (const app of sponsorListings) {
-      map.set(app.id, app);
-    }
-    return map;
-  }, [sponsorListings]);
+  const {
+    sponsorListings,
+    sponsorListingById,
+    sponsorshipsInProgress,
+    sponsorshipsInProgressWithEstimates,
+    currentLaunchpadCurrencyByFarmId,
+    launchpadCurrenciesByFarmId,
+    launchpadDelegatedAmountsByFarmId,
+    isSponsorListingsLoading,
+    isRewardScoresLoading,
+    isSgctlRewardScoresLoading,
+  } = useWalletLaunchpadInProgress({
+    splitsActivity,
+    walletAddress: walletAddress ?? null,
+    enabled: shouldLoadInProgress,
+  });
 
   const {
     applications: miningCenterListings,
@@ -1473,13 +1449,6 @@ export default function MyFarmsGridSection({
     enabled: shouldLoadInProgress,
   });
 
-  const sponsorshipsInProgress = React.useMemo(() => {
-    return deriveLaunchpadSponsorshipsInProgress({
-      splitsActivity,
-      sponsorListings,
-    });
-  }, [splitsActivity, sponsorListings]);
-
   const miningCenterInProgress = React.useMemo(() => {
     return deriveMiningCenterSponsorshipsInProgress({
       splitsActivity,
@@ -1487,125 +1456,16 @@ export default function MyFarmsGridSection({
     });
   }, [splitsActivity, miningCenterListings]);
 
-  const applicationsForRewards = React.useMemo(() => {
-    return sponsorshipsInProgress
-      .map((item) => item.application)
-      .filter((app): app is NonNullable<typeof app> => app !== null);
-  }, [sponsorshipsInProgress]);
-
   const miningCenterAppsForScores = React.useMemo(() => {
     return miningCenterInProgress
       .map((item) => item.application)
       .filter((app): app is NonNullable<typeof app> => app !== null);
   }, [miningCenterInProgress]);
 
-  const { rewardScoreMap, isLoading: isRewardScoresLoading } = useRewardScore({
-    applications: applicationsForRewards,
-    paymentCurrency: "GLW",
-    enabled: shouldLoadInProgress && applicationsForRewards.length > 0,
-    walletAddress: walletAddress ?? null,
-  });
-  const {
-    rewardScoreMap: sgctlRewardScoreMap,
-    isLoading: isSgctlRewardScoresLoading,
-  } = useRewardScore({
-    applications: applicationsForRewards,
-    paymentCurrency: "SGCTL",
-    enabled: shouldLoadInProgress && applicationsForRewards.length > 0,
-    walletAddress: walletAddress ?? null,
-  });
-
   const { miningScoreMap, isLoading: isMiningScoresLoading } = useMiningScore({
     applications: miningCenterAppsForScores,
     enabled: shouldLoadInProgress && miningCenterAppsForScores.length > 0,
   });
-
-  const sponsorshipsInProgressWithEstimates = React.useMemo(() => {
-    return attachEstimatedWeeklyLaunchpadRewards({
-      sponsorshipsInProgress,
-      rewardScoreMap,
-      rewardScoreMapByCurrency: {
-        GLW: rewardScoreMap,
-        SGCTL: sgctlRewardScoreMap,
-      },
-    });
-  }, [rewardScoreMap, sgctlRewardScoreMap, sponsorshipsInProgress]);
-
-  const launchpadCurrenciesByFarmId = React.useMemo(() => {
-    const map = new Map<string, Set<"GLW" | "SGCTL">>();
-
-    for (const evt of splitsActivity) {
-      if (evt.fractionType !== "launchpad") continue;
-
-      const listing = sponsorListingById.get(evt.applicationId);
-      const farmId = resolveLaunchpadActivityFarmId({
-        applicationId: evt.applicationId,
-        activityFarmId: evt.farmId,
-        listingFarmId: listing?.farmId,
-      });
-      if (!farmId) continue;
-
-      const currency = resolveLaunchpadSplitCurrency({
-        currency: evt.currency,
-        amount: evt.amount,
-        stepPrice: evt.stepPrice,
-        transactionHash: evt.transactionHash,
-        listingCurrency: listing ? resolveDelegationCurrency(listing) : null,
-      });
-
-      const existing = map.get(farmId) ?? new Set<"GLW" | "SGCTL">();
-      existing.add(currency);
-      map.set(farmId, existing);
-    }
-
-    return map;
-  }, [splitsActivity, sponsorListingById]);
-
-  const currentLaunchpadCurrencyByFarmId = React.useMemo(() => {
-    const map = new Map<string, "GLW" | "SGCTL">();
-
-    for (const app of sponsorListings) {
-      const currency = resolveDelegationCurrency(app);
-      map.set(app.id, currency);
-      if (app.farmId) {
-        map.set(app.farmId, currency);
-      }
-    }
-
-    return map;
-  }, [sponsorListings]);
-
-  const launchpadDelegatedAmountsByFarmId = React.useMemo(() => {
-    const map = new Map<string, DelegationAmountsByAsset>();
-
-    for (const evt of splitsActivity) {
-      if (evt.fractionType !== "launchpad") continue;
-
-      const listing = sponsorListingById.get(evt.applicationId);
-      const farmId = resolveLaunchpadActivityFarmId({
-        applicationId: evt.applicationId,
-        activityFarmId: evt.farmId,
-        listingFarmId: listing?.farmId,
-      });
-      if (!farmId) continue;
-
-      const currency = resolveLaunchpadSplitCurrency({
-        currency: evt.currency,
-        amount: evt.amount,
-        stepPrice: evt.stepPrice,
-        transactionHash: evt.transactionHash,
-        listingCurrency: listing ? resolveDelegationCurrency(listing) : null,
-      });
-      const amount = parseDelegationAmountFromBaseUnits(evt.amount, currency);
-      if (!Number.isFinite(amount) || amount <= 0) continue;
-
-      const existing = map.get(farmId) ?? {};
-      existing[currency] = (existing[currency] ?? 0) + amount;
-      map.set(farmId, existing);
-    }
-
-    return map;
-  }, [splitsActivity, sponsorListingById]);
 
   const miningCenterInProgressWithEstimates = React.useMemo(() => {
     return attachEstimatedWeeklyMiningCenterRewards({
@@ -1623,14 +1483,17 @@ export default function MyFarmsGridSection({
       if (!applicationId || !fractionType || status !== "committed") continue;
       try {
         const amount = BigInt(evt.amount);
+        const listing = sponsorListingById.get(applicationId);
         const delegationCurrency =
           fractionType === "launchpad"
-            ? resolveDelegationCurrencyFromSplitActivity({
+            ? resolveLaunchpadSplitCurrency({
                 currency: evt.currency,
                 amount: evt.amount,
                 stepPrice: evt.stepPrice,
                 transactionHash: evt.transactionHash,
-                application: sponsorListingById.get(applicationId) ?? null,
+                listingCurrency: listing
+                  ? resolveDelegationCurrency(listing)
+                  : null,
               })
             : null;
         const key =
