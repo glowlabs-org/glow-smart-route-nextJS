@@ -7,6 +7,7 @@ import {
   ShoppingCart,
   ArrowUpRight,
   MapPin,
+  ChevronLeft,
   ChevronRight,
   Info,
   HelpCircle,
@@ -215,6 +216,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
   // Tab filter state
   type TabFilter = "all" | "delegations" | "miners";
   const [activeTab, setActiveTab] = React.useState<TabFilter>("all");
+  const [pageIndex, setPageIndex] = React.useState(0);
 
   // Stats dialog state
   const [statsDialogOpen, setStatsDialogOpen] = React.useState(false);
@@ -518,6 +520,21 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
 
     return finalRows;
   }, [allRows, activeTab]);
+
+  const cardsPerPage = isMobile ? 1 : 2;
+  const pageCount = Math.max(1, Math.ceil(filteredRows.length / cardsPerPage));
+  const pagedRows = React.useMemo(() => {
+    const start = pageIndex * cardsPerPage;
+    return filteredRows.slice(start, start + cardsPerPage);
+  }, [cardsPerPage, filteredRows, pageIndex]);
+
+  React.useEffect(() => {
+    setPageIndex(0);
+  }, [activeTab, cardsPerPage]);
+
+  React.useEffect(() => {
+    setPageIndex((current) => Math.min(current, pageCount - 1));
+  }, [pageCount]);
 
   const isLoading = isDelegationsLoading || isMinersLoading;
 
@@ -1096,28 +1113,69 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
       </div>
 
       {/* Cards Grid - Always 2 columns on desktop */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {filteredRows
-          .slice(0, isMobile ? 4 : 2)
-          .map((row, index) => renderListingCard(row, index))}
-      </div>
-
-      {/* View All Link (if more than 2 listings) */}
-      {filteredRows.length > 2 && (
-        <div className="flex justify-center pt-2">
-          <Link
-            href="/marketplace"
-            className={cn(
-              "inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-colors",
-              "bg-muted/30 dark:bg-muted/50 text-foreground hover:bg-muted/50 dark:hover:bg-muted/70",
-              "border border-border/20 dark:border-border/40",
-            )}
-          >
-            View all listings
-            <ChevronRight className="w-4 h-4" />
-          </Link>
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {pagedRows.map((row, index) =>
+            renderListingCard(row, pageIndex * cardsPerPage + index),
+          )}
         </div>
-      )}
+
+        {pageCount > 1 && (
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
+              {pageIndex + 1} / {pageCount}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  trackEvent("dashboard_launchpad_carousel_click", {
+                    source,
+                    wallet_connected: isConnected,
+                    wallet_address: walletAddress,
+                    direction: "previous",
+                    tab: activeTab,
+                    page: pageIndex,
+                  });
+                  setPageIndex((current) => Math.max(0, current - 1));
+                }}
+                disabled={pageIndex === 0}
+                className="h-9 w-9 rounded-full border border-border/20"
+                aria-label="Previous listings"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  trackEvent("dashboard_launchpad_carousel_click", {
+                    source,
+                    wallet_connected: isConnected,
+                    wallet_address: walletAddress,
+                    direction: "next",
+                    tab: activeTab,
+                    page: pageIndex,
+                  });
+                  setPageIndex((current) =>
+                    Math.min(pageCount - 1, current + 1),
+                  );
+                }}
+                disabled={pageIndex >= pageCount - 1}
+                className="h-9 w-9 rounded-full border border-border/20"
+                aria-label="Next listings"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Stats Dialogs */}
       {selectedApplicationForStats?._type === "miners" ? (
