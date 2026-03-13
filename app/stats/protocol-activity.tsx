@@ -37,6 +37,7 @@ import { useToast } from "@/hooks/use-toast";
 import { MiniCountdown } from "./mini-countdown";
 import {
   getDelegationCurrencyDecimals,
+  getDelegationStepAtomic,
   resolveDelegationCurrency,
 } from "@/utils/launchpad-rewards";
 
@@ -478,10 +479,11 @@ export function ProtocolActivity({
         const delegationCurrency = resolveDelegationCurrency(app);
         const delegationDecimals =
           getDelegationCurrencyDecimals(delegationCurrency);
+        const delegationStepAtomic = getDelegationStepAtomic(app) ?? 0n;
 
         // Calculate remaining value
-        const stepPriceBigInt = BigInt(fraction.step);
-        const remainingValueBigInt = stepPriceBigInt * BigInt(remainingSteps);
+        const remainingValueBigInt =
+          delegationStepAtomic * BigInt(remainingSteps);
 
         const remainingValueFormatted = formatNumber(
           parseFloat(
@@ -491,7 +493,7 @@ export function ProtocolActivity({
         );
 
         // Calculate total delegated so far
-        const totalDelegatedBigInt = stepPriceBigInt * BigInt(splitsSold);
+        const totalDelegatedBigInt = delegationStepAtomic * BigInt(splitsSold);
         const totalDelegatedFormatted = formatNumber(
           parseFloat(
             formatUnits(totalDelegatedBigInt, delegationDecimals),
@@ -514,7 +516,7 @@ export function ProtocolActivity({
             (remainingSteps / totalSteps) * 100,
           )}%`,
           stepPriceFormatted: `${formatNumber(
-            parseFloat(formatUnits(stepPriceBigInt, delegationDecimals)),
+            parseFloat(formatUnits(delegationStepAtomic, delegationDecimals)),
             0,
           )} ${delegationCurrency}`,
           type: "launchpad" as const,

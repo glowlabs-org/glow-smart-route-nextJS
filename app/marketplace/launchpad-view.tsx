@@ -60,7 +60,7 @@ import { resolveRewardScorePaymentCurrency } from "@/lib/reward-score";
 import {
   calculateLaunchpadPerShareRewards,
   getDelegationCurrencyDecimals,
-  parseDelegationAmountFromBaseUnits,
+  parseDelegationStepAmount,
   resolveDelegationCurrency,
 } from "@/utils/launchpad-rewards";
 
@@ -1096,6 +1096,11 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                             </div>
                           ) : application.activeFraction?.step ? (
                             <div className="flex-1 flex flex-col justify-center">
+                              {(() => {
+                                const delegationStepAmount =
+                                  parseDelegationStepAmount(application);
+                                return (
+                                  <>
                               <div
                                 className="text-2xl lg:text-3xl text-foreground leading-tight"
                                 style={{
@@ -1104,12 +1109,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                 }}
                               >
                                 {formatNumber(
-                                  parseFloat(
-                                    formatUnits(
-                                      BigInt(application.activeFraction.step),
-                                      DECIMALS_BY_TOKEN[displayCurrency]
-                                    )
-                                  ),
+                                  delegationStepAmount,
                                   0
                                 )}
                                 <span
@@ -1133,12 +1133,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                 >
                                   ≈ $
                                   {formatNumber(
-                                    parseFloat(
-                                      formatUnits(
-                                        BigInt(application.activeFraction.step),
-                                        DECIMALS_BY_TOKEN[displayCurrency]
-                                      )
-                                    ) * glwSpotPrice,
+                                    delegationStepAmount * glwSpotPrice,
                                     0
                                   )}{" "}
                                   USD
@@ -1153,6 +1148,9 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                               >
                                 Per Fraction.
                               </div>
+                                  </>
+                                );
+                              })()}
                             </div>
                           ) : depositAmountInCurrency ? (
                             <div className="flex-1 flex flex-col justify-center">
@@ -1843,10 +1841,7 @@ function LaunchpadMarketplaceWidget({
               )
             );
           }
-          return parseDelegationAmountFromBaseUnits(
-            application.activeFraction.step || "0",
-            delegationCurrency || "GLW"
-          );
+          return parseDelegationStepAmount(application);
         } catch {
           return 0;
         }
@@ -3624,10 +3619,7 @@ function LaunchpadMarketplaceDialog({
               )
             );
           }
-          return parseDelegationAmountFromBaseUnits(
-            application.activeFraction.step || "0",
-            delegationCurrency || "GLW"
-          );
+          return parseDelegationStepAmount(application);
         } catch {
           return 0;
         }

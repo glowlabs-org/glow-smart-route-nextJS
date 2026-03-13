@@ -45,6 +45,7 @@ import {
   getMiningScoreForApplication,
   type AuctionApplication,
 } from "@/hooks";
+import { parseDelegationStepAmount } from "@/utils/launchpad-rewards";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import { SponsoredFarmsActivity } from "@/app/marketplace/sponsored-farms-activity";
@@ -347,12 +348,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
               ),
             );
           }
-          return parseFloat(
-            formatUnits(
-              BigInt(application.activeFraction.step || "0"),
-              getPaymentCurrencyDecimals(delegationCurrency || "GLW"),
-            ),
-          );
+          return parseDelegationStepAmount(application);
         } catch {
           return 0;
         }

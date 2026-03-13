@@ -240,6 +240,7 @@ export function DepositDialog({
 
   // State
   const [quantity, setQuantity] = React.useState<number>(1);
+  const [quantityInput, setQuantityInput] = React.useState("1");
   const [selectedPaymentMethod, setSelectedPaymentMethod] =
     React.useState<DepositPaymentMethod>(
       getDefaultPaymentMethodForRuntimeCurrency(runtimeSelectedCurrency)
@@ -377,6 +378,7 @@ export function DepositDialog({
   React.useEffect(() => {
     if (open) {
       setQuantity(1);
+      setQuantityInput("1");
       setSelectedPaymentMethod(
         getDefaultPaymentMethodForRuntimeCurrency(runtimeSelectedCurrency)
       );
@@ -648,12 +650,49 @@ export function DepositDialog({
 
   // Handlers
   const handleQuantityChange = (delta: number) => {
-    setQuantity((prev) => clampQuantity(prev + delta, 1, maxQuantity));
+    setQuantity((prev) => {
+      const nextQuantity = clampQuantity(prev + delta, 1, maxQuantity);
+      setQuantityInput(nextQuantity.toString());
+      return nextQuantity;
+    });
   };
 
   const handleQuantityInput = (value: string) => {
-    setQuantity(parseQuantityInput(value, quantity, maxQuantity));
+    if (value === "") {
+      setQuantityInput("");
+      return;
+    }
+
+    if (!/^\d+$/.test(value)) {
+      return;
+    }
+
+    const nextQuantity = parseQuantityInput(value, quantity, maxQuantity);
+    setQuantity(nextQuantity);
+    setQuantityInput(value);
   };
+
+  const handleQuantityBlur = React.useCallback(() => {
+    const val = parseInt(quantityInput, 10);
+    if (isNaN(val) || val < 1) {
+      setQuantity(1);
+      setQuantityInput("1");
+      return;
+    }
+
+    const nextQuantity = clampQuantity(val, 1, maxQuantity);
+    setQuantity(nextQuantity);
+    setQuantityInput(nextQuantity.toString());
+  }, [maxQuantity, quantityInput]);
+
+  React.useEffect(() => {
+    if (quantityInput === "") return;
+    const normalizedQuantity = clampQuantity(quantity, 1, maxQuantity);
+    const normalizedInput = normalizedQuantity.toString();
+    if (quantityInput !== normalizedInput) {
+      setQuantityInput(normalizedInput);
+    }
+  }, [maxQuantity, quantity, quantityInput]);
 
   const handleSmartAccountCheck = async () => {
     if (!requiresSmartAccountCheck(runtimeSelectedCurrency)) {
@@ -1934,7 +1973,10 @@ export function DepositDialog({
                 </span>
                 <button
                   type="button"
-                  onClick={() => setQuantity(maxQuantity)}
+                  onClick={() => {
+                    setQuantity(maxQuantity);
+                    setQuantityInput(maxQuantity.toString());
+                  }}
                   className="text-xs font-medium text-glow-orange hover:text-glow-orange/80 transition-colors px-2 py-0.5 rounded-md hover:bg-glow-orange/10"
                 >
                   Max
@@ -1952,17 +1994,13 @@ export function DepositDialog({
                 <Minus className="h-4 w-4" />
               </Button>
               <input
-                type="number"
-                value={quantity}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={quantityInput}
                 onChange={(e) => handleQuantityInput(e.target.value)}
-                onBlur={(e) => {
-                  const val = parseInt(e.target.value, 10);
-                  if (isNaN(val) || val < 1) {
-                    setQuantity(1);
-                  } else if (val > maxQuantity) {
-                    setQuantity(maxQuantity);
-                  }
-                }}
+                onFocus={(e) => e.target.select()}
+                onBlur={handleQuantityBlur}
                 min={1}
                 max={maxQuantity}
                 className="flex-1 text-center font-mono text-xl font-medium bg-transparent border-none outline-none focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"

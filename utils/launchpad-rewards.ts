@@ -1,12 +1,13 @@
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import type { AuctionApplication } from "@/hooks/hub-listings";
 import { formatUnits } from "viem";
+import { calculateSgctlStepAtomicFromGlwStep } from "@/app/marketplace/deposit-dialog-utils";
 
 export type DelegationCurrency = "GLW" | "SGCTL";
 
 type DelegationApplicationLike = Pick<
   AuctionApplication,
-  "paymentCurrency" | "activeFraction"
+  "paymentCurrency" | "activeFraction" | "applicationPriceQuotes"
 >;
 
 export interface LaunchpadRewardLike {
@@ -121,6 +122,46 @@ export function parseDelegationAmountFromBaseUnits(
   return parseTokenAmountFromBaseUnits(
     value,
     getDelegationCurrencyDecimals(currency)
+  );
+}
+
+export function getDelegationStepAtomic(
+  application?: DelegationApplicationLike | null
+): bigint | null {
+  const rawStep = application?.activeFraction?.step;
+  if (!rawStep) return null;
+
+  try {
+    const glwStepAtomic = BigInt(rawStep);
+    if (glwStepAtomic <= 0n) return null;
+
+    const delegationCurrency = resolveDelegationCurrency(application);
+    if (delegationCurrency === "GLW") return glwStepAtomic;
+
+    const latestQuote = application?.applicationPriceQuotes?.[0];
+    const glwPriceRaw = latestQuote?.prices?.GLW;
+    const gctlPriceRaw = latestQuote?.prices?.GCTL;
+    if (!glwPriceRaw || !gctlPriceRaw) return null;
+
+    return calculateSgctlStepAtomicFromGlwStep({
+      glwStepAtomic,
+      glwPriceMicros: BigInt(glwPriceRaw),
+      gctlPriceMicros: BigInt(gctlPriceRaw),
+    });
+  } catch {
+    return null;
+  }
+}
+
+export function parseDelegationStepAmount(
+  application?: DelegationApplicationLike | null
+): number {
+  const delegationCurrency = resolveDelegationCurrency(application);
+  const stepAtomic = getDelegationStepAtomic(application);
+  if (!stepAtomic) return 0;
+  return parseTokenAmountFromBaseUnits(
+    stepAtomic,
+    getDelegationCurrencyDecimals(delegationCurrency)
   );
 }
 
