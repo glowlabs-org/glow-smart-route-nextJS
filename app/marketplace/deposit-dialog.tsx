@@ -1276,13 +1276,32 @@ export function DepositDialog({
         // Report to Sentry
         const normalizedError = e instanceof Error ? e : new Error(String(rawMsg));
         Sentry.captureException(normalizedError, {
-          tags: { marketplaceStage: "deposit" },
+          tags: {
+            marketplaceStage: "deposit",
+            delegationAsset: application?.activeFraction?.delegationAsset ?? "none",
+            delegationPhase: application?.activeFraction?.delegationPhase ?? "none",
+          },
           extra: {
             currency: runtimeSelectedCurrency,
             paymentMethod: selectedPaymentMethod,
             delegationSource: sgctlSourceMode,
             applicationId: application?.id,
             fractionId: application?.activeFraction?.id,
+            regionId,
+            applicationPaymentCurrency: application?.paymentCurrency ?? null,
+            activeFractionDelegationAsset:
+              application?.activeFraction?.delegationAsset ?? null,
+            activeFractionDelegationPhase:
+              application?.activeFraction?.delegationPhase ?? null,
+            delegationStepAtomic: delegationStepAtomic?.toString() ?? null,
+            sgctlRequiredAmount:
+              runtimeSelectedCurrency === "SGCTL"
+                ? sgctlRequiredAmount.toString()
+                : null,
+            sgctlShortfall:
+              runtimeSelectedCurrency === "SGCTL"
+                ? sgctlShortfall.toString()
+                : null,
             quantity,
             failedStep: activeStep?.id,
             errorName: errorName || null,

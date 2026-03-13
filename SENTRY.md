@@ -91,6 +91,12 @@ Additional marketplace context:
 - `paymentMethod`: `USDC`, `ETH`, `GLW`, or `GCTL`
 - `delegationSource`: `staked`, `wallet_gctl`, `mint_usdc`, `mint_eth` for SGCTL flows
 - `applicationId`, `fractionId`, `quantity`, `failedStep`, `errorName`, `errorCode`
+- `regionId`
+- `applicationPaymentCurrency`
+- `activeFractionDelegationAsset`
+- `activeFractionDelegationPhase`
+- `delegationStepAtomic`
+- `sgctlRequiredAmount`, `sgctlShortfall`
 - wallet context: `walletClientChainId`, `walletClientAccount`, `connectorName`, `walletAddress`
 
 ### Wallet Claims
