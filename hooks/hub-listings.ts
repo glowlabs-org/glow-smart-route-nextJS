@@ -107,7 +107,7 @@ export function isFractionOpenForMarketplace(
   fraction:
     | Pick<
         ActiveFraction,
-        "isFilled" | "remainingSteps" | "totalSteps" | "isCommittedOnChain" | "status"
+        "isFilled" | "remainingSteps" | "totalSteps"
       >
     | null
     | undefined
@@ -116,10 +116,6 @@ export function isFractionOpenForMarketplace(
 
   const totalSteps = fraction.totalSteps ?? 0;
   const remainingSteps = fraction.remainingSteps ?? 0;
-  const normalizedStatus = String(fraction.status ?? "").toLowerCase();
-
-  if (fraction.isCommittedOnChain) return false;
-  if (normalizedStatus === "committed") return false;
 
   return !fraction.isFilled && remainingSteps > 0 && totalSteps > 0;
 }

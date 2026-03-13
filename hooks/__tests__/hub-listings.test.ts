@@ -35,7 +35,7 @@ describe("isFractionOpenForMarketplace", () => {
     expect(isFractionOpenForMarketplace(createFraction())).toBe(true);
   });
 
-  it("returns false for committed on-chain fractions even if remainingSteps are positive", () => {
+  it("returns true for committed on-chain fractions when remainingSteps are positive", () => {
     expect(
       isFractionOpenForMarketplace(
         createFraction({
@@ -45,6 +45,6 @@ describe("isFractionOpenForMarketplace", () => {
           isFilled: false,
         })
       )
-    ).toBe(false);
+    ).toBe(true);
   });
 });
