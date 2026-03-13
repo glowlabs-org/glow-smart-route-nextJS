@@ -80,6 +80,11 @@ Additional tags and context for ToS errors:
 | `components/dialogs/mint-and-stake-gctl-dialog.tsx` | `gctlStage: "mint_stake"` | Mint & stake GCTL failed |
 | `components/dialogs/mint-and-stake-gctl-dialog.tsx` | `gctlStage: "stake_existing"` | Stake existing GCTL failed |
 
+Additional GCTL preparation breadcrumbs from `hooks/useGctlPreparationOrchestrator.ts`:
+- category: `gctl.preparation`
+- messages: `stake_existing_start`, `eth_to_usdc_quote`, `eth_to_usdc_swap`, `check_allowance`, `approve_token`, `mint_and_stake`
+- context includes region, source/mint currency, and atomic amount inputs where relevant
+
 ### Marketplace
 
 | File | Stage Tag | Description |

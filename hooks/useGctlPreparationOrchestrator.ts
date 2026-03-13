@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import * as Sentry from "@sentry/nextjs";
 import { useAccount, usePublicClient, useWalletClient } from "wagmi";
 import {
   buildStakeMessage,
@@ -67,6 +68,18 @@ function markStep(
   updateStepStatus(stepId, status, extras);
 }
 
+function addGctlPreparationBreadcrumb(params: {
+  message: string;
+  data?: Record<string, string | number | boolean | null | undefined>;
+}) {
+  Sentry.addBreadcrumb({
+    category: "gctl.preparation",
+    level: "info",
+    message: params.message,
+    data: params.data,
+  });
+}
+
 export function useGctlPreparationOrchestrator(options?: {
   enabled?: boolean;
 }) {
@@ -112,6 +125,14 @@ export function useGctlPreparationOrchestrator(options?: {
         throw new Error("Invalid USDC amount required for swap");
       }
 
+      addGctlPreparationBreadcrumb({
+        message: "eth_to_usdc_quote",
+        data: {
+          targetUsdcAmountAtomic: targetUsdcAmountAtomic.toString(),
+          slippageBps: slippageBps.toString(),
+        },
+      });
+
       const probeRes = await estimateEthToUsdc({
         amountInWei: ETH_QUOTE_PROBE_WEI,
         slippageBps,
@@ -156,6 +177,14 @@ export function useGctlPreparationOrchestrator(options?: {
       if (params.amountAtomic <= 0n) {
         throw new Error("Invalid GCTL amount");
       }
+
+      addGctlPreparationBreadcrumb({
+        message: "stake_existing_start",
+        data: {
+          regionId: params.regionId,
+          amountAtomic: params.amountAtomic.toString(),
+        },
+      });
 
       const latestNonce = await getLatestNonce();
       const nonce = (Number(latestNonce) + 1).toString();
@@ -242,6 +271,16 @@ export function useGctlPreparationOrchestrator(options?: {
           throw new Error("Invalid ETH amount");
         }
 
+        addGctlPreparationBreadcrumb({
+          message: "eth_to_usdc_swap",
+          data: {
+            regionId: params.regionId,
+            sourceCurrency: params.sourceCurrency,
+            amountInWei: amountInWei.toString(),
+            targetUsdcAmountAtomic: params.targetUsdcAmountAtomic?.toString(),
+          },
+        });
+
         markStep(
           params.updateStepStatus,
           params.stepIds?.swapEthToUsdc,
@@ -277,6 +316,15 @@ export function useGctlPreparationOrchestrator(options?: {
         }
       }
 
+      addGctlPreparationBreadcrumb({
+        message: "check_allowance",
+        data: {
+          regionId: params.regionId,
+          mintCurrency,
+          amountAtomic: amountAtomic.toString(),
+        },
+      });
+
       markStep(
         params.updateStepStatus,
         params.stepIds?.checkAllowance,
@@ -291,6 +339,15 @@ export function useGctlPreparationOrchestrator(options?: {
 
       const approvalAmount = params.approvalAmount ?? MAX_APPROVAL_AMOUNT;
       if (allowance < amountAtomic) {
+        addGctlPreparationBreadcrumb({
+          message: "approve_token",
+          data: {
+            regionId: params.regionId,
+            mintCurrency,
+            amountAtomic: amountAtomic.toString(),
+            approvalAmount: approvalAmount.toString(),
+          },
+        });
         markStep(
           params.updateStepStatus,
           params.stepIds?.approve,
@@ -301,6 +358,16 @@ export function useGctlPreparationOrchestrator(options?: {
       } else {
         markStep(params.updateStepStatus, params.stepIds?.approve, "completed");
       }
+
+      addGctlPreparationBreadcrumb({
+        message: "mint_and_stake",
+        data: {
+          regionId: params.regionId,
+          mintCurrency,
+          amountAtomic: amountAtomic.toString(),
+          sourceCurrency: params.sourceCurrency,
+        },
+      });
 
       markStep(
         params.updateStepStatus,
