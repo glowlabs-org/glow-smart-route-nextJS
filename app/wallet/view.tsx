@@ -58,10 +58,9 @@ import { MigrationClaimPanel } from "./migration-claim-panel";
 import Link from "next/link";
 import { Progress } from "@/components/ui/progress";
 import { FallbackImage } from "@/components/ui/fallback-image";
-import { useGlowLaunchpad, useSplitsActivity } from "@/hooks";
+import { useSplitsActivity } from "@/hooks";
 import { useWalletSwaps } from "@/hooks/useWalletSwaps";
 import type { SwapActivity } from "@/hooks/useRecentActivityFeed";
-import { useRewardScore, getRewardScoreForApplication } from "@/hooks";
 import { useRewardsBreakdown } from "@/hooks";
 import { Badge } from "@/components/ui/badge";
 import { RewardsBreakdownPanel } from "./rewards-breakdown-panel";
@@ -70,14 +69,11 @@ import { ConnectButton } from "@/components/connect-button";
 import { DiscordLogoIcon } from "@radix-ui/react-icons";
 import { trackEvent } from "@/lib/telemetry";
 import {
-  normalizeDelegationCurrency,
-  parseDelegationAmountFromBaseUnits,
+  parseTokenAmountFromBaseUnits,
   resolveDelegationCurrency,
 } from "@/utils/launchpad-rewards";
-import {
-  attachEstimatedWeeklyLaunchpadRewards,
-  deriveLaunchpadSponsorshipsInProgress,
-} from "@/utils/sponsorships-in-progress";
+import { useWalletLaunchpadInProgress } from "@/hooks/use-wallet-launchpad-in-progress";
+import { resolveLaunchpadSplitCurrency } from "@/utils/wallet-launchpad";
 
 // Lazy-load RecentActivity to defer its network work off the critical path
 const RecentActivity = dynamic(
@@ -241,47 +237,15 @@ export default function View() {
     }));
   }, [swaps]);
 
-  const { applications: sponsorListings, isLoading: isSponsorListingsLoading } =
-    useGlowLaunchpad({
-      enabled: Boolean(
-        isConnected && address && splitsActivity && splitsActivity.length > 0,
-      ),
-    });
-
-  const launchpadSponsorshipsInProgress = React.useMemo(
-    () =>
-      deriveLaunchpadSponsorshipsInProgress({
-        splitsActivity,
-        sponsorListings,
-      }),
-    [splitsActivity, sponsorListings]
-  );
-
-  // Get reward scores for applications in progress
-  const applicationsForRewards = React.useMemo(() => {
-    const unique = new Map<string, any>();
-    launchpadSponsorshipsInProgress.forEach((item) => {
-      if (item.application?.id) {
-        unique.set(item.application.id, item.application);
-      }
-    });
-    return Array.from(unique.values());
-  }, [launchpadSponsorshipsInProgress]);
-
-  const { rewardScoreMap, isLoading: isRewardScoresLoading } = useRewardScore({
-    applications: applicationsForRewards,
-    paymentCurrency: "GLW",
-    enabled: applicationsForRewards.length > 0,
-    walletAddress: address || null,
-  });
   const {
-    rewardScoreMap: sgctlRewardScoreMap,
-    isLoading: isSgctlRewardScoresLoading,
-  } = useRewardScore({
-    applications: applicationsForRewards,
-    paymentCurrency: "SGCTL",
-    enabled: applicationsForRewards.length > 0,
-    walletAddress: address || null,
+    sponsorListingById,
+    sponsorshipsInProgressWithEstimates: launchpadSponsorshipsInProgressWithEstimates,
+    isRewardScoresLoading,
+    isSgctlRewardScoresLoading,
+  } = useWalletLaunchpadInProgress({
+    splitsActivity,
+    walletAddress: address ?? null,
+    enabled: Boolean(isConnected && address),
   });
 
   const delegatedAmountsByApplication = React.useMemo(() => {
@@ -291,7 +255,7 @@ export default function View() {
       if (evt.fractionType !== "launchpad") continue;
       if ((evt.fractionStatus ?? "").toLowerCase() !== "committed") continue;
 
-      const app = sponsorListings.find((a: any) => a.id === evt.applicationId);
+      const app = sponsorListingById.get(evt.applicationId);
       const progress =
         app?.activeFraction?.progressPercent ?? evt.progressPercent ?? 0;
       const isFilled =
@@ -301,10 +265,17 @@ export default function View() {
         progress >= 100;
       if (isFilled) continue;
 
-      const currency = evt.currency
-        ? normalizeDelegationCurrency(evt.currency)
-        : resolveDelegationCurrency(app);
-      const amount = parseDelegationAmountFromBaseUnits(evt.amount, currency);
+      const currency = resolveLaunchpadSplitCurrency({
+        currency: evt.currency,
+        amount: evt.amount,
+        stepPrice: evt.stepPrice,
+        transactionHash: evt.transactionHash,
+        listingCurrency: app ? resolveDelegationCurrency(app) : null,
+      });
+      const decimals =
+        evt.currencyDecimals ??
+        (currency === "SGCTL" ? DECIMALS_BY_TOKEN.GCTL : DECIMALS_BY_TOKEN.GLW);
+      const amount = parseTokenAmountFromBaseUnits(evt.amount, decimals);
       if (!Number.isFinite(amount) || amount <= 0) continue;
 
       const existing = byApp.get(evt.applicationId) ?? {};
@@ -313,17 +284,9 @@ export default function View() {
     }
 
     return byApp;
-  }, [splitsActivity, sponsorListings]);
+  }, [splitsActivity, sponsorListingById]);
 
   const sponsorshipsInProgress = React.useMemo(() => {
-    const estimated = attachEstimatedWeeklyLaunchpadRewards({
-      sponsorshipsInProgress: launchpadSponsorshipsInProgress,
-      rewardScoreMap,
-      rewardScoreMapByCurrency: {
-        GLW: rewardScoreMap,
-        SGCTL: sgctlRewardScoreMap,
-      },
-    });
     const byApp = new Map<
       string,
       {
@@ -338,7 +301,7 @@ export default function View() {
       }
     >();
 
-    estimated.forEach((item) => {
+    launchpadSponsorshipsInProgressWithEstimates.forEach((item) => {
       const existing = byApp.get(item.applicationId);
       byApp.set(item.applicationId, {
         applicationId: item.applicationId,
@@ -366,9 +329,7 @@ export default function View() {
     return Array.from(byApp.values()).filter((item) => item.userSteps > 0);
   }, [
     delegatedAmountsByApplication,
-    launchpadSponsorshipsInProgress,
-    rewardScoreMap,
-    sgctlRewardScoreMap,
+    launchpadSponsorshipsInProgressWithEstimates,
   ]);
 
   const { data: rewardsBreakdownData, isLoading: isRewardsBreakdownLoading } =

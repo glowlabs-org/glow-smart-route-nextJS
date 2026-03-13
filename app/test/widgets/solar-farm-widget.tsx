@@ -58,6 +58,7 @@ import {
   deriveMiningCenterSponsorshipsInProgress,
 } from "@/utils/sponsorships-in-progress";
 import { useWalletLaunchpadInProgress } from "@/hooks/use-wallet-launchpad-in-progress";
+import { resolveLaunchpadActivityFarmId } from "@/utils/wallet-launchpad";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { trackEvent } from "@/lib/telemetry";
 import { GENESIS_TIMESTAMP, getCurrentEpoch } from "@/utils/getCurrentEpoch";
@@ -660,6 +661,7 @@ export default function SolarFarmWidget({
     limit: 200,
   });
   const {
+    sponsorListingById,
     sponsorshipsInProgress,
     sponsorshipsInProgressWithEstimates,
     isRewardScoresLoading,
@@ -727,7 +729,12 @@ export default function SolarFarmWidget({
       const status = (evt.fractionStatus ?? "").toLowerCase();
       if (status !== "filled") continue;
 
-      const farmId = evt.farmId ?? evt.applicationId;
+      const listing = sponsorListingById.get(evt.applicationId);
+      const farmId = resolveLaunchpadActivityFarmId({
+        applicationId: evt.applicationId,
+        activityFarmId: evt.farmId,
+        listingFarmId: listing?.farmId,
+      });
       if (!farmId) continue;
 
       const farmMetadata = purchasedFarms.find((farm) => farm.farmId === farmId);
@@ -759,7 +766,7 @@ export default function SolarFarmWidget({
     }
 
     return Array.from(byFarm.values());
-  }, [purchasedFarms, splitsActivity]);
+  }, [purchasedFarms, splitsActivity, sponsorListingById]);
 
   const inProgressEstimatedByAsset = React.useMemo(() => {
     const totals = new Map<string, number>();
