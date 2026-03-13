@@ -12,6 +12,7 @@ import {
   calculateCostInGLW,
   calculateCostInUSDC,
   calculateCostInETH,
+  resolveDelegationStepAtomic,
   type ActiveFraction,
 } from "../deposit-dialog-utils";
 
@@ -121,6 +122,32 @@ describe("calculateSgctlStepAtomicFromGlwStep", () => {
         gctlPriceMicros: 1n,
       })
     ).toBeNull();
+  });
+});
+
+describe("resolveDelegationStepAtomic", () => {
+  it("prefers exact SGCTL totals from the backend over quote-derived rounding", () => {
+    const activeFraction = createFraction({
+      delegationAsset: "SGCTL",
+      totalSteps: 10,
+      totalAmountNeeded: "28152200000",
+      step: "7199999999999999994880",
+    });
+
+    const resolved = resolveDelegationStepAtomic({
+      activeFraction,
+      selectedCurrency: "SGCTL",
+      applicationPriceQuotes: [
+        {
+          prices: {
+            GLW: "391000",
+            GCTL: "1000000",
+          },
+        },
+      ],
+    });
+
+    expect(resolved).toBe(2815220000n);
   });
 });
 

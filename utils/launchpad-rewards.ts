@@ -138,6 +138,30 @@ export function getDelegationStepAtomic(
     const delegationCurrency = resolveDelegationCurrency(application);
     if (delegationCurrency === "GLW") return glwStepAtomic;
 
+    const totalSteps = BigInt(
+      Math.max(0, Math.floor(application?.activeFraction?.totalSteps ?? 0))
+    );
+    const exactTotalAmountNeeded = (() => {
+      try {
+        return application?.activeFraction?.totalAmountNeeded != null
+          ? BigInt(application.activeFraction.totalAmountNeeded)
+          : null;
+      } catch {
+        return null;
+      }
+    })();
+    if (
+      totalSteps > 0n &&
+      exactTotalAmountNeeded != null &&
+      exactTotalAmountNeeded > 0n &&
+      exactTotalAmountNeeded % totalSteps === 0n
+    ) {
+      const exactStepAtomic = exactTotalAmountNeeded / totalSteps;
+      if (exactStepAtomic > 0n && exactStepAtomic < 1_000_000_000_000n) {
+        return exactStepAtomic;
+      }
+    }
+
     const latestQuote = application?.applicationPriceQuotes?.[0];
     const glwPriceRaw = latestQuote?.prices?.GLW;
     const gctlPriceRaw = latestQuote?.prices?.GCTL;

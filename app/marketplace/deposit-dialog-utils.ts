@@ -17,8 +17,14 @@ export interface ActiveFraction {
   totalSteps: number;
   remainingSteps: number | null;
   splitsSold?: number;
+  amountRaised?: string | null;
+  totalAmountNeeded?: string | null;
   delegationAsset?: "GLW" | "SGCTL" | null;
   delegationPhase?: "hidden" | "sgctl" | "glw" | null;
+}
+
+export interface ApplicationPriceQuoteLike {
+  prices?: Partial<Record<"GLW" | "GCTL" | "SGCTL" | "USDC" | "USDG", string>>;
 }
 
 export type DepositSelectedCurrency = "GLW" | "SGCTL" | "USDC";
@@ -517,6 +523,64 @@ export function calculateSgctlStepAtomicFromGlwStep(
 
   const sgctlStepAtomic = (usdMicrosPerStep * microUsdBase) / gctlPriceMicros;
   return sgctlStepAtomic > 0n ? sgctlStepAtomic : null;
+}
+
+export function resolveDelegationStepAtomic(params: {
+  activeFraction: ActiveFraction | null | undefined;
+  selectedCurrency: DepositSelectedCurrency;
+  applicationPriceQuotes?: ApplicationPriceQuoteLike[] | null;
+}): bigint | null {
+  const { activeFraction, selectedCurrency, applicationPriceQuotes } = params;
+  if (!activeFraction || selectedCurrency === "USDC") return null;
+
+  const glwStepAtomic = (() => {
+    try {
+      return BigInt(activeFraction.step);
+    } catch {
+      return null;
+    }
+  })();
+
+  if (glwStepAtomic == null || glwStepAtomic <= 0n) return null;
+  if (selectedCurrency === "GLW") return glwStepAtomic;
+
+  const totalSteps = BigInt(Math.max(0, Math.floor(activeFraction.totalSteps)));
+  const exactTotalAmountNeeded = (() => {
+    try {
+      return activeFraction.totalAmountNeeded != null
+        ? BigInt(activeFraction.totalAmountNeeded)
+        : null;
+    } catch {
+      return null;
+    }
+  })();
+
+  if (
+    totalSteps > 0n &&
+    exactTotalAmountNeeded != null &&
+    exactTotalAmountNeeded > 0n &&
+    exactTotalAmountNeeded % totalSteps === 0n
+  ) {
+    const exactStepAtomic = exactTotalAmountNeeded / totalSteps;
+    if (exactStepAtomic > 0n && exactStepAtomic < 1_000_000_000_000n) {
+      return exactStepAtomic;
+    }
+  }
+
+  const latestQuote = applicationPriceQuotes?.[0];
+  const glwPriceRaw = latestQuote?.prices?.GLW;
+  const gctlPriceRaw = latestQuote?.prices?.GCTL;
+  if (!glwPriceRaw || !gctlPriceRaw) return null;
+
+  try {
+    return calculateSgctlStepAtomicFromGlwStep({
+      glwStepAtomic,
+      glwPriceMicros: BigInt(glwPriceRaw),
+      gctlPriceMicros: BigInt(gctlPriceRaw),
+    });
+  } catch {
+    return null;
+  }
 }
 
 export function calculateShortfall(
