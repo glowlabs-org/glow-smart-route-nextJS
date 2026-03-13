@@ -376,7 +376,9 @@ function FarmCard({
   const lastWeekLabel =
     typeof farm.lastWeekRewardsGlw === "number"
       ? `${fmtGlw(farm.lastWeekRewardsGlw)} GLW`
-      : "—";
+      : null;
+  const hasLastWeekRewards = lastWeekLabel !== null;
+  const usesWidePendingSummary = isPendingStart && !isCompact && !hasLastWeekRewards;
 
   const getTypeBadge = () => {
     // For pending start, we still want to show the type (Miner/Delegation)
@@ -542,7 +544,12 @@ function FarmCard({
               value={Math.max(0, Math.min(100, farm.inProgressPercent ?? 0))}
               className={cn(isCompact ? "h-1" : "h-1.5", "bg-muted")}
             />
-            <div className={cn("grid grid-cols-2 gap-2", !isCompact && "gap-4")}>
+            <div
+              className={cn(
+                "grid grid-cols-2 gap-2",
+                !isCompact && "grid-cols-[max-content_minmax(0,1fr)] gap-6",
+              )}
+            >
               <div>
                 <div
                   className={cn(
@@ -556,7 +563,7 @@ function FarmCard({
                   {delegatedOrCostLabel}
                 </div>
               </div>
-              <div className="text-right">
+              <div className={cn("text-right", !isCompact && "min-w-0")}>
                 <div
                   className={cn(
                     "uppercase tracking-wider text-muted-foreground font-semibold mb-1",
@@ -569,6 +576,7 @@ function FarmCard({
                   className={cn(
                     "font-mono font-bold",
                     isCompact ? "text-xs" : "text-sm",
+                    !isCompact && "whitespace-nowrap",
                     inProgressIsMiningCenter
                       ? "text-[color:var(--color-miner-contrast)]"
                       : "text-delegation-purple",
@@ -603,7 +611,13 @@ function FarmCard({
             <div
               className={cn(
                 "grid",
-                isCompact ? "grid-cols-2 gap-2" : "grid-cols-3 gap-4",
+                isCompact
+                  ? "grid-cols-2 gap-2"
+                  : usesWidePendingSummary
+                    ? "grid-cols-[max-content_minmax(0,1fr)] gap-6"
+                  : hasLastWeekRewards
+                    ? "grid-cols-3 gap-4"
+                    : "grid-cols-2 gap-4",
               )}
             >
               <div>
@@ -626,7 +640,7 @@ function FarmCard({
                     : `${farm.weeksActive} / ${farm.totalWeeks} wks`}
                 </div>
               </div>
-              {!isCompact && (
+              {!isCompact && hasLastWeekRewards && (
                 <div className="text-center">
                   <div
                     className={cn(
@@ -637,13 +651,11 @@ function FarmCard({
                     Last Week
                   </div>
                   <div className="font-mono font-medium text-sm">
-                    {isPendingStart
-                      ? "Pending"
-                      : `${fmtGlw(farm.lastWeekRewardsGlw ?? 0)} GLW`}
+                    {lastWeekLabel}
                   </div>
                 </div>
               )}
-              <div className={cn(isCompact ? "text-right" : "text-right")}>
+              <div className={cn("text-right", usesWidePendingSummary && "min-w-0")}>
                 <div
                   className={cn(
                     "uppercase tracking-wider text-muted-foreground font-semibold mb-1",
@@ -656,6 +668,7 @@ function FarmCard({
                   className={cn(
                     "font-mono font-bold",
                     isCompact ? "text-xs" : "text-sm",
+                    usesWidePendingSummary && "whitespace-nowrap",
                     isPendingStart
                       ? "text-muted-foreground"
                       : isMiner
@@ -669,7 +682,7 @@ function FarmCard({
                     ? estimatedWeeklyLabel ?? "Pending"
                     : getFarmEarnedLabel(farm)}
                 </div>
-                {isCompact && !isPendingStart && (
+                {isCompact && !isPendingStart && hasLastWeekRewards && (
                   <div
                     className={cn(
                       "text-[10px] font-mono text-muted-foreground mt-1",
@@ -1878,7 +1891,6 @@ export default function MyFarmsGridSection({
           weeksActive: 0,
           totalWeeks: 100,
           weeklyBreakdown: [],
-          lastWeekRewardsGlw: 0,
           estimatedUserWeeklyGlw,
           estimatedUserWeeklyPd,
           estimatedUserWeeklyPdAsset,
@@ -1906,7 +1918,6 @@ export default function MyFarmsGridSection({
           weeksActive: 0,
           totalWeeks: 99,
           weeklyBreakdown: [],
-          lastWeekRewardsGlw: 0,
           estimatedUserWeeklyGlw,
           estimatedUserWeeklyPd,
           estimatedUserWeeklyPdAsset,
@@ -1983,7 +1994,6 @@ export default function MyFarmsGridSection({
           item.fractionType === "launchpad"
             ? item.estimatedUserWeeklyPdAsset ?? null
             : null,
-        lastWeekRewardsGlw: 0,
         delegatedAmountsByAsset:
           item.fractionType === "launchpad"
             ? launchpadDelegatedAmountsByFarmId.get(rowFarmId)
