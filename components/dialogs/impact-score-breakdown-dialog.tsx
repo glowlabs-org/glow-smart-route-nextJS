@@ -44,6 +44,7 @@ import {
   useImpactScoreQuery,
   type ImpactGlowScoreResponse,
   type ImpactWeekRange,
+  useWalletRegionAvailableStakeMap,
   useWallets,
   useActiveRegionsSummary,
 } from "@/hooks";
@@ -380,6 +381,15 @@ export function ImpactScoreBreakdownDialogContent(
     walletAddress: address ?? undefined,
     enabled: Boolean(address),
   });
+  const regionIds = useMemo(
+    () => (walletDetails?.regions ?? []).map((region) => region.regionId),
+    [walletDetails?.regions],
+  );
+  const { impactEligibleStakedGctlByRegion } = useWalletRegionAvailableStakeMap({
+    walletAddress: address ?? undefined,
+    regionIds,
+    enabled: Boolean(address),
+  });
   const { data: activeSummary } = useActiveRegionsSummary({
     enabled: Boolean(address),
   });
@@ -398,17 +408,13 @@ export function ImpactScoreBreakdownDialogContent(
     );
 
     const stakes = walletDetails.regions
-      .filter((r) => {
-        try {
-          return BigInt(r.totalStaked || "0") > BigInt(0);
-        } catch {
-          return false;
-        }
-      })
+      .filter((r) => (impactEligibleStakedGctlByRegion.get(r.regionId) ?? 0n) > 0n)
       .map((r) => {
         const regionData = regionDataMap.get(r.regionId);
         return {
-          amountGctl: gctlAmountFromRaw(r.totalStaked),
+          amountGctl: gctlAmountFromRaw(
+            (impactEligibleStakedGctlByRegion.get(r.regionId) ?? 0n).toString(),
+          ),
           totalRegionStaked: regionData?.totalStaked ?? 0,
           weeklyEmissions: regionData?.weeklyEmissions ?? 0,
         };
@@ -422,7 +428,7 @@ export function ImpactScoreBreakdownDialogContent(
     }, 0);
 
     return total;
-  }, [activeSummary, walletDetails]);
+  }, [activeSummary, impactEligibleStakedGctlByRegion, walletDetails]);
 
   // --- Data Logic (Extracted from previous) ---
   const latestWeek = impactScore?.weekly?.[impactScore.weekly.length - 1];

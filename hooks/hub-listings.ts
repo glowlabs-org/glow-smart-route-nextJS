@@ -103,6 +103,27 @@ export interface ActiveFraction {
   rewardScore: number | null;
 }
 
+export function isFractionOpenForMarketplace(
+  fraction:
+    | Pick<
+        ActiveFraction,
+        "isFilled" | "remainingSteps" | "totalSteps" | "isCommittedOnChain" | "status"
+      >
+    | null
+    | undefined
+): boolean {
+  if (!fraction) return false;
+
+  const totalSteps = fraction.totalSteps ?? 0;
+  const remainingSteps = fraction.remainingSteps ?? 0;
+  const normalizedStatus = String(fraction.status ?? "").toLowerCase();
+
+  if (fraction.isCommittedOnChain) return false;
+  if (normalizedStatus === "committed") return false;
+
+  return !fraction.isFilled && remainingSteps > 0 && totalSteps > 0;
+}
+
 export interface AuctionApplication {
   id: string;
   userId: string;

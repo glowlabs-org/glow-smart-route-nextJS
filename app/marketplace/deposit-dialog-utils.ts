@@ -75,6 +75,15 @@ export interface WalletRegionStakeSnapshot {
   pendingRestakeOut?: BigintLike;
 }
 
+export interface WalletRegionAvailableStakeSnapshot {
+  availableStakedGctl?: BigintLike;
+  totalStakedAndNotUsedInProtocolFees?: BigintLike;
+  pendingUnstake?: BigintLike;
+  pendingRestakeOut?: BigintLike;
+  delegatedSgctlVaultBalance?: BigintLike;
+  protocolDepositVaultBalance?: BigintLike;
+}
+
 export interface SgctlStepDerivationInput {
   glwStepAtomic: bigint;
   glwPriceMicros: bigint;
@@ -85,12 +94,21 @@ export interface TransactionStep {
   id: string;
   title: string;
   description: string;
+  statusLabel?: string;
   tokenFrom?: "ETH" | "USDC" | "USDG" | "GLW";
   tokenTo?: "ETH" | "USDC" | "USDG" | "GLW";
   status: "idle" | "waiting_signature" | "confirming" | "completed" | "error";
   startedAt?: number;
   txHash?: string;
   errorMessage?: string;
+}
+
+export interface UpdateTransactionStepStatusExtras {
+  txHash?: string;
+  errorMessage?: string;
+  deactivateStepIds?: string[];
+  clearStartedAt?: boolean;
+  now?: number;
 }
 
 export interface LaunchpadRewardScore {
@@ -117,6 +135,12 @@ export interface EstimatedRewardsBreakdown {
   pd: number;
   pdSymbol: "GLW" | "SGCTL" | null;
   totalGlwEquivalent: number;
+}
+
+export interface ControlTransferStatusLike {
+  status?: string | null;
+  errorMessage?: string | null;
+  errorDetails?: string | null;
 }
 
 // ============================================================================
@@ -215,6 +239,11 @@ export const CONTRACT_ERROR_MESSAGES: Record<string, ContractErrorConfig> = {
     message: "This listing is no longer available. Please refresh and try again.",
     shouldRefresh: true,
   },
+  "already committed on-chain for GLW delegation": {
+    message:
+      "This listing has already moved to committed GLW delegation. Please refresh before trying again.",
+    shouldRefresh: true,
+  },
 };
 
 export const RPC_INTERNAL_ERROR_MESSAGE =
@@ -307,6 +336,98 @@ export function isInternalRpcError(error: unknown): boolean {
     message.includes("internalrpcerror") ||
     message.includes("could not coalesce") ||
     message.includes("missing or invalid parameters")
+  );
+}
+
+export function isRetriableStakeSyncRefreshError(error: unknown): boolean {
+  const message = getErrorMessage(error).toLowerCase();
+
+  return (
+    error instanceof TypeError ||
+    isInternalRpcError(error) ||
+    message.includes("transfer not found") ||
+    message.includes("not found") ||
+    message.includes("failed to fetch") ||
+    message.includes("networkerror") ||
+    message.includes("network error") ||
+    message.includes("load resource") ||
+    message.includes("econnrefused") ||
+    message.includes("err_connection_refused") ||
+    message.includes("fetch")
+  );
+}
+
+export function extractControlTransferTrackingId(result: unknown): string | null {
+  if (!result) return null;
+  if (typeof result === "string") return result;
+
+  const anyResult = result as Record<string, unknown>;
+  const candidate =
+    anyResult.txHash ??
+    anyResult.transferId ??
+    anyResult.operationId ??
+    anyResult.id ??
+    null;
+
+  return typeof candidate === "string" && candidate.length > 0
+    ? candidate
+    : null;
+}
+
+export async function pollControlTransferConfirmation(
+  params: {
+    poll: () => Promise<ControlTransferStatusLike>;
+    maxAttempts?: number;
+    delayMs?: number;
+    sleep?: (ms: number) => Promise<void>;
+  }
+): Promise<ControlTransferStatusLike> {
+  const maxAttempts = params.maxAttempts ?? 24;
+  const delayMs = params.delayMs ?? 5_000;
+  const sleep =
+    params.sleep ??
+    ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+  let sawTransferRecord = false;
+  let lastRetriableError: unknown = null;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    try {
+      const transfer = await params.poll();
+      const status = String(transfer.status ?? "").toLowerCase();
+
+      sawTransferRecord = true;
+
+      if (status === "confirmed") {
+        return transfer;
+      }
+
+      if (status === "failed") {
+        throw new Error(
+          transfer.errorMessage ||
+            transfer.errorDetails ||
+            "Control transfer failed"
+        );
+      }
+    } catch (error) {
+      if (!isRetriableStakeSyncRefreshError(error)) {
+        throw error;
+      }
+      lastRetriableError = error;
+    }
+
+    if (attempt < maxAttempts - 1) {
+      await sleep(delayMs);
+    }
+  }
+
+  if (!sawTransferRecord && lastRetriableError) {
+    throw new Error(
+      "Unable to verify your Control transfer right now. Please wait a few seconds and retry."
+    );
+  }
+
+  throw new Error(
+    "Your stake transfer is still confirming in Control. Please wait a moment and retry."
   );
 }
 
@@ -506,6 +627,34 @@ export function calculateAvailableStakedGctl(
   const unavailable = pendingUnstake + pendingRestakeOut;
 
   return totalStaked > unavailable ? totalStaked - unavailable : 0n;
+}
+
+export function parseAvailableStakeSnapshot(
+  payload: WalletRegionAvailableStakeSnapshot | null | undefined
+): {
+  availableStakedGctl: bigint;
+  totalStakedAndNotUsedInProtocolFees: bigint;
+  pendingUnstake: bigint;
+  pendingRestakeOut: bigint;
+  delegatedSgctlVaultBalance: bigint;
+  protocolDepositVaultBalance: bigint;
+} {
+  const snapshot = (payload ?? {}) as WalletRegionAvailableStakeSnapshot;
+
+  return {
+    availableStakedGctl: coerceToBigInt(snapshot.availableStakedGctl),
+    totalStakedAndNotUsedInProtocolFees: coerceToBigInt(
+      snapshot.totalStakedAndNotUsedInProtocolFees
+    ),
+    pendingUnstake: coerceToBigInt(snapshot.pendingUnstake),
+    pendingRestakeOut: coerceToBigInt(snapshot.pendingRestakeOut),
+    delegatedSgctlVaultBalance: coerceToBigInt(
+      snapshot.delegatedSgctlVaultBalance
+    ),
+    protocolDepositVaultBalance: coerceToBigInt(
+      snapshot.protocolDepositVaultBalance
+    ),
+  };
 }
 
 export function calculateSgctlStepAtomicFromGlwStep(
@@ -803,6 +952,16 @@ export function initializeTransactionSteps(
       });
     }
 
+    if (sgctlSource !== "staked") {
+      steps.push({
+        id: "INDEX_STAKE",
+        title: "Index Stake",
+        description: "Waiting for Control to index your regional stake",
+        statusLabel: "Indexing in Control...",
+        status: "idle",
+      });
+    }
+
     steps.push({
       id: "DELEGATE_SGCTL",
       title: "Delegate SGCTL",
@@ -864,6 +1023,48 @@ export function initializeTransactionSteps(
   });
 
   return steps;
+}
+
+export function updateTransactionStepStatus(
+  steps: TransactionStep[],
+  stepId: string,
+  status: TransactionStep["status"],
+  extras?: UpdateTransactionStepStatusExtras
+): TransactionStep[] {
+  const now = extras?.now ?? Date.now();
+  const deactivateStepIds = new Set(extras?.deactivateStepIds ?? []);
+  const shouldActivate =
+    status === "waiting_signature" || status === "confirming";
+
+  return steps.map((step) => {
+    if (deactivateStepIds.has(step.id) && step.id !== stepId) {
+      return {
+        ...step,
+        status: "idle",
+        startedAt: undefined,
+        errorMessage: undefined,
+      };
+    }
+
+    if (step.id !== stepId) return step;
+
+    return {
+      ...step,
+      status,
+      startedAt: shouldActivate
+        ? step.startedAt ?? now
+        : extras?.clearStartedAt
+        ? undefined
+        : step.startedAt,
+      txHash: extras?.txHash ?? step.txHash,
+      errorMessage:
+        extras?.errorMessage !== undefined
+          ? extras.errorMessage
+          : status === "error"
+          ? step.errorMessage
+          : undefined,
+    };
+  });
 }
 
 // ============================================================================

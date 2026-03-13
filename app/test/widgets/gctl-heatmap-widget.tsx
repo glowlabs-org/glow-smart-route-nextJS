@@ -30,9 +30,10 @@ import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import { cn } from "@/lib/utils";
 import {
   useGctlApi,
-  useWallets,
   useRegions,
   useActiveRegionsSummary,
+  useWallets,
+  useWalletRegionAvailableStakeMap,
 } from "@/hooks";
 import { ConnectButton } from "@/components/connect-button";
 import { trackEvent } from "@/lib/telemetry";
@@ -184,6 +185,18 @@ export default function GctlControlWidget({
     walletAddress: walletAddress ?? undefined,
     enabled: isEnabled,
   });
+  const regionIds = useMemo(
+    () => (walletDetails?.regions ?? []).map((region) => region.regionId),
+    [walletDetails?.regions],
+  );
+  const {
+    impactEligibleStakedGctlByRegion,
+    isAvailableStakeMapLoading,
+  } = useWalletRegionAvailableStakeMap({
+    walletAddress: walletAddress ?? undefined,
+    regionIds,
+    enabled: isEnabled,
+  });
   const { regions, isRegionsLoading } = useRegions();
   const { data: activeSummary, isLoading: isActiveSummaryLoading } =
     useActiveRegionsSummary({
@@ -214,29 +227,33 @@ export default function GctlControlWidget({
     return (
       walletDetails?.regions
         ?.filter((r) => {
-          try {
-            return BigInt(r.totalStaked || "0") > BigInt(0);
-          } catch {
-            return false;
-          }
+          return (impactEligibleStakedGctlByRegion.get(r.regionId) ?? 0n) > 0n;
         })
         .map((r) => {
           const fallbackName =
             regions.find((reg) => reg.id === r.regionId)?.name ??
             `Region ${r.regionId}`;
           const regionData = regionDataMap.get(r.regionId);
+          const impactEligibleStaked =
+            impactEligibleStakedGctlByRegion.get(r.regionId) ?? 0n;
 
           return {
             regionId: r.regionId,
             regionName: r.region?.name || fallbackName,
-            amountGctl: gctlAmountFromRaw(r.totalStaked),
+            amountGctl: gctlAmountFromRaw(impactEligibleStaked.toString()),
             totalRegionStaked: regionData?.totalStaked ?? 0,
             weeklyEmissions: regionData?.weeklyEmissions ?? 0,
           };
         })
         .sort((a, b) => b.amountGctl - a.amountGctl) ?? []
     );
-  }, [isEnabled, regions, walletDetails?.regions, regionDataMap]);
+  }, [
+    impactEligibleStakedGctlByRegion,
+    isEnabled,
+    regionDataMap,
+    regions,
+    walletDetails?.regions,
+  ]);
 
   const stakedTotalGctl = useMemo(
     () => stakes.reduce((acc, curr) => acc + curr.amountGctl, 0),
@@ -263,6 +280,7 @@ export default function GctlControlWidget({
   const isLoading =
     isGctlBalanceLoading ||
     isWalletDetailsLoading ||
+    isAvailableStakeMapLoading ||
     isRegionsLoading ||
     isActiveSummaryLoading;
 

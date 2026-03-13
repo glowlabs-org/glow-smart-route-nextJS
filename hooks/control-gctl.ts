@@ -411,6 +411,9 @@ export function useGctlApi(
         queryKey: APP_QUERY_KEYS.wallets.details(walletAddress),
       });
       await queryClient.invalidateQueries({
+        queryKey: APP_QUERY_KEYS.wallets.availableStake(walletAddress, regionId),
+      });
+      await queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.regionStake(regionId),
       });
       await queryClient.invalidateQueries({
@@ -450,6 +453,9 @@ export function useGctlApi(
         queryKey: APP_QUERY_KEYS.wallets.details(walletAddress),
       });
       await queryClient.invalidateQueries({
+        queryKey: APP_QUERY_KEYS.wallets.availableStake(walletAddress, regionId),
+      });
+      await queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.regionStake(regionId),
       });
       await queryClient.invalidateQueries({
@@ -487,6 +493,12 @@ export function useGctlApi(
       });
       await queryClient.invalidateQueries({
         queryKey: APP_QUERY_KEYS.wallets.details(walletAddress),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: APP_QUERY_KEYS.wallets.availableStake(walletAddress, fromZoneId),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: APP_QUERY_KEYS.wallets.availableStake(walletAddress, toZoneId),
       });
       await queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.regionStake(fromZoneId),
@@ -580,6 +592,12 @@ export function useGctlApi(
             }),
             queryClient.invalidateQueries({
               queryKey: APP_QUERY_KEYS.wallets.details(wallet),
+            }),
+            queryClient.invalidateQueries({
+              predicate: (q) =>
+                Array.isArray(q.queryKey) &&
+                q.queryKey[0] === "wallet-available-stake" &&
+                q.queryKey[1] === wallet,
             }),
             queryClient.invalidateQueries({
               queryKey: QUERY_KEYS.latestNonce(wallet),

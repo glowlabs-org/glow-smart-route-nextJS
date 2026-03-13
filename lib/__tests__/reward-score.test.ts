@@ -130,6 +130,23 @@ describe("resolveRewardScorePaymentCurrency", () => {
   });
 });
 
+describe("filterActiveRewardApplications", () => {
+  it("excludes fractions that are already committed on-chain", () => {
+    const active = createApplication("active");
+    const committed = createApplication("committed", {
+      activeFraction: createActiveFraction({
+        status: "committed",
+        isCommittedOnChain: true,
+        remainingSteps: 10,
+        isFilled: false,
+      }),
+    });
+
+    expect(filterActiveRewardApplications([active, committed]).map((app) => app.id))
+      .toEqual(["active"]);
+  });
+});
+
 describe("buildRewardScoreCurrencyKey", () => {
   it("differentiates GLW and SGCTL launchpad rows in the cache key", () => {
     const glwApplication = createApplication("glw-app");

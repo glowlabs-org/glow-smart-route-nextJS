@@ -46,6 +46,7 @@ import {
   useAvailableZones,
   calculateProtocolDepositAmount,
   getAvailableCurrencies,
+  isFractionOpenForMarketplace,
   type PaymentCurrency,
   type SortBy,
   type SortOrder,
@@ -107,14 +108,11 @@ import { CashMinerIcon, DelegationIcon } from "@/components/impact-icons";
 
 function countActiveListings(
   applications: Array<{
-    activeFraction: { isFilled: boolean; remainingSteps: number | null } | null;
+    activeFraction: AuctionApplication["activeFraction"];
   }>
 ) {
   return applications.reduce((count, app) => {
-    const fraction = app.activeFraction;
-    if (!fraction) return count;
-    const remainingSteps = fraction.remainingSteps ?? 0;
-    const hasAvailability = !fraction.isFilled && remainingSteps > 0;
+    const hasAvailability = isFractionOpenForMarketplace(app.activeFraction);
     return hasAvailability ? count + 1 : count;
   }, 0);
 }
@@ -1517,9 +1515,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                           }}
                           disabled={
                             application.activeFraction
-                              ? application.activeFraction.isFilled ||
-                                (application.activeFraction.remainingSteps ||
-                                  0) <= 0
+                              ? availability.isSoldOut
                               : !depositAmountInCurrency
                           }
                         >
@@ -1529,11 +1525,8 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                               fontWeight: 400,
                             }}
                           >
-                            {application.activeFraction?.isFilled
-                              ? "Fully Funded"
-                              : (application.activeFraction?.remainingSteps ||
-                                  0) <= 0
-                              ? "None Available"
+                            {availability.isSoldOut
+                              ? "Unavailable"
                               : application._type === "miners"
                               ? "Buy Miners"
                               : resolveDelegationCurrency(application) ===
@@ -1637,7 +1630,7 @@ function getActiveFractionAvailability(application: AuctionApplication) {
   }
   const total = fraction.totalSteps ?? 0;
   const remaining = fraction.remainingSteps ?? 0;
-  const isSoldOut = fraction.isFilled || remaining <= 0 || total <= 0;
+  const isSoldOut = !isFractionOpenForMarketplace(fraction);
   const sold = Math.max(0, total - Math.max(0, remaining));
   const progressFilledPct =
     total > 0 ? Math.max(0, Math.min(100, (sold / total) * 100)) : 0;

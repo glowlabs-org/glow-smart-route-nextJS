@@ -11,6 +11,7 @@ import {
   calculateShortfall,
   calculateAffordability,
   coerceToBigInt,
+  parseAvailableStakeSnapshot,
   type ActiveFraction,
   type AffordabilityInput,
 } from "../deposit-dialog-utils";
@@ -107,6 +108,26 @@ describe("affordability edge cases", () => {
         pendingUnstake: parseUnits("1000", 6),
       })
     ).toBe(parseUnits("28.15244", 6));
+  });
+
+  it("parses the authoritative available-stake payload from Control", () => {
+    expect(
+      parseAvailableStakeSnapshot({
+        availableStakedGctl: "2870419030",
+        totalStakedAndNotUsedInProtocolFees: "2870419030",
+        pendingUnstake: "0",
+        pendingRestakeOut: "0",
+        delegatedSgctlVaultBalance: "25336980000",
+        protocolDepositVaultBalance: "55792546932",
+      })
+    ).toEqual({
+      availableStakedGctl: 2870419030n,
+      totalStakedAndNotUsedInProtocolFees: 2870419030n,
+      pendingUnstake: 0n,
+      pendingRestakeOut: 0n,
+      delegatedSgctlVaultBalance: 25336980000n,
+      protocolDepositVaultBalance: 55792546932n,
+    });
   });
 
   it("handles fractional quantity by flooring", () => {

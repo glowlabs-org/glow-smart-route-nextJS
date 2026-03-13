@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import Decimal from "decimal.js";
 import { formatUnits } from "viem";
 import {
@@ -31,6 +31,176 @@ export interface UseWalletsParams {
   page?: number;
   limit?: number;
   regionId?: number;
+}
+
+export interface WalletRegionAvailableStake {
+  wallet?: string;
+  regionId?: number;
+  totalStakedAndNotUsedInProtocolFees?: string;
+  pendingUnstake?: string;
+  pendingRestakeOut?: string;
+  delegatedSgctlVaultBalance?: string;
+  protocolDepositVaultBalance?: string;
+  availableStakedGctl?: string;
+}
+
+function parseAvailableStakeRaw(value?: string): bigint {
+  try {
+    return BigInt(value ?? "0");
+  } catch {
+    return 0n;
+  }
+}
+
+export function calculateImpactEligibleStakedGctl(
+  snapshot?: WalletRegionAvailableStake | null,
+): bigint {
+  if (!snapshot) return 0n;
+
+  return (
+    parseAvailableStakeRaw(snapshot.totalStakedAndNotUsedInProtocolFees) +
+    parseAvailableStakeRaw(snapshot.delegatedSgctlVaultBalance) +
+    parseAvailableStakeRaw(snapshot.protocolDepositVaultBalance)
+  );
+}
+
+export async function fetchWalletRegionAvailableStake(
+  walletAddress: string,
+  regionId: number,
+): Promise<WalletRegionAvailableStake> {
+  const baseUrl = process.env.NEXT_PUBLIC_CONTROL_API_URL;
+  if (!baseUrl) {
+    throw new Error("Environment variable NEXT_PUBLIC_CONTROL_API_URL is not set");
+  }
+
+  const response = await fetch(
+    `${baseUrl}/wallet/${encodeURIComponent(
+      walletAddress,
+    )}/region/${regionId}/available-stake?_=${Date.now()}`,
+    {
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to refresh available staked GCTL state");
+  }
+
+  return (await response.json()) as WalletRegionAvailableStake;
+}
+
+export function useWalletRegionAvailableStake(params: {
+  walletAddress?: string;
+  regionId?: number | null;
+  enabled?: boolean;
+}) {
+  const {
+    walletAddress,
+    regionId,
+    enabled = true,
+  } = params;
+  const isConfigured = Boolean(process.env.NEXT_PUBLIC_CONTROL_API_URL);
+
+  const query = useQuery({
+    queryKey: QUERY_KEYS.wallets.availableStake(walletAddress, regionId),
+    queryFn: () =>
+      fetchWalletRegionAvailableStake(walletAddress!, regionId as number),
+    enabled:
+      enabled &&
+      isConfigured &&
+      Boolean(walletAddress) &&
+      Number.isFinite(regionId),
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    retry: 2,
+  });
+
+  return {
+    availableStake: query.data,
+    isAvailableStakeLoading: query.isLoading,
+    isAvailableStakeFetching: query.isFetching,
+    availableStakeError: query.error,
+    refetchAvailableStake: query.refetch,
+  } as const;
+}
+
+export function useWalletRegionAvailableStakeMap(params: {
+  walletAddress?: string;
+  regionIds?: Array<number | null | undefined>;
+  enabled?: boolean;
+}) {
+  const { walletAddress, regionIds, enabled = true } = params;
+  const isConfigured = Boolean(process.env.NEXT_PUBLIC_CONTROL_API_URL);
+
+  const normalizedRegionIds = React.useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (regionIds ?? []).filter(
+            (regionId): regionId is number => Number.isFinite(regionId),
+          ),
+        ),
+      ),
+    [regionIds],
+  );
+
+  const queries = useQueries({
+    queries: normalizedRegionIds.map((regionId) => ({
+      queryKey: QUERY_KEYS.wallets.availableStake(walletAddress, regionId),
+      queryFn: () =>
+        fetchWalletRegionAvailableStake(walletAddress!, regionId),
+      enabled: enabled && isConfigured && Boolean(walletAddress),
+      staleTime: 0,
+      gcTime: 0,
+      refetchOnMount: true,
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+      retry: 2,
+    })),
+  });
+
+  const availableStakedGctlByRegion = React.useMemo(() => {
+    const map = new Map<number, bigint>();
+    normalizedRegionIds.forEach((regionId, index) => {
+      map.set(
+        regionId,
+        parseAvailableStakeRaw(queries[index]?.data?.availableStakedGctl),
+      );
+    });
+    return map;
+  }, [normalizedRegionIds, queries]);
+
+  const impactEligibleStakedGctlByRegion = React.useMemo(() => {
+    const map = new Map<number, bigint>();
+    normalizedRegionIds.forEach((regionId, index) => {
+      map.set(
+        regionId,
+        calculateImpactEligibleStakedGctl(queries[index]?.data),
+      );
+    });
+    return map;
+  }, [normalizedRegionIds, queries]);
+
+  const availableStakeByRegion = React.useMemo(() => {
+    const map = new Map<number, WalletRegionAvailableStake | null>();
+    normalizedRegionIds.forEach((regionId, index) => {
+      map.set(regionId, queries[index]?.data ?? null);
+    });
+    return map;
+  }, [normalizedRegionIds, queries]);
+
+  return {
+    availableStakedGctlByRegion,
+    impactEligibleStakedGctlByRegion,
+    availableStakeByRegion,
+    isAvailableStakeMapLoading: queries.some((query) => query.isLoading),
+    isAvailableStakeMapFetching: queries.some((query) => query.isFetching),
+    availableStakeMapError:
+      queries.find((query) => query.error)?.error ?? null,
+  } as const;
 }
 
 export function useWallets(params: UseWalletsParams = {}) {

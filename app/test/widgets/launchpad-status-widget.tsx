@@ -43,6 +43,7 @@ import {
   useMiningScore,
   getRewardScoreForApplication,
   getMiningScoreForApplication,
+  isFractionOpenForMarketplace,
   type AuctionApplication,
 } from "@/hooks";
 import { parseDelegationStepAmount } from "@/utils/launchpad-rewards";
@@ -85,14 +86,11 @@ function formatSignedPercent(value: number | null) {
 
 function countAvailableApplications(
   applications: Array<{
-    activeFraction: { isFilled: boolean; remainingSteps: number | null } | null;
+    activeFraction: AuctionApplication["activeFraction"];
   }>,
 ) {
   return applications.reduce((count, app) => {
-    const fraction = app.activeFraction;
-    if (!fraction) return count;
-    const remainingSteps = fraction.remainingSteps ?? 0;
-    const hasAvailability = !fraction.isFilled && remainingSteps > 0;
+    const hasAvailability = isFractionOpenForMarketplace(app.activeFraction);
     return hasAvailability ? count + 1 : count;
   }, 0);
 }
@@ -105,7 +103,7 @@ function getActiveFractionAvailability(application: AuctionApplication) {
   }
   const total = fraction.totalSteps ?? 0;
   const remaining = fraction.remainingSteps ?? 0;
-  const isSoldOut = fraction.isFilled || remaining <= 0;
+  const isSoldOut = !isFractionOpenForMarketplace(fraction);
   const filled = total - remaining;
   const percentFilled = total > 0 ? Math.round((filled / total) * 100) : 0;
   return { remaining, total, isSoldOut, percentFilled };

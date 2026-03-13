@@ -69,6 +69,8 @@ export const QUERY_KEYS = {
   // --- CONTROL API ---
   wallets: {
     details: (wallet?: string) => ["wallet-details", wallet] as const,
+    availableStake: (wallet?: string, regionId?: number | null) =>
+      ["wallet-available-stake", wallet, regionId ?? null] as const,
     mintedEvents: (wallet?: string, page?: number, limit?: number) =>
       ["wallet-minted-events", wallet, page, limit] as const,
     stakeEvents: (

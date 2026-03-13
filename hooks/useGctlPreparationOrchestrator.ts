@@ -15,6 +15,7 @@ import { getControlRouter } from "@/lib/api/control-routers";
 import { useGctlApi } from "@/hooks/control-gctl";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
+import { extractControlTransferTrackingId } from "@/app/marketplace/deposit-dialog-utils";
 
 const DEFAULT_SLIPPAGE_BPS = 100n;
 const ETH_QUOTE_PROBE_WEI = 10n ** 17n; // 0.1 ETH
@@ -213,7 +214,7 @@ export function useGctlPreparationOrchestrator(options?: {
       markStep(params.updateStepStatus, params.stepIds?.sign, "completed");
       markStep(params.updateStepStatus, params.stepIds?.submit, "confirming");
 
-      await stakeGctlMutation.mutateAsync({
+      const stakeResult = await stakeGctlMutation.mutateAsync({
         wallet: address,
         amount: params.amountAtomic.toString(),
         nonce,
@@ -234,6 +235,7 @@ export function useGctlPreparationOrchestrator(options?: {
         nonce,
         deadline,
         amountAtomic: params.amountAtomic,
+        txHash: extractControlTransferTrackingId(stakeResult),
       } as const;
     },
     [

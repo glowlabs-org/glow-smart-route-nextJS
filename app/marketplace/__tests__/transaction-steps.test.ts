@@ -240,24 +240,26 @@ describe("SGCTL delegation steps", () => {
 
     expect(steps.map((s) => s.id)).toEqual([
       "STAKE_GCTL",
+      "INDEX_STAKE",
       "DELEGATE_SGCTL",
       "CONFIRM_TX",
     ]);
   });
 
-  it("creates 3 steps for USDC mint and stake then delegate", () => {
+  it("creates 4 steps for USDC mint and stake then delegate", () => {
     const steps = initializeTransactionSteps("SGCTL", "USDC", {
       sgctlSource: "mint_usdc",
     });
 
     expect(steps.map((s) => s.id)).toEqual([
       "MINT_AND_STAKE_GCTL",
+      "INDEX_STAKE",
       "DELEGATE_SGCTL",
       "CONFIRM_TX",
     ]);
   });
 
-  it("creates 4 steps for ETH mint and stake then delegate", () => {
+  it("creates 5 steps for ETH mint and stake then delegate", () => {
     const steps = initializeTransactionSteps("SGCTL", "ETH", {
       sgctlSource: "mint_eth",
     });
@@ -265,9 +267,39 @@ describe("SGCTL delegation steps", () => {
     expect(steps.map((s) => s.id)).toEqual([
       "SWAP_ETH_TO_USDC",
       "MINT_AND_STAKE_GCTL",
+      "INDEX_STAKE",
       "DELEGATE_SGCTL",
       "CONFIRM_TX",
     ]);
+  });
+
+  it("adds indexing copy for SGCTL flows that need Control sync", () => {
+    const steps = initializeTransactionSteps("SGCTL", "USDC", {
+      sgctlSource: "mint_usdc",
+    });
+
+    const step = steps.find((item) => item.id === "INDEX_STAKE");
+    expect(step?.title).toBe("Index Stake");
+    expect(step?.description).toBe(
+      "Waiting for Control to index your regional stake"
+    );
+    expect(step?.statusLabel).toBe("Indexing in Control...");
+  });
+
+  it("keeps funding steps on on-chain confirmation copy before indexing starts", () => {
+    const usdcSteps = initializeTransactionSteps("SGCTL", "USDC", {
+      sgctlSource: "mint_usdc",
+    });
+    const gctlSteps = initializeTransactionSteps("SGCTL", "GCTL", {
+      sgctlSource: "wallet_gctl",
+    });
+
+    expect(
+      usdcSteps.find((item) => item.id === "MINT_AND_STAKE_GCTL")?.statusLabel
+    ).toBeUndefined();
+    expect(
+      gctlSteps.find((item) => item.id === "STAKE_GCTL")?.statusLabel
+    ).toBeUndefined();
   });
 });
 

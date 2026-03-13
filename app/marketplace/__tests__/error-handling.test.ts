@@ -11,6 +11,7 @@ import {
   isInternalRpcError,
   findErrorInMessage,
   getSwapVolatilityErrorMessage,
+  isRetriableStakeSyncRefreshError,
   CONTRACT_ERROR_MESSAGES,
   RPC_INTERNAL_ERROR_MESSAGE,
   SWAP_VOLATILITY_ERROR_MESSAGE,
@@ -181,6 +182,13 @@ describe("findErrorInMessage", () => {
     expect(
       findErrorInMessage("Active launchpad fraction not found for application app_1")
     ).toEqual(CONTRACT_ERROR_MESSAGES["Active launchpad fraction not found"]);
+    expect(
+      findErrorInMessage(
+        "Fraction 0x123 is already committed on-chain for GLW delegation"
+      )
+    ).toEqual(
+      CONTRACT_ERROR_MESSAGES["already committed on-chain for GLW delegation"]
+    );
   });
 });
 
@@ -218,6 +226,36 @@ describe("getSwapVolatilityErrorMessage", () => {
         "SWAP_USDG_TO_GLOW"
       )
     ).toBeNull();
+  });
+});
+
+describe("isRetriableStakeSyncRefreshError", () => {
+  it("treats transient fetch failures as retriable", () => {
+    expect(
+      isRetriableStakeSyncRefreshError(new TypeError("Failed to fetch"))
+    ).toBe(true);
+    expect(
+      isRetriableStakeSyncRefreshError(new Error("Transfer not found"))
+    ).toBe(true);
+    expect(
+      isRetriableStakeSyncRefreshError(new Error("net::ERR_CONNECTION_REFUSED"))
+    ).toBe(true);
+    expect(
+      isRetriableStakeSyncRefreshError(
+        new Error("Failed to load resource: net::ERR_CONNECTION_REFUSED")
+      )
+    ).toBe(true);
+  });
+
+  it("treats non-network Control refresh failures as non-retriable", () => {
+    expect(
+      isRetriableStakeSyncRefreshError(
+        new Error("Failed to refresh staked GCTL state")
+      )
+    ).toBe(false);
+    expect(
+      isRetriableStakeSyncRefreshError(new Error("Region not available"))
+    ).toBe(false);
   });
 });
 

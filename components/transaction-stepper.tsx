@@ -16,6 +16,7 @@ export interface TransactionStep {
   id: string;
   title: string;
   description?: string;
+  statusLabel?: string;
   tokenFrom?: "ETH" | "USDC" | "USDG" | "GLW";
   tokenTo?: "ETH" | "USDC" | "USDG" | "GLW";
   status: StepStatus;
@@ -211,7 +212,9 @@ function TimelineItem({
               step.status === "idle" && "text-muted-foreground/60"
             )}
           >
-            {statusLabel[step.status]}
+            {step.status === "confirming" && step.statusLabel
+              ? step.statusLabel
+              : statusLabel[step.status]}
           </p>
         )}
 
