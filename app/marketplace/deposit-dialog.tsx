@@ -106,6 +106,11 @@ export type MiningCenterScore = {
   weeklyGlwRewardsUsd?: string;
 };
 
+function isInsufficientAvailableStakedError(error: unknown): boolean {
+  const message = getErrorMessage(error);
+  return message.includes("Insufficient available staked GCTL in region");
+}
+
 type DepositDialogProps =
   | {
       open: boolean;
@@ -857,8 +862,8 @@ export function DepositDialog({
         return;
       }
 
-      const maxAttempts = 8;
-      const delayMs = 1500;
+      const maxAttempts = 20;
+      const delayMs = 2000;
 
       await invalidateGctlQueries();
       await queryClient.invalidateQueries({
@@ -893,6 +898,48 @@ export function DepositDialog({
       regionId,
       runtimeSelectedCurrency,
     ]
+  );
+
+  const delegateSgctlWithRetry = React.useCallback(
+    async (params: {
+      applicationId: string;
+      fractionId: string;
+      amount: bigint;
+      signature: string;
+      deadline: string;
+      nonce: string;
+      sourceMode: SgctlSourceMode | null;
+    }) => {
+      const maxAttempts = params.sourceMode === "staked" ? 1 : 3;
+
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        try {
+          return await getControlRouter().delegateSgctl({
+            wallet: address as string,
+            applicationId: params.applicationId,
+            fractionId: params.fractionId,
+            amount: params.amount.toString(),
+            signature: params.signature,
+            deadline: params.deadline,
+            nonce: params.nonce,
+          });
+        } catch (error) {
+          const shouldRetry =
+            attempt < maxAttempts - 1 &&
+            isInsufficientAvailableStakedError(error) &&
+            params.sourceMode !== "staked";
+
+          if (!shouldRetry) {
+            throw error;
+          }
+
+          await waitForStakeSyncBeforeDelegation(params.amount);
+        }
+      }
+
+      throw new Error("Failed to delegate SGCTL after stake sync retries.");
+    },
+    [address, waitForStakeSyncBeforeDelegation]
   );
 
   const invalidatePostSuccessQueries = React.useCallback(
@@ -1106,14 +1153,14 @@ export function DepositDialog({
         }
 
         updateStepStatus("DELEGATE_SGCTL", "confirming");
-        const delegationResult = await getControlRouter().delegateSgctl({
-          wallet: address as string,
+        const delegationResult = await delegateSgctlWithRetry({
           applicationId: currentApplication.id,
           fractionId: activeFraction.id,
-          amount: currentSgctlRequiredAmount.toString(),
+          amount: currentSgctlRequiredAmount,
           signature,
           deadline,
           nonce,
+          sourceMode: sgctlSourceMode,
         });
         updateStepStatus("DELEGATE_SGCTL", "completed");
         updateStepStatus("CONFIRM_TX", "confirming");
