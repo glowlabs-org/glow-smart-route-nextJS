@@ -983,11 +983,11 @@ export function DepositDialog({
       glwSpotPrice,
       gctlSpotPrice: gctlPriceNumber,
       ethSpotPrice,
-      glwBalance,
+      glwBalance: glwBalance ?? 0n,
       gctlBalance: gctlWalletBalance,
       stakedGctlBalance,
-      usdcBalance,
-      ethBalance,
+      usdcBalance: usdcBalance ?? 0n,
+      ethBalance: ethBalance ?? 0n,
     });
     const currentSgctlRequiredAmount =
       currentAffordability.requiredByMethod.SGCTL ?? 0n;
