@@ -63,6 +63,10 @@ import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-war
 import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
 import { trackEvent } from "@/lib/telemetry";
 import { tokens } from "./constants";
+import {
+  INVALID_WALLET_TX_RESPONSE_MESSAGE,
+  isInvalidWalletTxResponseError,
+} from "@/lib/normalize-tx-hash";
 
 const defaultTokensEstimate = {
   GLOW: "",
@@ -765,6 +769,13 @@ export function SwapInterface({
         errorMessage = error.shortMessage;
       } else if (typeof error === "string") {
         errorMessage = error;
+      }
+
+      if (
+        isInvalidWalletTxResponseError(error) ||
+        isInvalidWalletTxResponseError(errorMessage)
+      ) {
+        errorMessage = INVALID_WALLET_TX_RESPONSE_MESSAGE;
       }
 
       // Log critical swap errors to Sentry (skip user rejections)

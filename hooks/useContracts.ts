@@ -8,6 +8,7 @@ import {
   addresses,
   addresses as staticAddresses,
 } from "@/web3/constants/addresses";
+import { normalizeTxHash } from "@/lib/normalize-tx-hash";
 
 const erc20Abi = parseAbi([
   "function balanceOf(address owner) view returns (uint256)",
@@ -48,7 +49,8 @@ export function useContracts(_signer: any) {
     const USDC_ADDRESS: AnyAddress = SDKAddresses?.USDC;
     const EARLY_LIQUIDITY_ADDRESS: AnyAddress = addresses.earlyLiquidity;
 
-    function makeTx(hash: `0x${string}`) {
+    function makeTx(rawHash: unknown) {
+      const hash = normalizeTxHash(rawHash);
       return {
         hash,
         wait: async () => publicClient.waitForTransactionReceipt({ hash }),

@@ -12,6 +12,11 @@ import { formatEther, parseAbi } from "viem";
 import Decimal from "decimal.js";
 import { waitForViemTransactionWithRetry } from "@glowlabs-org/utils/browser";
 import * as Sentry from "@sentry/nextjs";
+import {
+  INVALID_WALLET_TX_RESPONSE_MESSAGE,
+  isInvalidWalletTxResponseError,
+  normalizeTxHash,
+} from "@/lib/normalize-tx-hash";
 
 const MAX_UINT256 = (BigInt(1) << BigInt(256)) - BigInt(1);
 
@@ -78,6 +83,13 @@ function extractErrorMessage(err: any, defaultMessage: string): string {
     errorMessage = err.shortMessage;
   } else if (typeof err === "string") {
     errorMessage = err;
+  }
+
+  if (
+    isInvalidWalletTxResponseError(err) ||
+    isInvalidWalletTxResponseError(errorMessage)
+  ) {
+    return INVALID_WALLET_TX_RESPONSE_MESSAGE;
   }
 
   // Handle common error cases
@@ -233,7 +245,7 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
         })) as bigint,
       approve: async (spender: `0x${string}`, amount: bigint) => {
         if (!walletClient) throw new Error("Wallet client not available");
-        const hash = await walletClient.writeContract({
+        const rawHash = await walletClient.writeContract({
           address,
           abi: parseAbi([
             "function approve(address spender, uint256 amount) returns (bool)",
@@ -241,6 +253,7 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
           functionName: "approve",
           args: [spender, amount],
         });
+        const hash = normalizeTxHash(rawHash);
         lastTxHashRef.current = hash;
         setLastTxHash(hash);
         return makeTx(hash);
@@ -277,12 +290,13 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
         deadline: number
       ) => {
         if (!walletClient) throw new Error("Wallet client not available");
-        const hash = await walletClient.writeContract({
+        const rawHash = await walletClient.writeContract({
           address,
           abi: ROUTER_ABI,
           functionName: "swapExactTokensForTokens",
           args: [amountIn, amountOutMin, path, to, BigInt(deadline)],
         });
+        const hash = normalizeTxHash(rawHash);
         lastTxHashRef.current = hash;
         setLastTxHash(hash);
         return makeTx(hash);
