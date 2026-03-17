@@ -11,6 +11,11 @@ import {
   isInvalidWalletTxResponseError,
   normalizeTxHash,
 } from "@/lib/normalize-tx-hash";
+import {
+  getSmartAccountStatus,
+  isSmartAccountBlocked,
+  SMART_ACCOUNT_UNSUPPORTED_MESSAGE,
+} from "@/web3/web3/utils/detectSmartAccount";
 
 const UNISWAP_V2_ROUTER_ABI = parseAbi([
   "function WETH() external pure returns (address)",
@@ -211,6 +216,18 @@ export function useSwapETHToUSDC() {
 
       const { router, usdc, weth, amountOutMinUsdc } = quoteRes.val;
       const recipient = walletClient.account.address as `0x${string}`;
+      try {
+        const smartStatus = await getSmartAccountStatus({
+          address: recipient,
+          walletClient,
+          getBytecode: publicClient.getBytecode,
+        });
+        if (isSmartAccountBlocked(smartStatus)) {
+          return new Err(SMART_ACCOUNT_UNSUPPORTED_MESSAGE);
+        }
+      } catch {
+        // best-effort guard only
+      }
       const { useV3 } = resolvedAddresses;
 
       try {

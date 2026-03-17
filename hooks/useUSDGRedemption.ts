@@ -14,6 +14,11 @@ import {
   isInvalidWalletTxResponseError,
   normalizeTxHash,
 } from "@/lib/normalize-tx-hash";
+import {
+  getSmartAccountStatus,
+  isSmartAccountBlocked,
+  SMART_ACCOUNT_UNSUPPORTED_MESSAGE,
+} from "@/web3/web3/utils/detectSmartAccount";
 
 if (!process.env.NEXT_PUBLIC_CHAIN_ID) {
   throw new Error("NEXT_PUBLIC_CHAIN_ID is not set");
@@ -126,6 +131,18 @@ export function useUSDGRedemption() {
 
       const owner = walletClient.account?.address as `0x${string}` | undefined;
       if (!owner) return new Err(USDGRedemptionError.SIGNER_NOT_AVAILABLE);
+      try {
+        const smartStatus = await getSmartAccountStatus({
+          address: owner,
+          walletClient,
+          getBytecode: publicClient.getBytecode,
+        });
+        if (isSmartAccountBlocked(smartStatus)) {
+          return new Err(SMART_ACCOUNT_UNSUPPORTED_MESSAGE);
+        }
+      } catch {
+        // best-effort guard only
+      }
       const allowance: bigint = await usdg.allowance(
         owner,
         USDG_REDEMPTION_ADDRESS

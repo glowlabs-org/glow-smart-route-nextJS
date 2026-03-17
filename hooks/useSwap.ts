@@ -17,6 +17,11 @@ import {
   isInvalidWalletTxResponseError,
   normalizeTxHash,
 } from "@/lib/normalize-tx-hash";
+import {
+  getSmartAccountStatus,
+  isSmartAccountBlocked,
+  SMART_ACCOUNT_UNSUPPORTED_MESSAGE,
+} from "@/web3/web3/utils/detectSmartAccount";
 
 const MAX_UINT256 = (BigInt(1) << BigInt(256)) - BigInt(1);
 
@@ -275,6 +280,25 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     };
   }
 
+  async function getSmartAccountBlockReason(
+    address: `0x${string}`
+  ): Promise<string | null> {
+    if (!walletClient) return null;
+    try {
+      const status = await getSmartAccountStatus({
+        address,
+        walletClient,
+        getBytecode: publicClient.getBytecode,
+      });
+      if (isSmartAccountBlocked(status)) {
+        return SMART_ACCOUNT_UNSUPPORTED_MESSAGE;
+      }
+    } catch {
+      // fail open here; tx path still has additional safeguards and user-facing errors
+    }
+    return null;
+  }
+
   function makeUniswapRouter(address: `0x${string}`) {
     const ROUTER_ABI = parseAbi([
       "function swapExactTokensForTokens(uint256 amountIn, uint256 amountOutMin, address[] path, address to, uint256 deadline) returns (uint256[] amounts)",
@@ -364,6 +388,13 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
       pairAddress: pairAddress as `0x${string}`,
     });
     const signerAddress = await signer.getAddress();
+    const smartAccountBlockReason = await getSmartAccountBlockReason(
+      signerAddress as `0x${string}`
+    );
+    if (smartAccountBlockReason) {
+      setUniswapPurchaseState("ERROR");
+      return new Err(smartAccountBlockReason as SwapError);
+    }
 
     const allowanceTokenA = await tokenA.allowance(
       signerAddress,
@@ -638,6 +669,12 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     });
 
     const signerAddress = (await signer.getAddress()) as `0x${string}`;
+    const smartAccountBlockReason =
+      await getSmartAccountBlockReason(signerAddress);
+    if (smartAccountBlockReason) {
+      setUniswapPurchaseState("ERROR");
+      return new Err(smartAccountBlockReason as SwapError);
+    }
     const balanceGlow = await glowToken.balanceOf(signerAddress);
 
     const amountBigInt = toBigIntAmount(amount);

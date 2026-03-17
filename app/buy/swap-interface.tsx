@@ -60,7 +60,10 @@ import { cn } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
 import { StatsSidebar } from "./stats-sidebar";
 import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-warning-dialog";
-import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
+import {
+  getSmartAccountStatus,
+  isSmartAccountBlocked,
+} from "@/web3/web3/utils/detectSmartAccount";
 import { trackEvent } from "@/lib/telemetry";
 import { tokens } from "./constants";
 import {
@@ -235,11 +238,7 @@ export function SwapInterface({
         getBytecode: publicClient?.getBytecode,
       });
 
-      const isSmartAccount =
-        status &&
-        (status.isContractWallet ||
-          status.isEip7702Delegated ||
-          status.hasWalletAABatching);
+      const isSmartAccount = isSmartAccountBlocked(status);
 
       if (isSmartAccount) {
         setIsSmartAccountWarningOpen(true);
