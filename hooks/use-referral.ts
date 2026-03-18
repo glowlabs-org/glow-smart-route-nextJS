@@ -5,6 +5,7 @@ import { useAccount, useChainId, useSignTypedData } from "wagmi";
 import { hubGet, hubPost } from "@/lib/api/hub-client";
 import { toast } from "sonner";
 import { trackEvent } from "@/lib/telemetry";
+import { parseReferralError } from "@/lib/referral-errors";
 import * as Sentry from "@sentry/nextjs";
 
 // ============================================
@@ -79,7 +80,8 @@ export function useReferral() {
   // 3. Link Referrer Mutation (validates first, then signs)
   const linkMutation = useMutation({
     mutationFn: async (referralCode: string) => {
-      if (!address) throw new Error("Wallet not connected");
+      const walletAddress = address;
+      if (!walletAddress) throw new Error("Wallet not connected");
 
       // Validate code before asking for signature
       const validation = await validateCode(referralCode);
@@ -88,14 +90,14 @@ export function useReferral() {
       }
 
       // Self-referral check
-      if (validation.referrerWallet?.toLowerCase() === address.toLowerCase()) {
+      if (validation.referrerWallet?.toLowerCase() === walletAddress.toLowerCase()) {
         throw new Error("You cannot refer yourself");
       }
       
       const status = await queryClient.fetchQuery({
-        queryKey: ["referral-status", address],
+        queryKey: ["referral-status", walletAddress],
         queryFn: () => hubGet<any>("/referral/status", {
-          params: { walletAddress: address },
+          params: { walletAddress },
         }),
       });
 
@@ -103,6 +105,7 @@ export function useReferral() {
       const nonce = status.nonce;
 
       const signature = await signTypedDataAsync({
+        account: walletAddress,
         domain: referralEIP712Domain(chainId),
         types: linkReferralEIP712Types,
         primaryType: "LinkReferral",
@@ -114,7 +117,7 @@ export function useReferral() {
       });
 
       return await hubPost<any>("/referral/link", {
-        wallet: address,
+        wallet: walletAddress,
         signature,
         nonce: nonce.toString(),
         referralCode,
@@ -128,25 +131,32 @@ export function useReferral() {
       // Success is handled by the calling component (modal shows success state)
     },
     onError: (error: any, referralCode) => {
-      trackEvent("referral_link_error", { referralCode, wallet: address, error: error?.message });
-      // Don't show toast or report to Sentry for user-rejected signature
-      if (error?.message?.includes("User rejected") || error?.code === 4001) {
+      const parsed = parseReferralError(error);
+      trackEvent("referral_link_error", {
+        referralCode,
+        wallet: address,
+        error: parsed.message,
+        errorType: parsed.type,
+      });
+
+      if (parsed.isUserRejection) {
         return;
       }
       const normalizedError =
         error instanceof Error ? error : new Error(String(error?.message || error));
       Sentry.captureException(normalizedError, {
-        tags: { referralStage: "link" },
-        extra: { referralCode, walletAddress: address },
+        tags: { referralStage: "link", referralErrorType: parsed.type },
+        extra: { referralCode, walletAddress: address, parsedMessage: parsed.message },
       });
-      toast.error(error?.message || "Failed to link referrer");
+      toast.error(parsed.message || "Failed to link referrer");
     },
   });
 
   // 4. Change Referrer Mutation (validates first, then signs)
   const changeMutation = useMutation({
     mutationFn: async (newReferralCode: string) => {
-      if (!address) throw new Error("Wallet not connected");
+      const walletAddress = address;
+      if (!walletAddress) throw new Error("Wallet not connected");
 
       // Validate code before asking for signature
       const validation = await validateCode(newReferralCode);
@@ -155,14 +165,14 @@ export function useReferral() {
       }
 
       // Self-referral check
-      if (validation.referrerWallet?.toLowerCase() === address.toLowerCase()) {
+      if (validation.referrerWallet?.toLowerCase() === walletAddress.toLowerCase()) {
         throw new Error("You cannot refer yourself");
       }
 
       const status = await queryClient.fetchQuery({
-        queryKey: ["referral-status", address],
+        queryKey: ["referral-status", walletAddress],
         queryFn: () => hubGet<any>("/referral/status", {
-          params: { walletAddress: address },
+          params: { walletAddress },
         }),
       });
 
@@ -170,6 +180,7 @@ export function useReferral() {
       const nonce = status.nonce;
 
       const signature = await signTypedDataAsync({
+        account: walletAddress,
         domain: referralEIP712Domain(chainId),
         types: changeReferrerEIP712Types,
         primaryType: "ChangeReferrer",
@@ -181,7 +192,7 @@ export function useReferral() {
       });
 
       return await hubPost<any>("/referral/change", {
-        wallet: address,
+        wallet: walletAddress,
         signature,
         nonce: nonce.toString(),
         newReferralCode,
@@ -195,18 +206,28 @@ export function useReferral() {
       toast.success("Referrer changed successfully!");
     },
     onError: (error: any, newReferralCode) => {
-      trackEvent("referral_change_error", { newReferralCode, wallet: address, error: error?.message });
-      // Don't show toast or report to Sentry for user-rejected signature
-      if (error?.message?.includes("User rejected") || error?.code === 4001) {
+      const parsed = parseReferralError(error);
+      trackEvent("referral_change_error", {
+        newReferralCode,
+        wallet: address,
+        error: parsed.message,
+        errorType: parsed.type,
+      });
+
+      if (parsed.isUserRejection) {
         return;
       }
       const normalizedError =
         error instanceof Error ? error : new Error(String(error?.message || error));
       Sentry.captureException(normalizedError, {
-        tags: { referralStage: "change" },
-        extra: { newReferralCode, walletAddress: address },
+        tags: { referralStage: "change", referralErrorType: parsed.type },
+        extra: {
+          newReferralCode,
+          walletAddress: address,
+          parsedMessage: parsed.message,
+        },
       });
-      toast.error(error?.message || "Failed to change referrer");
+      toast.error(parsed.message || "Failed to change referrer");
     },
   });
 

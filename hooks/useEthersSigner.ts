@@ -15,29 +15,49 @@ async function walletClientToSigner(
 export function useEthersSigner({ chainId }: { chainId?: number } = {}) {
   const { data: walletClient, isLoading: isWalletClientLoading } =
     useWalletClient({ chainId });
+  const walletClientAddress = walletClient?.account?.address;
+  const walletClientChainId = (walletClient as any)?.chain?.id;
+  const walletClientTransportKey = (walletClient as any)?.transport?.config?.key;
+  const walletClientTransportName = (walletClient as any)?.transport?.config?.name;
+  const walletClientTransportType = (walletClient as any)?.transport?.config?.type;
   const [signer, setSigner] = React.useState<JsonRpcSigner | undefined>(
     undefined
   );
+  const [signerAddress, setSignerAddress] = React.useState<string | undefined>(
+    undefined
+  );
   const [isSignerLoading, setIsSignerLoading] = React.useState(true);
+  const expectedAddress = walletClientAddress?.toLowerCase();
 
   React.useEffect(() => {
     let isMounted = true;
     async function computeSigner() {
-      if (!walletClient) {
+      if (!walletClient || !expectedAddress) {
         if (isMounted) {
           setSigner(undefined);
+          setSignerAddress(undefined);
           setIsSignerLoading(false);
         }
         return;
       }
 
       setIsSignerLoading(true);
+      // Clear stale signer immediately so callers cannot sign with a previous account.
+      setSigner(undefined);
+      setSignerAddress(undefined);
       try {
         const s = await walletClientToSigner(walletClient as WalletClient);
-        if (isMounted) setSigner(s);
+        const resolvedAddress = (await s.getAddress()).toLowerCase();
+        if (isMounted) {
+          setSigner(s);
+          setSignerAddress(resolvedAddress);
+        }
       } catch (err) {
         console.error(err);
-        if (isMounted) setSigner(undefined);
+        if (isMounted) {
+          setSigner(undefined);
+          setSignerAddress(undefined);
+        }
       } finally {
         if (isMounted) setIsSignerLoading(false);
       }
@@ -47,15 +67,23 @@ export function useEthersSigner({ chainId }: { chainId?: number } = {}) {
       isMounted = false;
     };
   }, [
-    (walletClient as any)?.chain?.id,
-    walletClient?.account?.address,
-    (walletClient as any)?.transport?.config?.key,
-    (walletClient as any)?.transport?.config?.name,
-    (walletClient as any)?.transport?.config?.type,
+    walletClient,
+    walletClientChainId,
+    walletClientAddress,
+    walletClientTransportKey,
+    walletClientTransportName,
+    walletClientTransportType,
+    expectedAddress,
   ]);
 
+  const isSignerSyncedWithWallet =
+    !!signer && !!expectedAddress && signerAddress === expectedAddress;
+
   return {
-    signer,
-    isLoading: isWalletClientLoading || isSignerLoading,
+    signer: isSignerSyncedWithWallet ? signer : undefined,
+    isLoading:
+      isWalletClientLoading ||
+      isSignerLoading ||
+      (!!walletClient && !!expectedAddress && !isSignerSyncedWithWallet),
   };
 }

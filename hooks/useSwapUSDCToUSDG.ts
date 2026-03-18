@@ -4,6 +4,13 @@ import { useContracts } from "./useContracts";
 import { useEthersSigner } from "./useEthersSigner";
 import { Result, Ok, Err } from "ts-results";
 import { waitForEthersTransactionWithRetry } from "@glowlabs-org/utils/browser";
+import { useWalletClient } from "wagmi";
+import { publicClient } from "@/web3/web3/clients/publicClient";
+import {
+  getSmartAccountStatus,
+  isSmartAccountBlocked,
+  SMART_ACCOUNT_UNSUPPORTED_MESSAGE,
+} from "@/web3/web3/utils/detectSmartAccount";
 
 const MAX_UINT256 = (BigInt(1) << BigInt(256)) - BigInt(1);
 
@@ -70,6 +77,7 @@ function parseSwapError(error: any): string {
 
 export const useSwapUSDCToUSDG = () => {
   const { signer } = useEthersSigner();
+  const { data: walletClient } = useWalletClient();
   const { usdc, usdg, isReady } = useContracts(signer);
   const [lastTxHash, setLastTxHash] = React.useState<`0x${string}` | null>(null);
   const lastTxHashRef = React.useRef<`0x${string}` | null>(null);
@@ -88,6 +96,18 @@ export const useSwapUSDCToUSDG = () => {
         return new Err(SwapUSDCToUSDGError.CONTRACTS_NOT_AVAILABLE);
       if (!signer) return new Err(SwapUSDCToUSDGError.SIGNER_NOT_AVAILABLE);
       const signerAddress = await signer.getAddress();
+      try {
+        const smartStatus = await getSmartAccountStatus({
+          address: signerAddress as `0x${string}`,
+          walletClient,
+          getBytecode: publicClient.getBytecode,
+        });
+        if (isSmartAccountBlocked(smartStatus)) {
+          return new Err(SMART_ACCOUNT_UNSUPPORTED_MESSAGE);
+        }
+      } catch {
+        // best-effort guard only
+      }
       const usdcGasPrice = await usdc.provider.getGasPrice();
 
       const allowance = await usdc.allowance(signerAddress, usdg.address);
@@ -132,6 +152,18 @@ export const useSwapUSDCToUSDG = () => {
       if (!signer) return new Err(SwapUSDCToUSDGError.SIGNER_NOT_AVAILABLE);
 
       const signerAddress = await signer.getAddress();
+      try {
+        const smartStatus = await getSmartAccountStatus({
+          address: signerAddress as `0x${string}`,
+          walletClient,
+          getBytecode: publicClient.getBytecode,
+        });
+        if (isSmartAccountBlocked(smartStatus)) {
+          return new Err(SMART_ACCOUNT_UNSUPPORTED_MESSAGE);
+        }
+      } catch {
+        // best-effort guard only
+      }
 
       // Validate amount
       if (amount <= BigInt(0)) {

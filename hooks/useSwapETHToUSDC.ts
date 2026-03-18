@@ -6,6 +6,16 @@ import { parseAbi } from "viem";
 import { Err, Ok, Result } from "ts-results";
 import { getAddresses } from "@glowlabs-org/utils/browser";
 import { waitForViemTransactionWithRetry } from "@glowlabs-org/utils/browser";
+import {
+  INVALID_WALLET_TX_RESPONSE_MESSAGE,
+  isInvalidWalletTxResponseError,
+  normalizeTxHash,
+} from "@/lib/normalize-tx-hash";
+import {
+  getSmartAccountStatus,
+  isSmartAccountBlocked,
+  SMART_ACCOUNT_UNSUPPORTED_MESSAGE,
+} from "@/web3/web3/utils/detectSmartAccount";
 
 const UNISWAP_V2_ROUTER_ABI = parseAbi([
   "function WETH() external pure returns (address)",
@@ -206,6 +216,18 @@ export function useSwapETHToUSDC() {
 
       const { router, usdc, weth, amountOutMinUsdc } = quoteRes.val;
       const recipient = walletClient.account.address as `0x${string}`;
+      try {
+        const smartStatus = await getSmartAccountStatus({
+          address: recipient,
+          walletClient,
+          getBytecode: publicClient.getBytecode,
+        });
+        if (isSmartAccountBlocked(smartStatus)) {
+          return new Err(SMART_ACCOUNT_UNSUPPORTED_MESSAGE);
+        }
+      } catch {
+        // best-effort guard only
+      }
       const { useV3 } = resolvedAddresses;
 
       try {
@@ -224,7 +246,7 @@ export function useSwapETHToUSDC() {
           const fee = 3000;
           const sqrtPriceLimitX96 = BigInt(0); // No price limit
 
-          txHash = await walletClient.writeContract({
+          const rawHash = await walletClient.writeContract({
             address: router,
             abi: UNISWAP_V3_SWAP_ROUTER_ABI,
             functionName: "exactInputSingle",
@@ -241,16 +263,18 @@ export function useSwapETHToUSDC() {
             ],
             value: amountInWei, // Send ETH which will be wrapped
           });
+          txHash = normalizeTxHash(rawHash);
         } else {
           // V2 swap on mainnet
           const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 20);
-          txHash = await walletClient.writeContract({
+          const rawHash = await walletClient.writeContract({
             address: router,
             abi: UNISWAP_V2_ROUTER_ABI,
             functionName: "swapExactETHForTokens",
             args: [amountOutMinUsdc, [weth, usdc], recipient, deadline],
             value: amountInWei,
           });
+          txHash = normalizeTxHash(rawHash);
         }
 
         await waitForViemTransactionWithRetry(publicClient, txHash, {
@@ -274,6 +298,12 @@ export function useSwapETHToUSDC() {
 
         return new Ok({ usdcReceived, txHash });
       } catch (e: any) {
+        if (
+          isInvalidWalletTxResponseError(e) ||
+          isInvalidWalletTxResponseError(e?.message)
+        ) {
+          return new Err(INVALID_WALLET_TX_RESPONSE_MESSAGE);
+        }
         return new Err(e?.message || "Failed to swap ETH to USDC.");
       }
     },

@@ -1128,6 +1128,31 @@ function PendingRewardsNotice({
   );
 }
 
+function InflationClaimReassuranceNotice({ show }: { show: boolean }) {
+  if (!show) return null;
+
+  return (
+    <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
+      <div className="flex items-start gap-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-background border border-border/40 shrink-0">
+          <Shield className="h-4 w-4 text-muted-foreground" />
+        </div>
+        <div className="space-y-1">
+          <div className="text-sm font-medium text-foreground">
+            Your emission rewards are safe
+          </div>
+          <div className="text-sm text-foreground/80 dark:text-foreground/70">
+            If emissions are not claimable today, it can be because your prior
+            claim already included more than one week of emission rewards. This
+            does not mean anything is missing. You have not lost rewards, and
+            claims should return to the normal weekly rhythm on the next cycle.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ClaimsPanel({
   onClaimSuccess,
   variant = "dialog",
@@ -1334,6 +1359,36 @@ export function ClaimsPanel({
       return !protocolClaimed;
     });
   }, [weeklyBreakdown, getWeekClaimState]);
+
+  const claimableInflationWeeks = React.useMemo(
+    () =>
+      weeklyBreakdown.filter((weekData) => {
+        if (!weekData.isFinalized) return false;
+        const hasInflationRewards = weekData.rewards.some(
+          (reward) => reward.type === "glowInflation"
+        );
+        if (!hasInflationRewards) return false;
+
+        const { glwClaimed } = getWeekClaimState(weekData);
+        return !glwClaimed;
+      }),
+    [weeklyBreakdown, getWeekClaimState]
+  );
+
+  const shouldShowInflationClaimReassurance = React.useMemo(() => {
+    const finalizedInflationWeeks = weeklyBreakdown.filter((weekData) => {
+      if (!weekData.isFinalized) return false;
+      return weekData.rewards.some((reward) => reward.type === "glowInflation");
+    });
+    if (finalizedInflationWeeks.length === 0) return false;
+
+    const hasAnyClaimedInflationWeek = finalizedInflationWeeks.some((weekData) => {
+      const { glwClaimed } = getWeekClaimState(weekData);
+      return glwClaimed;
+    });
+
+    return hasAnyClaimedInflationWeek && claimableInflationWeeks.length === 0;
+  }, [claimableInflationWeeks.length, getWeekClaimState, weeklyBreakdown]);
 
   const createInitialStageState = React.useCallback(
     (payload: ClaimInitiationPayload): ClaimStageMap => {
@@ -2175,6 +2230,9 @@ export function ClaimsPanel({
       </div>
 
       <PendingRewardsNotice pendingWeeks={pendingWeeks} />
+      <InflationClaimReassuranceNotice
+        show={shouldShowInflationClaimReassurance}
+      />
 
       <div className="space-y-3">
         <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">

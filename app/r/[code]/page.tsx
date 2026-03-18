@@ -17,6 +17,7 @@ import { GlowSymbol } from "@/components/glow-symbol";
 import { motion, AnimatePresence } from "framer-motion";
 import { useReferralLaunch } from "@/hooks/use-referral-launch";
 import { REFERRAL_LAUNCH_LABEL } from "@/lib/referral-launch";
+import { parseReferralError } from "@/lib/referral-errors";
 import { toast } from "sonner";
 
 interface ValidateCodeResponse {
@@ -125,7 +126,10 @@ export default function ReferralLandingPage() {
       trackEvent("referral_link_success", { code, wallet: address });
       setIsSuccess(true);
     } catch (e) {
-      console.error(e);
+      const parsed = parseReferralError(e);
+      if (!parsed.isUserRejection) {
+        console.error(parsed.message, e);
+      }
     }
   };
 
@@ -138,7 +142,10 @@ export default function ReferralLandingPage() {
       setIsChangeSuccess(true);
       setIsSuccess(true);
     } catch (e) {
-      console.error(e);
+      const parsed = parseReferralError(e);
+      if (!parsed.isUserRejection) {
+        console.error(parsed.message, e);
+      }
     }
   };
 

@@ -22,6 +22,11 @@ import { keccak256, toHex } from "viem";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useGctlApi } from "@/hooks";
 import { resolveWalletChainId } from "@/lib/tos-chain";
+import {
+  parseTosApiError,
+  shouldRetryTosWithPersonalSign,
+  type TosError,
+} from "@/lib/tos-signature-errors";
 import { WalletsRouter } from "@glowlabs-org/utils/browser";
 import * as Sentry from "@sentry/nextjs";
 
@@ -120,130 +125,6 @@ import {
 } from "@/components/ui/collapsible";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
-
-// Error types for better UX
-type TosErrorType =
-  | "smart_wallet"
-  | "deadline_expired"
-  | "deadline_invalid"
-  | "signature_rejected"
-  | "network_error"
-  | "wrong_network"
-  | "unknown";
-
-interface TosError {
-  type: TosErrorType;
-  title: string;
-  message: string;
-  suggestion: string;
-  canRetry: boolean;
-}
-
-// Parse backend error messages into structured error objects
-function parseApiError(error: unknown): TosError {
-  const errorMessage = error instanceof Error ? error.message : String(error);
-  const lowerMessage = errorMessage.toLowerCase();
-
-  // Smart wallet specific errors
-  if (
-    lowerMessage.includes("smart wallet") ||
-    lowerMessage.includes("erc-1271") ||
-    lowerMessage.includes("erc1271") ||
-    lowerMessage.includes("isvalidsignature")
-  ) {
-    return {
-      type: "smart_wallet",
-      title: "Smart Wallet Signature Issue",
-      message: "Your smart wallet couldn't verify the signature.",
-      suggestion: "This can happen with some smart wallets (Safe, Coinbase Smart Wallet, etc.). Try signing again, or use a regular wallet if the issue persists.",
-      canRetry: true,
-    };
-  }
-
-  // Deadline expired
-  if (lowerMessage.includes("deadline") && lowerMessage.includes("expired")) {
-    return {
-      type: "deadline_expired",
-      title: "Signature Expired",
-      message: "The signature request timed out.",
-      suggestion: "Please try signing again. Make sure to complete the signing process promptly.",
-      canRetry: true,
-    };
-  }
-
-  // Deadline in milliseconds (developer error)
-  if (lowerMessage.includes("deadline") && lowerMessage.includes("milliseconds")) {
-    return {
-      type: "deadline_invalid",
-      title: "Invalid Signature Request",
-      message: "There was a technical issue with the signature request.",
-      suggestion: "Please try again. If the issue persists, try refreshing the page.",
-      canRetry: true,
-    };
-  }
-
-  // Deadline too far in future
-  if (lowerMessage.includes("deadline") && lowerMessage.includes("too far")) {
-    return {
-      type: "deadline_invalid",
-      title: "Invalid Signature Request",
-      message: "The signature deadline was set too far in the future.",
-      suggestion: "Please try again. If the issue persists, try refreshing the page.",
-      canRetry: true,
-    };
-  }
-
-  // User rejected
-  if (
-    lowerMessage.includes("user rejected") ||
-    lowerMessage.includes("user denied") ||
-    lowerMessage.includes("rejected the request")
-  ) {
-    return {
-      type: "signature_rejected",
-      title: "Signature Rejected",
-      message: "You declined to sign the message in your wallet.",
-      suggestion: "Click 'Sign & Accept' and approve the signature request in your wallet to continue.",
-      canRetry: true,
-    };
-  }
-
-  // Signer mismatch (might be smart wallet related)
-  if (lowerMessage.includes("signer_mismatch") || lowerMessage.includes("signer mismatch")) {
-    return {
-      type: "smart_wallet",
-      title: "Signature Verification Failed",
-      message: "The signature doesn't match your wallet address.",
-      suggestion: "If you're using a smart wallet (Safe, Coinbase, etc.), ensure all required signers have approved. Otherwise, try disconnecting and reconnecting your wallet.",
-      canRetry: true,
-    };
-  }
-
-  // Network errors
-  if (
-    lowerMessage.includes("network") ||
-    lowerMessage.includes("fetch") ||
-    lowerMessage.includes("timeout") ||
-    lowerMessage.includes("connection")
-  ) {
-    return {
-      type: "network_error",
-      title: "Connection Error",
-      message: "Couldn't connect to the server.",
-      suggestion: "Please check your internet connection and try again.",
-      canRetry: true,
-    };
-  }
-
-  // Unknown error
-  return {
-    type: "unknown",
-    title: "Something Went Wrong",
-    message: errorMessage || "An unexpected error occurred.",
-    suggestion: "Please try again. If the problem persists, try refreshing the page or using a different browser.",
-    canRetry: true,
-  };
-}
 
 // ToS content version and hash generation - MUST match backend exactly
 const TOS_VERSION = "1.0";
@@ -681,8 +562,8 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
 
         // Some smart wallets produce EIP-712 signatures that fail backend verification.
         // Retry once with personal_sign before surfacing an error.
-        const parsedApiError = parseApiError(apiError);
-        if (signingMethod === "eip712" && parsedApiError.type === "smart_wallet") {
+        const parsedApiError = parseTosApiError(apiError);
+        if (shouldRetryTosWithPersonalSign(signingMethod, parsedApiError.type)) {
           try {
             signingMethod = "personal_sign";
             signingContext.signingMethod = signingMethod;
@@ -750,7 +631,7 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
       setIsOpen(false);
       toast.success("Terms of Service accepted successfully");
     } catch (error) {
-      const parsedError = parseApiError(error);
+      const parsedError = parseTosApiError(error);
       setError(parsedError);
       setRetryCount((prev) => prev + 1);
 

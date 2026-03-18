@@ -155,6 +155,7 @@ const REFERRAL_TIER_LABELS: Record<string, string> = {
   scale: "Zenith",
   legend: "Eclipse Prime",
 };
+const REFERRAL_NETWORK_FETCH_LIMIT = 200;
 
 function formatTierName(name?: string) {
   if (!name) return "";
@@ -178,7 +179,7 @@ export function ReferralNetworkDialog({
     queryKey: ["referral-network", walletAddress],
     queryFn: () =>
       hubGet<ReferralNetworkResponse>("/referral/network", {
-        params: { walletAddress },
+        params: { walletAddress, limit: REFERRAL_NETWORK_FETCH_LIMIT },
       }),
     enabled: isReferralLive && open && !!walletAddress && !mockData,
   });
@@ -223,7 +224,9 @@ export function ReferralNetworkDialog({
 
   const activeRefereesForList = React.useMemo(() => {
     if (!resolvedData) return [];
-    return resolvedData.referees.filter((ref) => ref.status === "active");
+    return resolvedData.referees.filter(
+      (ref) => ref.status === "active" || ref.activationPending,
+    );
   }, [resolvedData]);
 
   const totalNetworkCount = React.useMemo(() => {

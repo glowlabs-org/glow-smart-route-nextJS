@@ -12,6 +12,16 @@ import { formatEther, parseAbi } from "viem";
 import Decimal from "decimal.js";
 import { waitForViemTransactionWithRetry } from "@glowlabs-org/utils/browser";
 import * as Sentry from "@sentry/nextjs";
+import {
+  INVALID_WALLET_TX_RESPONSE_MESSAGE,
+  isInvalidWalletTxResponseError,
+  normalizeTxHash,
+} from "@/lib/normalize-tx-hash";
+import {
+  getSmartAccountStatus,
+  isSmartAccountBlocked,
+  SMART_ACCOUNT_UNSUPPORTED_MESSAGE,
+} from "@/web3/web3/utils/detectSmartAccount";
 
 const MAX_UINT256 = (BigInt(1) << BigInt(256)) - BigInt(1);
 
@@ -78,6 +88,13 @@ function extractErrorMessage(err: any, defaultMessage: string): string {
     errorMessage = err.shortMessage;
   } else if (typeof err === "string") {
     errorMessage = err;
+  }
+
+  if (
+    isInvalidWalletTxResponseError(err) ||
+    isInvalidWalletTxResponseError(errorMessage)
+  ) {
+    return INVALID_WALLET_TX_RESPONSE_MESSAGE;
   }
 
   // Handle common error cases
@@ -233,7 +250,7 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
         })) as bigint,
       approve: async (spender: `0x${string}`, amount: bigint) => {
         if (!walletClient) throw new Error("Wallet client not available");
-        const hash = await walletClient.writeContract({
+        const rawHash = await walletClient.writeContract({
           address,
           abi: parseAbi([
             "function approve(address spender, uint256 amount) returns (bool)",
@@ -241,6 +258,7 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
           functionName: "approve",
           args: [spender, amount],
         });
+        const hash = normalizeTxHash(rawHash);
         lastTxHashRef.current = hash;
         setLastTxHash(hash);
         return makeTx(hash);
@@ -262,6 +280,25 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     };
   }
 
+  async function getSmartAccountBlockReason(
+    address: `0x${string}`
+  ): Promise<string | null> {
+    if (!walletClient) return null;
+    try {
+      const status = await getSmartAccountStatus({
+        address,
+        walletClient,
+        getBytecode: publicClient.getBytecode,
+      });
+      if (isSmartAccountBlocked(status)) {
+        return SMART_ACCOUNT_UNSUPPORTED_MESSAGE;
+      }
+    } catch {
+      // fail open here; tx path still has additional safeguards and user-facing errors
+    }
+    return null;
+  }
+
   function makeUniswapRouter(address: `0x${string}`) {
     const ROUTER_ABI = parseAbi([
       "function swapExactTokensForTokens(uint256 amountIn, uint256 amountOutMin, address[] path, address to, uint256 deadline) returns (uint256[] amounts)",
@@ -277,12 +314,13 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
         deadline: number
       ) => {
         if (!walletClient) throw new Error("Wallet client not available");
-        const hash = await walletClient.writeContract({
+        const rawHash = await walletClient.writeContract({
           address,
           abi: ROUTER_ABI,
           functionName: "swapExactTokensForTokens",
           args: [amountIn, amountOutMin, path, to, BigInt(deadline)],
         });
+        const hash = normalizeTxHash(rawHash);
         lastTxHashRef.current = hash;
         setLastTxHash(hash);
         return makeTx(hash);
@@ -350,6 +388,13 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
       pairAddress: pairAddress as `0x${string}`,
     });
     const signerAddress = await signer.getAddress();
+    const smartAccountBlockReason = await getSmartAccountBlockReason(
+      signerAddress as `0x${string}`
+    );
+    if (smartAccountBlockReason) {
+      setUniswapPurchaseState("ERROR");
+      return new Err(smartAccountBlockReason as SwapError);
+    }
 
     const allowanceTokenA = await tokenA.allowance(
       signerAddress,
@@ -624,6 +669,12 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     });
 
     const signerAddress = (await signer.getAddress()) as `0x${string}`;
+    const smartAccountBlockReason =
+      await getSmartAccountBlockReason(signerAddress);
+    if (smartAccountBlockReason) {
+      setUniswapPurchaseState("ERROR");
+      return new Err(smartAccountBlockReason as SwapError);
+    }
     const balanceGlow = await glowToken.balanceOf(signerAddress);
 
     const amountBigInt = toBigIntAmount(amount);

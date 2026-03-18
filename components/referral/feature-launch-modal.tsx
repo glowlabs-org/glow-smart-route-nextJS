@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { trackEvent } from "@/lib/telemetry";
+import { parseReferralError } from "@/lib/referral-errors";
 import * as Sentry from "@sentry/nextjs";
 import { GlowSymbol } from "@/components/glow-symbol";
 import { hubGet, hubPost } from "@/lib/api/hub-client";
@@ -236,19 +237,23 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
       });
       setStep("success");
     } catch (err) {
-      const message = (err as Error)?.message || "Something went wrong";
-      // Don't report user rejections to Sentry
-      const isUserRejection =
-        message?.includes("User rejected") || (err as any)?.code === 4001;
-      if (!isUserRejection) {
+      const parsedError = parseReferralError(err);
+      if (!parsedError.isUserRejection) {
         const normalizedError =
-          err instanceof Error ? err : new Error(String(message));
+          err instanceof Error ? err : new Error(String(parsedError.message));
         Sentry.captureException(normalizedError, {
-          tags: { referralStage: "feature_launch_claim" },
-          extra: { code: trimmedCode, walletAddress: address },
+          tags: {
+            referralStage: "feature_launch_claim",
+            referralErrorType: parsedError.type,
+          },
+          extra: {
+            code: trimmedCode,
+            walletAddress: address,
+            parsedMessage: parsedError.message,
+          },
         });
       }
-      setLocalError(message);
+      setLocalError(parsedError.message);
     }
   };
 

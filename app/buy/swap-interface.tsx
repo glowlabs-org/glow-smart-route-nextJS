@@ -60,9 +60,16 @@ import { cn } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
 import { StatsSidebar } from "./stats-sidebar";
 import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-warning-dialog";
-import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
+import {
+  getSmartAccountStatus,
+  isSmartAccountBlocked,
+} from "@/web3/web3/utils/detectSmartAccount";
 import { trackEvent } from "@/lib/telemetry";
 import { tokens } from "./constants";
+import {
+  INVALID_WALLET_TX_RESPONSE_MESSAGE,
+  isInvalidWalletTxResponseError,
+} from "@/lib/normalize-tx-hash";
 
 const defaultTokensEstimate = {
   GLOW: "",
@@ -231,11 +238,7 @@ export function SwapInterface({
         getBytecode: publicClient?.getBytecode,
       });
 
-      const isSmartAccount =
-        status &&
-        (status.isContractWallet ||
-          status.isEip7702Delegated ||
-          status.hasWalletAABatching);
+      const isSmartAccount = isSmartAccountBlocked(status);
 
       if (isSmartAccount) {
         setIsSmartAccountWarningOpen(true);
@@ -765,6 +768,13 @@ export function SwapInterface({
         errorMessage = error.shortMessage;
       } else if (typeof error === "string") {
         errorMessage = error;
+      }
+
+      if (
+        isInvalidWalletTxResponseError(error) ||
+        isInvalidWalletTxResponseError(errorMessage)
+      ) {
+        errorMessage = INVALID_WALLET_TX_RESPONSE_MESSAGE;
       }
 
       // Log critical swap errors to Sentry (skip user rejections)

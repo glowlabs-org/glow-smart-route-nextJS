@@ -9,6 +9,16 @@ import {
   waitForViemTransactionWithRetry,
 } from "@glowlabs-org/utils/browser";
 import { useWalletClient } from "wagmi";
+import {
+  INVALID_WALLET_TX_RESPONSE_MESSAGE,
+  isInvalidWalletTxResponseError,
+  normalizeTxHash,
+} from "@/lib/normalize-tx-hash";
+import {
+  getSmartAccountStatus,
+  isSmartAccountBlocked,
+  SMART_ACCOUNT_UNSUPPORTED_MESSAGE,
+} from "@/web3/web3/utils/detectSmartAccount";
 
 if (!process.env.NEXT_PUBLIC_CHAIN_ID) {
   throw new Error("NEXT_PUBLIC_CHAIN_ID is not set");
@@ -36,6 +46,12 @@ export enum USDGRedemptionError {
 // Utility to extract the most useful revert reason from an ethers error object
 function parseEthersError(error: unknown): string {
   if (!error) return "Unknown error";
+  if (
+    isInvalidWalletTxResponseError(error) ||
+    isInvalidWalletTxResponseError((error as any)?.message)
+  ) {
+    return INVALID_WALLET_TX_RESPONSE_MESSAGE;
+  }
   // Ethers v6 nests the original error under `error` property while v5 keeps it directly on the object
   // We try to exhaust the most common locations for a revert reason
   const possibleError: any = error;
@@ -115,6 +131,18 @@ export function useUSDGRedemption() {
 
       const owner = walletClient.account?.address as `0x${string}` | undefined;
       if (!owner) return new Err(USDGRedemptionError.SIGNER_NOT_AVAILABLE);
+      try {
+        const smartStatus = await getSmartAccountStatus({
+          address: owner,
+          walletClient,
+          getBytecode: publicClient.getBytecode,
+        });
+        if (isSmartAccountBlocked(smartStatus)) {
+          return new Err(SMART_ACCOUNT_UNSUPPORTED_MESSAGE);
+        }
+      } catch {
+        // best-effort guard only
+      }
       const allowance: bigint = await usdg.allowance(
         owner,
         USDG_REDEMPTION_ADDRESS
@@ -159,12 +187,13 @@ export function useUSDGRedemption() {
         return new Err(parseEthersError(staticError));
       }
 
-      const hash = await walletClient.writeContract({
+      const rawHash = await walletClient.writeContract({
         address: USDG_REDEMPTION_ADDRESS,
         abi: USDG_REDEMPTION_ABI,
         functionName: "exchange",
         args: [amountUSDG],
       });
+      const hash = normalizeTxHash(rawHash);
       await waitForViemTransactionWithRetry(publicClient, hash, {
         maxRetries: 5,
         timeoutMs: 120000, // 2 minutes timeout
