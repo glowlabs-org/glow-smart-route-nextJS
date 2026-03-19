@@ -168,16 +168,9 @@ function sanitizeRecentConnectorId(
   if (storage && hasWalletConnectSession(storage)) {
     return formatRecentConnectorId(normalizedValue, isSerialized);
   }
-
-  if (storage) removeWalletConnectArtifacts(storage);
-
-  try {
-    window.localStorage?.removeItem(key);
-  } catch {
-    // Ignore storage access errors.
-  }
-  removeCookie(key);
-  return null;
+  // WalletConnect session keys can briefly lag during reload/hydration.
+  // Keep the recent connector id and allow wagmi/appkit to perform reconnect.
+  return formatRecentConnectorId(normalizedValue, isSerialized);
 }
 
 export function getCookieValue(

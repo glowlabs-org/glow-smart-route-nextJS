@@ -1,7 +1,12 @@
 "use client";
 
 import React from "react";
-import { WagmiProvider } from "wagmi";
+import {
+  WagmiProvider,
+  cookieToInitialState,
+  type Config,
+  type State,
+} from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/sonner";
 import { wagmiConfig } from "@/lib/wagmi-config";
@@ -14,7 +19,12 @@ import {
 import { installBrowserRateLimitFetchInterceptor } from "@/lib/api/browser-rate-limit-fetch";
 import { toast } from "sonner";
 
-export const WagmiWrapper = ({ children }: { children: React.ReactNode }) => {
+type WagmiWrapperProps = {
+  children: React.ReactNode;
+  cookies?: string | null;
+};
+
+export const WagmiWrapper = ({ children, cookies }: WagmiWrapperProps) => {
   const [queryClient] = React.useState(
     () =>
       new QueryClient({
@@ -35,6 +45,16 @@ export const WagmiWrapper = ({ children }: { children: React.ReactNode }) => {
         },
       })
   );
+
+  const initialState = React.useMemo<State | undefined>(() => {
+    if (!cookies) return undefined;
+
+    try {
+      return cookieToInitialState(wagmiConfig as Config, cookies);
+    } catch {
+      return undefined;
+    }
+  }, [cookies]);
 
   React.useEffect(() => {
     const teardownFetchInterceptor = installBrowserRateLimitFetchInterceptor({
@@ -62,7 +82,11 @@ export const WagmiWrapper = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   return (
-    <WagmiProvider config={wagmiConfig} reconnectOnMount={false}>
+    <WagmiProvider
+      config={wagmiConfig}
+      initialState={initialState}
+      reconnectOnMount
+    >
       <QueryClientProvider client={queryClient}>
         <Toaster position="bottom-right" />
         {children}
