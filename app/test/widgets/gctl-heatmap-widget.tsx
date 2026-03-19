@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Zap,
   ArrowRight,
@@ -11,6 +11,8 @@ import {
   Wallet,
   Globe,
   Info,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import Link from "next/link";
 import { useAccount } from "wagmi";
@@ -159,6 +161,7 @@ export default function GctlControlWidget({
   variant?: "default" | "flow" | "minimal";
   readOnly?: boolean;
 }) {
+  const [showAllStakes, setShowAllStakes] = useState(false);
   const { isConnecting, isReconnecting } = useAccount();
   const isEnabled = Boolean(walletAddress);
   const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
@@ -276,6 +279,16 @@ export default function GctlControlWidget({
       normalizedWidth: maxShare > 0 ? (stake.share / maxShare) * 75 : 0,
     }));
   }, [stakes]);
+  const maxVisibleStakes = 3;
+  const hasMoreStakes = stakesWithNormalizedWidth.length > maxVisibleStakes;
+  const isExpanded = hasMoreStakes && showAllStakes;
+  const hiddenStakesCount = Math.max(
+    stakesWithNormalizedWidth.length - maxVisibleStakes,
+    0,
+  );
+  const visibleStakes = isExpanded
+    ? stakesWithNormalizedWidth
+    : stakesWithNormalizedWidth.slice(0, maxVisibleStakes);
   const hasLiquidGctl = walletBalanceGctl > 0.01;
   const isLoading =
     isGctlBalanceLoading ||
@@ -491,17 +504,38 @@ export default function GctlControlWidget({
           </div>
 
           {stakesWithNormalizedWidth.length > 0 ? (
-            stakesWithNormalizedWidth.map((stake, i) => (
-              <RegionSteeringRow
-                key={stake.regionId}
-                regionName={stake.regionName}
-                userStakedGctl={stake.amountGctl}
-                totalRegionStakedGctl={stake.totalRegionStaked}
-                regionWeeklyEmissions={stake.weeklyEmissions}
-                isMax={i === 0}
-                normalizedWidth={stake.normalizedWidth}
-              />
-            ))
+            <>
+              {visibleStakes.map((stake, i) => (
+                <RegionSteeringRow
+                  key={stake.regionId}
+                  regionName={stake.regionName}
+                  userStakedGctl={stake.amountGctl}
+                  totalRegionStakedGctl={stake.totalRegionStaked}
+                  regionWeeklyEmissions={stake.weeklyEmissions}
+                  isMax={i === 0}
+                  normalizedWidth={stake.normalizedWidth}
+                />
+              ))}
+              {hasMoreStakes && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllStakes((value) => !value)}
+                  className="mt-1 w-full rounded-lg border border-border/30 px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground transition-colors hover:border-[#22D3EE]/50 hover:text-[#22D3EE] flex items-center justify-center gap-1"
+                >
+                  {isExpanded ? (
+                    <>
+                      Show Less
+                      <ChevronUp className="h-3 w-3" />
+                    </>
+                  ) : (
+                    <>
+                      Show {hiddenStakesCount} More
+                      <ChevronDown className="h-3 w-3" />
+                    </>
+                  )}
+                </button>
+              )}
+            </>
           ) : (
             <div
               className={cn(
