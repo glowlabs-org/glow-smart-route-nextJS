@@ -1,12 +1,15 @@
 import { Button } from "./ui/button";
 import { Loader2, Wallet } from "lucide-react";
-import { useAccount, useChainId } from "wagmi";
+import { useAccount, useChainId, useConnect } from "wagmi";
 import clsx from "clsx";
 import * as React from "react";
 import { useEffect, useRef, useState } from "react";
 import { ConnectKitButton } from "connectkit";
+import * as Sentry from "@sentry/nextjs";
 import { Account } from "./account";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+
+const CONNECT_PENDING_SENTRY_TIMEOUT_MS = 12_000;
 
 export const ConnectButton = ({
   className,
@@ -23,8 +26,10 @@ export const ConnectButton = ({
 }) => {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
+  const { error: connectError, isPending, pendingConnector } = useConnect();
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const onConnectRef = useRef(onConnect);
+  const pendingReportKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     onConnectRef.current = onConnect;
@@ -39,6 +44,53 @@ export const ConnectButton = ({
     if (!isConnected) return;
     onConnectRef.current?.();
   }, [isConnected]);
+
+  useEffect(() => {
+    if (!connectError) return;
+    const normalizedError =
+      connectError instanceof Error
+        ? connectError
+        : new Error(String((connectError as any)?.message ?? connectError));
+
+    Sentry.captureException(normalizedError, {
+      tags: {
+        walletStage: "connect",
+        walletConnectorId: pendingConnector?.id ?? "unknown",
+        walletConnectorName: pendingConnector?.name ?? "unknown",
+      },
+      extra: {
+        code: (connectError as any)?.code ?? null,
+        shortMessage: (connectError as any)?.shortMessage ?? null,
+        details: (connectError as any)?.details ?? null,
+      },
+    });
+  }, [connectError, pendingConnector?.id, pendingConnector?.name]);
+
+  useEffect(() => {
+    if (!isPending) {
+      pendingReportKeyRef.current = null;
+      return;
+    }
+
+    const pendingKey = `${pendingConnector?.id ?? "unknown"}:${
+      pendingConnector?.name ?? "unknown"
+    }`;
+    const timeoutId = window.setTimeout(() => {
+      if (pendingReportKeyRef.current === pendingKey) return;
+      pendingReportKeyRef.current = pendingKey;
+      Sentry.withScope((scope) => {
+        scope.setLevel("warning");
+        scope.setTag("kind", "wallet_connect_pending");
+        scope.setTag("walletConnectorId", pendingConnector?.id ?? "unknown");
+        scope.setTag("walletConnectorName", pendingConnector?.name ?? "unknown");
+        Sentry.captureMessage("Wallet connection is still pending after timeout");
+      });
+    }, CONNECT_PENDING_SENTRY_TIMEOUT_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [isPending, pendingConnector?.id, pendingConnector?.name]);
 
   // Use ConnectKitButton which handles all wallet connection logic
   // Customize it with our styling and account modal

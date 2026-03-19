@@ -3,6 +3,7 @@
 import { createStorage, createConfig } from "wagmi";
 import { mainnet, sepolia } from "wagmi/chains";
 import { injected, walletConnect } from "wagmi/connectors";
+import * as Sentry from "@sentry/nextjs";
 import { instrumentedHttp } from "@/lib/viem-rpc-logging";
 import { createPersistentWalletStorage } from "@/lib/wallet-storage";
 
@@ -24,6 +25,8 @@ const INJECTED_CONNECTOR_OPTIONS = {
 
 const EIP6963_PROVIDERS_KEY = "__glowEip6963Providers";
 const EIP6963_LISTENER_READY_KEY = "__glowEip6963ListenerReady";
+const CONNECTOR_DEBUG_CACHE_KEY = "__glowWalletConnectorDebugCache";
+const CONNECTOR_DEBUG_REPORT_WINDOW_MS = 60_000;
 
 type Eip6963ProviderInfo = {
   rdns?: string;
@@ -35,6 +38,64 @@ type Eip6963ProviderDetail = {
   info?: Eip6963ProviderInfo;
   provider?: any;
 };
+
+type ConnectorDebugLevel = "info" | "warning" | "error";
+
+function getEip6963ProvidersCount(windowRef: any): number {
+  const win = windowRef as any;
+  const providers = win?.[EIP6963_PROVIDERS_KEY];
+  return Array.isArray(providers) ? providers.length : 0;
+}
+
+function shouldReportConnectorDebug(windowRef: any, key: string): boolean {
+  const win = windowRef as any;
+  if (
+    !win[CONNECTOR_DEBUG_CACHE_KEY] ||
+    typeof win[CONNECTOR_DEBUG_CACHE_KEY] !== "object"
+  ) {
+    win[CONNECTOR_DEBUG_CACHE_KEY] = {};
+  }
+
+  const cache = win[CONNECTOR_DEBUG_CACHE_KEY] as Record<string, number>;
+  const now = Date.now();
+  const lastReportedAt = cache[key];
+  if (
+    typeof lastReportedAt === "number" &&
+    now - lastReportedAt < CONNECTOR_DEBUG_REPORT_WINDOW_MS
+  ) {
+    return false;
+  }
+
+  cache[key] = now;
+  return true;
+}
+
+function reportConnectorDebug(
+  windowRef: any,
+  params: {
+    connectorId: string;
+    event: string;
+    level?: ConnectorDebugLevel;
+    extra?: Record<string, unknown>;
+  }
+): void {
+  if (typeof window === "undefined") return;
+  const key = `${params.connectorId}:${params.event}`;
+  if (!shouldReportConnectorDebug(windowRef, key)) return;
+
+  Sentry.withScope((scope) => {
+    scope.setLevel(params.level ?? "warning");
+    scope.setTag("kind", "wallet_connector_debug");
+    scope.setTag("connectorId", params.connectorId);
+    scope.setTag("walletEvent", params.event);
+    if (params.extra) {
+      for (const [extraKey, extraValue] of Object.entries(params.extra)) {
+        scope.setExtra(extraKey, extraValue);
+      }
+    }
+    Sentry.captureMessage(`Wallet connector debug: ${params.event}`);
+  });
+}
 
 function requestEip6963Providers(windowRef: any) {
   try {
@@ -163,8 +224,8 @@ export const wagmiConfig = createConfig({
             target: {
               id: "io.metamask",
               name: "MetaMask",
-              provider: (window) =>
-                pickInjectedProvider(
+              provider: (window) => {
+                const provider = pickInjectedProvider(
                   window,
                   (provider) =>
                     provider.isMetaMask === true &&
@@ -175,7 +236,44 @@ export const wagmiConfig = createConfig({
                     (provider.isMetaMask === true &&
                       provider.isCoinbaseWallet !== true &&
                       provider.isPhantom !== true),
-                ),
+                );
+                if (provider) return provider;
+
+                const ethereum = (window as any)?.ethereum;
+                if (ethereum && typeof ethereum.request === "function") {
+                  reportConnectorDebug(window, {
+                    connectorId: "io.metamask",
+                    event: "metamask_provider_fallback_window_ethereum",
+                    level: "warning",
+                    extra: {
+                      ethereumIsMetaMask: ethereum.isMetaMask ?? null,
+                      ethereumIsCoinbaseWallet: ethereum.isCoinbaseWallet ?? null,
+                      ethereumIsPhantom: ethereum.isPhantom ?? null,
+                      ethereumProvidersCount: Array.isArray(ethereum.providers)
+                        ? ethereum.providers.length
+                        : 0,
+                      eip6963ProvidersCount: getEip6963ProvidersCount(window),
+                    },
+                  });
+                  return ethereum as any;
+                }
+
+                reportConnectorDebug(window, {
+                  connectorId: "io.metamask",
+                  event: "metamask_provider_not_found",
+                  level: "error",
+                  extra: {
+                    hasWindowEthereum: Boolean(ethereum),
+                    ethereumProvidersCount:
+                      ethereum && Array.isArray(ethereum.providers)
+                        ? ethereum.providers.length
+                        : 0,
+                    eip6963ProvidersCount: getEip6963ProvidersCount(window),
+                  },
+                });
+
+                return undefined;
+              },
             },
           }),
           injected({
