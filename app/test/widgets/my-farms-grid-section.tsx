@@ -73,6 +73,7 @@ import {
   deriveLaunchpadSponsorshipsInProgress,
   deriveMiningCenterSponsorshipsInProgress,
 } from "@/utils/sponsorships-in-progress";
+import { shouldIncludePendingStartCard } from "@/utils/pending-start-cards";
 
 const fmtGlw = (n: number) =>
   new Intl.NumberFormat("en-US", {
@@ -1409,16 +1410,22 @@ export default function MyFarmsGridSection({
       if (!fractionType) continue;
       const status = (evt.fractionStatus ?? "").toLowerCase();
 
-      const isPendingStart =
-        (fractionType === "launchpad" && status === "filled") ||
-        (fractionType === "mining-center" &&
-          (status === "filled" || status === "expired"));
-      if (!isPendingStart) continue;
-
       const farmId = evt.farmId ?? evt.applicationId;
       if (!farmId) continue;
       const farmTypeKey = `${farmId}:${fractionType}`;
-      if (rewardedFarmTypeKeys.has(farmTypeKey)) continue;
+      const hasCurrentOwnership = purchasedFarms.some((f) => f.farmId === farmId);
+
+      if (
+        !shouldIncludePendingStartCard({
+          fractionType,
+          status,
+          farmTypeKey,
+          rewardedFarmTypeKeys,
+          hasCurrentOwnership,
+        })
+      ) {
+        continue;
+      }
 
       let amount = BigInt(0);
       try {
