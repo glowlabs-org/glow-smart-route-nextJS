@@ -457,6 +457,7 @@ export function useLiquidityMutations() {
       // Check for smart account
       const status = await getSmartAccountStatus({
         address: address as `0x${string}`,
+        chainId,
         walletClient,
         getBytecode: publicClient.getBytecode,
       });

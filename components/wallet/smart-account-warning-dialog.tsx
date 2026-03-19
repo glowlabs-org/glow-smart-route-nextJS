@@ -100,6 +100,7 @@ export function SmartAccountWarningDialog({
       try {
         const status = await getSmartAccountStatus({
           address,
+          chainId,
           walletClient,
           getBytecode: publicClient?.getBytecode,
         });
@@ -234,6 +235,7 @@ export function SmartAccountWarningDialog({
     try {
       const status = await getSmartAccountStatus({
         address,
+        chainId,
         walletClient,
         getBytecode: publicClient?.getBytecode,
       });

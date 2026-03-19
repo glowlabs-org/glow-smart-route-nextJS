@@ -2,6 +2,7 @@ import { isHex, getAddress } from "viem";
 
 export interface SmartAccountDetectionParams {
   address?: `0x${string}`;
+  chainId?: number;
   walletClient?: any;
   getBytecode?: (args: {
     address: `0x${string}`;
@@ -58,68 +59,154 @@ async function requestWalletCapabilities(params: {
   return null;
 }
 
-function hasSmartCapabilitySignals(payload: unknown): boolean {
-  if (!payload || typeof payload !== "object") return false;
+const CHAIN_ID_KEY_PATTERN = /^(0x[0-9a-f]+|\d+)$/i;
+const SMART_ACCOUNT_KEY_HINTS = [
+  "smartaccount",
+  "accountabstraction",
+  "walletsendcalls",
+  "sendcalls",
+  "paymaster",
+  "bundler",
+  "sponsor",
+  "eip5792",
+  "eip7702",
+  "atomic",
+] as const;
+const EXPLICITLY_ENABLED_STATUSES = new Set([
+  "enabled",
+  "active",
+  "required",
+  "enforced",
+  "on",
+  "true",
+]);
 
-  const stack: unknown[] = [payload];
-  while (stack.length) {
-    const current = stack.pop();
-    if (!current || typeof current !== "object") continue;
+function normalizeStatus(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  return normalized.length ? normalized : null;
+}
 
-    const entries = Object.entries(current as Record<string, unknown>);
-    for (const [rawKey, rawValue] of entries) {
-      const key = rawKey.toLowerCase();
-      const value = rawValue as any;
+function parseChainIdKey(value: string): number | null {
+  if (!CHAIN_ID_KEY_PATTERN.test(value)) return null;
+  const parsed = value.startsWith("0x")
+    ? Number.parseInt(value, 16)
+    : Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
 
-      if (key === "atomic") {
-        const status = String(value?.status ?? "").toLowerCase();
-        if (value?.supported === true) return true;
-        if (status === "ready" || status === "supported" || status === "available") {
-          return true;
-        }
-      }
+function pickCapabilityScopes(payload: unknown, chainId?: number): unknown[] {
+  if (!payload || typeof payload !== "object") return [];
+  const root = payload as Record<string, unknown>;
+  const chainScopes = Object.entries(root).filter(
+    ([key, value]) =>
+      parseChainIdKey(key) !== null &&
+      Boolean(value) &&
+      typeof value === "object"
+  );
 
-      if (key === "eip7702auth" || key === "eip-7702auth") {
-        const status = String(value?.status ?? "").toLowerCase();
-        if (value?.supported === true) return true;
-        if (status === "ready" || status === "supported" || status === "available") {
-          return true;
-        }
-      }
+  if (!chainScopes.length) return [payload];
+  if (chainId === undefined) return chainScopes.map(([, value]) => value);
 
-      if (key === "wallet_sendcalls" || key === "wallet_sendcalls_batch") {
-        if (value !== false) return true;
-      }
+  return chainScopes
+    .filter(([key]) => parseChainIdKey(key) === chainId)
+    .map(([, value]) => value);
+}
 
-      if (typeof value === "object" && value !== null) {
-        stack.push(value);
-      }
+function normalizeKey(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function isSmartAccountHintKey(key: string): boolean {
+  const normalized = normalizeKey(key);
+  return SMART_ACCOUNT_KEY_HINTS.some((hint) => normalized.includes(hint));
+}
+
+function hasExplicitEnabledSignal(value: unknown, depth = 0): boolean {
+  if (!value || typeof value !== "object" || depth > 3) return false;
+  const record = value as Record<string, unknown>;
+
+  const booleanEnableKeys = [
+    "enabled",
+    "isEnabled",
+    "active",
+    "isActive",
+    "required",
+    "enforced",
+    "atomicRequired",
+  ];
+  for (const key of booleanEnableKeys) {
+    if (record[key] === true) return true;
+  }
+
+  const statusKeys = ["status", "state", "mode"];
+  for (const key of statusKeys) {
+    const status = normalizeStatus(record[key]);
+    if (status && EXPLICITLY_ENABLED_STATUSES.has(status)) {
+      return true;
     }
+  }
+
+  for (const nestedValue of Object.values(record)) {
+    if (hasExplicitEnabledSignal(nestedValue, depth + 1)) return true;
   }
 
   return false;
 }
 
-function includesSmartAccountHints(payload: unknown) {
-  if (hasSmartCapabilitySignals(payload)) return true;
-  try {
-    const str = JSON.stringify(payload).toLowerCase();
-    if (!str) return false;
-    return (
-      str.includes("smart account") ||
-      str.includes("smartaccount") ||
-      str.includes("eip-7702") ||
-      str.includes("7702") ||
-      str.includes("delegator") ||
-      str.includes("wallet_sendcalls") ||
-      str.includes("wallet_sendcalls") ||
-      str.includes("wallet_sendcalls_batch") ||
-      str.includes("eip7702auth") ||
-      str.includes("eip-5792")
-    );
-  } catch {
-    return false;
+function shouldTrustPrimitiveEnabledSignal(key: string): boolean {
+  const normalized = normalizeKey(key);
+  return (
+    normalized.includes("enabled") ||
+    normalized.includes("active") ||
+    normalized.includes("required") ||
+    normalized.includes("enforced")
+  );
+}
+
+function hasSmartCapabilitySignals(payload: unknown, chainId?: number): boolean {
+  const scopes = pickCapabilityScopes(payload, chainId);
+  if (!scopes.length) return false;
+
+  for (const scope of scopes) {
+    if (!scope || typeof scope !== "object") continue;
+    const seen = new Set<object>();
+    const stack: Array<{ key: string; value: unknown }> = Object.entries(
+      scope as Record<string, unknown>
+    ).map(([key, value]) => ({ key, value }));
+
+    while (stack.length) {
+      const current = stack.pop();
+      if (!current) continue;
+
+      const { key, value } = current;
+      if (isSmartAccountHintKey(key)) {
+        if (
+          shouldTrustPrimitiveEnabledSignal(key) &&
+          (value === true || normalizeStatus(value) === "true")
+        ) {
+          return true;
+        }
+        if (hasExplicitEnabledSignal(value)) return true;
+      }
+
+      if (!value || typeof value !== "object") continue;
+      const valueObj = value as object;
+      if (seen.has(valueObj)) continue;
+      seen.add(valueObj);
+
+      for (const [nestedKey, nestedValue] of Object.entries(
+        value as Record<string, unknown>
+      )) {
+        stack.push({
+          key: `${key}.${nestedKey}`,
+          value: nestedValue,
+        });
+      }
+    }
   }
+
+  return false;
 }
 
 function parseEip7702Delegation(code?: `0x${string}` | null) {
@@ -146,7 +233,7 @@ export async function getSmartAccountStatus(
     address: params.address,
     requests,
   });
-  const hasWalletAABatching = includesSmartAccountHints(caps);
+  const hasWalletAABatching = hasSmartCapabilitySignals(caps, params.chainId);
 
   let bytecode: `0x${string}` | null | undefined = undefined;
   try {

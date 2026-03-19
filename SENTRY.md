@@ -111,6 +111,21 @@ Additional marketplace context:
 | `app/wallet/claims-panel.tsx` | `walletStage: "claim_single_reward"` | Single reward claim failed |
 | `app/wallet/claims-panel.tsx` | `walletStage: "claim_confirmation"` | Claim confirmation failed |
 
+### Wallet Connection Diagnostics
+
+| File | Event/Tags | Description |
+|------|------------|-------------|
+| `components/connect-button.tsx` | `walletStage: "connect"` + `walletConnectorId`, `walletConnectorName` | Captures connector errors from `useConnect` (includes `code`, `shortMessage`, `details`) |
+| `components/connect-button.tsx` | `kind: "wallet_connect_pending"` + `walletConnectorId`, `walletConnectorName` | Emits warning if connection remains pending after timeout (12s) |
+| `components/connect-button.tsx` | `kind: "wallet_connect_show_timeout"` + `walletConnectorId`, `walletConnectorName` | Emits warning if AppKit modal remains open with an unresolved pending connection after timeout (15s) |
+| `components/connect-button.tsx` | `walletStage: "connect"` + `walletError: "walletconnect_proposal_expired"` | Captures handled WalletConnect proposal expiry rejections and suppresses duplicate unhandled-rejection noise |
+| `lib/wagmi-config.ts` | `kind: "wallet_connector_debug"` + `connectorId`, `walletEvent` | Debug messages for MetaMask provider resolution fallbacks and provider-not-found conditions |
+
+Wallet connector debug events currently emitted:
+- `metamask_provider_fallback_window_ethereum`
+- `metamask_provider_fallback_rejected_non_metamask`
+- `metamask_provider_not_found`
+
 Note: User signature rejections (code 4001) are excluded from Sentry reporting.
 
 Additional client-side filtering (in `instrumentation-client.ts` `beforeSend`):

@@ -4,6 +4,7 @@ import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { WagmiWrapper } from "./providers/wagmiWrapper";
 import { ThemeProvider } from "./providers/theme-provider";
 import { Analytics } from "@vercel/analytics/next";
+import { headers } from "next/headers";
 import { Metadata } from "next";
 import { SEO } from "@/lib/seo";
 
@@ -83,11 +84,14 @@ export const metadata: Metadata = {
     google: "google-site-verification-code",
   },
 };
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const requestHeaders = await headers();
+  const cookieHeader = requestHeaders.get("cookie");
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -167,7 +171,7 @@ export default function RootLayout({
       </head>
       <body className={`antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <WagmiWrapper>
+          <WagmiWrapper cookies={cookieHeader}>
             <Analytics />
             <NuqsAdapter>{children}</NuqsAdapter>
           </WagmiWrapper>

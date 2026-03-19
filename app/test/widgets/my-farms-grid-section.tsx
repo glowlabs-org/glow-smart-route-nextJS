@@ -80,6 +80,7 @@ import {
   resolveLaunchpadSplitCurrency,
   type DelegationAmountsByAsset,
 } from "@/utils/wallet-launchpad";
+import { shouldIncludePendingStartCard } from "@/utils/pending-start-cards";
 
 const fmtGlw = (n: number) =>
   new Intl.NumberFormat("en-US", {
@@ -1708,12 +1709,6 @@ export default function MyFarmsGridSection({
       if (!fractionType) continue;
       const status = (evt.fractionStatus ?? "").toLowerCase();
 
-      const isPendingStart =
-        (fractionType === "launchpad" && status === "filled") ||
-        (fractionType === "mining-center" &&
-          (status === "filled" || status === "expired"));
-      if (!isPendingStart) continue;
-
       const listing = sponsorListingById.get(evt.applicationId);
       const farmId =
         fractionType === "launchpad"
@@ -1736,13 +1731,32 @@ export default function MyFarmsGridSection({
               listingCurrency: currentLaunchpadCurrencyByFarmId.get(farmId),
             })
           : undefined;
+      const hasCurrentOwnership = purchasedFarms.some((f) => f.farmId === farmId);
+      const includePendingStartCard = shouldIncludePendingStartCard({
+        fractionType,
+        status,
+        farmTypeKey,
+        rewardedFarmTypeKeys,
+        hasCurrentOwnership,
+      });
 
-      if (rewardedFarmTypeKeys.has(farmTypeKey)) {
-        if (fractionType !== "launchpad") continue;
+      if (!includePendingStartCard) {
+        // Multi-asset launchpad exception:
+        // if this farm already has a rewarded card, still show pending-start for the
+        // currently-selected launchpad currency when multiple delegation currencies exist.
+        if (
+          fractionType !== "launchpad" ||
+          !hasCurrentOwnership ||
+          status !== "filled" ||
+          !rewardedFarmTypeKeys.has(farmTypeKey)
+        ) {
+          continue;
+        }
 
         const currencies = launchpadCurrenciesByFarmId.get(farmId);
         const hasMultipleLaunchpadCurrencies = (currencies?.size ?? 0) > 1;
-        const currentLaunchpadCurrency = currentLaunchpadCurrencyByFarmId.get(farmId);
+        const currentLaunchpadCurrency =
+          currentLaunchpadCurrencyByFarmId.get(farmId);
 
         if (
           !hasMultipleLaunchpadCurrencies ||

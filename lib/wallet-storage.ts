@@ -168,14 +168,12 @@ function sanitizeRecentConnectorId(
   if (storage && hasWalletConnectSession(storage)) {
     return formatRecentConnectorId(normalizedValue, isSerialized);
   }
-
-  if (storage) removeWalletConnectArtifacts(storage);
-
   try {
     window.localStorage?.removeItem(key);
   } catch {
     // Ignore storage access errors.
   }
+  if (storage) removeWalletConnectArtifacts(storage);
   removeCookie(key);
   return null;
 }

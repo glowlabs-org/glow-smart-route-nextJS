@@ -121,9 +121,13 @@ function getMissingRewardScore(applicationId: string): ApplicationRewardScore {
 export function filterActiveRewardApplications(
   applications: AuctionApplication[]
 ): AuctionApplication[] {
-  return applications.filter((application) =>
-    isFractionOpenForMarketplace(application.activeFraction)
-  );
+  return applications.filter((application) => {
+    const fraction = application.activeFraction;
+    if (!isFractionOpenForMarketplace(fraction)) return false;
+    if (!fraction) return false;
+    if (fraction.isCommittedOnChain) return false;
+    return fraction.status.toLowerCase() !== "committed";
+  });
 }
 
 export function buildRewardScoreBatchInputs(params: {

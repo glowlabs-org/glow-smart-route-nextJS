@@ -51,7 +51,6 @@ import {
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
 import { useEthPrice } from "@/hooks/useEthPrice";
-import { ConnectKitButton } from "connectkit";
 import {
   TransactionStepper,
   type TransactionStep,
@@ -59,6 +58,7 @@ import {
 } from "@/components/transaction-stepper";
 import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-warning-dialog";
 import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
+import { getAppKitClient } from "@/lib/wagmi-config";
 
 const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL;
 const ONE_E18 = 1_000_000_000_000_000_000n;
@@ -244,6 +244,7 @@ export function BuyGlowDialog({
       try {
         const status = await getSmartAccountStatus({
           address: address as `0x${string}`,
+          chainId,
           walletClient,
           getBytecode: publicClient?.getBytecode,
         });
@@ -264,7 +265,13 @@ export function BuyGlowDialog({
         console.error("Smart account check failed:", error);
         return false;
       }
-    }, [address, walletClient, publicClient?.getBytecode]);
+    }, [address, chainId, walletClient, publicClient?.getBytecode]);
+
+  const openConnectModal = React.useCallback(() => {
+    const appKitClient = getAppKitClient();
+    if (!appKitClient) return;
+    void appKitClient.open({ view: "Connect", namespace: "eip155" });
+  }, []);
 
   const impactWeekRangeQuery = useQuery({
     queryKey: ["impact-week-range", address?.toLowerCase()],
@@ -594,7 +601,7 @@ export function BuyGlowDialog({
         }
       }
     },
-    [defaultUsdcAmount, handleInputChange, open, phase],
+    [defaultUsdcAmount, handleInputChange, open, phase, source],
   );
 
   React.useEffect(() => {
@@ -1047,6 +1054,9 @@ export function BuyGlowDialog({
     usdcBalanceWei,
     usdgBalanceWei,
     checkSmartAccountBeforeBuy,
+    glowLastTxHashRef,
+    usdcToUsdgLastTxHashRef,
+    uniswapLastTxHashRef,
     source,
   ]);
 
@@ -1355,64 +1365,57 @@ export function BuyGlowDialog({
                     {payToken}
                   </span>
                 )}
-                <ConnectKitButton.Custom>
-                  {({ isConnected: isCkConnected, show }) => (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={async () => {
-                        if (!isCkConnected) {
-                          trackEvent("buy_glw_connect_wallet_click", {
-                            location: "dialog_max",
-                            source,
-                          });
-                          show?.();
-                          return;
-                        }
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    if (!isConnected) {
+                      trackEvent("buy_glw_connect_wallet_click", {
+                        location: "dialog_max",
+                        source,
+                      });
+                      openConnectModal();
+                      return;
+                    }
 
-                        trackEvent("buy_glw_max_click", {
-                          pay_token: payToken,
-                          pay_balance: availablePayBalanceFormatted,
-                          source,
+                    trackEvent("buy_glw_max_click", {
+                      pay_token: payToken,
+                      pay_balance: availablePayBalanceFormatted,
+                      source,
+                    });
+
+                    if (payToken === "ETH") {
+                      if (!ethBalanceWei) return;
+                      try {
+                        const probeWei =
+                          ethBalanceWei > parseUnits("0.05", 18)
+                            ? parseUnits("0.05", 18)
+                            : ethBalanceWei;
+                        const gasRes = await estimateGasForSwapEthToUsdc({
+                          amountInWei: probeWei,
+                          slippageBps: BigInt(100),
                         });
+                        const feeWei = gasRes.ok
+                          ? gasRes.val.estimatedFeeWei
+                          : BigInt(0);
+                        const bufferedFeeWei = (feeWei * BigInt(12)) / BigInt(10);
+                        const maxSpendWei =
+                          ethBalanceWei > bufferedFeeWei
+                            ? ethBalanceWei - bufferedFeeWei
+                            : BigInt(0);
+                        handleInputChange(formatEthMaxFromWei(maxSpendWei));
+                      } catch (e: any) {
+                        toast.error(e?.message || "Failed to compute max ETH amount");
+                      }
+                      return;
+                    }
 
-                        if (payToken === "ETH") {
-                          if (!ethBalanceWei) return;
-                          try {
-                            const probeWei =
-                              ethBalanceWei > parseUnits("0.05", 18)
-                                ? parseUnits("0.05", 18)
-                                : ethBalanceWei;
-                            const gasRes = await estimateGasForSwapEthToUsdc({
-                              amountInWei: probeWei,
-                              slippageBps: BigInt(100),
-                            });
-                            const feeWei = gasRes.ok
-                              ? gasRes.val.estimatedFeeWei
-                              : BigInt(0);
-                            const bufferedFeeWei =
-                              (feeWei * BigInt(12)) / BigInt(10);
-                            const maxSpendWei =
-                              ethBalanceWei > bufferedFeeWei
-                                ? ethBalanceWei - bufferedFeeWei
-                                : BigInt(0);
-                            handleInputChange(formatEthMaxFromWei(maxSpendWei));
-                          } catch (e: any) {
-                            toast.error(
-                              e?.message || "Failed to compute max ETH amount",
-                            );
-                          }
-                          return;
-                        }
-
-                        handleInputChange(availablePayBalanceFormatted);
-                      }}
-                      className="h-6 px-2.5 text-xs font-semibold rounded-full"
-                    >
-                      MAX
-                    </Button>
-                  )}
-                </ConnectKitButton.Custom>
+                    handleInputChange(availablePayBalanceFormatted);
+                  }}
+                  className="h-6 px-2.5 text-xs font-semibold rounded-full"
+                >
+                  MAX
+                </Button>
               </div>
             </div>
 
@@ -1565,23 +1568,19 @@ export function BuyGlowDialog({
       <div className="px-5 py-4 bg-muted/30 border-t border-border/40 shrink-0">
         <div className="relative">
           {!isConnected ? (
-            <ConnectKitButton.Custom>
-              {({ show }) => (
-                <Button
-                  onClick={() => {
-                    trackEvent("buy_glw_connect_wallet_click", {
-                      location: "dialog_footer",
-                      source,
-                    });
-                    show?.();
-                  }}
-                  className="w-full h-12 rounded-xl text-base font-medium"
-                >
-                  <Wallet className="mr-2 h-4 w-4" />
-                  Connect Wallet
-                </Button>
-              )}
-            </ConnectKitButton.Custom>
+            <Button
+              onClick={() => {
+                trackEvent("buy_glw_connect_wallet_click", {
+                  location: "dialog_footer",
+                  source,
+                });
+                openConnectModal();
+              }}
+              className="w-full h-12 rounded-xl text-base font-medium"
+            >
+              <Wallet className="mr-2 h-4 w-4" />
+              Connect Wallet
+            </Button>
           ) : (
             <Button
               className="w-full"

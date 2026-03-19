@@ -219,6 +219,7 @@ export function useSwapETHToUSDC() {
       try {
         const smartStatus = await getSmartAccountStatus({
           address: recipient,
+          chainId,
           walletClient,
           getBytecode: publicClient.getBytecode,
         });
@@ -308,6 +309,7 @@ export function useSwapETHToUSDC() {
       }
     },
     [
+      chainId,
       ensureEthPayChain,
       estimateEthToUsdc,
       walletClient,
