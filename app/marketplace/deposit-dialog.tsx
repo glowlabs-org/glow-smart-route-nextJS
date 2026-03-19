@@ -419,6 +419,7 @@ export function DepositDialog({
     try {
       const status = await getSmartAccountStatus({
         address: address as `0x${string}`,
+        chainId,
         walletClient,
         getBytecode: publicClient?.getBytecode,
       });

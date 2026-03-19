@@ -4,10 +4,10 @@ import { useAccount, useChainId, useConnect } from "wagmi";
 import clsx from "clsx";
 import * as React from "react";
 import { useEffect, useRef, useState } from "react";
-import { ConnectKitButton } from "connectkit";
 import * as Sentry from "@sentry/nextjs";
 import { Account } from "./account";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { getAppKitClient } from "@/lib/wagmi-config";
 
 const CONNECT_PENDING_SENTRY_TIMEOUT_MS = 12_000;
 const CONNECT_SHOW_WATCHDOG_TIMEOUT_MS = 15_000;
@@ -86,7 +86,7 @@ export const ConnectButton = ({
             type: connector.type,
           }))
         );
-        Sentry.captureMessage("ConnectKit modal shown but connection not resolved");
+        Sentry.captureMessage("AppKit modal shown but connection not resolved");
       });
     }, CONNECT_SHOW_WATCHDOG_TIMEOUT_MS);
   }, [
@@ -163,102 +163,101 @@ export const ConnectButton = ({
     };
   }, [clearConnectShowWatchdog]);
 
-  // Use ConnectKitButton which handles all wallet connection logic
-  // Customize it with our styling and account modal
   return (
     <>
       <div className={clsx("flex justify-center", className)}>
-        <ConnectKitButton.Custom>
-          {({ isConnected, show, address, ensName }) => {
-            if (!isConnected) {
-              return (
-                <Button
-                  variant={variant}
-                  onClick={() => {
-                    scheduleConnectShowWatchdog();
-                    try {
-                      if (typeof show === "function") {
-                        show();
-                        return;
-                      }
-                      throw new Error("ConnectKit show() is unavailable");
-                    } catch (error) {
-                      clearConnectShowWatchdog();
-                      const normalizedError =
-                        error instanceof Error
-                          ? error
-                          : new Error(String(error));
-                      Sentry.captureException(normalizedError, {
-                        tags: {
-                          walletStage: "connect_show",
-                        },
-                      });
-                    }
-                  }}
-                  type="button"
-                  className={clsx(
-                    "font-semibold",
-                    minimal ? "w-auto px-2 min-w-0 aspect-square" : "w-full",
-                    size === "small"
-                      ? "h-8 lg:h-10 text-sm lg:text-base"
-                      : size === "medium"
-                      ? "h-10 lg:h-12 text-base lg:text-lg"
-                      : "h-12 lg:h-16 text-base lg:text-lg"
-                  )}
-                >
-                  <Wallet className={clsx(minimal ? "mr-0" : "mr-2 h-4 w-4")} />
-                  {!minimal && "Connect Wallet"}
-                </Button>
-              );
-            }
-
-            if (isWrongNetwork) {
-              return (
-                <Button
-                  variant="destructive"
-                  type="button"
-                  className={clsx(
-                    "font-semibold",
-                    minimal ? "w-auto px-2 min-w-0 aspect-square" : "w-full",
-                    size === "small"
-                      ? "h-8 lg:h-10 text-sm lg:text-base"
-                      : size === "medium"
-                      ? "h-10 lg:h-12 text-base lg:text-lg"
-                      : "h-12 lg:h-16 text-base lg:text-lg"
-                  )}
-                >
-                  <Loader2 className={clsx(minimal ? "mr-0" : "mr-2 h-4 w-4")} />
-                  {!minimal && "Wrong Network"}
-                </Button>
-              );
-            }
-
-            return (
-              <Button
-                variant={variant}
-                onClick={() => setIsAccountModalOpen(true)}
-                type="button"
-                className={clsx(
-                  "font-semibold",
-                  minimal ? "w-auto px-2 min-w-0 aspect-square" : "w-full",
-                  size === "small"
-                    ? "h-8 lg:h-10 text-sm lg:text-base"
-                    : size === "medium"
-                    ? "h-10 lg:h-12 text-base lg:text-lg"
-                    : "h-12 lg:h-16 text-base lg:text-lg"
-                )}
-              >
-                 {!minimal ? (
-                  address
-                    ? `${address.slice(0, 6)}...${address.slice(-4)}`
-                    : ensName || "Connected"
-                 ) : (
-                    <div className="h-2 w-2 rounded-full bg-green-500" />
-                 )}
-              </Button>
-            );
-          }}
-        </ConnectKitButton.Custom>
+        {!isConnected ? (
+          <Button
+            variant={variant}
+            onClick={async () => {
+              scheduleConnectShowWatchdog();
+              try {
+                const appKitClient = getAppKitClient();
+                if (!appKitClient) {
+                  throw new Error("AppKit client is not initialized");
+                }
+                await appKitClient.open({ view: "Connect", namespace: "eip155" });
+              } catch (error) {
+                clearConnectShowWatchdog();
+                const normalizedError =
+                  error instanceof Error ? error : new Error(String(error));
+                Sentry.captureException(normalizedError, {
+                  tags: {
+                    walletStage: "connect_show",
+                  },
+                });
+              }
+            }}
+            type="button"
+            className={clsx(
+              "font-semibold",
+              minimal ? "w-auto px-2 min-w-0 aspect-square" : "w-full",
+              size === "small"
+                ? "h-8 lg:h-10 text-sm lg:text-base"
+                : size === "medium"
+                ? "h-10 lg:h-12 text-base lg:text-lg"
+                : "h-12 lg:h-16 text-base lg:text-lg"
+            )}
+          >
+            <Wallet className={clsx(minimal ? "mr-0" : "mr-2 h-4 w-4")} />
+            {!minimal && "Connect Wallet"}
+          </Button>
+        ) : isWrongNetwork ? (
+          <Button
+            variant="destructive"
+            type="button"
+            onClick={async () => {
+              try {
+                const appKitClient = getAppKitClient();
+                if (!appKitClient) {
+                  throw new Error("AppKit client is not initialized");
+                }
+                await appKitClient.open({ view: "Networks" });
+              } catch (error) {
+                const normalizedError =
+                  error instanceof Error ? error : new Error(String(error));
+                Sentry.captureException(normalizedError, {
+                  tags: {
+                    walletStage: "network_switch_show",
+                  },
+                });
+              }
+            }}
+            className={clsx(
+              "font-semibold",
+              minimal ? "w-auto px-2 min-w-0 aspect-square" : "w-full",
+              size === "small"
+                ? "h-8 lg:h-10 text-sm lg:text-base"
+                : size === "medium"
+                ? "h-10 lg:h-12 text-base lg:text-lg"
+                : "h-12 lg:h-16 text-base lg:text-lg"
+            )}
+          >
+            <Loader2 className={clsx(minimal ? "mr-0" : "mr-2 h-4 w-4")} />
+            {!minimal && "Wrong Network"}
+          </Button>
+        ) : (
+          <Button
+            variant={variant}
+            onClick={() => setIsAccountModalOpen(true)}
+            type="button"
+            className={clsx(
+              "font-semibold",
+              minimal ? "w-auto px-2 min-w-0 aspect-square" : "w-full",
+              size === "small"
+                ? "h-8 lg:h-10 text-sm lg:text-base"
+                : size === "medium"
+                ? "h-10 lg:h-12 text-base lg:text-lg"
+                : "h-12 lg:h-16 text-base lg:text-lg"
+            )}
+          >
+            {!minimal ? (
+              address ? `${address.slice(0, 6)}...${address.slice(-4)}` : "Connected"
+            ) : (
+              <div className="h-2 w-2 rounded-full bg-green-500" />
+            )}
+          </Button>
+        )}
       </div>
 
       {/* Account Modal */}
