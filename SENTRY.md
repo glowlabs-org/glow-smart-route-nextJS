@@ -103,6 +103,7 @@ Additional tags and context for ToS errors:
 
 Wallet connector debug events currently emitted:
 - `metamask_provider_fallback_window_ethereum`
+- `metamask_provider_fallback_rejected_non_metamask`
 - `metamask_provider_not_found`
 
 Note: User signature rejections (code 4001) are excluded from Sentry reporting.

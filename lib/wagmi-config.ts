@@ -240,7 +240,13 @@ export const wagmiConfig = createConfig({
                 if (provider) return provider;
 
                 const ethereum = (window as any)?.ethereum;
-                if (ethereum && typeof ethereum.request === "function") {
+                if (
+                  ethereum &&
+                  typeof ethereum.request === "function" &&
+                  ethereum.isMetaMask === true &&
+                  ethereum.isCoinbaseWallet !== true &&
+                  ethereum.isPhantom !== true
+                ) {
                   reportConnectorDebug(window, {
                     connectorId: "io.metamask",
                     event: "metamask_provider_fallback_window_ethereum",
@@ -258,10 +264,28 @@ export const wagmiConfig = createConfig({
                   return ethereum as any;
                 }
 
+                if (ethereum && typeof ethereum.request === "function") {
+                  reportConnectorDebug(window, {
+                    connectorId: "io.metamask",
+                    event: "metamask_provider_fallback_rejected_non_metamask",
+                    level: "warning",
+                    extra: {
+                      ethereumIsMetaMask: ethereum.isMetaMask ?? null,
+                      ethereumIsCoinbaseWallet: ethereum.isCoinbaseWallet ?? null,
+                      ethereumIsPhantom: ethereum.isPhantom ?? null,
+                      ethereumProvidersCount: Array.isArray(ethereum.providers)
+                        ? ethereum.providers.length
+                        : 0,
+                      eip6963ProvidersCount: getEip6963ProvidersCount(window),
+                    },
+                  });
+                  return undefined;
+                }
+
                 reportConnectorDebug(window, {
                   connectorId: "io.metamask",
                   event: "metamask_provider_not_found",
-                  level: "error",
+                  level: "warning",
                   extra: {
                     hasWindowEthereum: Boolean(ethereum),
                     ethereumProvidersCount:
