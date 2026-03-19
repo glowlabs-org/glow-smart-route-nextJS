@@ -12,6 +12,7 @@ import {
   isHubRateLimitError,
   type HubRateLimitEventDetail,
 } from "@/lib/api/hub-client";
+import { installBrowserRateLimitFetchInterceptor } from "@/lib/api/browser-rate-limit-fetch";
 import { toast } from "sonner";
 
 export const WagmiWrapper = ({ children }: { children: React.ReactNode }) => {
@@ -37,6 +38,10 @@ export const WagmiWrapper = ({ children }: { children: React.ReactNode }) => {
   );
 
   React.useEffect(() => {
+    const teardownFetchInterceptor = installBrowserRateLimitFetchInterceptor({
+      maxRetries: 1,
+    });
+
     const handleRateLimit = (event: Event) => {
       const customEvent = event as CustomEvent<HubRateLimitEventDetail>;
       const { retryAfterMs } = customEvent.detail;
@@ -49,6 +54,7 @@ export const WagmiWrapper = ({ children }: { children: React.ReactNode }) => {
 
     window.addEventListener(HUB_RATE_LIMIT_EVENT, handleRateLimit as EventListener);
     return () => {
+      teardownFetchInterceptor();
       window.removeEventListener(
         HUB_RATE_LIMIT_EVENT,
         handleRateLimit as EventListener
