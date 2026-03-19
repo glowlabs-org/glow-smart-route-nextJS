@@ -5,7 +5,6 @@ import type {
   ApplicationPriceQuote,
   PaymentCurrency,
 } from "../hooks/hub-listings";
-import { isFractionOpenForMarketplace } from "../hooks/hub-listings";
 
 export const REWARD_SCORE_FALLBACK_USER_ID =
   "0x0000000000000000000000000000000000000001";
@@ -34,6 +33,23 @@ export interface RewardScoreBatchParams {
 interface RewardScoreBatchRequestEntry {
   applicationId: string;
   params: RewardScoreBatchParams;
+}
+
+function isFractionOpenForMarketplace(
+  fraction:
+    | Pick<
+        NonNullable<AuctionApplication["activeFraction"]>,
+        "isFilled" | "remainingSteps" | "totalSteps"
+      >
+    | null
+    | undefined
+): boolean {
+  if (!fraction) return false;
+
+  const totalSteps = fraction.totalSteps ?? 0;
+  const remainingSteps = fraction.remainingSteps ?? 0;
+
+  return !fraction.isFilled && remainingSteps > 0 && totalSteps > 0;
 }
 
 export function resolveRewardScorePaymentCurrency(
