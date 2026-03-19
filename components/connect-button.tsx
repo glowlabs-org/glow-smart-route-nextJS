@@ -11,6 +11,22 @@ import { getAppKitClient } from "@/lib/wagmi-config";
 
 const CONNECT_PENDING_SENTRY_TIMEOUT_MS = 12_000;
 const CONNECT_SHOW_WATCHDOG_TIMEOUT_MS = 15_000;
+const CONNECT_ATTEMPT_WINDOW_MS = 30_000;
+const PROPOSAL_EXPIRED_REPORT_WINDOW_MS = 30_000;
+
+function getRejectionMessage(reason: unknown): string {
+  if (reason instanceof Error) return reason.message;
+  if (typeof reason === "string") return reason;
+  if (reason && typeof reason === "object" && "message" in reason) {
+    const message = (reason as { message?: unknown }).message;
+    return typeof message === "string" ? message : "";
+  }
+  return "";
+}
+
+function isProposalExpiredReason(reason: unknown): boolean {
+  return /proposal expired/i.test(getRejectionMessage(reason));
+}
 
 export const ConnectButton = ({
   className,
@@ -46,7 +62,12 @@ export const ConnectButton = ({
   const onConnectRef = useRef(onConnect);
   const pendingReportKeyRef = useRef<string | null>(null);
   const isConnectedRef = useRef(isConnected);
+  const isPendingRef = useRef(isPending);
   const connectShowWatchdogRef = useRef<number | null>(null);
+  const pendingConnectorIdRef = useRef(pendingConnectorId);
+  const pendingConnectorNameRef = useRef(pendingConnectorName);
+  const lastConnectAttemptAtRef = useRef(0);
+  const proposalExpiredLastReportedAtRef = useRef(0);
 
   const clearConnectShowWatchdog = React.useCallback(() => {
     if (connectShowWatchdogRef.current !== null) {
@@ -59,12 +80,23 @@ export const ConnectButton = ({
     clearConnectShowWatchdog();
     connectShowWatchdogRef.current = window.setTimeout(() => {
       if (isConnectedRef.current) return;
+      const appKitClient = getAppKitClient();
+      if (!appKitClient?.isOpen?.()) return;
+
+      const connectorId = pendingConnectorIdRef.current;
+      const connectorName = pendingConnectorNameRef.current;
+      const hasPendingAttempt =
+        isPendingRef.current ||
+        connectorId !== "unknown" ||
+        connectorName !== "unknown";
+      if (!hasPendingAttempt) return;
+
       const ethereum = (window as any)?.ethereum;
       Sentry.withScope((scope) => {
         scope.setLevel("warning");
         scope.setTag("kind", "wallet_connect_show_timeout");
-        scope.setTag("walletConnectorId", pendingConnectorId);
-        scope.setTag("walletConnectorName", pendingConnectorName);
+        scope.setTag("walletConnectorId", connectorId);
+        scope.setTag("walletConnectorName", connectorName);
         scope.setExtra("hasWindowEthereum", Boolean(ethereum));
         scope.setExtra(
           "ethereumProvidersCount",
@@ -86,19 +118,81 @@ export const ConnectButton = ({
             type: connector.type,
           }))
         );
-        Sentry.captureMessage("AppKit modal shown but connection not resolved");
+        scope.setExtra("isPending", isPendingRef.current);
+        Sentry.captureMessage(
+          "AppKit modal open with unresolved pending connection"
+        );
       });
     }, CONNECT_SHOW_WATCHDOG_TIMEOUT_MS);
-  }, [
-    clearConnectShowWatchdog,
-    connectors,
-    pendingConnectorId,
-    pendingConnectorName,
-  ]);
+  }, [clearConnectShowWatchdog, connectors]);
 
   useEffect(() => {
     onConnectRef.current = onConnect;
   }, [onConnect]);
+
+  useEffect(() => {
+    isPendingRef.current = isPending;
+  }, [isPending]);
+
+  useEffect(() => {
+    pendingConnectorIdRef.current = pendingConnectorId;
+    pendingConnectorNameRef.current = pendingConnectorName;
+  }, [pendingConnectorId, pendingConnectorName]);
+
+  useEffect(() => {
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      const reason = event.reason as unknown;
+      if (!isProposalExpiredReason(reason)) return;
+
+      const appKitClient = getAppKitClient();
+      const isModalOpen = Boolean(appKitClient?.isOpen?.());
+      const hasRecentConnectAttempt =
+        Date.now() - lastConnectAttemptAtRef.current <= CONNECT_ATTEMPT_WINDOW_MS;
+      if (!isModalOpen && !isPendingRef.current && !hasRecentConnectAttempt) {
+        return;
+      }
+
+      event.preventDefault();
+
+      const now = Date.now();
+      if (
+        now - proposalExpiredLastReportedAtRef.current <
+        PROPOSAL_EXPIRED_REPORT_WINDOW_MS
+      ) {
+        return;
+      }
+      proposalExpiredLastReportedAtRef.current = now;
+
+      const normalizedError =
+        reason instanceof Error
+          ? reason
+          : new Error(getRejectionMessage(reason) || "WalletConnect proposal expired");
+
+      Sentry.captureException(normalizedError, {
+        level: "warning",
+        tags: {
+          walletStage: "connect",
+          walletError: "walletconnect_proposal_expired",
+          walletConnectorId: pendingConnectorIdRef.current,
+          walletConnectorName: pendingConnectorNameRef.current,
+        },
+        extra: {
+          isPending: isPendingRef.current,
+          isModalOpen,
+          hasRecentConnectAttempt,
+        },
+      });
+    };
+
+    window.addEventListener("unhandledrejection", handleUnhandledRejection, true);
+    return () => {
+      window.removeEventListener(
+        "unhandledrejection",
+        handleUnhandledRejection,
+        true
+      );
+    };
+  }, []);
 
   // Check if on wrong network (assuming mainnet or sepolia are supported)
   const isWrongNetwork =
@@ -109,11 +203,13 @@ export const ConnectButton = ({
     isConnectedRef.current = isConnected;
     if (!isConnected) return;
     clearConnectShowWatchdog();
+    lastConnectAttemptAtRef.current = 0;
     onConnectRef.current?.();
   }, [clearConnectShowWatchdog, isConnected]);
 
   useEffect(() => {
     if (!connectError) return;
+    lastConnectAttemptAtRef.current = 0;
     const normalizedError =
       connectError instanceof Error
         ? connectError
@@ -170,6 +266,7 @@ export const ConnectButton = ({
           <Button
             variant={variant}
             onClick={async () => {
+              lastConnectAttemptAtRef.current = Date.now();
               scheduleConnectShowWatchdog();
               try {
                 const appKitClient = getAppKitClient();
@@ -178,6 +275,7 @@ export const ConnectButton = ({
                 }
                 await appKitClient.open({ view: "Connect", namespace: "eip155" });
               } catch (error) {
+                lastConnectAttemptAtRef.current = 0;
                 clearConnectShowWatchdog();
                 const normalizedError =
                   error instanceof Error ? error : new Error(String(error));

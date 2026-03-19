@@ -137,6 +137,20 @@ if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
         /device disconnected/i.test(exceptionText);
       if (isWalletConnectivityIssue) return null;
 
+      // WalletConnect proposal expiry can bubble as an unhandled rejection.
+      // It is captured as a handled warning in the wallet connect flow.
+      const tags = (event.tags ?? {}) as Record<string, unknown>;
+      const handledTag =
+        typeof tags.handled === "string" ? tags.handled : "";
+      const mechanismTag =
+        typeof tags.mechanism === "string" ? tags.mechanism : "";
+      const isUnhandledRejection =
+        handledTag === "no" || mechanismTag.includes("onunhandledrejection");
+      const isWalletConnectProposalExpired =
+        /proposal expired/i.test(message) ||
+        /proposal expired/i.test(exceptionText);
+      if (isUnhandledRejection && isWalletConnectProposalExpired) return null;
+
       // Filter a known noisy client-side error coming from Sentry Replay network scrapers
       // (e.g. `app:///scrapers/PrebidScraper.js`) attempting to JSON.parse an undefined
       // request/response body.
