@@ -26,7 +26,12 @@ export const ConnectButton = ({
 }) => {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
-  const { error: connectError, isPending, pendingConnector } = useConnect();
+  const {
+    error: connectError,
+    isPending,
+    variables: connectVariables,
+  } = useConnect();
+  const pendingConnector = connectVariables?.connector;
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const onConnectRef = useRef(onConnect);
   const pendingReportKeyRef = useRef<string | null>(null);
