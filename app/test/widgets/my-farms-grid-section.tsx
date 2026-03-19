@@ -219,6 +219,9 @@ function getFarmEarnedLabel(farm: FarmCardData): string {
   const protocolDepositAsset = formatProtocolDepositAsset(
     farm.protocolDepositAsset
   );
+  if (farm.type === "miner") {
+    return `${fmtGlw(farm.inflationGlw)} GLW`;
+  }
   if (farm.isProtocolDepositUsd) {
     return `${fmtGlw(farm.inflationGlw)} GLW + ${fmtUsdAmount(
       farm.recovered
@@ -1276,7 +1279,9 @@ function FarmDetailDialog({
                                 week.inflationRewards,
                               );
                               const totalGlw =
-                                protocolDepositAsset === "GLW"
+                                isMiner
+                                  ? inflationGlw
+                                  : protocolDepositAsset === "GLW"
                                   ? parseGlwFromWei(week.totalRewards)
                                   : null;
 
