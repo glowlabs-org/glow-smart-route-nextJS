@@ -99,6 +99,7 @@ Additional tags and context for ToS errors:
 |------|------------|-------------|
 | `components/connect-button.tsx` | `walletStage: "connect"` + `walletConnectorId`, `walletConnectorName` | Captures connector errors from `useConnect` (includes `code`, `shortMessage`, `details`) |
 | `components/connect-button.tsx` | `kind: "wallet_connect_pending"` + `walletConnectorId`, `walletConnectorName` | Emits warning if connection remains pending after timeout (12s) |
+| `components/connect-button.tsx` | `kind: "wallet_connect_show_timeout"` + `walletConnectorId`, `walletConnectorName` | Emits warning if ConnectKit modal is shown but wallet connection still unresolved after timeout (15s) |
 | `lib/wagmi-config.ts` | `kind: "wallet_connector_debug"` + `connectorId`, `walletEvent` | Debug messages for MetaMask provider resolution fallbacks and provider-not-found conditions |
 
 Wallet connector debug events currently emitted:

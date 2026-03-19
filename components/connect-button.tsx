@@ -10,6 +10,7 @@ import { Account } from "./account";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 const CONNECT_PENDING_SENTRY_TIMEOUT_MS = 12_000;
+const CONNECT_SHOW_WATCHDOG_TIMEOUT_MS = 15_000;
 
 export const ConnectButton = ({
   className,
@@ -30,6 +31,7 @@ export const ConnectButton = ({
     error: connectError,
     isPending,
     variables: connectVariables,
+    connectors,
   } = useConnect();
   const pendingConnector = connectVariables?.connector;
   const pendingConnectorId =
@@ -43,6 +45,56 @@ export const ConnectButton = ({
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const onConnectRef = useRef(onConnect);
   const pendingReportKeyRef = useRef<string | null>(null);
+  const isConnectedRef = useRef(isConnected);
+  const connectShowWatchdogRef = useRef<number | null>(null);
+
+  const clearConnectShowWatchdog = React.useCallback(() => {
+    if (connectShowWatchdogRef.current !== null) {
+      window.clearTimeout(connectShowWatchdogRef.current);
+      connectShowWatchdogRef.current = null;
+    }
+  }, []);
+
+  const scheduleConnectShowWatchdog = React.useCallback(() => {
+    clearConnectShowWatchdog();
+    connectShowWatchdogRef.current = window.setTimeout(() => {
+      if (isConnectedRef.current) return;
+      const ethereum = (window as any)?.ethereum;
+      Sentry.withScope((scope) => {
+        scope.setLevel("warning");
+        scope.setTag("kind", "wallet_connect_show_timeout");
+        scope.setTag("walletConnectorId", pendingConnectorId);
+        scope.setTag("walletConnectorName", pendingConnectorName);
+        scope.setExtra("hasWindowEthereum", Boolean(ethereum));
+        scope.setExtra(
+          "ethereumProvidersCount",
+          ethereum && Array.isArray(ethereum.providers)
+            ? ethereum.providers.length
+            : 0
+        );
+        scope.setExtra("ethereumIsMetaMask", ethereum?.isMetaMask ?? null);
+        scope.setExtra(
+          "ethereumIsCoinbaseWallet",
+          ethereum?.isCoinbaseWallet ?? null
+        );
+        scope.setExtra("ethereumIsPhantom", ethereum?.isPhantom ?? null);
+        scope.setExtra(
+          "configuredConnectors",
+          connectors.map((connector) => ({
+            id: connector.id,
+            name: connector.name,
+            type: connector.type,
+          }))
+        );
+        Sentry.captureMessage("ConnectKit modal shown but connection not resolved");
+      });
+    }, CONNECT_SHOW_WATCHDOG_TIMEOUT_MS);
+  }, [
+    clearConnectShowWatchdog,
+    connectors,
+    pendingConnectorId,
+    pendingConnectorName,
+  ]);
 
   useEffect(() => {
     onConnectRef.current = onConnect;
@@ -54,9 +106,11 @@ export const ConnectButton = ({
 
   // Call onConnect when wallet connects
   useEffect(() => {
+    isConnectedRef.current = isConnected;
     if (!isConnected) return;
+    clearConnectShowWatchdog();
     onConnectRef.current?.();
-  }, [isConnected]);
+  }, [clearConnectShowWatchdog, isConnected]);
 
   useEffect(() => {
     if (!connectError) return;
@@ -103,6 +157,12 @@ export const ConnectButton = ({
     };
   }, [isPending, pendingConnectorId, pendingConnectorName]);
 
+  useEffect(() => {
+    return () => {
+      clearConnectShowWatchdog();
+    };
+  }, [clearConnectShowWatchdog]);
+
   // Use ConnectKitButton which handles all wallet connection logic
   // Customize it with our styling and account modal
   return (
@@ -114,7 +174,27 @@ export const ConnectButton = ({
               return (
                 <Button
                   variant={variant}
-                  onClick={show}
+                  onClick={() => {
+                    scheduleConnectShowWatchdog();
+                    try {
+                      if (typeof show === "function") {
+                        show();
+                        return;
+                      }
+                      throw new Error("ConnectKit show() is unavailable");
+                    } catch (error) {
+                      clearConnectShowWatchdog();
+                      const normalizedError =
+                        error instanceof Error
+                          ? error
+                          : new Error(String(error));
+                      Sentry.captureException(normalizedError, {
+                        tags: {
+                          walletStage: "connect_show",
+                        },
+                      });
+                    }
+                  }}
                   type="button"
                   className={clsx(
                     "font-semibold",
