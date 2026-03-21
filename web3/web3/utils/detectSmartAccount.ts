@@ -18,7 +18,7 @@ export interface SmartAccountStatus {
 }
 
 export const SMART_ACCOUNT_UNSUPPORTED_MESSAGE =
-  "Smart account mode is enabled for this wallet. Glow swaps require a regular account (EOA). Disable Smart Account in MetaMask and try again.";
+  "Smart account mode is enabled for this wallet. This swap flow requires a regular account (EOA). Disable Smart Account in MetaMask and try again.";
 
 function getWalletRequests(walletClient: any) {
   const requests: Array<(args: any) => Promise<any>> = [];

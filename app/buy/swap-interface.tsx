@@ -229,6 +229,14 @@ export function SwapInterface({
 
   // Smart account check function
   const checkSmartAccountBeforeSwap = async (): Promise<boolean> => {
+    const restrictedTokens = new Set(["USDG", "GLOW"]);
+    const flowTouchesRestrictedToken =
+      restrictedTokens.has(selectedTokenSell.label) ||
+      restrictedTokens.has(selectedTokenBuy.label);
+
+    if (!flowTouchesRestrictedToken) {
+      return false;
+    }
     if (!address || !walletClient) return false;
 
     try {
