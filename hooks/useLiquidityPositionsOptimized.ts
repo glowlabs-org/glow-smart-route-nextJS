@@ -16,6 +16,7 @@ import { getEthPriceInUSD } from "@/utils/getEthPriceInUSD";
 import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
 import { toast } from "sonner";
 import Decimal from "decimal.js";
+import { normalizeTxHash } from "@/lib/normalize-tx-hash";
 
 export const GLW_INCENTIVES_START_TIME = 1756821600 * 1000; // September 2, 2025 14:00:00 GMT (10:00 AM EST)
 export const GLW_INCENTIVES_END_TIME = 1764079200 * 1000; // November 25, 2025 14:00:00 GMT (12 weeks after start)
@@ -521,12 +522,14 @@ export function useLiquidityMutations() {
       });
 
       if (glwAllowance < amountAGlow) {
-        const hash = await walletClient.writeContract({
-          address: GLW_ADDRESS,
-          abi: erc20Abi,
-          functionName: "approve",
-          args: [router, MAX_UINT256],
-        });
+        const hash = normalizeTxHash(
+          await walletClient.writeContract({
+            address: GLW_ADDRESS,
+            abi: erc20Abi,
+            functionName: "approve",
+            args: [router, MAX_UINT256],
+          })
+        );
         await publicClient.waitForTransactionReceipt({ hash });
       }
 
@@ -539,12 +542,14 @@ export function useLiquidityMutations() {
       });
 
       if (usdgAllowance < amountBUsdg) {
-        const hash = await walletClient.writeContract({
-          address: USDG_ADDRESS,
-          abi: erc20Abi,
-          functionName: "approve",
-          args: [router, MAX_UINT256],
-        });
+        const hash = normalizeTxHash(
+          await walletClient.writeContract({
+            address: USDG_ADDRESS,
+            abi: erc20Abi,
+            functionName: "approve",
+            args: [router, MAX_UINT256],
+          })
+        );
         await publicClient.waitForTransactionReceipt({ hash });
       }
 
@@ -569,7 +574,7 @@ export function useLiquidityMutations() {
         account: address as `0x${string}`,
       });
 
-      const hash = await walletClient.writeContract(request);
+      const hash = normalizeTxHash(await walletClient.writeContract(request));
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
 
       if (receipt.status !== "success") {
@@ -654,31 +659,35 @@ export function useLiquidityMutations() {
       });
 
       if (lpAllowance < liquidityToRemove) {
-        const hash = await walletClient.writeContract({
-          address: pairAddr,
-          abi: erc20Abi,
-          functionName: "approve",
-          args: [router, liquidityToRemove],
-        });
+        const hash = normalizeTxHash(
+          await walletClient.writeContract({
+            address: pairAddr,
+            abi: erc20Abi,
+            functionName: "approve",
+            args: [router, liquidityToRemove],
+          })
+        );
         await publicClient.waitForTransactionReceipt({ hash });
       }
 
       // Remove liquidity
       const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 20);
-      const hash = await walletClient.writeContract({
-        address: router,
-        abi: RouterAbi,
-        functionName: "removeLiquidity",
-        args: [
-          GLW_ADDRESS,
-          USDG_ADDRESS,
-          liquidityToRemove,
-          amountGlowMin,
-          amountUsdgMin,
-          address as `0x${string}`,
-          deadline,
-        ],
-      });
+      const hash = normalizeTxHash(
+        await walletClient.writeContract({
+          address: router,
+          abi: RouterAbi,
+          functionName: "removeLiquidity",
+          args: [
+            GLW_ADDRESS,
+            USDG_ADDRESS,
+            liquidityToRemove,
+            amountGlowMin,
+            amountUsdgMin,
+            address as `0x${string}`,
+            deadline,
+          ],
+        })
+      );
 
       await publicClient.waitForTransactionReceipt({ hash });
       return hash;

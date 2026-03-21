@@ -16,6 +16,7 @@ import { getEthPriceInUSD } from "@/utils/getEthPriceInUSD";
 import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
 import { toast } from "sonner";
 import Decimal from "decimal.js";
+import { normalizeTxHash } from "@/lib/normalize-tx-hash";
 
 export interface Position {
   id: string;
@@ -684,12 +685,13 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
     const current = await readTokenAllowance({ token, owner, spender });
     if (current >= requiredAmount) return;
     const MAX_UINT256 = (BigInt(1) << BigInt(256)) - BigInt(1);
-    const hash = await walletClient!.writeContract({
+    const rawHash = await walletClient!.writeContract({
       address: token,
       abi: erc20Abi,
       functionName: "approve",
       args: [spender, MAX_UINT256],
     });
+    const hash = normalizeTxHash(rawHash);
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
     if (receipt.status !== "success") {
       throw new Error("Approval failed");
@@ -1121,7 +1123,7 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
           ],
           account: address as `0x${string}`,
         });
-        hash = await walletClient.writeContract(request);
+        hash = normalizeTxHash(await walletClient.writeContract(request));
       } catch (e: any) {
         const spender = UNISWAP_V2_ROUTER;
         const msg =
@@ -1216,16 +1218,19 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
         args: [address as `0x${string}`, UNISWAP_V2_ROUTER],
       })) as bigint;
       if (lpAllowance < liquidityToRemove) {
-        await walletClient.writeContract({
-          address: pairAddr,
-          abi: erc20Abi,
-          functionName: "approve",
-          args: [UNISWAP_V2_ROUTER, liquidityToRemove],
-        });
+        const approvalHash = normalizeTxHash(
+          await walletClient.writeContract({
+            address: pairAddr,
+            abi: erc20Abi,
+            functionName: "approve",
+            args: [UNISWAP_V2_ROUTER, liquidityToRemove],
+          })
+        );
+        await publicClient.waitForTransactionReceipt({ hash: approvalHash });
       }
 
       const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 20);
-      const hash = await walletClient.writeContract({
+      const rawHash = await walletClient.writeContract({
         address: UNISWAP_V2_ROUTER,
         abi: RouterAbi,
         functionName: "removeLiquidity",
@@ -1239,6 +1244,7 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
           deadline,
         ],
       });
+      const hash = normalizeTxHash(rawHash);
       await publicClient.waitForTransactionReceipt({ hash });
       return hash;
     },
