@@ -358,7 +358,7 @@ export function SwapInterface({
         sellAmount: amountToSell,
         buyAmount: currentTokenEstimatedOutputAmount,
         glowPriceUsd: glowPrice,
-        ethPriceUsd,
+        ethPriceUsd: ethPriceInUSD,
       }),
     [
       amountToSell,
