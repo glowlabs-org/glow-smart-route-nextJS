@@ -2,27 +2,10 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
-
-interface SpotPriceResponse {
-  spotPrice: string;
-  indexingComplete: boolean;
-}
+import { useGlowSpotPrice as useLiveGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 
 interface EdgapPriceResponse {
-  edgap: {
-    halfLives: {
-      "100h": string;
-    };
-    states: {
-      "100h": {
-        zeroPerLiquidityWAD: string;
-        onePerLiquidityWAD: string;
-        lastUpdatedTimestamp: string;
-        glowPrice: string;
-      };
-    };
-  };
-  indexingComplete: boolean;
+  currentPriceUsdc: string;
 }
 
 interface PoolActivityBucket {
@@ -54,28 +37,15 @@ interface EdgapSeriesResponse {
   edgapSeries: EdgapSeriesItem[];
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_POSITIONS_API_BASE;
+const CONTROL_API_BASE = process.env.NEXT_PUBLIC_CONTROL_API_URL;
 
-if (!API_BASE) {
-  throw new Error("NEXT_PUBLIC_POSITIONS_API_BASE is not set");
-}
-
-async function fetchSpotPrice(): Promise<SpotPriceResponse | null> {
-  try {
-    const res = await fetch(`${API_BASE}/spot-price`, {
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch (error) {
-    console.error("Error fetching spot price:", error);
-    return null;
-  }
+if (!CONTROL_API_BASE) {
+  throw new Error("NEXT_PUBLIC_CONTROL_API_URL is not set");
 }
 
 async function fetchEdgapPrice(): Promise<EdgapPriceResponse | null> {
   try {
-    const res = await fetch(`${API_BASE}/get-edgaps`, {
+    const res = await fetch(`${CONTROL_API_BASE}/price/glw`, {
       cache: "no-store",
     });
     if (!res.ok) return null;
@@ -120,25 +90,22 @@ async function fetchEdgapSeries(
 
 export function useGlowSpotPrice(options?: { enabled?: boolean }) {
   const { enabled = true } = options ?? {};
-
-  const { data, isLoading, error, isFetching } = useQuery({
-    queryKey: ["glow-spot-price"],
-    queryFn: fetchSpotPrice,
-    enabled,
-    staleTime: 30_000, // 30 seconds
-    refetchInterval: enabled ? 60_000 : false,
-    refetchOnMount: enabled,
-    refetchOnWindowFocus: false,
+  const { spotPrice, isLoading, isFetching } = useLiveGlowSpotPrice({
+    query: {
+      enabled,
+      staleTime: 30_000,
+      refetchInterval: enabled ? 60_000 : false,
+      refetchOnMount: enabled,
+      refetchOnWindowFocus: false,
+    },
   });
 
-  const price = data?.spotPrice ? parseFloat(data.spotPrice) : null;
-
   return {
-    spotPrice: price,
+    spotPrice: Number.isFinite(spotPrice) && spotPrice > 0 ? spotPrice : null,
     isLoading,
     isFetching,
-    error,
-    indexingComplete: data?.indexingComplete ?? false,
+    error: null,
+    indexingComplete: true,
   };
 }
 
@@ -155,8 +122,8 @@ export function useGlowEdgapPrice(options?: { enabled?: boolean }) {
     refetchOnWindowFocus: false,
   });
 
-  const price = data?.edgap?.states?.["100h"]?.glowPrice
-    ? parseFloat(data.edgap.states["100h"].glowPrice)
+  const price = data?.currentPriceUsdc
+    ? parseFloat(data.currentPriceUsdc) / 1e6
     : null;
 
   return {
@@ -164,7 +131,7 @@ export function useGlowEdgapPrice(options?: { enabled?: boolean }) {
     isLoading,
     isFetching,
     error,
-    indexingComplete: data?.indexingComplete ?? false,
+    indexingComplete: data !== null,
   };
 }
 
@@ -328,8 +295,6 @@ export function useGlowPrices(options?: { enabled?: boolean }) {
 
   const spotData = useGlowSpotPrice({ enabled });
   const edgapData = useGlowEdgapPrice({ enabled });
-  const poolActivity = usePoolActivity("7d", "15min", { enabled });
-  const edgapSeries = useEdgapSeries("7d", { enabled });
 
   // Calculate GCTL mint price using protocol formula:
   // GCTL = ceil(sqrt(GLW_PRICE) / 0.05) * 0.05
@@ -360,29 +325,26 @@ export function useGlowPrices(options?: { enabled?: boolean }) {
     edgapPriceLoading: edgapData.isLoading,
     edgapPriceFetching: edgapData.isFetching,
     edgapPriceIndexingComplete: edgapData.indexingComplete,
-    edgapSparkline: edgapSeries.edgapSparkline,
-    edgapDelta: edgapSeries.edgapDelta,
-    edgapDeltaPercent: edgapSeries.edgapDeltaPercent,
+    edgapSparkline: [] as number[],
+    edgapDelta: null as number | null,
+    edgapDeltaPercent: null as number | null,
 
     // GCTL mint price (derived)
     gctlMintPrice,
-    gctlMintSparkline: edgapSeries.gctlSparkline,
-    gctlMintDelta: edgapSeries.gctlDelta,
-    gctlMintDeltaPercent: edgapSeries.gctlDeltaPercent,
+    gctlMintSparkline: [] as number[],
+    gctlMintDelta: null as number | null,
+    gctlMintDeltaPercent: null as number | null,
 
-    // Pool activity for sparklines
-    spotSparkline: poolActivity.sparkline,
-    spotDelta: poolActivity.delta,
-    spotDeltaPercent: poolActivity.deltaPercent,
-    poolActivityLoading: poolActivity.isLoading,
-    poolActivityFetching: poolActivity.isFetching,
-    poolActivityIndexingComplete: poolActivity.indexingComplete,
+    // Historical series intentionally omitted until they are sourced from
+    // Control/Hub instead of the positions API.
+    spotSparkline: [] as number[],
+    spotDelta: null as number | null,
+    spotDeltaPercent: null as number | null,
+    poolActivityLoading: false,
+    poolActivityFetching: false,
+    poolActivityIndexingComplete: false,
 
     // Overall loading state
-    isLoading:
-      spotData.isLoading ||
-      edgapData.isLoading ||
-      poolActivity.isLoading ||
-      edgapSeries.isLoading,
+    isLoading: spotData.isLoading || edgapData.isLoading,
   };
 }
