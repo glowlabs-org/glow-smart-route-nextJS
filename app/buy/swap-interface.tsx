@@ -33,7 +33,7 @@ import {
   useChainId,
 } from "wagmi";
 import { formatUnits, parseUnits } from "viem";
-import { ArrowDownUp, Info, Settings } from "lucide-react";
+import { AlertTriangle, ArrowDownUp, Info, Settings } from "lucide-react";
 import { useSwapUSDCToUSDG } from "@/hooks/useSwapUSDCToUSDG";
 import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
 import { useER20Balances } from "@/hooks/useERC20Balances";
@@ -70,6 +70,14 @@ import {
   INVALID_WALLET_TX_RESPONSE_MESSAGE,
   isInvalidWalletTxResponseError,
 } from "@/lib/normalize-tx-hash";
+import {
+  DEFAULT_SLIPPAGE_BPS,
+  DEFAULT_SLIPPAGE_TOLERANCE,
+  HIGH_SLIPPAGE_WARNING_THRESHOLD_PCT,
+  normalizeSlippageTolerance,
+  parseSlippageTolerance,
+  slippagePctToBps,
+} from "@/lib/swap-slippage";
 
 const defaultTokensEstimate = {
   GLOW: "",
@@ -79,6 +87,9 @@ const defaultTokensEstimate = {
 };
 
 const GLOW_PRICE_HARD_CAP = 3.9794;
+const HIGH_SLIPPAGE_WARNING_THRESHOLD = new Decimal(
+  HIGH_SLIPPAGE_WARNING_THRESHOLD_PCT
+);
 
 const swapTokens = {
   USDC: tokens.USDC,
@@ -92,25 +103,6 @@ type SwapToken = (typeof swapTokens)[SwapTokenLabel];
 
 function isSwapTokenLabel(value: string): value is SwapTokenLabel {
   return Object.prototype.hasOwnProperty.call(swapTokens, value);
-}
-
-function normalizeSlippageTolerance(value: string, fallback: string) {
-  const trimmed = value.trim();
-  if (!trimmed) return fallback;
-  if (!/^\d*\.?\d*$/.test(trimmed)) return fallback;
-  const n = Number(trimmed);
-  if (!Number.isFinite(n) || n <= 0) return fallback;
-  return trimmed;
-}
-
-function slippagePctToBps(value: string, fallbackBps = 100n) {
-  try {
-    const d = new Decimal(value || "0");
-    if (!d.isFinite() || d.lte(0)) return fallbackBps;
-    return BigInt(d.mul(100).toFixed(0, Decimal.ROUND_DOWN));
-  } catch {
-    return fallbackBps;
-  }
 }
 
 function formatEthMaxFromWei(valueWei: bigint) {
@@ -151,7 +143,9 @@ export function SwapInterface({
   const [selectedTokenBuy, setSelectedTokenBuy] = useState<SwapToken>(
     swapTokens.GLOW
   );
-  const [slippageTolerance, setSlippageTolerance] = useState("1");
+  const [slippageTolerance, setSlippageTolerance] = useState(
+    DEFAULT_SLIPPAGE_TOLERANCE
+  );
   const [pendingTx, setPendingTx] = useState<boolean>(false);
   const [tokenSellBalance, setTokenSellBalance] = useState<string>("0");
   const [actionErrorMessage, setActionErrorMessage] = useState<string | null>(
@@ -184,6 +178,34 @@ export function SwapInterface({
     // wagmi formats as 18 decimals for native ETH
     return ethBalanceQuery.data.formatted;
   }, [ethBalanceQuery.data?.formatted, ethBalanceQuery.data?.value]);
+
+  const slippageDecimal = React.useMemo(
+    () => parseSlippageTolerance(slippageTolerance),
+    [slippageTolerance]
+  );
+  const isHighSlippage = Boolean(
+    slippageDecimal && slippageDecimal.gt(HIGH_SLIPPAGE_WARNING_THRESHOLD)
+  );
+
+  const setSlippageToleranceWithWarning = React.useCallback(
+    (nextValue: string) => {
+      const previous = parseSlippageTolerance(slippageTolerance);
+      const next = parseSlippageTolerance(nextValue);
+      setSlippageTolerance(nextValue);
+
+      if (
+        next &&
+        next.gt(HIGH_SLIPPAGE_WARNING_THRESHOLD) &&
+        (!previous || previous.lte(HIGH_SLIPPAGE_WARNING_THRESHOLD))
+      ) {
+        toast.warning("High slippage enabled", {
+          description:
+            "Slippage above 5% can lead to materially worse execution on swaps.",
+        });
+      }
+    },
+    [slippageTolerance]
+  );
 
   // Add a general loading state check
   const isWalletLoading = isConnecting;
@@ -746,7 +768,10 @@ export function SwapInterface({
         selectedTokenSell.label === "ETH" &&
         selectedTokenBuy.label === "USDC"
       ) {
-        const slippageBps = slippagePctToBps(slippageTolerance, 100n);
+        const slippageBps = slippagePctToBps(
+          slippageTolerance,
+          DEFAULT_SLIPPAGE_BPS
+        );
         const swapEthToUsdcRes = await swapEthToUsdc({
           amountInWei: amountIn,
           slippageBps,
@@ -897,7 +922,10 @@ export function SwapInterface({
           return;
         }
 
-        const slippageBps = slippagePctToBps(slippageTolerance, 100n);
+        const slippageBps = slippagePctToBps(
+          slippageTolerance,
+          DEFAULT_SLIPPAGE_BPS
+        );
         let ethWei: bigint;
         try {
           ethWei = parseUnits(amountStr, 18);
@@ -1545,7 +1573,7 @@ export function SwapInterface({
                               amountInWei: probeWei,
                               slippageBps: slippagePctToBps(
                                 slippageTolerance,
-                                100n
+                                DEFAULT_SLIPPAGE_BPS
                               ),
                             });
                             const feeWei = gasRes.ok
@@ -1598,16 +1626,30 @@ export function SwapInterface({
                             {slippageTolerance}%
                           </span>
                         </div>
+                        {isHighSlippage && (
+                          <div className="mx-3 mb-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-950 dark:text-amber-100">
+                            <div className="flex items-start gap-2">
+                              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                              <div>
+                                Slippage above 5% can result in materially worse
+                                execution.
+                              </div>
+                            </div>
+                          </div>
+                        )}
                         <DropdownMenuSeparator />
                         <DropdownMenuRadioGroup
                           value={slippageTolerance}
                           onValueChange={(value) => {
-                            setSlippageTolerance(
-                              normalizeSlippageTolerance(value, "1")
+                            setSlippageToleranceWithWarning(
+                              normalizeSlippageTolerance(
+                                value,
+                                DEFAULT_SLIPPAGE_TOLERANCE
+                              )
                             );
                           }}
                         >
-                          {["0.5", "1", "2", "5", "10"].map((value) => (
+                          {["0.5", "1", "2", "5", "10", "15"].map((value) => (
                             <DropdownMenuRadioItem key={value} value={value}>
                               {value}%
                             </DropdownMenuRadioItem>
@@ -1620,17 +1662,20 @@ export function SwapInterface({
                           </div>
                           <Input
                             inputMode="decimal"
-                            placeholder="e.g. 1"
+                            placeholder={`e.g. ${DEFAULT_SLIPPAGE_TOLERANCE}`}
                             value={slippageTolerance}
                             onChange={(e) => {
                               // Accept comma as decimal separator (common in EU locales)
                               const next = e.target.value.replace(",", ".");
                               if (!/^\d*\.?\d*$/.test(next)) return;
-                              setSlippageTolerance(next);
+                              setSlippageToleranceWithWarning(next);
                             }}
                             onBlur={() => {
-                              setSlippageTolerance((prev) =>
-                                normalizeSlippageTolerance(prev, "1")
+                              setSlippageToleranceWithWarning(
+                                normalizeSlippageTolerance(
+                                  slippageTolerance,
+                                  DEFAULT_SLIPPAGE_TOLERANCE
+                                )
                               );
                             }}
                             className="h-9"
@@ -1642,6 +1687,17 @@ export function SwapInterface({
                 </div>
               )}
             </div>
+            {isHighSlippage && (
+              <div className="mb-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:text-amber-100">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <div>
+                    High slippage is enabled at {slippageTolerance}%.
+                    Execution can clear at materially worse prices above 5%.
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
               <div className="flex-1 min-w-0">
                 <Input

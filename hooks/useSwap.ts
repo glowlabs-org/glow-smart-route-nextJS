@@ -23,6 +23,7 @@ import {
   WALLET_INTERACTION_TIMEOUT_MESSAGE,
   withInternalRpcRetry,
 } from "@/lib/rpc-error-utils";
+import { computeAmountOutMin } from "@/lib/swap-slippage";
 import {
   getSmartAccountStatus,
   isSmartAccountBlocked,
@@ -144,7 +145,6 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
   const [tokenADecimals, setTokenADecimals] = useState<number | null>(null);
   const [tokenBDecimals, setTokenBDecimals] = useState<number | null>(null);
   const SLIPPAGE_NUMERATOR_DEFAULT = BigInt(50); //.5%
-  const SLIPPAGE_DENOMINATOR_DEFAULT = BigInt(10000);
 
   const USDC_MAINNET_ADDRESS = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
 
@@ -550,9 +550,7 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     });
     if (!amountOut.ok) return new Err(SwapError.GET_AMOUNT_OUT_FAILED);
     const amountOutVal = amountOut.val;
-    const amountOutMin =
-      amountOutVal -
-      (amountOutVal * slippageBigInt) / SLIPPAGE_DENOMINATOR_DEFAULT;
+    const amountOutMin = computeAmountOutMin(amountOutVal, slippageBigInt);
 
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 20);
     const path = [tokenA.address, tokenB.address];
@@ -781,9 +779,7 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     if (!amountOut.ok) return new Err(SwapError.GET_AMOUNT_OUT_FAILED);
 
     const amountOutVal = amountOut.val;
-    const amountOutMin =
-      amountOutVal -
-      (amountOutVal * slippageBigInt) / SLIPPAGE_DENOMINATOR_DEFAULT;
+    const amountOutMin = computeAmountOutMin(amountOutVal, slippageBigInt);
 
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 20);
     const path = [addresses.glow, addresses.usdg];
