@@ -37,7 +37,12 @@ interface EdgapSeriesResponse {
   edgapSeries: EdgapSeriesItem[];
 }
 
+const API_BASE = process.env.NEXT_PUBLIC_POSITIONS_API_BASE;
 const CONTROL_API_BASE = process.env.NEXT_PUBLIC_CONTROL_API_URL;
+
+if (!API_BASE) {
+  throw new Error("NEXT_PUBLIC_POSITIONS_API_BASE is not set");
+}
 
 if (!CONTROL_API_BASE) {
   throw new Error("NEXT_PUBLIC_CONTROL_API_URL is not set");
