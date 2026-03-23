@@ -20,7 +20,7 @@ export const getCachedRewardScoresBatch = unstable_cache(
     await fetchRewardScoresBatchUncached(farms),
   ["farms-reward-scores-batch"],
   {
-    revalidate: 60,
+    revalidate: 300,
     tags: ["farms-reward-scores-batch"],
   }
 );

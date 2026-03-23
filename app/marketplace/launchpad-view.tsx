@@ -499,6 +499,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
 
   const { miningScoreMap, isLoading: isMiningScoresLoading } = useMiningScore({
     applications: activeMinersForScores,
+    extraLiveApplications: taggedLaunchpadApplications,
     enabled: activeMinersForScores.length > 0,
   });
 
@@ -1763,6 +1764,7 @@ function LaunchpadMarketplaceWidget({
 
   const { miningScoreMap, isLoading: isMiningScoresLoading } = useMiningScore({
     applications: activeMinersForScores,
+    extraLiveApplications: taggedDelegations,
     enabled: activeMinersForScores.length > 0,
   });
 
@@ -3503,6 +3505,7 @@ function LaunchpadMarketplaceDialog({
 
   const { miningScoreMap, isLoading: isMiningScoresLoading } = useMiningScore({
     applications: taggedMiners,
+    extraLiveApplications: taggedDelegations,
     enabled: taggedMiners.length > 0,
   });
 

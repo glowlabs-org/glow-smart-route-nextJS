@@ -6,21 +6,24 @@ import type {
   MiningScoresBatchResponse,
 } from "@glowlabs-org/utils/browser";
 import { getFarmsRouter } from "@/lib/api/control-routers";
+import type { ExtraLiveFarmInput } from "@/lib/mining-score";
 
-async function fetchMiningScoresBatchUncached(
-  farms: MiningScoreParams[]
+export async function fetchMiningScoresBatchUncached(
+  farms: MiningScoreParams[],
+  extraLiveFarms: ExtraLiveFarmInput[] = []
 ): Promise<MiningScoresBatchResponse> {
   return (await (getFarmsRouter() as any).calculateMiningScoresBatch({
     farms,
+    ...(extraLiveFarms.length > 0 ? { extraLiveFarms } : {}),
   })) as MiningScoresBatchResponse;
 }
 
 export const getCachedMiningScoresBatch = unstable_cache(
-  async (farms: MiningScoreParams[]) =>
-    await fetchMiningScoresBatchUncached(farms),
+  async (farms: MiningScoreParams[], extraLiveFarms: ExtraLiveFarmInput[] = []) =>
+    await fetchMiningScoresBatchUncached(farms, extraLiveFarms),
   ["farms-mining-scores-batch"],
   {
-    revalidate: 60,
+    revalidate: 300,
     tags: ["farms-mining-scores-batch"],
   }
 );

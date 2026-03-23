@@ -56,8 +56,8 @@ export const QUERY_KEYS = {
       currency?: string,
       wallet?: string | null
     ) => ["reward-scores", applicationIds, currency, wallet] as const,
-    miningScores: (applicationIds: string[]) =>
-      ["mining-scores", applicationIds] as const,
+    miningScores: (applicationIds: string[], extraLiveKey?: string) =>
+      ["mining-scores", applicationIds, extraLiveKey ?? null] as const,
     kickstarters: () => ["kickstarters"] as const,
   },
   activity: {

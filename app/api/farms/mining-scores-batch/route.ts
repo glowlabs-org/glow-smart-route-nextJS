@@ -1,18 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { MiningScoreParams } from "@glowlabs-org/utils/browser";
 import { getCachedMiningScoresBatch } from "@/lib/server/mining-scores";
+import type { ExtraLiveFarmInput } from "@/lib/mining-score";
 
 export const runtime = "nodejs";
 
 interface MiningScoresBatchRequestBody {
   farms: MiningScoreParams[];
+  extraLiveFarms?: ExtraLiveFarmInput[];
 }
 
 function parseRequestBody(body: unknown): MiningScoresBatchRequestBody | null {
   if (!body || typeof body !== "object") return null;
   const maybeFarms = (body as { farms?: unknown }).farms;
+  const maybeExtraLiveFarms = (body as { extraLiveFarms?: unknown }).extraLiveFarms;
   if (!Array.isArray(maybeFarms)) return null;
-  return { farms: maybeFarms as MiningScoreParams[] };
+  return {
+    farms: maybeFarms as MiningScoreParams[],
+    extraLiveFarms: Array.isArray(maybeExtraLiveFarms)
+      ? (maybeExtraLiveFarms as ExtraLiveFarmInput[])
+      : undefined,
+  };
 }
 
 export async function POST(request: NextRequest) {
@@ -25,7 +33,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const data = await getCachedMiningScoresBatch(requestBody.farms);
+    const data = await getCachedMiningScoresBatch(
+      requestBody.farms,
+      requestBody.extraLiveFarms ?? []
+    );
 
     return NextResponse.json(data, {
       headers: {

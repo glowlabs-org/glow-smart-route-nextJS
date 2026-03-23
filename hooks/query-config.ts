@@ -41,6 +41,19 @@ export const QUERY_CONFIG = {
   },
 
   /**
+   * Configuration for listing estimates that are relatively expensive and
+   * should not churn during normal browsing.
+   * These queries are explicitly invalidated when listing inputs change.
+   */
+  ESTIMATES: {
+    staleTime: STALE_TIMES.SLOW,
+    gcTime: STALE_TIMES.SLOW,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  },
+
+  /**
    * Configuration for "sticky" data that shouldn't refresh automatically to avoid UI jumps.
    * e.g. Claimable rewards during a session.
    */

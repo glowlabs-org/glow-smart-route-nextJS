@@ -12,6 +12,7 @@ import {
   DASHBOARD_SSR_LISTING_FILTERS,
   prefetchDashboardLaunchpadData,
 } from "../dashboard-launchpad-prefetch";
+import { buildMiningScoreExtraLiveFarmsKey } from "../../mining-score";
 import { buildRewardScoreCurrencyKey } from "../../reward-score";
 
 function createActiveFraction(
@@ -194,6 +195,10 @@ describe("prefetchDashboardLaunchpadData", () => {
 
     expect(fetchListings).toHaveBeenCalledTimes(4);
     expect(fetchMiningScoresBatch).toHaveBeenCalledTimes(1);
+    expect(fetchMiningScoresBatch).toHaveBeenCalledWith(
+      expect.any(Array),
+      []
+    );
     expect(fetchRewardScoresBatch).toHaveBeenCalledTimes(1);
     expect(fetchRewardScoresBatch).toHaveBeenCalledWith([
       expect.objectContaining({
@@ -207,8 +212,11 @@ describe("prefetchDashboardLaunchpadData", () => {
     );
     expect(seededMiningLiveListings).toHaveLength(2);
 
+    const miningExtraLiveKey = buildMiningScoreExtraLiveFarmsKey([
+      activeDelegation,
+    ]);
     const seededMiningScores = queryClient.getQueryData<any[]>(
-      QUERY_KEYS.listings.miningScores(["active-miner"])
+      QUERY_KEYS.listings.miningScores(["active-miner"], miningExtraLiveKey)
     );
     expect(seededMiningScores).toHaveLength(1);
     expect(seededMiningScores?.[0]).toMatchObject({

@@ -11,6 +11,8 @@ import { QUERY_KEYS } from "../../hooks/query-keys";
 import { hubGet } from "../api/hub-client";
 import {
   buildMiningScoreBatchInputs,
+  buildMiningScoreExtraLiveFarmsKey,
+  type ExtraLiveFarmInput,
   filterActiveMiningApplications,
   mapMiningScoresBatchToApplications,
 } from "../mining-score";
@@ -45,7 +47,8 @@ type FetchListingsFn = (
 ) => Promise<AuctionApplication[]>;
 
 type FetchMiningScoresBatchFn = (
-  farms: MiningScoreParams[]
+  farms: MiningScoreParams[],
+  extraLiveFarms?: ExtraLiveFarmInput[]
 ) => Promise<MiningScoresBatchResponse>;
 
 type FetchRewardScoresBatchFn = (
@@ -200,9 +203,14 @@ export async function prefetchDashboardLaunchpadData(
 
   const activeMiningApplications =
     filterActiveMiningApplications(miningLiveListings);
+  const miningExtraLiveKey =
+    buildMiningScoreExtraLiveFarmsKey(launchpadLiveListings);
   if (!activeMiningApplications.length) return;
 
-  const { farmParams } = buildMiningScoreBatchInputs(activeMiningApplications);
+  const { farmParams, extraLiveFarms } = buildMiningScoreBatchInputs(
+    activeMiningApplications,
+    launchpadLiveListings
+  );
   if (!farmParams.length) return;
 
   try {
@@ -210,7 +218,9 @@ export async function prefetchDashboardLaunchpadData(
       const { getCachedMiningScoresBatch } = await import("./mining-scores");
       fetchMiningScoresBatch = getCachedMiningScoresBatch;
     }
-    const response = await withTimeout(fetchMiningScoresBatch!(farmParams));
+    const response = await withTimeout(
+      fetchMiningScoresBatch!(farmParams, extraLiveFarms)
+    );
     const miningScores = mapMiningScoresBatchToApplications(
       activeMiningApplications,
       farmParams,
@@ -219,7 +229,8 @@ export async function prefetchDashboardLaunchpadData(
 
     queryClient.setQueryData(
       QUERY_KEYS.listings.miningScores(
-        activeMiningApplications.map((application) => application.id)
+        activeMiningApplications.map((application) => application.id),
+        miningExtraLiveKey
       ),
       miningScores
     );

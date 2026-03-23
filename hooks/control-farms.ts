@@ -20,6 +20,7 @@ import { QUERY_CONFIG } from "@/hooks/query-config";
 import { useMemo } from "react";
 import {
   buildMiningScoreBatchInputs,
+  buildMiningScoreExtraLiveFarmsKey,
   mapMiningScoresBatchToApplications,
   type ApplicationMiningScore,
 } from "@/lib/mining-score";
@@ -270,8 +271,11 @@ export function useRewardScore(params: RewardScoreParams) {
       walletAddress || null
     ),
     enabled: enabled && applications.length > 0,
-    staleTime: QUERY_CONFIG.DEFAULT.staleTime,
-    refetchOnWindowFocus: QUERY_CONFIG.DEFAULT.refetchOnWindowFocus,
+    staleTime: QUERY_CONFIG.ESTIMATES.staleTime,
+    gcTime: QUERY_CONFIG.ESTIMATES.gcTime,
+    refetchOnMount: QUERY_CONFIG.ESTIMATES.refetchOnMount,
+    refetchOnWindowFocus: QUERY_CONFIG.ESTIMATES.refetchOnWindowFocus,
+    refetchOnReconnect: QUERY_CONFIG.ESTIMATES.refetchOnReconnect,
     queryFn: async (): Promise<ApplicationRewardScore[]> => {
       if (!applications.length) return [];
 
@@ -345,24 +349,30 @@ export function getRewardScoreForApplication(
 
 export interface UseMiningScoreParams {
   applications: AuctionApplication[];
+  extraLiveApplications?: AuctionApplication[];
   enabled?: boolean;
 }
 
 export function useMiningScore(params: UseMiningScoreParams) {
-  const { applications, enabled = true } = params;
+  const { applications, extraLiveApplications = [], enabled = true } = params;
+  const extraLiveKey = buildMiningScoreExtraLiveFarmsKey(extraLiveApplications);
 
   const query = useQuery({
     queryKey: QUERY_KEYS.listings.miningScores(
-      applications.map((app) => app.id)
+      applications.map((app) => app.id),
+      extraLiveKey
     ),
     enabled: enabled && applications.length > 0,
-    staleTime: QUERY_CONFIG.DEFAULT.staleTime,
-    refetchOnWindowFocus: QUERY_CONFIG.DEFAULT.refetchOnWindowFocus,
+    staleTime: QUERY_CONFIG.ESTIMATES.staleTime,
+    gcTime: QUERY_CONFIG.ESTIMATES.gcTime,
+    refetchOnMount: QUERY_CONFIG.ESTIMATES.refetchOnMount,
+    refetchOnWindowFocus: QUERY_CONFIG.ESTIMATES.refetchOnWindowFocus,
+    refetchOnReconnect: QUERY_CONFIG.ESTIMATES.refetchOnReconnect,
     queryFn: async (): Promise<ApplicationMiningScore[]> => {
       if (!applications.length) return [];
 
-      const { applicationsWithFarmIds, farmParams } =
-        buildMiningScoreBatchInputs(applications);
+      const { applicationsWithFarmIds, farmParams, extraLiveFarms } =
+        buildMiningScoreBatchInputs(applications, extraLiveApplications);
       if (!applicationsWithFarmIds.length) {
         return applications.map((app) => ({
           applicationId: app.id,
@@ -376,7 +386,7 @@ export function useMiningScore(params: UseMiningScoreParams) {
         const response = await fetch("/api/farms/mining-scores-batch", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ farms: farmParams }),
+          body: JSON.stringify({ farms: farmParams, extraLiveFarms }),
         });
 
         if (!response.ok) {

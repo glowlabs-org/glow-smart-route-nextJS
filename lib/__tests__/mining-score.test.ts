@@ -5,6 +5,7 @@ import type { AuctionApplication, ActiveFraction } from "@/hooks/hub-listings";
 import {
   MINING_SCORE_FALLBACK_USER_ID,
   buildMiningScoreBatchInputs,
+  buildMiningScoreExtraLiveFarms,
   filterActiveMiningApplications,
   mapMiningScoresBatchToApplications,
 } from "../mining-score";
@@ -102,6 +103,112 @@ describe("buildMiningScoreBatchInputs", () => {
         minerRewardSplit: parseUnits("12.3456", 4).toString(),
       },
     ]);
+  });
+
+  it("builds extra live farms from unfunded GLW launchpad listings", () => {
+    const miningApplication = createApplication("miner-1");
+    const launchpadApplication = createApplication("launchpad-1", {
+      farmId: null,
+      paymentCurrency: "GLW",
+      finalProtocolFee: "37777180000",
+      applicationPriceQuotes: [
+        {
+          id: 1,
+          prices: {
+            GLW: "396750",
+            GCTL: "500000",
+            SGCTL: "500000",
+            USDC: "1000000",
+            USDG: "1000000",
+          },
+          signature: "sig",
+          createdAt: "2024-01-01T00:00:00.000Z",
+          gcaAddress: "0x0000000000000000000000000000000000000000",
+        },
+      ],
+      auditFields: {
+        systemWattageOutput: 1,
+        averageSunlightHoursPerDay: 1,
+        expectedWeeklyCarbonCredits: 1,
+        netCarbonCreditEarningWeekly: 0.1333,
+        solarPanelsQuantity: 1,
+      },
+      activeFraction: createActiveFraction({
+        delegationAsset: "GLW",
+        delegationPhase: "glw",
+      }),
+    });
+
+    const { farmParams, extraLiveFarms } = buildMiningScoreBatchInputs(
+      [miningApplication],
+      [launchpadApplication]
+    );
+
+    expect(farmParams).toHaveLength(1);
+    expect(extraLiveFarms).toEqual([
+      {
+        farmId: "launchpad-1",
+        regionId: 1,
+        expectedWeeklyCarbonCredits: 0.1333,
+        protocolDepositPaidAmount: "95216584751102709515000",
+        protocolDepositUSDC6Decimals: "37777180000",
+        protocolDepositPaidCurrency: "GLW",
+        builtEpoch: expect.any(Number),
+      },
+    ]);
+  });
+});
+
+describe("buildMiningScoreExtraLiveFarms", () => {
+  it("includes unfunded sponsor listings and skips already-live farms", () => {
+    const sgctlLaunchpad = createApplication("launchpad-sgctl", {
+      farmId: null,
+      paymentCurrency: "GLW",
+      finalProtocolFee: "1000",
+      applicationPriceQuotes: [
+        {
+          id: 1,
+          prices: {
+            GLW: "1",
+            GCTL: "5",
+            SGCTL: "5",
+            USDC: "1",
+            USDG: "1",
+          },
+          signature: "sig",
+          createdAt: "2024-01-01T00:00:00.000Z",
+          gcaAddress: "0x0000000000000000000000000000000000000000",
+        },
+      ],
+      auditFields: {
+        systemWattageOutput: 1,
+        averageSunlightHoursPerDay: 1,
+        expectedWeeklyCarbonCredits: 1,
+        netCarbonCreditEarningWeekly: 10,
+        solarPanelsQuantity: 1,
+      },
+      activeFraction: createActiveFraction({
+        delegationAsset: "SGCTL",
+        delegationPhase: "sgctl",
+      }),
+    });
+    const alreadyLive = createApplication("launchpad-live", {
+      farmId: "launchpad-live-farm",
+    });
+
+    expect(buildMiningScoreExtraLiveFarms([sgctlLaunchpad, alreadyLive])).toEqual(
+      [
+        {
+          farmId: "launchpad-sgctl",
+          regionId: 1,
+          expectedWeeklyCarbonCredits: 10,
+          protocolDepositPaidAmount: "1000000000000000000000",
+          protocolDepositUSDC6Decimals: "1000",
+          protocolDepositPaidCurrency: "GLW",
+          builtEpoch: expect.any(Number),
+        },
+      ]
+    );
   });
 });
 
