@@ -71,6 +71,7 @@ import {
   isInvalidWalletTxResponseError,
 } from "@/lib/normalize-tx-hash";
 import {
+  computeGlowSwapPriceImpactPct,
   DEFAULT_SLIPPAGE_BPS,
   DEFAULT_SLIPPAGE_TOLERANCE,
   HIGH_SLIPPAGE_WARNING_THRESHOLD_PCT,
@@ -349,6 +350,30 @@ export function SwapInterface({
     estimatedOutputAmount[selectedTokenBuy.label];
   const isEstimateLoading =
     estimateQueueAmount !== 0 && amountToSell ? true : false;
+  const estimatedPriceImpactPct = React.useMemo(
+    () =>
+      computeGlowSwapPriceImpactPct({
+        sellToken: selectedTokenSell.label,
+        buyToken: selectedTokenBuy.label,
+        sellAmount: amountToSell,
+        buyAmount: currentTokenEstimatedOutputAmount,
+        glowPriceUsd: glowPrice,
+        ethPriceUsd,
+      }),
+    [
+      amountToSell,
+      currentTokenEstimatedOutputAmount,
+      selectedTokenBuy.label,
+      selectedTokenSell.label,
+      glowPrice,
+      ethPriceInUSD,
+    ]
+  );
+  const shouldShowHighSlippageTradeWarning = Boolean(
+    isHighSlippage &&
+      estimatedPriceImpactPct &&
+      estimatedPriceImpactPct.gt(HIGH_SLIPPAGE_WARNING_THRESHOLD)
+  );
   const pricePerGlow =
     !isEstimateLoading &&
     (selectedTokenSell.label === "USDC" ||
@@ -1626,13 +1651,18 @@ export function SwapInterface({
                             {slippageTolerance}%
                           </span>
                         </div>
-                        {isHighSlippage && (
+                        {shouldShowHighSlippageTradeWarning && (
                           <div className="mx-3 mb-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-950 dark:text-amber-100">
                             <div className="flex items-start gap-2">
                               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                               <div>
-                                Slippage above 5% can result in materially worse
-                                execution.
+                                Estimated price impact is about{" "}
+                                {toFixedTruncate(
+                                  estimatedPriceImpactPct?.toNumber() ?? 0,
+                                  2
+                                )}
+                                %. Slippage above 5% can result in materially
+                                worse execution.
                               </div>
                             </div>
                           </div>
@@ -1687,12 +1717,17 @@ export function SwapInterface({
                 </div>
               )}
             </div>
-            {isHighSlippage && (
+            {shouldShowHighSlippageTradeWarning && (
               <div className="mb-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:text-amber-100">
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                   <div>
-                    High slippage is enabled at {slippageTolerance}%.
+                    Estimated price impact is about{" "}
+                    {toFixedTruncate(
+                      estimatedPriceImpactPct?.toNumber() ?? 0,
+                      2
+                    )}
+                    %. High slippage is enabled at {slippageTolerance}%.
                     Execution can clear at materially worse prices above 5%.
                   </div>
                 </div>

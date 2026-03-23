@@ -38,7 +38,7 @@ const TEST_WALLET = "0x0B650820DdE452b204dE44885fc0FBb788Fc5e37" as Address;
 const CHAIN_ID = 1;
 const PINNED_FORK_BLOCK = 24_720_329;
 const ONE_PERCENT_BPS = 100n;
-const FIFTEEN_PERCENT_BPS = slippagePctToBps(DEFAULT_SLIPPAGE_TOLERANCE);
+const FIFTEEN_PERCENT_BPS = slippagePctToBps("15");
 const ADVERSE_MOVE_USDG = 2_000n * 1_000_000n;
 const QUOTE_SIZES = [30_000n, 40_000n, 50_000n].map((n) => n * 1_000_000n);
 const EXECUTE_TARGET = 50_000n * 1_000_000n;
@@ -270,8 +270,8 @@ describeFork("mainnet fork: high-slippage USDG/GLW buys", () => {
   it(
     "quotes and executes large USDG buys where 1% fails but 15% succeeds after an adverse move",
     async () => {
-      expect(DEFAULT_SLIPPAGE_TOLERANCE).toBe("15");
-      expect(DEFAULT_SLIPPAGE_BPS).toBe(1500n);
+      expect(DEFAULT_SLIPPAGE_TOLERANCE).toBe("5");
+      expect(DEFAULT_SLIPPAGE_BPS).toBe(500n);
       expect(HIGH_SLIPPAGE_WARNING_THRESHOLD_PCT).toBe(5);
       expect(FIFTEEN_PERCENT_BPS).toBe(1500n);
 

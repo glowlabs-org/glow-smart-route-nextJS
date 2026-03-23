@@ -39,7 +39,7 @@ const TEST_WALLET = "0x66414Ef3a14504BA9B919341255c59eb4bAa6d0C" as Address;
 const CHAIN_ID = 1;
 const PINNED_FORK_BLOCK = 24_720_329;
 const ONE_PERCENT_BPS = 100n;
-const FIFTEEN_PERCENT_BPS = slippagePctToBps(DEFAULT_SLIPPAGE_TOLERANCE);
+const FIFTEEN_PERCENT_BPS = slippagePctToBps("15");
 const SEARCH_STEP_GLOW = parseUnits("1000", 18);
 const TARGET_SWAP_GLOW = parseUnits("10000", 18);
 const UNISWAP_V2_ROUTER =
@@ -321,8 +321,8 @@ describeFork("mainnet fork: high-slippage GLW/USDG swaps", () => {
   it(
     "fails at 1% slippage but succeeds at the new 15% default after an adverse move",
     async () => {
-      expect(DEFAULT_SLIPPAGE_TOLERANCE).toBe("15");
-      expect(DEFAULT_SLIPPAGE_BPS).toBe(1500n);
+      expect(DEFAULT_SLIPPAGE_TOLERANCE).toBe("5");
+      expect(DEFAULT_SLIPPAGE_BPS).toBe(500n);
       expect(HIGH_SLIPPAGE_WARNING_THRESHOLD_PCT).toBe(5);
       expect(FIFTEEN_PERCENT_BPS).toBe(1500n);
 
