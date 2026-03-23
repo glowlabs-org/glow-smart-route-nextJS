@@ -57,6 +57,7 @@ import {
   type FarmPerPieceStats,
 } from "@/hooks/useFarmsPerPieceStats";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
+import { useGlowEdgapPrice } from "@/hooks/useGlowPrices";
 import { useCompletedFarms } from "@/hooks/useCompletedFarms";
 import { getFarmsRouter } from "@/lib/api/control-routers";
 import {
@@ -393,6 +394,17 @@ function formatUsdSigned(value: number) {
   })}`;
 }
 
+function formatPriceUsd(value: number | null | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    return "—";
+  }
+
+  return `$${value.toLocaleString("en-US", {
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 4,
+  })}`;
+}
+
 function formatPercent(value: number, digits = 1) {
   if (!Number.isFinite(value)) return "0%";
   return `${value.toFixed(digits)}%`;
@@ -633,6 +645,7 @@ export function MiningStats() {
     endWeek: getCurrentEpoch(),
   });
   const { spotPrice } = useGlowSpotPrice();
+  const { edgapPrice, isLoading: isEdgapPriceLoading } = useGlowEdgapPrice();
   const { farms: completedFarms } = useCompletedFarms({
     enabled: true,
     includeFractions: true,
@@ -1624,8 +1637,8 @@ export function MiningStats() {
           </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Card className="border-border/60 shadow-none">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <Card className="border-border/20 shadow-none">
             <CardContent className="p-5 space-y-2">
               <p className="text-xs uppercase text-muted-foreground">
                 Mining sold (USDC)
@@ -1635,7 +1648,7 @@ export function MiningStats() {
               </p>
             </CardContent>
           </Card>
-          <Card className="border-border/60 shadow-none">
+          <Card className="border-border/20 shadow-none">
             <CardContent className="p-5 space-y-2">
               <p className="text-xs uppercase text-muted-foreground">
                 Cash bounties paid
@@ -1645,7 +1658,20 @@ export function MiningStats() {
               </p>
             </CardContent>
           </Card>
-          <Card className="border-border/60 shadow-none sm:col-span-2 lg:col-span-1">
+          <Card className="border-border/20 shadow-none">
+            <CardContent className="p-5 space-y-2">
+              <p className="text-xs uppercase text-muted-foreground">
+                GLW EDGAP price
+              </p>
+              <p className="text-2xl font-semibold">
+                {isEdgapPriceLoading ? "Loading..." : formatPriceUsd(edgapPrice)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                100h liquidity-aware price signal
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="border-border/20 shadow-none sm:col-span-2 xl:col-span-1">
             <CardContent className="p-5 space-y-2">
               <p className="text-xs uppercase text-muted-foreground">
                 Miner margin / PD (all miners)
