@@ -18,6 +18,12 @@ import {
   normalizeTxHash,
 } from "@/lib/normalize-tx-hash";
 import {
+  getRpcErrorMessage,
+  isWalletInteractionTimeoutError,
+  WALLET_INTERACTION_TIMEOUT_MESSAGE,
+  withInternalRpcRetry,
+} from "@/lib/rpc-error-utils";
+import {
   getSmartAccountStatus,
   isSmartAccountBlocked,
   SMART_ACCOUNT_UNSUPPORTED_MESSAGE,
@@ -78,16 +84,12 @@ function isUserRejectedRequest(err: unknown, errorMessage?: string): boolean {
 function extractErrorMessage(err: any, defaultMessage: string): string {
   let errorMessage: string = defaultMessage;
 
-  if (err?.message) {
-    errorMessage = err.message;
-  } else if (err?.reason) {
+  if (err?.reason) {
     errorMessage = err.reason;
-  } else if (err?.data?.message) {
-    errorMessage = err.data.message;
-  } else if (err?.shortMessage) {
-    errorMessage = err.shortMessage;
   } else if (typeof err === "string") {
     errorMessage = err;
+  } else {
+    errorMessage = getRpcErrorMessage(err);
   }
 
   if (
@@ -95,6 +97,10 @@ function extractErrorMessage(err: any, defaultMessage: string): string {
     isInvalidWalletTxResponseError(errorMessage)
   ) {
     return INVALID_WALLET_TX_RESPONSE_MESSAGE;
+  }
+
+  if (isWalletInteractionTimeoutError(err) || isWalletInteractionTimeoutError(errorMessage)) {
+    return WALLET_INTERACTION_TIMEOUT_MESSAGE;
   }
 
   // Handle common error cases
@@ -249,19 +255,11 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
           args: [owner, spender],
         })) as bigint,
       approve: async (spender: `0x${string}`, amount: bigint) => {
-        if (!walletClient) throw new Error("Wallet client not available");
-        const rawHash = await walletClient.writeContract({
+        return writeApprovalWithRetry({
           address,
-          abi: parseAbi([
-            "function approve(address spender, uint256 amount) returns (bool)",
-          ]),
-          functionName: "approve",
-          args: [spender, amount],
+          spender,
+          amount,
         });
-        const hash = normalizeTxHash(rawHash);
-        lastTxHashRef.current = hash;
-        setLastTxHash(hash);
-        return makeTx(hash);
       },
       estimateGas: {
         approve: async (spender: `0x${string}`, amount: bigint) =>
@@ -314,18 +312,60 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
         deadline: number
       ) => {
         if (!walletClient) throw new Error("Wallet client not available");
-        const rawHash = await walletClient.writeContract({
-          address,
-          abi: ROUTER_ABI,
-          functionName: "swapExactTokensForTokens",
-          args: [amountIn, amountOutMin, path, to, BigInt(deadline)],
-        });
+        const rawHash = await withInternalRpcRetry(
+          () =>
+            walletClient.writeContract({
+              address,
+              abi: ROUTER_ABI,
+              functionName: "swapExactTokensForTokens",
+              args: [amountIn, amountOutMin, path, to, BigInt(deadline)],
+            }),
+          {
+            maxRetries: 1,
+            delayMs: 1500,
+            onRetry: () => {
+              if (typeof window !== "undefined") {
+                console.warn(
+                  "Retrying swapExactTokensForTokens after transient wallet RPC error"
+                );
+              }
+            },
+          }
+        );
         const hash = normalizeTxHash(rawHash);
         lastTxHashRef.current = hash;
         setLastTxHash(hash);
         return makeTx(hash);
       },
     };
+  }
+
+  async function writeApprovalWithRetry({
+    address,
+    spender,
+    amount,
+  }: {
+    address: `0x${string}`;
+    spender: `0x${string}`;
+    amount: bigint;
+  }) {
+    if (!walletClient) throw new Error("Wallet client not available");
+    const rawHash = await withInternalRpcRetry(
+      () =>
+        walletClient.writeContract({
+          address,
+          abi: parseAbi([
+            "function approve(address spender, uint256 amount) returns (bool)",
+          ]),
+          functionName: "approve",
+          args: [spender, amount],
+        }),
+      { maxRetries: 1, delayMs: 1500 }
+    );
+    const hash = normalizeTxHash(rawHash);
+    lastTxHashRef.current = hash;
+    setLastTxHash(hash);
+    return makeTx(hash);
   }
 
   async function getReservesViem({
