@@ -1,7 +1,4 @@
-import {
-  isFractionOpenForMarketplace,
-  isFractionPubliclyVisible,
-} from "@/hooks/hub-listings";
+import { isFractionPubliclyVisible } from "@/hooks/hub-listings";
 
 export interface LaunchpadListingLike {
   activeFraction: {
@@ -16,9 +13,17 @@ export function isPublicActiveListing(
   application: LaunchpadListingLike,
   nowMs: number = Date.now()
 ) {
+  const fraction = application.activeFraction;
+  if (!fraction) return false;
+
+  const totalSteps = fraction?.totalSteps ?? 0;
+  const remainingSteps = fraction?.remainingSteps ?? 0;
+
   return (
-    isFractionOpenForMarketplace(application.activeFraction) &&
-    isFractionPubliclyVisible(application.activeFraction, nowMs)
+    !fraction.isFilled &&
+    remainingSteps > 0 &&
+    totalSteps > 0 &&
+    isFractionPubliclyVisible(fraction, nowMs)
   );
 }
 
