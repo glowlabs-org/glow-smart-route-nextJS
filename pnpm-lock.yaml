@@ -99,9 +99,6 @@ importers:
       '@reown/appkit-adapter-wagmi':
         specifier: ^1.7.8
         version: 1.7.8(057160d8733c224eee5a200077db8ba8)
-      '@reown/appkit-controllers':
-        specifier: 1.7.8
-        version: 1.7.8(@react-native-async-storage/async-storage@1.24.0(react-native@0.80.2(@babel/core@7.28.0)(@types/react@19.1.9)(bufferutil@4.0.9)(react@19.2.1)(utf-8-validate@6.0.5)))(@types/react@19.1.9)(bufferutil@4.0.9)(react@19.2.1)(typescript@5.9.2)(utf-8-validate@6.0.5)(zod@3.25.76)
       '@sentry/nextjs':
         specifier: ^10
         version: 10.17.0(@opentelemetry/context-async-hooks@2.1.0(@opentelemetry/api@1.9.0))(@opentelemetry/core@2.1.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@2.1.0(@opentelemetry/api@1.9.0))(next@15.4.8(@babel/core@7.28.0)(@opentelemetry/api@1.9.0)(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react@19.2.1)(webpack@5.102.0(esbuild@0.19.12))

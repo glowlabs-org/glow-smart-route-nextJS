@@ -5,7 +5,6 @@ import { injected, walletConnect } from "wagmi/connectors";
 import { createAppKit } from "@reown/appkit/react";
 import { mainnet, sepolia } from "@reown/appkit/networks";
 import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
-import { OnRampController } from "@reown/appkit-controllers";
 import * as Sentry from "@sentry/nextjs";
 import { instrumentedHttp } from "@/lib/viem-rpc-logging";
 import { createPersistentWalletStorage } from "@/lib/wallet-storage";
@@ -55,28 +54,6 @@ type Eip6963ProviderDetail = {
 };
 
 type ConnectorDebugLevel = "info" | "warning" | "error";
-
-function restrictOnrampProvidersToMeld(
-  appKitClient?: ReturnType<typeof createAppKit>
-) {
-  if (!appKitClient) return;
-
-  const applyRestriction = () => {
-    appKitClient.updateRemoteFeatures({ onramp: ["meld"] });
-    OnRampController.setOnrampProviders(["meld"]);
-  };
-
-  applyRestriction();
-
-  void appKitClient
-    .ready()
-    .then(() => {
-      applyRestriction();
-    })
-    .catch(() => {
-      // no-op
-    });
-}
 
 function getEip6963ProvidersCount(windowRef: any): number {
   const win = windowRef as any;
@@ -389,7 +366,6 @@ function initializeAppKit() {
     __glowReownAppKitClient?: ReturnType<typeof createAppKit>;
   };
   if (win.__glowReownAppKitInitialized && win.__glowReownAppKitClient) {
-    restrictOnrampProvidersToMeld(win.__glowReownAppKitClient);
     return win.__glowReownAppKitClient;
   }
 
@@ -403,16 +379,12 @@ function initializeAppKit() {
       email: false,
       socials: false,
       connectMethodsOrder: ["wallet"],
-      onramp: true,
+      onramp: false,
       swaps: true,
       send: true,
       history: true,
     },
   });
-
-  // Coinbase Onramp's older URL flow is currently broken with our AppKit version.
-  // Keep onramp enabled, but only expose Meld in the native provider picker.
-  restrictOnrampProvidersToMeld(appKitClient);
 
   win.__glowReownAppKitInitialized = true;
   win.__glowReownAppKitClient = appKitClient;
