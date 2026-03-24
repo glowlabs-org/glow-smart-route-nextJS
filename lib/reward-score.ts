@@ -25,6 +25,7 @@ export interface RewardScoreBatchParams {
   userId: string;
   sponsorSplitPercent: number;
   protocolDepositAmount: string;
+  protocolDepositUsd6: string;
   paymentCurrency: PaymentCurrency;
   expectedWeeklyCarbonCredits: number;
   regionId: number;
@@ -190,6 +191,7 @@ export function buildRewardScoreBatchInputs(params: {
           userId: addressForEstimation,
           sponsorSplitPercent: application.sponsorSplitPercent,
           protocolDepositAmount: protocolDepositAmountBigInt.toString(),
+          protocolDepositUsd6: application.finalProtocolFee,
           paymentCurrency: resolvedPaymentCurrency,
           expectedWeeklyCarbonCredits:
             application.auditFields.netCarbonCreditEarningWeekly,
