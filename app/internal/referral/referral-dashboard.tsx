@@ -1007,7 +1007,7 @@ function KolPaybackExport({
 
 export function ReferralDashboard() {
   const [kolRangePreset, setKolRangePreset] =
-    React.useState<ReferralDashboardKolPaybackRangePreset>("this_week");
+    React.useState<ReferralDashboardKolPaybackRangePreset>("all_time");
   const [isKolRangePending, startKolRangeTransition] = React.useTransition();
 
   const overviewQuery = useReferralDashboardOverview();
