@@ -375,7 +375,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
           return calculateLaunchpadPerShareRewards({
             reward,
             totalShares,
-            delegationCurrency,
+            delegationCurrency: delegationCurrency || "GLW",
             glwSpotPrice: glwSpotPrice || 0,
           }).totalGlwPerShare;
         } catch {
@@ -427,7 +427,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
         return calculateLaunchpadPerShareRewards({
           reward,
           totalShares,
-          delegationCurrency,
+          delegationCurrency: delegationCurrency || "GLW",
           glwSpotPrice: glwSpotPrice || 0,
         }).totalUsdPerShare;
       })();
