@@ -1,11 +1,9 @@
 "use client";
 
 import React from "react";
-import { RefreshCw, Users, UserCheck, Gift, Trophy, TrendingUp, Link2, Copy, Check } from "lucide-react";
+import { Check, Copy, Gift, RefreshCw, TrendingUp, Users, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 import {
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -22,14 +20,25 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   useReferralDashboardOverview,
   useReferralDashboardTopReferrers,
   useReferralDashboardRecentReferrals,
   useReferralDashboardWeeklyStats,
   useReferralDashboardNewReferees,
+  useReferralDashboardKolPayback,
   type ReferralDashboardTopReferrer,
   type ReferralDashboardRecentReferral,
   type ReferralDashboardResponse,
+  type ReferralDashboardKolPaybackRangePreset,
+  type ReferralDashboardKolPaybackResponse,
 } from "@/hooks/useReferralDashboard";
 
 function formatWallet(wallet: string) {
@@ -76,11 +85,34 @@ function formatDate(isoString: string) {
   });
 }
 
+function formatDateTime(isoString: string) {
+  return new Date(isoString).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function formatTime(isoString: string) {
   return new Date(isoString).toLocaleTimeString("en-US", {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function addCommas(intString: string) {
+  return intString.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+function formatUsdFromRawUsdc6(value: string | bigint) {
+  const raw = typeof value === "bigint" ? value : BigInt(value);
+  const isNegative = raw < 0n;
+  const abs = isNegative ? -raw : raw;
+  const cents = (abs + 5_000n) / 10_000n;
+  const whole = cents / 100n;
+  const fraction = (cents % 100n).toString().padStart(2, "0");
+  return `$${isNegative ? "-" : ""}${addCommas(whole.toString())}.${fraction}`;
 }
 
 const TIER_CONFIG = {
@@ -90,40 +122,23 @@ const TIER_CONFIG = {
   Legend: { color: "#f59e0b", label: "20%" },
 } as const;
 
+const KOL_PAYBACK_RANGE_OPTIONS: Array<{
+  value: ReferralDashboardKolPaybackRangePreset;
+  label: string;
+}> = [
+  { value: "this_week", label: "This Week" },
+  { value: "past_month", label: "Past Month" },
+  { value: "past_3_months", label: "Past 3 Months" },
+  { value: "past_6_months", label: "Past 6 Months" },
+  { value: "year_to_date", label: "YTD" },
+  { value: "all_time", label: "All Time" },
+];
+
 function SectionHeader({ title }: { title: string }) {
   return (
     <h2 className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80 mb-6">
       {title}
     </h2>
-  );
-}
-
-function ReferralDashboardSkeleton() {
-  return (
-    <div className="space-y-8">
-      {/* Hero Stats Skeleton */}
-      <div className="rounded-3xl bg-card border border-border/20 dark:border-border/40 p-8 lg:p-12">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="space-y-3">
-              <Skeleton className="h-3 w-24 bg-muted/50" />
-              <Skeleton className="h-12 w-20 bg-muted/50" />
-              <Skeleton className="h-3 w-32 bg-muted/50" />
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Charts Skeleton */}
-      <div className="grid lg:grid-cols-2 gap-8">
-        {Array.from({ length: 2 }).map((_, i) => (
-          <div key={i} className="rounded-3xl bg-card border border-border/20 dark:border-border/40 p-8">
-            <Skeleton className="h-4 w-32 bg-muted/50 mb-6" />
-            <Skeleton className="h-64 w-full bg-muted/50 rounded-xl" />
-          </div>
-        ))}
-      </div>
-    </div>
   );
 }
 
@@ -602,12 +617,405 @@ function SectionError({
   );
 }
 
+type KolPaybackSale =
+  ReferralDashboardKolPaybackResponse["kols"][number]["weeks"][number]["sales"][number];
+
+type KolPaybackWeekRow = {
+  weekNumber: number;
+  startAt: string;
+  endAt: string;
+  totalMinerSalesRaw: string;
+  totalPaybackRaw: string;
+  saleCount: number;
+  uniqueBuyers: number;
+  sales: KolPaybackSale[];
+  kols: Array<{
+    kolWallet: string;
+    totalMinerSalesRaw: string;
+    totalPaybackRaw: string;
+    saleCount: number;
+    uniqueBuyers: number;
+  }>;
+};
+
+function buildKolPaybackWeekRows(
+  data: ReferralDashboardKolPaybackResponse
+): KolPaybackWeekRow[] {
+  const weeks = new Map<number, KolPaybackWeekRow>();
+
+  for (const kol of data.kols) {
+    for (const week of kol.weeks) {
+      const existing = weeks.get(week.weekNumber);
+      if (!existing) {
+        weeks.set(week.weekNumber, {
+          weekNumber: week.weekNumber,
+          startAt: week.startAt,
+          endAt: week.endAt,
+          totalMinerSalesRaw: week.totalMinerSalesRaw,
+          totalPaybackRaw: week.totalPaybackRaw,
+          saleCount: week.saleCount,
+          uniqueBuyers: week.uniqueBuyers,
+          sales: [...week.sales],
+          kols: [
+            {
+              kolWallet: kol.kolWallet,
+              totalMinerSalesRaw: week.totalMinerSalesRaw,
+              totalPaybackRaw: week.totalPaybackRaw,
+              saleCount: week.saleCount,
+              uniqueBuyers: week.uniqueBuyers,
+            },
+          ],
+        });
+        continue;
+      }
+
+      existing.totalMinerSalesRaw = (
+        BigInt(existing.totalMinerSalesRaw) + BigInt(week.totalMinerSalesRaw)
+      ).toString();
+      existing.totalPaybackRaw = (
+        BigInt(existing.totalPaybackRaw) + BigInt(week.totalPaybackRaw)
+      ).toString();
+      existing.saleCount += week.saleCount;
+      existing.sales.push(...week.sales);
+      existing.kols.push({
+        kolWallet: kol.kolWallet,
+        totalMinerSalesRaw: week.totalMinerSalesRaw,
+        totalPaybackRaw: week.totalPaybackRaw,
+        saleCount: week.saleCount,
+        uniqueBuyers: week.uniqueBuyers,
+      });
+    }
+  }
+
+  return Array.from(weeks.values())
+    .map((week) => {
+      const uniqueBuyers = new Set(week.sales.map((sale) => sale.buyer)).size;
+      const sales = week.sales
+        .slice()
+        .sort((a, b) => b.saleAt.localeCompare(a.saleAt));
+
+      return {
+        ...week,
+        uniqueBuyers,
+        sales,
+      };
+    })
+    .sort((a, b) => b.weekNumber - a.weekNumber);
+}
+
+function KolPaybackExport({
+  data,
+  isLoading,
+  isError,
+  isFetching,
+  rangePreset,
+  isRangePending,
+  onRangePresetChange,
+  onRetry,
+}: {
+  data?: ReferralDashboardKolPaybackResponse;
+  isLoading: boolean;
+  isError: boolean;
+  isFetching: boolean;
+  rangePreset: ReferralDashboardKolPaybackRangePreset;
+  isRangePending: boolean;
+  onRangePresetChange: (preset: ReferralDashboardKolPaybackRangePreset) => void;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="rounded-3xl bg-card border border-border/20 dark:border-border/40 p-8 space-y-8">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div className="text-sm font-medium">KoL Miner Export</div>
+          <p className="text-sm text-muted-foreground/60 dark:text-muted-foreground/80 mt-1">
+            Eligible mining-center sales grouped by protocol week and current referrer.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {KOL_PAYBACK_RANGE_OPTIONS.map((option) => (
+            <Button
+              key={option.value}
+              type="button"
+              size="sm"
+              variant={rangePreset === option.value ? "default" : "outline"}
+              disabled={isRangePending}
+              onClick={() => onRangePresetChange(option.value)}
+              className={
+                rangePreset === option.value
+                  ? "bg-foreground text-background hover:bg-foreground/90"
+                  : "border-border/20 dark:border-border/40 hover:border-border/40 dark:hover:border-border/60"
+              }
+            >
+              {option.label}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, idx) => (
+              <div
+                key={idx}
+                className="rounded-2xl border border-border/20 dark:border-border/40 p-5"
+              >
+                <Skeleton className="h-3 w-24 bg-muted/50" />
+                <Skeleton className="h-8 w-24 bg-muted/50 mt-3" />
+              </div>
+            ))}
+          </div>
+          <Skeleton className="h-56 w-full bg-muted/50 rounded-2xl" />
+        </div>
+      ) : isError || !data ? (
+        <SectionError
+          message="Unable to load KoL payback export."
+          onRetry={onRetry}
+        />
+      ) : (
+        <>
+          <div className="grid gap-4 md:grid-cols-4">
+            <div className="rounded-2xl border border-border/20 dark:border-border/40 p-5">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
+                Weeks Covered
+              </div>
+              <div className="mt-3 text-3xl font-semibold tracking-tight tabular-nums">
+                {data.range.endWeek - data.range.startWeek + 1}
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground/60">
+                Week {data.range.startWeek} to Week {data.range.endWeek}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-border/20 dark:border-border/40 p-5">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
+                Eligible Sales
+              </div>
+              <div className="mt-3 text-3xl font-semibold tracking-tight tabular-nums">
+                {data.summary.totalEligibleSales}
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground/60">
+                {data.program.eligibleKolWallets.length} KoL wallets tracked
+              </div>
+            </div>
+            <div className="rounded-2xl border border-border/20 dark:border-border/40 p-5">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
+                Miner Sales
+              </div>
+              <div className="mt-3 text-3xl font-semibold tracking-tight tabular-nums">
+                {formatUsdFromRawUsdc6(data.summary.totalMinerSalesRaw)}
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground/60">
+                Gross eligible miner volume
+              </div>
+            </div>
+            <div className="rounded-2xl border border-border/20 dark:border-border/40 p-5">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
+                Payback
+              </div>
+              <div className="mt-3 text-3xl font-semibold tracking-tight tabular-nums">
+                {formatUsdFromRawUsdc6(data.summary.totalPaybackRaw)}
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground/60">
+                {data.program.paybackPercent}% of eligible sales
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {buildKolPaybackWeekRows(data).map((week) => (
+              <div
+                key={week.weekNumber}
+                className="rounded-2xl border border-border/20 dark:border-border/40 overflow-hidden"
+              >
+                <div className="border-b border-border/20 dark:border-border/40 px-5 py-4 bg-muted/20 dark:bg-muted/40">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                    <div>
+                      <div className="text-lg font-semibold tracking-tight">
+                        Week {week.weekNumber}
+                      </div>
+                      <div className="text-xs text-muted-foreground/60 mt-1">
+                        {formatDate(week.startAt)} to {formatDate(week.endAt)}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                      <div className="rounded-xl bg-background/70 px-3 py-2">
+                        <div className="text-[10px] uppercase tracking-widest text-muted-foreground/50">
+                          Sales
+                        </div>
+                        <div className="mt-1 text-lg font-semibold tabular-nums">
+                          {week.saleCount}
+                        </div>
+                      </div>
+                      <div className="rounded-xl bg-background/70 px-3 py-2">
+                        <div className="text-[10px] uppercase tracking-widest text-muted-foreground/50">
+                          Buyers
+                        </div>
+                        <div className="mt-1 text-lg font-semibold tabular-nums">
+                          {week.uniqueBuyers}
+                        </div>
+                      </div>
+                      <div className="rounded-xl bg-background/70 px-3 py-2">
+                        <div className="text-[10px] uppercase tracking-widest text-muted-foreground/50">
+                          Miner Sales
+                        </div>
+                        <div className="mt-1 text-lg font-semibold tabular-nums">
+                          {formatUsdFromRawUsdc6(week.totalMinerSalesRaw)}
+                        </div>
+                      </div>
+                      <div className="rounded-xl bg-background/70 px-3 py-2">
+                        <div className="text-[10px] uppercase tracking-widest text-muted-foreground/50">
+                          Payback
+                        </div>
+                        <div className="mt-1 text-lg font-semibold tabular-nums text-emerald-500">
+                          {formatUsdFromRawUsdc6(week.totalPaybackRaw)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-5 space-y-5">
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    {week.kols.map((kol) => (
+                      <div
+                        key={`${week.weekNumber}-${kol.kolWallet}`}
+                        className="rounded-2xl border border-border/20 dark:border-border/40 p-4 bg-muted/20 dark:bg-muted/40"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 mb-2">
+                              KoL Wallet
+                            </div>
+                            <CopyableWallet wallet={kol.kolWallet} className="text-sm" />
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className="border-border/20 dark:border-border/40 text-[10px] font-mono"
+                          >
+                            {data.program.paybackPercent}% payback
+                          </Badge>
+                        </div>
+                        <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
+                          <div>
+                            <div className="text-[10px] uppercase tracking-widest text-muted-foreground/50">
+                              Sales
+                            </div>
+                            <div className="mt-1 font-semibold tabular-nums">
+                              {kol.saleCount}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-[10px] uppercase tracking-widest text-muted-foreground/50">
+                              Volume
+                            </div>
+                            <div className="mt-1 font-semibold tabular-nums">
+                              {formatUsdFromRawUsdc6(kol.totalMinerSalesRaw)}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-[10px] uppercase tracking-widest text-muted-foreground/50">
+                              Payback
+                            </div>
+                            <div className="mt-1 font-semibold tabular-nums text-emerald-500">
+                              {formatUsdFromRawUsdc6(kol.totalPaybackRaw)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {week.sales.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-border/20 dark:border-border/40 px-4 py-8 text-center text-sm text-muted-foreground/50">
+                      No eligible miner sales in this week.
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-border/20 dark:border-border/40 overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted/40 hover:bg-muted/40">
+                            <TableHead className="px-4">KoL</TableHead>
+                            <TableHead>Buyer</TableHead>
+                            <TableHead>Farm</TableHead>
+                            <TableHead className="text-right">Amount</TableHead>
+                            <TableHead className="text-right">Payback</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Sale At</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {week.sales.map((sale) => (
+                            <TableRow key={sale.transactionHash}>
+                              <TableCell className="px-4 py-3">
+                                <CopyableWallet wallet={sale.kolWallet} className="text-xs" />
+                              </TableCell>
+                              <TableCell className="py-3">
+                                <CopyableWallet wallet={sale.buyer} className="text-xs" />
+                              </TableCell>
+                              <TableCell className="py-3">
+                                <div className="text-sm font-medium">
+                                  {sale.farmName ?? "—"}
+                                </div>
+                                <div className="text-[10px] text-muted-foreground/50">
+                                  {sale.stepsPurchased} steps
+                                </div>
+                              </TableCell>
+                              <TableCell className="py-3 text-right font-medium tabular-nums">
+                                {formatUsdFromRawUsdc6(sale.amountRaw)}
+                              </TableCell>
+                              <TableCell className="py-3 text-right font-medium tabular-nums text-emerald-500">
+                                {formatUsdFromRawUsdc6(sale.paybackRaw)}
+                              </TableCell>
+                              <TableCell className="py-3">
+                                <Badge
+                                  variant="outline"
+                                  className={
+                                    sale.referralStatus === "active"
+                                      ? "border-emerald-500/30 text-emerald-500 text-[10px] font-mono"
+                                      : "border-yellow-500/30 text-yellow-500 text-[10px] font-mono"
+                                  }
+                                >
+                                  {sale.referralStatus}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="py-3">
+                                <div className="text-sm">{formatDateTime(sale.saleAt)}</div>
+                                <div className="text-[10px] text-muted-foreground/50">
+                                  Linked {formatDateTime(sale.referralLinkedAt)}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="text-xs text-muted-foreground/50">
+            {data.program.eligibilityRule}
+            {isFetching ? " Refreshing…" : ""}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function ReferralDashboard() {
+  const [kolRangePreset, setKolRangePreset] =
+    React.useState<ReferralDashboardKolPaybackRangePreset>("this_week");
+  const [isKolRangePending, startKolRangeTransition] = React.useTransition();
+
   const overviewQuery = useReferralDashboardOverview();
   const topReferrersQuery = useReferralDashboardTopReferrers();
   const recentReferralsQuery = useReferralDashboardRecentReferrals();
   const weeklyStatsQuery = useReferralDashboardWeeklyStats();
   const newRefereesQuery = useReferralDashboardNewReferees();
+  const kolPaybackQuery = useReferralDashboardKolPayback(kolRangePreset);
 
   const currentWeek =
     overviewQuery.data?.currentWeek ?? weeklyStatsQuery.data?.currentWeek;
@@ -616,7 +1024,8 @@ export function ReferralDashboard() {
     topReferrersQuery.isFetching ||
     recentReferralsQuery.isFetching ||
     weeklyStatsQuery.isFetching ||
-    newRefereesQuery.isFetching;
+    newRefereesQuery.isFetching ||
+    kolPaybackQuery.isFetching;
 
   const refetchAll = () => {
     overviewQuery.refetch();
@@ -624,6 +1033,7 @@ export function ReferralDashboard() {
     recentReferralsQuery.refetch();
     weeklyStatsQuery.refetch();
     newRefereesQuery.refetch();
+    kolPaybackQuery.refetch();
   };
 
   const totalPointsAllTime = weeklyStatsQuery.data
@@ -862,6 +1272,24 @@ export function ReferralDashboard() {
             />
           </div>
         )}
+      </section>
+
+      <section>
+        <SectionHeader title="KoL Miner Export" />
+        <KolPaybackExport
+          data={kolPaybackQuery.data}
+          isLoading={kolPaybackQuery.isLoading}
+          isError={kolPaybackQuery.isError}
+          isFetching={kolPaybackQuery.isFetching}
+          rangePreset={kolRangePreset}
+          isRangePending={isKolRangePending}
+          onRangePresetChange={(preset) => {
+            startKolRangeTransition(() => {
+              setKolRangePreset(preset);
+            });
+          }}
+          onRetry={() => kolPaybackQuery.refetch()}
+        />
       </section>
     </div>
   );

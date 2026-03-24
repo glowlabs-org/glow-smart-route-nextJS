@@ -130,6 +130,79 @@ export interface ReferralDashboardNewRefereesResponse {
   newRefereeActivations: ReferralDashboardResponse["newRefereeActivations"];
 }
 
+export type ReferralDashboardKolPaybackRangePreset =
+  | "this_week"
+  | "past_month"
+  | "past_3_months"
+  | "past_6_months"
+  | "year_to_date"
+  | "all_time";
+
+export interface ReferralDashboardKolPaybackResponse {
+  range: {
+    preset: string;
+    startWeek: number;
+    endWeek: number;
+    startWeekAt: string;
+    endWeekAt: string;
+  };
+  program: {
+    paybackPercent: number;
+    eligibleKolWallets: string[];
+    eligibilityRule: string;
+  };
+  summary: {
+    totalEligibleSales: number;
+    totalMinerSalesRaw: string;
+    totalMinerSalesUsdc: string;
+    totalPaybackRaw: string;
+    totalPaybackUsdc: string;
+  };
+  kols: Array<{
+    kolWallet: string;
+    paybackPercent: number;
+    totalMinerSalesRaw: string;
+    totalMinerSalesUsdc: string;
+    totalPaybackRaw: string;
+    totalPaybackUsdc: string;
+    weeks: Array<{
+      weekNumber: number;
+      label: string;
+      startAt: string;
+      endAt: string;
+      saleCount: number;
+      uniqueBuyers: number;
+      totalMinerSalesRaw: string;
+      totalMinerSalesUsdc: string;
+      totalPaybackRaw: string;
+      totalPaybackUsdc: string;
+      sales: Array<{
+        kolWallet: string;
+        weekNumber: number;
+        weekLabel: string;
+        weekStartAt: string;
+        weekEndAt: string;
+        kolPaybackEligible: true;
+        buyer: string;
+        transactionHash: string;
+        stepsPurchased: number;
+        amountRaw: string;
+        amountUsdc: string;
+        paybackRaw: string;
+        paybackUsdc: string;
+        saleAt: string;
+        referralLinkedAt: string;
+        referralActivatedAt: string | null;
+        referralStatus: string;
+        fractionId: string;
+        applicationId: string;
+        farmId: string | null;
+        farmName: string | null;
+      }>;
+    }>;
+  }>;
+}
+
 function fetchSection<T>(path: string) {
   return async (): Promise<T> => {
     const response = await fetch(path);
@@ -181,6 +254,19 @@ export function useReferralDashboardNewReferees() {
   return useQuery<ReferralDashboardNewRefereesResponse>({
     queryKey: ["referral-dashboard", "new-referees"],
     queryFn: fetchSection("/api/referral-dashboard/new-referees"),
+    staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useReferralDashboardKolPayback(
+  rangePreset: ReferralDashboardKolPaybackRangePreset
+) {
+  return useQuery<ReferralDashboardKolPaybackResponse>({
+    queryKey: ["referral-dashboard", "kol-payback-export", rangePreset],
+    queryFn: fetchSection(
+      `/api/referral-dashboard/kol-payback-export?rangePreset=${rangePreset}`
+    ),
     staleTime: 2 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
