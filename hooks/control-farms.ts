@@ -21,6 +21,7 @@ import { useMemo } from "react";
 import {
   buildMiningScoreBatchInputs,
   buildMiningScoreExtraLiveFarmsKey,
+  fetchLiveSoonMiningScoreFarms,
   mapMiningScoresBatchToApplications,
   type ApplicationMiningScore,
 } from "@/lib/mining-score";
@@ -355,14 +356,28 @@ export interface UseMiningScoreParams {
 
 export function useMiningScore(params: UseMiningScoreParams) {
   const { applications, extraLiveApplications = [], enabled = true } = params;
-  const extraLiveKey = buildMiningScoreExtraLiveFarmsKey(extraLiveApplications);
+  const liveSoonQuery = useQuery({
+    queryKey: QUERY_KEYS.listings.liveSoon(),
+    enabled,
+    staleTime: QUERY_CONFIG.ESTIMATES.staleTime,
+    gcTime: QUERY_CONFIG.ESTIMATES.gcTime,
+    refetchOnMount: QUERY_CONFIG.ESTIMATES.refetchOnMount,
+    refetchOnWindowFocus: QUERY_CONFIG.ESTIMATES.refetchOnWindowFocus,
+    refetchOnReconnect: QUERY_CONFIG.ESTIMATES.refetchOnReconnect,
+    queryFn: fetchLiveSoonMiningScoreFarms,
+  });
+
+  const extraLiveKey = buildMiningScoreExtraLiveFarmsKey(
+    extraLiveApplications,
+    liveSoonQuery.data ?? []
+  );
 
   const query = useQuery({
     queryKey: QUERY_KEYS.listings.miningScores(
       applications.map((app) => app.id),
       extraLiveKey
     ),
-    enabled: enabled && applications.length > 0,
+    enabled: enabled && applications.length > 0 && !liveSoonQuery.isLoading,
     staleTime: QUERY_CONFIG.ESTIMATES.staleTime,
     gcTime: QUERY_CONFIG.ESTIMATES.gcTime,
     refetchOnMount: QUERY_CONFIG.ESTIMATES.refetchOnMount,
@@ -372,7 +387,11 @@ export function useMiningScore(params: UseMiningScoreParams) {
       if (!applications.length) return [];
 
       const { applicationsWithFarmIds, farmParams, extraLiveFarms } =
-        buildMiningScoreBatchInputs(applications, extraLiveApplications);
+        buildMiningScoreBatchInputs(
+          applications,
+          extraLiveApplications,
+          liveSoonQuery.data ?? []
+        );
       if (!applicationsWithFarmIds.length) {
         return applications.map((app) => ({
           applicationId: app.id,
@@ -425,7 +444,7 @@ export function useMiningScore(params: UseMiningScoreParams) {
   return {
     miningScores: query.data || [],
     miningScoreMap,
-    isLoading: query.isLoading,
+    isLoading: liveSoonQuery.isLoading || query.isLoading,
     isError: query.isError,
     error: query.error,
     refetch: query.refetch,

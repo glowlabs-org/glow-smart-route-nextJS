@@ -36,6 +36,7 @@ vi.mock("@/lib/mining-score", () => ({
     extraLiveFarms: [],
   })),
   buildMiningScoreExtraLiveFarmsKey: mockBuildMiningScoreExtraLiveFarmsKey,
+  fetchLiveSoonMiningScoreFarms: vi.fn(async () => []),
   mapMiningScoresBatchToApplications: vi.fn(() => []),
 }));
 
@@ -110,6 +111,22 @@ describe("estimate query caching", () => {
   });
 
   it("uses the dedicated estimate cache policy and extra-live key for mining scores", () => {
+    mockUseQuery
+      .mockReturnValueOnce({
+        data: [],
+        isLoading: false,
+        isError: false,
+        error: null,
+        refetch: vi.fn(),
+      })
+      .mockReturnValueOnce({
+        data: [],
+        isLoading: false,
+        isError: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
     renderHook(() =>
       useMiningScore({
         applications: [createApplication("miner-app")],
@@ -117,12 +134,18 @@ describe("estimate query caching", () => {
       })
     );
 
-    expect(mockBuildMiningScoreExtraLiveFarmsKey).toHaveBeenCalledWith([
-      expect.objectContaining({ id: "launchpad-app" }),
-    ]);
-    expect(mockUseQuery).toHaveBeenCalledTimes(1);
+    expect(mockBuildMiningScoreExtraLiveFarmsKey).toHaveBeenCalledWith(
+      [expect.objectContaining({ id: "launchpad-app" })],
+      []
+    );
+    expect(mockUseQuery).toHaveBeenCalledTimes(2);
 
-    const queryOptions = mockUseQuery.mock.calls[0][0];
+    const liveSoonQueryOptions = mockUseQuery.mock.calls[0][0];
+    expect(liveSoonQueryOptions.queryKey).toEqual([
+      "sponsor-listings-live-soon",
+    ]);
+
+    const queryOptions = mockUseQuery.mock.calls[1][0];
     expect(queryOptions.queryKey).toEqual([
       "mining-scores",
       ["miner-app"],

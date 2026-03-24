@@ -51,6 +51,7 @@ export const QUERY_KEYS = {
     allSponsors: ["sponsor-listings"] as const,
     sponsor: (filters: Record<string, any>) =>
       ["sponsor-listings", filters] as const,
+    liveSoon: () => ["sponsor-listings-live-soon"] as const,
     rewardScores: (
       applicationIds: string[],
       currency?: string,

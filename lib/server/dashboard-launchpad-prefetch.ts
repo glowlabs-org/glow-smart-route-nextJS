@@ -12,7 +12,9 @@ import { hubGet } from "../api/hub-client";
 import {
   buildMiningScoreBatchInputs,
   buildMiningScoreExtraLiveFarmsKey,
+  fetchLiveSoonMiningScoreFarms,
   type ExtraLiveFarmInput,
+  type LiveSoonFarmResult,
   filterActiveMiningApplications,
   mapMiningScoresBatchToApplications,
 } from "../mining-score";
@@ -51,6 +53,8 @@ type FetchMiningScoresBatchFn = (
   extraLiveFarms?: ExtraLiveFarmInput[]
 ) => Promise<MiningScoresBatchResponse>;
 
+type FetchLiveSoonFarmsFn = () => Promise<LiveSoonFarmResult[]>;
+
 type FetchRewardScoresBatchFn = (
   farms: RewardScoreBatchParams[]
 ) => Promise<RewardScoresBatchResponse>;
@@ -58,6 +62,7 @@ type FetchRewardScoresBatchFn = (
 export interface DashboardLaunchpadPrefetchDeps {
   fetchListings?: FetchListingsFn;
   fetchMiningScoresBatch?: FetchMiningScoresBatchFn;
+  fetchLiveSoonFarms?: FetchLiveSoonFarmsFn;
   fetchRewardScoresBatch?: FetchRewardScoresBatchFn;
 }
 
@@ -114,10 +119,17 @@ export async function prefetchDashboardLaunchpadData(
 
   const fetchListings = deps.fetchListings ?? defaultFetchListings;
   let fetchMiningScoresBatch = deps.fetchMiningScoresBatch;
+  const fetchLiveSoonFarms =
+    deps.fetchLiveSoonFarms ?? fetchLiveSoonMiningScoreFarms;
   let fetchRewardScoresBatch = deps.fetchRewardScoresBatch;
 
-  const [launchpadStatusListings, miningStatusListings, launchpadLiveListings, miningLiveListings] =
-    await Promise.all([
+  const [
+    launchpadStatusListings,
+    miningStatusListings,
+    launchpadLiveListings,
+    miningLiveListings,
+    liveSoonFarms,
+  ] = await Promise.all([
       fetchListings(DASHBOARD_SSR_LISTING_FILTERS.launchpadStatus).catch(
         () => []
       ),
@@ -128,6 +140,7 @@ export async function prefetchDashboardLaunchpadData(
         () => []
       ),
       fetchListings(DASHBOARD_SSR_LISTING_FILTERS.miningLive).catch(() => []),
+      fetchLiveSoonFarms().catch(() => []),
     ]);
 
   queryClient.setQueryData(
@@ -146,6 +159,7 @@ export async function prefetchDashboardLaunchpadData(
     QUERY_KEYS.listings.sponsor(DASHBOARD_SSR_LISTING_FILTERS.miningLive),
     miningLiveListings
   );
+  queryClient.setQueryData(QUERY_KEYS.listings.liveSoon(), liveSoonFarms);
 
   const activeRewardApplications =
     filterActiveRewardApplications(launchpadLiveListings);
@@ -204,12 +218,13 @@ export async function prefetchDashboardLaunchpadData(
   const activeMiningApplications =
     filterActiveMiningApplications(miningLiveListings);
   const miningExtraLiveKey =
-    buildMiningScoreExtraLiveFarmsKey(launchpadLiveListings);
+    buildMiningScoreExtraLiveFarmsKey(launchpadLiveListings, liveSoonFarms);
   if (!activeMiningApplications.length) return;
 
   const { farmParams, extraLiveFarms } = buildMiningScoreBatchInputs(
     activeMiningApplications,
-    launchpadLiveListings
+    launchpadLiveListings,
+    liveSoonFarms
   );
   if (!farmParams.length) return;
 

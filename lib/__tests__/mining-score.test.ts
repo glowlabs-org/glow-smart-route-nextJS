@@ -7,6 +7,7 @@ import {
   buildMiningScoreBatchInputs,
   buildMiningScoreExtraLiveFarms,
   filterActiveMiningApplications,
+  mergeMiningScoreExtraLiveFarms,
   mapMiningScoresBatchToApplications,
 } from "../mining-score";
 
@@ -155,6 +156,45 @@ describe("buildMiningScoreBatchInputs", () => {
         protocolDepositPaidCurrency: "GLW",
         builtEpoch: expect.any(Number),
       },
+    ]);
+  });
+
+  it("merges live-soon mining score context into extra live farms", () => {
+    const miningApplication = createApplication("miner-1");
+    const liveSoonFarm = {
+      farmId: "live-soon-farm",
+      applicationId: "live-soon-app",
+      applicationStatus: "waiting-for-payment",
+      status: "go_live_passed" as const,
+      goLiveAt: "2026-03-24T00:00:00.000Z",
+      miningScoreContext: {
+        farmId: "live-soon-farm",
+        regionId: 9,
+        expectedWeeklyCarbonCredits: 0.1333,
+        protocolDepositPaidAmount: "95216584751102709515000",
+        protocolDepositUSDC6Decimals: "37777180000",
+        protocolDepositPaidCurrency: "GLW",
+        builtEpoch: 122,
+        rewardSplits: [
+          {
+            walletAddress: "0x6972B05A0c80064fBE8a10CBc2a2FBCF6fb47D6a",
+            glowSplitPercent6Decimals: "880000",
+            depositSplitPercent6Decimals: "1000000",
+          },
+        ],
+      },
+    };
+
+    const { farmParams, extraLiveFarms } = buildMiningScoreBatchInputs(
+      [miningApplication],
+      [],
+      [liveSoonFarm]
+    );
+
+    expect(farmParams).toHaveLength(1);
+    expect(extraLiveFarms).toEqual([liveSoonFarm.miningScoreContext]);
+    expect(mergeMiningScoreExtraLiveFarms([], [liveSoonFarm])).toEqual([
+      liveSoonFarm.miningScoreContext,
     ]);
   });
 });

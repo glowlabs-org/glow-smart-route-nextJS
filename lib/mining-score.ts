@@ -7,6 +7,7 @@ import type {
   MiningScoresBatchResponse,
 } from "@glowlabs-org/utils/browser";
 import type { AuctionApplication } from "@/hooks/hub-listings";
+import { hubGet } from "@/lib/api/hub-client";
 import { getCurrentEpoch } from "@/utils/getCurrentEpoch";
 
 export const MINING_SCORE_FALLBACK_USER_ID =
@@ -40,6 +41,20 @@ export interface ExtraLiveFarmInput {
   protocolDepositUSDC6Decimals: string;
   protocolDepositPaidCurrency: string;
   builtEpoch: number;
+  rewardSplits?: Array<{
+    walletAddress: string;
+    glowSplitPercent6Decimals: string;
+    depositSplitPercent6Decimals: string;
+  }>;
+}
+
+export interface LiveSoonFarmResult {
+  farmId: string;
+  applicationId: string;
+  applicationStatus: string;
+  status: "scheduled" | "go_live_passed";
+  goLiveAt: string;
+  miningScoreContext?: ExtraLiveFarmInput;
 }
 
 function calculateProtocolDepositAmountBaseUnits(
@@ -114,20 +129,55 @@ export function buildMiningScoreExtraLiveFarms(
   return Array.from(extraLiveFarmsById.values());
 }
 
-export function buildMiningScoreExtraLiveFarmsKey(
-  applications: AuctionApplication[]
+export function mergeMiningScoreExtraLiveFarms(
+  applications: AuctionApplication[],
+  liveSoonFarms: LiveSoonFarmResult[] = []
+): ExtraLiveFarmInput[] {
+  const extraLiveFarmsById = new Map<string, ExtraLiveFarmInput>();
+
+  for (const extraLiveFarm of buildMiningScoreExtraLiveFarms(applications)) {
+    extraLiveFarmsById.set(extraLiveFarm.farmId, extraLiveFarm);
+  }
+
+  for (const liveSoonFarm of liveSoonFarms) {
+    const miningScoreContext = liveSoonFarm.miningScoreContext;
+    if (!miningScoreContext) continue;
+    extraLiveFarmsById.set(miningScoreContext.farmId, miningScoreContext);
+  }
+
+  return Array.from(extraLiveFarmsById.values());
+}
+
+function serializeRewardSplits(
+  rewardSplits: ExtraLiveFarmInput["rewardSplits"]
 ): string {
-  return buildMiningScoreExtraLiveFarms(applications)
+  if (!rewardSplits || rewardSplits.length === 0) return "";
+
+  return rewardSplits
+    .map(
+      (split) =>
+        `${split.walletAddress.toLowerCase()}:${split.glowSplitPercent6Decimals}:${split.depositSplitPercent6Decimals}`
+    )
+    .sort()
+    .join(",");
+}
+
+export function buildMiningScoreExtraLiveFarmsKey(
+  applications: AuctionApplication[],
+  liveSoonFarms: LiveSoonFarmResult[] = []
+): string {
+  return mergeMiningScoreExtraLiveFarms(applications, liveSoonFarms)
     .map(
       (farm) =>
-        `${farm.farmId}:${farm.protocolDepositUSDC6Decimals}:${farm.expectedWeeklyCarbonCredits}:${farm.builtEpoch}`
+        `${farm.farmId}:${farm.protocolDepositUSDC6Decimals}:${farm.expectedWeeklyCarbonCredits}:${farm.builtEpoch}:${serializeRewardSplits(farm.rewardSplits)}`
     )
     .join("|");
 }
 
 export function buildMiningScoreBatchInputs(
   applications: AuctionApplication[],
-  extraLiveApplications: AuctionApplication[] = []
+  extraLiveApplications: AuctionApplication[] = [],
+  liveSoonFarms: LiveSoonFarmResult[] = []
 ) {
   const applicationsWithFarmIds = applications.filter(
     (application) => application.farmId !== null
@@ -153,9 +203,26 @@ export function buildMiningScoreBatchInputs(
     }
   );
 
-  const extraLiveFarms = buildMiningScoreExtraLiveFarms(extraLiveApplications);
+  const extraLiveFarms = mergeMiningScoreExtraLiveFarms(
+    extraLiveApplications,
+    liveSoonFarms
+  );
 
   return { applicationsWithFarmIds, farmParams, extraLiveFarms } as const;
+}
+
+export async function fetchLiveSoonMiningScoreFarms(): Promise<
+  LiveSoonFarmResult[]
+> {
+  try {
+    const payload = await hubGet<{ farms?: LiveSoonFarmResult[] }>(
+      "/applications/live-soon"
+    );
+    return payload.farms ?? [];
+  } catch (error) {
+    console.error("Error fetching live-soon farms:", error);
+    return [];
+  }
 }
 
 export function mapMiningScoresBatchToApplications(

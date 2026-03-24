@@ -167,6 +167,30 @@ describe("prefetchDashboardLaunchpadData", () => {
         } as MiningScoresBatchResponse;
       }
     );
+    const liveSoonFarm = {
+      farmId: "clear-sky-vale",
+      applicationId: "clear-sky-app",
+      applicationStatus: "waiting-for-payment",
+      status: "go_live_passed" as const,
+      goLiveAt: "2026-03-24T00:00:00.000Z",
+      miningScoreContext: {
+        farmId: "clear-sky-vale",
+        regionId: 9,
+        expectedWeeklyCarbonCredits: 0.1333,
+        protocolDepositPaidAmount: "95216584751102709515000",
+        protocolDepositUSDC6Decimals: "37777180000",
+        protocolDepositPaidCurrency: "GLW",
+        builtEpoch: 122,
+        rewardSplits: [
+          {
+            walletAddress: "0x6972B05A0c80064fBE8a10CBc2a2FBCF6fb47D6a",
+            glowSplitPercent6Decimals: "880000",
+            depositSplitPercent6Decimals: "1000000",
+          },
+        ],
+      },
+    };
+    const fetchLiveSoonFarms = vi.fn(async () => [liveSoonFarm]);
 
     const fetchRewardScoresBatch = vi.fn(async () => {
       return {
@@ -190,14 +214,16 @@ describe("prefetchDashboardLaunchpadData", () => {
     await prefetchDashboardLaunchpadData(queryClient, {
       fetchListings,
       fetchMiningScoresBatch,
+      fetchLiveSoonFarms,
       fetchRewardScoresBatch,
     });
 
     expect(fetchListings).toHaveBeenCalledTimes(4);
+    expect(fetchLiveSoonFarms).toHaveBeenCalledTimes(1);
     expect(fetchMiningScoresBatch).toHaveBeenCalledTimes(1);
     expect(fetchMiningScoresBatch).toHaveBeenCalledWith(
       expect.any(Array),
-      []
+      [liveSoonFarm.miningScoreContext]
     );
     expect(fetchRewardScoresBatch).toHaveBeenCalledTimes(1);
     expect(fetchRewardScoresBatch).toHaveBeenCalledWith([
@@ -212,9 +238,15 @@ describe("prefetchDashboardLaunchpadData", () => {
     );
     expect(seededMiningLiveListings).toHaveLength(2);
 
-    const miningExtraLiveKey = buildMiningScoreExtraLiveFarmsKey([
-      activeDelegation,
-    ]);
+    const seededLiveSoonFarms = queryClient.getQueryData<any[]>(
+      QUERY_KEYS.listings.liveSoon()
+    );
+    expect(seededLiveSoonFarms).toEqual([liveSoonFarm]);
+
+    const miningExtraLiveKey = buildMiningScoreExtraLiveFarmsKey(
+      [activeDelegation],
+      [liveSoonFarm]
+    );
     const seededMiningScores = queryClient.getQueryData<any[]>(
       QUERY_KEYS.listings.miningScores(["active-miner"], miningExtraLiveKey)
     );

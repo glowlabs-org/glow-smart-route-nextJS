@@ -1467,7 +1467,7 @@ export default function MyFarmsGridSection({
     applications: miningCenterListings,
     isLoading: isMiningCenterListingsLoading,
   } = useMiningCenter({
-    filters: { paymentCurrency: "USDC" },
+    filters: { paymentCurrency: "USDC", includeFilled: true },
     enabled: shouldLoadInProgress,
   });
 
@@ -1487,11 +1487,32 @@ export default function MyFarmsGridSection({
     });
   }, [splitsActivity, miningCenterListings]);
 
+  const miningCenterListingById = React.useMemo(() => {
+    const map = new Map<string, (typeof miningCenterListings)[number]>();
+    for (const app of miningCenterListings) {
+      map.set(app.id, app);
+    }
+    return map;
+  }, [miningCenterListings]);
+
   const miningCenterAppsForScores = React.useMemo(() => {
-    return miningCenterInProgress
-      .map((item) => item.application)
-      .filter((app): app is NonNullable<typeof app> => app !== null);
-  }, [miningCenterInProgress]);
+    const apps = new Map<string, (typeof miningCenterListings)[number]>();
+
+    for (const item of miningCenterInProgress) {
+      if (item.application) {
+        apps.set(item.application.id, item.application);
+      }
+    }
+
+    for (const evt of splitsActivity) {
+      if (evt.fractionType !== "mining-center") continue;
+      const app = miningCenterListingById.get(evt.applicationId);
+      if (!app) continue;
+      apps.set(app.id, app);
+    }
+
+    return Array.from(apps.values());
+  }, [miningCenterInProgress, miningCenterListingById, splitsActivity]);
 
   const { miningScoreMap, isLoading: isMiningScoresLoading } = useMiningScore({
     applications: miningCenterAppsForScores,
