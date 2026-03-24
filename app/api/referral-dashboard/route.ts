@@ -1,4 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import {
+  createReferralDashboardUnauthorizedResponse,
+  isReferralDashboardRequestAuthorized,
+} from "@/lib/referral-dashboard-auth";
 
 const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL;
 
@@ -6,8 +10,12 @@ if (!HUB_URL) {
   throw new Error("NEXT_PUBLIC_HUB_URL is not set");
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    if (!isReferralDashboardRequestAuthorized(request)) {
+      return createReferralDashboardUnauthorizedResponse();
+    }
+
     const url = `${HUB_URL}/referral/internal/dashboard`;
     const response = await fetch(url, {
       cache: "no-store",

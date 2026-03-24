@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  createReferralDashboardUnauthorizedResponse,
+  isReferralDashboardRequestAuthorized,
+} from "@/lib/referral-dashboard-auth";
 
 const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL;
 
@@ -10,6 +14,10 @@ const ALLOWED_QUERY_KEYS = ["rangePreset", "startWeek", "endWeek"] as const;
 
 export async function GET(request: NextRequest) {
   try {
+    if (!isReferralDashboardRequestAuthorized(request)) {
+      return createReferralDashboardUnauthorizedResponse();
+    }
+
     const url = new URL(`${HUB_URL}/fractions/mining-center-kol-payback-export`);
 
     for (const key of ALLOWED_QUERY_KEYS) {
