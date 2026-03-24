@@ -256,7 +256,9 @@ describe("LaunchpadStatusWidget", () => {
   });
 
   it("passes visible launchpad applications into mining score estimation", () => {
-    renderToStaticMarkup(React.createElement(LaunchpadStatusWidget));
+    renderToStaticMarkup(
+      React.createElement(LaunchpadStatusWidget, { variant: "full-row" })
+    );
 
     expect(mockUseMiningScore).toHaveBeenCalledWith(
       expect.objectContaining({
