@@ -37,6 +37,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ConnectButton } from "@/components/connect-button";
 
 import {
+  useGlowLaunchpad,
   useMiningCenter,
   useMiningScore,
   useRegions,
@@ -50,12 +51,14 @@ import { Progress } from "@/components/ui/progress";
 import {
   attachEstimatedWeeklyMiningCenterRewards,
   deriveMiningCenterSponsorshipsInProgress,
+  estimateMiningCenterWeeklyGlw,
 } from "@/utils/sponsorships-in-progress";
 import {
   normalizeDelegationCurrency,
   parseDelegationAmountFromBaseUnits,
   resolveDelegationCurrency,
 } from "@/utils/launchpad-rewards";
+import { filterPublicLaunchpadApplications } from "@/utils/launchpad";
 import { GlowSymbol } from "@/components/glow-symbol";
 import { CashMinerIcon, DelegationIcon } from "@/components/impact-icons";
 import {
@@ -1027,6 +1030,15 @@ export function FarmsPerformanceDialogContent({
     enabled: shouldLoadInProgress && hasMiningCenterSplits,
   });
 
+  const { applications: visibleLaunchpadApplications } = useGlowLaunchpad({
+    enabled: shouldLoadInProgress && hasMiningCenterSplits,
+  });
+
+  const extraLiveLaunchpadApplications = React.useMemo(
+    () => filterPublicLaunchpadApplications(visibleLaunchpadApplications),
+    [visibleLaunchpadApplications],
+  );
+
   const miningCenterInProgress = React.useMemo(() => {
     return deriveMiningCenterSponsorshipsInProgress({
       splitsActivity,
@@ -1046,6 +1058,7 @@ export function FarmsPerformanceDialogContent({
     isError: isMiningScoresError,
   } = useMiningScore({
     applications: miningCenterAppsForScores,
+    extraLiveApplications: extraLiveLaunchpadApplications,
     enabled: shouldLoadInProgress && miningCenterAppsForScores.length > 0,
   });
 
@@ -1228,10 +1241,12 @@ export function FarmsPerformanceDialogContent({
       string,
       {
         farmId: string;
+        applicationId: string;
         farmName: string;
         fractionType: "launchpad" | "mining-center";
         launchpadCurrency?: "GLW" | "SGCTL";
         totalAmount: bigint;
+        totalStepsPurchased: number;
       }
     >();
 
@@ -1299,12 +1314,15 @@ export function FarmsPerformanceDialogContent({
 
       const existing = byFarm.get(pendingKey) ?? {
         farmId,
+        applicationId: evt.applicationId,
         farmName: evt.farmName || `Farm ${farmId.substring(0, 8)}`,
         fractionType,
         launchpadCurrency,
         totalAmount: BigInt(0),
+        totalStepsPurchased: 0,
       };
       existing.totalAmount += amount;
+      existing.totalStepsPurchased += evt.stepsPurchased ?? 0;
       byFarm.set(pendingKey, existing);
     }
 
@@ -1314,7 +1332,17 @@ export function FarmsPerformanceDialogContent({
       let estimatedUserWeeklyGlw: number | undefined = undefined;
       let estimatedUserWeeklyPd: number | undefined = undefined;
       let estimatedUserWeeklyPdAsset: string | null | undefined = undefined;
-      if (farmData?.userWeeklyRewards) {
+      const pendingMiningScore =
+        item.fractionType === "mining-center"
+          ? miningScoreMap.get(item.applicationId) ?? null
+          : null;
+
+      if (pendingMiningScore && item.totalStepsPurchased > 0) {
+        estimatedUserWeeklyGlw = estimateMiningCenterWeeklyGlw({
+          miningScore: pendingMiningScore,
+          userSteps: item.totalStepsPurchased,
+        });
+      } else if (farmData?.userWeeklyRewards) {
         // Use source-specific breakdown if available (prevents double-counting for farms with both delegation + miner)
         const isMiningCenter = item.fractionType === "mining-center";
         const hasMultipleLaunchpadCurrencies =
@@ -1441,6 +1469,7 @@ export function FarmsPerformanceDialogContent({
     sponsorListingById,
     launchpadCurrenciesByFarmId,
     currentLaunchpadCurrencyByFarmId,
+    miningScoreMap,
   ]);
 
   const visibleRows = React.useMemo(() => {

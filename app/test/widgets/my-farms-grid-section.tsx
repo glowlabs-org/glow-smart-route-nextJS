@@ -54,6 +54,7 @@ import { FallbackImage } from "@/components/ui/fallback-image";
 import { GlowSymbol } from "@/components/glow-symbol";
 
 import {
+  useGlowLaunchpad,
   useRewardsBreakdown,
   useWalletFarms,
   useRegions,
@@ -69,12 +70,14 @@ import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import {
   attachEstimatedWeeklyMiningCenterRewards,
   deriveMiningCenterSponsorshipsInProgress,
+  estimateMiningCenterWeeklyGlw,
 } from "@/utils/sponsorships-in-progress";
 import {
   normalizeDelegationCurrency,
   parseDelegationAmountFromBaseUnits,
   resolveDelegationCurrency,
 } from "@/utils/launchpad-rewards";
+import { filterPublicLaunchpadApplications } from "@/utils/launchpad";
 import {
   resolveLaunchpadActivityFarmId,
   resolveLaunchpadSplitCurrency,
@@ -1468,6 +1471,15 @@ export default function MyFarmsGridSection({
     enabled: shouldLoadInProgress,
   });
 
+  const { applications: visibleLaunchpadApplications } = useGlowLaunchpad({
+    enabled: shouldLoadInProgress,
+  });
+
+  const extraLiveLaunchpadApplications = React.useMemo(
+    () => filterPublicLaunchpadApplications(visibleLaunchpadApplications),
+    [visibleLaunchpadApplications],
+  );
+
   const miningCenterInProgress = React.useMemo(() => {
     return deriveMiningCenterSponsorshipsInProgress({
       splitsActivity,
@@ -1483,6 +1495,7 @@ export default function MyFarmsGridSection({
 
   const { miningScoreMap, isLoading: isMiningScoresLoading } = useMiningScore({
     applications: miningCenterAppsForScores,
+    extraLiveApplications: extraLiveLaunchpadApplications,
     enabled: shouldLoadInProgress && miningCenterAppsForScores.length > 0,
   });
 
@@ -1702,10 +1715,12 @@ export default function MyFarmsGridSection({
       string,
       {
         farmId: string;
+        applicationId: string;
         farmName: string;
         fractionType: "launchpad" | "mining-center";
         launchpadCurrency?: "GLW" | "SGCTL";
         totalAmount: bigint;
+        totalStepsPurchased: number;
       }
     >();
 
@@ -1786,12 +1801,15 @@ export default function MyFarmsGridSection({
 
       const existing = pendingByFarm.get(pendingKey) ?? {
         farmId,
+        applicationId: evt.applicationId,
         farmName: evt.farmName || `Farm ${farmId.substring(0, 8)}`,
         fractionType,
         launchpadCurrency,
         totalAmount: BigInt(0),
+        totalStepsPurchased: 0,
       };
       existing.totalAmount += amount;
+      existing.totalStepsPurchased += evt.stepsPurchased ?? 0;
       pendingByFarm.set(pendingKey, existing);
     }
 
@@ -1823,7 +1841,17 @@ export default function MyFarmsGridSection({
       let estimatedUserWeeklyGlw: number | undefined = undefined;
       let estimatedUserWeeklyPd: number | undefined = undefined;
       let estimatedUserWeeklyPdAsset: string | null | undefined = undefined;
-      if (farmMetadata?.userWeeklyRewards) {
+      const pendingMiningScore =
+        item.fractionType === "mining-center"
+          ? miningScoreMap.get(item.applicationId) ?? null
+          : null;
+
+      if (pendingMiningScore && item.totalStepsPurchased > 0) {
+        estimatedUserWeeklyGlw = estimateMiningCenterWeeklyGlw({
+          miningScore: pendingMiningScore,
+          userSteps: item.totalStepsPurchased,
+        });
+      } else if (farmMetadata?.userWeeklyRewards) {
         // Use source-specific breakdown if available (prevents double-counting for farms with both delegation + miner)
         const isMiningCenter = item.fractionType === "mining-center";
         const hasMultipleLaunchpadCurrencies =
@@ -2081,6 +2109,7 @@ export default function MyFarmsGridSection({
     launchpadCurrenciesByFarmId,
     currentLaunchpadCurrencyByFarmId,
     miningCenterListings,
+    miningScoreMap,
     sponsorshipsInProgressWithEstimates,
   ]);
 

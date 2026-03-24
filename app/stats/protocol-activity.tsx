@@ -28,6 +28,7 @@ import { formatNumber } from "@/app/marketplace/utils";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import { formatUnits } from "viem";
 import { getNextTuesdayAt1pmET } from "@/utils/nextTuesdayET";
+import { filterPublicLaunchpadApplications } from "@/utils/launchpad";
 import {
   parseFractionsSummary,
   formatDelegationEvents,
@@ -420,9 +421,15 @@ export function ProtocolActivity({
     walletAddress: null,
   });
 
+  const extraLiveLaunchpadApplications = React.useMemo(
+    () => filterPublicLaunchpadApplications(launchpadApplications),
+    [launchpadApplications],
+  );
+
   // Get mining scores for mining center
   const { miningScoreMap, isLoading: isMiningScoresLoading } = useMiningScore({
     applications: miningApplications,
+    extraLiveApplications: extraLiveLaunchpadApplications,
     enabled: shouldLoad && miningApplications.length > 0,
   });
 

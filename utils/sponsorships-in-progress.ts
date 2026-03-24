@@ -5,6 +5,7 @@ import {
   calculateLaunchpadPerShareRewards,
   normalizeDelegationCurrency,
   parseTokenAmountFromBaseUnits,
+  parseUsd6Amount,
   resolveDelegationCurrencyFromSplitActivity,
   resolveDelegationCurrency,
   type DelegationCurrency,
@@ -26,6 +27,27 @@ export interface SponsorshipInProgressWithEstimate
   estimatedUserWeeklyPd?: number;
   estimatedUserWeeklyPdAsset?: DelegationCurrency | null;
   delegationCurrency?: "GLW" | "SGCTL";
+}
+
+export function estimateMiningCenterWeeklyGlw(params: {
+  miningScore: ApplicationMiningScore | null | undefined;
+  userSteps: number;
+}): number {
+  const { miningScore, userSteps } = params;
+
+  if (!miningScore?.weeklyGlwRewards) return 0;
+  if (!userSteps || userSteps <= 0) return 0;
+
+  const rewardsPerMiner = parseTokenAmountFromBaseUnits(
+    miningScore.weeklyGlwRewards,
+    18
+  );
+  if (!Number.isFinite(rewardsPerMiner) || rewardsPerMiner <= 0) return 0;
+
+  const estimated = rewardsPerMiner * userSteps;
+  if (!Number.isFinite(estimated) || estimated <= 0) return 0;
+
+  return estimated;
 }
 
 function deriveInProgress(params: {
@@ -163,8 +185,7 @@ export function attachEstimatedWeeklyLaunchpadRewards(params: {
           18
         ) / totalSteps;
         const emissionUsdPerShare =
-          Number.parseFloat(String(rewardScore.userWeeklyGlwValueUsd ?? "0")) /
-          totalSteps;
+          parseUsd6Amount(rewardScore.userWeeklyGlwValueUsd) / totalSteps;
 
         const estimatedGlw = emissionPerShare * item.userSteps;
         const estimatedUsd = emissionUsdPerShare * item.userSteps;
@@ -233,21 +254,10 @@ export function attachEstimatedWeeklyMiningCenterRewards(params: {
 
   return sponsorshipsInProgress.map((item) => {
     const miningScore = miningScoreMap.get(item.applicationId) ?? null;
-
-    const estimatedUserWeeklyGlw = (() => {
-      if (!miningScore?.weeklyGlwRewards) return 0;
-      if (!item.userSteps || item.userSteps <= 0) return 0;
-
-      const rewardsPerMiner = parseTokenAmountFromBaseUnits(
-        miningScore.weeklyGlwRewards,
-        18
-      );
-      if (!Number.isFinite(rewardsPerMiner) || rewardsPerMiner <= 0) return 0;
-
-      const est = rewardsPerMiner * item.userSteps;
-      if (!Number.isFinite(est) || est <= 0) return 0;
-      return est;
-    })();
+    const estimatedUserWeeklyGlw = estimateMiningCenterWeeklyGlw({
+      miningScore,
+      userSteps: item.userSteps,
+    });
 
     return { ...item, estimatedUserWeeklyGlw };
   });

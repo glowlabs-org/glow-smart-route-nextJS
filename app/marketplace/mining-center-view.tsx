@@ -35,6 +35,7 @@ import {
 import { useQueryState } from "nuqs";
 import { formatNumber } from "./utils";
 import {
+  useGlowLaunchpad,
   useMiningCenter,
   calculateProtocolDepositAmount,
   getAvailableCurrencies,
@@ -48,6 +49,7 @@ import {
   useMiningScore,
   getMiningScoreForApplication,
 } from "@/hooks";
+import { filterPublicLaunchpadApplications } from "@/utils/launchpad";
 import { DepositDialog } from "./deposit-dialog";
 import { MiningStatsDialog } from "./mining-stats-dialog";
 
@@ -309,8 +311,18 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
 
   const { zones } = useAvailableZones(allApplications);
 
+  const { applications: launchpadApplications } = useGlowLaunchpad({
+    enabled: applications.length > 0,
+  });
+
+  const extraLiveLaunchpadApplications = React.useMemo(
+    () => filterPublicLaunchpadApplications(launchpadApplications),
+    [launchpadApplications],
+  );
+
   const { miningScoreMap, isLoading: isMiningScoresLoading } = useMiningScore({
     applications,
+    extraLiveApplications: extraLiveLaunchpadApplications,
     enabled: applications.length > 0,
   });
 

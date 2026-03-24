@@ -36,6 +36,7 @@ import {
 } from "@/app/components/animated-countdown";
 import { useLaunchpadStatus } from "@/hooks/useLaunchpadStatus";
 import { getNextTuesdayAt1pmET } from "@/utils/nextTuesdayET";
+import { filterPublicLaunchpadApplications } from "@/utils/launchpad";
 import { useGlowSpotPriceSummary } from "@/hooks/useGlowSpotPriceSummary";
 import {
   useGlowLaunchpad,
@@ -45,10 +46,12 @@ import {
   getRewardScoreForApplication,
   getMiningScoreForApplication,
   isFractionOpenForMarketplace,
-  isFractionPubliclyVisible,
   type AuctionApplication,
 } from "@/hooks";
-import { parseDelegationStepAmount } from "@/utils/launchpad-rewards";
+import {
+  calculateLaunchpadPerShareRewards,
+  parseDelegationStepAmount,
+} from "@/utils/launchpad-rewards";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import { SponsoredFarmsActivity } from "@/app/marketplace/sponsored-farms-activity";
@@ -95,15 +98,6 @@ function countAvailableApplications(
     const hasAvailability = isFractionOpenForMarketplace(app.activeFraction);
     return hasAvailability ? count + 1 : count;
   }, 0);
-}
-
-function filterPublicLaunchpadApplications(
-  applications: AuctionApplication[],
-  nowMs: number = Date.now(),
-) {
-  return applications.filter((application) =>
-    isFractionPubliclyVisible(application.activeFraction, nowMs),
-  );
 }
 
 // Helper: Get availability info for an application
@@ -378,23 +372,12 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
           }
           const totalShares = application.activeFraction?.totalSteps || 0;
           if (!reward || !totalShares) return 0;
-          const glwRewards = parseFloat(
-            formatUnits(
-              BigInt(reward.userWeeklyGlwRewards || "0"),
-              DECIMALS_BY_TOKEN.GLW,
-            ),
-          );
-          const pdRewards = parseFloat(
-            formatUnits(
-              BigInt(reward.userWeeklyPdRewards || "0"),
-              getPaymentCurrencyDecimals(delegationCurrency || "GLW"),
-            ),
-          );
-          // SGCTL-phase PD recovery is denominated in SGCTL, so don't add it to GLW units.
-          if (delegationCurrency === "SGCTL") {
-            return glwRewards / totalShares;
-          }
-          return (glwRewards + pdRewards) / totalShares;
+          return calculateLaunchpadPerShareRewards({
+            reward,
+            totalShares,
+            delegationCurrency,
+            glwSpotPrice: glwSpotPrice || 0,
+          }).totalGlwPerShare;
         } catch {
           return 0;
         }
@@ -441,16 +424,12 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
         if (!reward || totalShares <= 0) {
           return weeklyYield * (glwSpotPrice || 0);
         }
-        const glwRewardsUsd = Number.parseFloat(
-          String(reward.userWeeklyGlwValueUsd || "0"),
-        );
-        const pdRewardsUsd = Number.parseFloat(
-          String(reward.userWeeklyPdRewardsUsd || "0"),
-        );
-        const totalUsd = glwRewardsUsd + pdRewardsUsd;
-        if (!Number.isFinite(totalUsd))
-          return weeklyYield * (glwSpotPrice || 0);
-        return totalUsd / totalShares;
+        return calculateLaunchpadPerShareRewards({
+          reward,
+          totalShares,
+          delegationCurrency,
+          glwSpotPrice: glwSpotPrice || 0,
+        }).totalUsdPerShare;
       })();
 
       // Get reward score for delegations

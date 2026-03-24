@@ -115,6 +115,12 @@ export function parseTokenAmountFromBaseUnits(
   }
 }
 
+export function parseUsd6Amount(
+  value: string | number | bigint | null | undefined
+): number {
+  return parseTokenAmountFromBaseUnits(value, 6);
+}
+
 export function parseDelegationAmountFromBaseUnits(
   value: string | number | bigint | null | undefined,
   currency: DelegationCurrency
@@ -228,16 +234,16 @@ export function calculateLaunchpadPerShareRewards(params: {
       ? emissionGlwPerShare + pdPerShare
       : emissionGlwPerShare;
 
-  const glwUsdTotal = Number.parseFloat(
-    String(reward.userWeeklyGlwValueUsd ?? "0")
-  );
-  const pdUsdTotal = Number.parseFloat(
-    String(reward.userWeeklyPdRewardsUsd ?? "0")
-  );
+  const glwUsdTotal = parseUsd6Amount(reward.userWeeklyGlwValueUsd);
+  const pdUsdTotal = parseUsd6Amount(reward.userWeeklyPdRewardsUsd);
   const apiUsdTotal = glwUsdTotal + pdUsdTotal;
   const hasUsdFromApi = Number.isFinite(apiUsdTotal) && apiUsdTotal > 0;
+  const shouldUseSpotPriceForGlwPhase =
+    delegationCurrency === "GLW" && glwSpotPrice > 0 && totalGlwPerShare > 0;
 
-  const totalUsdPerShare = hasUsdFromApi
+  const totalUsdPerShare = shouldUseSpotPriceForGlwPhase
+    ? totalGlwPerShare * glwSpotPrice
+    : hasUsdFromApi
     ? apiUsdTotal / safeTotalShares
     : glwSpotPrice > 0
     ? totalGlwPerShare * glwSpotPrice

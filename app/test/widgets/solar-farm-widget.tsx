@@ -48,7 +48,10 @@ import { FarmsPerformanceDialogContent } from "./farms-performance-dialog";
 import { cn } from "@/lib/utils";
 import { LaunchpadDialog } from "@/components/dialogs/launchpad-dialog";
 import { getNextTuesdayAt1pmET } from "@/utils/nextTuesdayET";
-import { countActiveListings } from "@/utils/launchpad";
+import {
+  countActiveListings,
+  filterPublicLaunchpadApplications,
+} from "@/utils/launchpad";
 import {
   AnimatedCountdownDhms,
   useCountdownTo,
@@ -647,6 +650,10 @@ export default function SolarFarmWidget({
   });
 
   const { applications: launchpadApplications } = useGlowLaunchpad();
+  const extraLiveLaunchpadApplications = React.useMemo(
+    () => filterPublicLaunchpadApplications(launchpadApplications),
+    [launchpadApplications],
+  );
   const { applications: minersApplications } = useSponsorListings({
     filters: { paymentCurrency: "USDC", type: "mining-center" },
   });
@@ -696,6 +703,7 @@ export default function SolarFarmWidget({
 
   const { miningScoreMap, isLoading: isMiningScoreLoading } = useMiningScore({
     applications: miningCenterAppsForMiningScore,
+    extraLiveApplications: extraLiveLaunchpadApplications,
     enabled: hasWallet && miningCenterAppsForMiningScore.length > 0,
   });
 

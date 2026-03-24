@@ -33,6 +33,7 @@ import { cn } from "@/lib/utils";
 import {
   calculateLaunchpadPerShareRewards,
   parseDelegationAmountFromBaseUnits,
+  parseUsd6Amount,
   resolveDelegationCurrency,
 } from "@/utils/launchpad-rewards";
 
@@ -150,11 +151,11 @@ export function LaunchpadStatsDialog({
   const weeklyPdFromDeposit = perShareRewards.pdPerShare;
   const totalWeeklyGlw = perShareRewards.totalGlwPerShare;
   const weeklyRewardsUsdValue = perShareRewards.totalUsdPerShare;
-  const weeklyGlwFromInflationUsd = Number.parseFloat(
-    String(rewardScore?.userWeeklyGlwValueUsd ?? "0"),
+  const weeklyGlwFromInflationUsd = parseUsd6Amount(
+    rewardScore?.userWeeklyGlwValueUsd,
   );
-  const weeklyPdFromDepositUsd = Number.parseFloat(
-    String(rewardScore?.userWeeklyPdRewardsUsd ?? "0"),
+  const weeklyPdFromDepositUsd = parseUsd6Amount(
+    rewardScore?.userWeeklyPdRewardsUsd,
   );
   const weeklyInflationUsdPerFraction =
     Number.isFinite(weeklyGlwFromInflationUsd) && weeklyGlwFromInflationUsd > 0

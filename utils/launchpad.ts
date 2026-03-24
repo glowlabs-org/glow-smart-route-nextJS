@@ -35,3 +35,13 @@ export function countActiveListings(
     return isPublicActiveListing(app, nowMs) ? count + 1 : count;
   }, 0);
 }
+
+export function filterPublicLaunchpadApplications<
+  T extends {
+    activeFraction: { marketplaceVisibleAt?: string | null } | null;
+  },
+>(applications: T[], nowMs: number = Date.now()) {
+  return applications.filter((application) =>
+    isFractionPubliclyVisible(application.activeFraction, nowMs)
+  );
+}
