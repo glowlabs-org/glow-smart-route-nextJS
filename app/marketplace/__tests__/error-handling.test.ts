@@ -12,8 +12,10 @@ import {
   findErrorInMessage,
   getSwapVolatilityErrorMessage,
   isRetriableStakeSyncRefreshError,
+  isDelayedSplitConfirmationErrorMessage,
   CONTRACT_ERROR_MESSAGES,
   RPC_INTERNAL_ERROR_MESSAGE,
+  SPLIT_CONFIRMATION_DELAYED_MESSAGE,
   SWAP_VOLATILITY_ERROR_MESSAGE,
 } from "../deposit-dialog-utils";
 
@@ -227,6 +229,27 @@ describe("getSwapVolatilityErrorMessage", () => {
         "SWAP_USDG_TO_GLOW"
       )
     ).toBeNull();
+  });
+});
+
+describe("isDelayedSplitConfirmationErrorMessage", () => {
+  it("identifies the split-indexing delay message", () => {
+    expect(
+      isDelayedSplitConfirmationErrorMessage(
+        SPLIT_CONFIRMATION_DELAYED_MESSAGE
+      )
+    ).toBe(true);
+  });
+
+  it("does not match unrelated transaction failures", () => {
+    expect(
+      isDelayedSplitConfirmationErrorMessage("Transaction failed")
+    ).toBe(false);
+    expect(
+      isDelayedSplitConfirmationErrorMessage(
+        "RPC/provider error. Please retry or switch RPC."
+      )
+    ).toBe(false);
   });
 });
 

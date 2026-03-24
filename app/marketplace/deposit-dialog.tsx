@@ -80,6 +80,7 @@ import {
   getErrorCode,
   getErrorMessage,
   hasConfirmedSplitPurchase,
+  isDelayedSplitConfirmationErrorMessage,
   getSwapVolatilityErrorMessage,
   initializeTransactionSteps,
   isInternalRpcError,
@@ -89,6 +90,7 @@ import {
   requiresSmartAccountCheck,
   resolveDelegationStepAtomic,
   resolveRuntimeSelectedCurrency,
+  SPLIT_CONFIRMATION_DELAYED_MESSAGE,
   updateTransactionStepStatus,
   withInternalRpcRetry,
   type DepositPaymentMethod,
@@ -135,7 +137,12 @@ type DepositDialogProps =
       onSuccess?: () => void;
     };
 
-type Phase = "review" | "processing" | "success" | "error";
+type Phase =
+  | "review"
+  | "processing"
+  | "success"
+  | "error"
+  | "pending_confirmation";
 
 export function DepositDialog({
   open,
@@ -902,12 +909,10 @@ export function DepositDialog({
       }
 
       if (!confirmed) {
-        throw new Error(
-          "Transaction submitted but confirmation is delayed. Please refresh before retrying.",
-        );
+        throw new Error(SPLIT_CONFIRMATION_DELAYED_MESSAGE);
       }
     },
-    [refetchSplits, splitsSummary?.totalStepsPurchased],
+    [refetchSplits, splitsSummary?.totalStepsPurchased]
   );
 
   const fetchFreshAvailableStake = React.useCallback(async () => {
@@ -1507,6 +1512,28 @@ export function DepositDialog({
       const activeStep = currentSteps.find(
         (s) => s.status === "waiting_signature" || s.status === "confirming",
       );
+      const isDelayedSplitConfirmation =
+        isDelayedSplitConfirmationErrorMessage(rawMsg);
+
+      if (isDelayedSplitConfirmation) {
+        trackEvent("marketplace_deposit_confirmation_delayed", {
+          currency: runtimeSelectedCurrency,
+          payment_method: selectedPaymentMethod,
+          listing_type:
+            runtimeSelectedCurrency === "USDC" ? "miners" : "delegations",
+          delegation_source: sgctlSourceMode,
+          application_id: application?.id ?? null,
+          fraction_id: application?.activeFraction?.id ?? null,
+          quantity,
+          tx_hash: txHash ?? null,
+          failed_step: activeStep?.id ?? null,
+        });
+
+        setPhase("pending_confirmation");
+        setErrorMessage(rawMsg);
+        setIsInsufficientSharesError(false);
+        return;
+      }
 
       // Look up user-friendly error message from the mapping
       const knownError = CONTRACT_ERROR_MESSAGES[errorName];
@@ -2081,8 +2108,13 @@ export function DepositDialog({
       );
     }
 
-    if (phase === "processing" || phase === "error") {
+    if (
+      phase === "processing" ||
+      phase === "error" ||
+      phase === "pending_confirmation"
+    ) {
       const hasError = phase === "error";
+      const isPendingConfirmation = phase === "pending_confirmation";
 
       return (
         <div className="px-6 py-6">
@@ -2097,6 +2129,15 @@ export function DepositDialog({
                   transition={{ type: "spring", duration: 0.5 }}
                 >
                   <X className="h-8 w-8 text-red-500" />
+                </motion.div>
+              ) : isPendingConfirmation ? (
+                <motion.div
+                  className="h-14 w-14 rounded-full bg-amber-500/15 flex items-center justify-center border border-amber-500/40"
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: "spring", duration: 0.5 }}
+                >
+                  <RefreshCw className="h-7 w-7 text-amber-500 animate-spin" />
                 </motion.div>
               ) : (
                 <motion.div
@@ -2115,7 +2156,11 @@ export function DepositDialog({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
             >
-              {hasError ? "Transaction Failed" : "Processing Transaction"}
+              {hasError
+                ? "Transaction Failed"
+                : isPendingConfirmation
+                  ? "Transaction Pending"
+                  : "Processing Transaction"}
             </motion.div>
             <motion.div
               className="text-muted-foreground text-sm"
@@ -2125,7 +2170,9 @@ export function DepositDialog({
             >
               {hasError
                 ? "There was an error processing your transaction."
-                : "Please wait while we process your transaction."}
+                : isPendingConfirmation
+                  ? "Your transaction was submitted, but Glow has not indexed it yet. Please wait for indexing to catch up before trying again."
+                  : "Please wait while we process your transaction."}
             </motion.div>
           </div>
 
@@ -2139,19 +2186,31 @@ export function DepositDialog({
             >
               <TransactionStepper steps={transactionSteps} chainId={chainId} />
             </motion.div>
-          ) : hasError && errorMessage ? (
-            /* Error message only when no steps exist */
+          ) : (hasError || isPendingConfirmation) && errorMessage ? (
             <motion.div
-              className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl"
+              className={cn(
+                "p-3 rounded-xl",
+                hasError
+                  ? "bg-red-500/10 border border-red-500/20"
+                  : "bg-amber-500/10 border border-amber-500/20",
+              )}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
             >
-              <p className="text-sm text-red-500 break-words">{errorMessage}</p>
+              <p
+                className={cn(
+                  "text-sm break-words",
+                  hasError ? "text-red-500" : "text-amber-600",
+                )}
+              >
+                {hasError
+                  ? errorMessage
+                  : "The network transaction may already be mined. Glow will reflect it after the split indexer catches up. Do not submit the purchase again unless you have refreshed and confirmed nothing changed."}
+              </p>
             </motion.div>
           ) : null}
 
-          {/* Error actions */}
           {hasError && (
             <motion.div
               className="mt-5 flex gap-3"
@@ -2189,6 +2248,18 @@ export function DepositDialog({
                 ) : (
                   "Try Again"
                 )}
+              </Button>
+            </motion.div>
+          )}
+          {isPendingConfirmation && (
+            <motion.div
+              className="mt-5"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+            >
+              <Button variant="outline" onClick={handleClose} className="w-full">
+                Close
               </Button>
             </motion.div>
           )}

@@ -254,6 +254,8 @@ export const RPC_INTERNAL_ERROR_MESSAGE =
   "RPC/provider error. Please retry or switch RPC.";
 export const SWAP_VOLATILITY_ERROR_MESSAGE =
   "Swap failed because price/liquidity changed while processing. Please retry. If it keeps failing, try a smaller quantity.";
+export const SPLIT_CONFIRMATION_DELAYED_MESSAGE =
+  "Transaction submitted but confirmation is delayed. Please refresh before retrying.";
 
 export function resolveDepositDialogMode(
   selectedCurrency: DepositSelectedCurrency,
@@ -360,6 +362,14 @@ export function isRetriableStakeSyncRefreshError(error: unknown): boolean {
     message.includes("econnrefused") ||
     message.includes("err_connection_refused") ||
     message.includes("fetch")
+  );
+}
+
+export function isDelayedSplitConfirmationErrorMessage(message: string): boolean {
+  const normalizedMessage = message.toLowerCase();
+  return (
+    normalizedMessage.includes("transaction submitted") &&
+    normalizedMessage.includes("confirmation is delayed")
   );
 }
 
