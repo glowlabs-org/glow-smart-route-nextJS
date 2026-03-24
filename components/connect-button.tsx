@@ -3,10 +3,8 @@ import { Loader2, Wallet } from "lucide-react";
 import { useAccount, useChainId, useConnect } from "wagmi";
 import clsx from "clsx";
 import * as React from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import * as Sentry from "@sentry/nextjs";
-import { Account } from "./account";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { getAppKitClient } from "@/lib/wagmi-config";
 
 const CONNECT_PENDING_SENTRY_TIMEOUT_MS = 12_000;
@@ -58,7 +56,6 @@ export const ConnectButton = ({
     typeof (pendingConnector as any)?.name === "string"
       ? (pendingConnector as any).name
       : "unknown";
-  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const onConnectRef = useRef(onConnect);
   const pendingReportKeyRef = useRef<string | null>(null);
   const isConnectedRef = useRef(isConnected);
@@ -337,7 +334,23 @@ export const ConnectButton = ({
         ) : (
           <Button
             variant={variant}
-            onClick={() => setIsAccountModalOpen(true)}
+            onClick={async () => {
+              try {
+                const appKitClient = getAppKitClient();
+                if (!appKitClient) {
+                  throw new Error("AppKit client is not initialized");
+                }
+                await appKitClient.open({ view: "Account" });
+              } catch (error) {
+                const normalizedError =
+                  error instanceof Error ? error : new Error(String(error));
+                Sentry.captureException(normalizedError, {
+                  tags: {
+                    walletStage: "account_show",
+                  },
+                });
+              }
+            }}
             type="button"
             className={clsx(
               "font-semibold",
@@ -357,13 +370,6 @@ export const ConnectButton = ({
           </Button>
         )}
       </div>
-
-      {/* Account Modal */}
-      <Dialog open={isAccountModalOpen} onOpenChange={setIsAccountModalOpen}>
-        <DialogContent className="bg-background backdrop-blur-sm rounded-2xl p-0 sm:max-w-[500px] w-full border-border shadow-2xl overflow-hidden">
-          <Account onClose={() => setIsAccountModalOpen(false)} />
-        </DialogContent>
-      </Dialog>
     </>
   );
 };

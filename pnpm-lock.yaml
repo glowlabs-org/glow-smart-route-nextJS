@@ -99,6 +99,9 @@ importers:
       '@reown/appkit-adapter-wagmi':
         specifier: ^1.7.8
         version: 1.7.8(057160d8733c224eee5a200077db8ba8)
+      '@reown/appkit-controllers':
+        specifier: 1.7.8
+        version: 1.7.8(@react-native-async-storage/async-storage@1.24.0(react-native@0.80.2(@babel/core@7.28.0)(@types/react@19.1.9)(bufferutil@4.0.9)(react@19.2.1)(utf-8-validate@6.0.5)))(@types/react@19.1.9)(bufferutil@4.0.9)(react@19.2.1)(typescript@5.9.2)(utf-8-validate@6.0.5)(zod@3.25.76)
       '@sentry/nextjs':
         specifier: ^10
         version: 10.17.0(@opentelemetry/context-async-hooks@2.1.0(@opentelemetry/api@1.9.0))(@opentelemetry/core@2.1.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@2.1.0(@opentelemetry/api@1.9.0))(next@15.4.8(@babel/core@7.28.0)(@opentelemetry/api@1.9.0)(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react@19.2.1)(webpack@5.102.0(esbuild@0.19.12))
@@ -12377,7 +12380,7 @@ snapshots:
   '@solana/web3.js@1.98.4(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@6.0.5)':
     dependencies:
       '@babel/runtime': 7.28.2
-      '@noble/curves': 1.8.0
+      '@noble/curves': 1.9.7
       '@noble/hashes': 1.8.0
       '@solana/buffer-layout': 4.0.1
       '@solana/codecs-numbers': 2.3.0(typescript@5.9.2)
@@ -14672,8 +14675,8 @@ snapshots:
       '@typescript-eslint/parser': 8.38.0(eslint@8.37.0)(typescript@5.9.2)
       eslint: 8.37.0
       eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.38.0(eslint@8.37.0)(typescript@5.9.2))(eslint@8.37.0))(eslint@8.37.0)
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.38.0(eslint@8.37.0)(typescript@5.9.2))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.38.0(eslint@8.37.0)(typescript@5.9.2))(eslint@8.37.0))(eslint@8.37.0))(eslint@8.37.0)
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@8.37.0)
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.38.0(eslint@8.37.0)(typescript@5.9.2))(eslint-import-resolver-typescript@3.10.1)(eslint@8.37.0)
       eslint-plugin-jsx-a11y: 6.10.2(eslint@8.37.0)
       eslint-plugin-react: 7.37.5(eslint@8.37.0)
       eslint-plugin-react-hooks: 5.2.0(eslint@8.37.0)
@@ -14692,7 +14695,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.38.0(eslint@8.37.0)(typescript@5.9.2))(eslint@8.37.0))(eslint@8.37.0):
+  eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0)(eslint@8.37.0):
     dependencies:
       '@nolyfill/is-core-module': 1.0.39
       debug: 4.4.1
@@ -14703,22 +14706,22 @@ snapshots:
       tinyglobby: 0.2.14
       unrs-resolver: 1.11.1
     optionalDependencies:
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.38.0(eslint@8.37.0)(typescript@5.9.2))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.38.0(eslint@8.37.0)(typescript@5.9.2))(eslint@8.37.0))(eslint@8.37.0))(eslint@8.37.0)
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.38.0(eslint@8.37.0)(typescript@5.9.2))(eslint-import-resolver-typescript@3.10.1)(eslint@8.37.0)
     transitivePeerDependencies:
       - supports-color
 
-  eslint-module-utils@2.12.1(@typescript-eslint/parser@8.38.0(eslint@8.37.0)(typescript@5.9.2))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.38.0(eslint@8.37.0)(typescript@5.9.2))(eslint@8.37.0))(eslint@8.37.0))(eslint@8.37.0):
+  eslint-module-utils@2.12.1(@typescript-eslint/parser@8.38.0(eslint@8.37.0)(typescript@5.9.2))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1)(eslint@8.37.0):
     dependencies:
       debug: 3.2.7
     optionalDependencies:
       '@typescript-eslint/parser': 8.38.0(eslint@8.37.0)(typescript@5.9.2)
       eslint: 8.37.0
       eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.38.0(eslint@8.37.0)(typescript@5.9.2))(eslint@8.37.0))(eslint@8.37.0)
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@8.37.0)
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.38.0(eslint@8.37.0)(typescript@5.9.2))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.38.0(eslint@8.37.0)(typescript@5.9.2))(eslint@8.37.0))(eslint@8.37.0))(eslint@8.37.0):
+  eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.38.0(eslint@8.37.0)(typescript@5.9.2))(eslint-import-resolver-typescript@3.10.1)(eslint@8.37.0):
     dependencies:
       '@rtsao/scc': 1.1.0
       array-includes: 3.1.9
@@ -14729,7 +14732,7 @@ snapshots:
       doctrine: 2.1.0
       eslint: 8.37.0
       eslint-import-resolver-node: 0.3.9
-      eslint-module-utils: 2.12.1(@typescript-eslint/parser@8.38.0(eslint@8.37.0)(typescript@5.9.2))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.38.0(eslint@8.37.0)(typescript@5.9.2))(eslint@8.37.0))(eslint@8.37.0))(eslint@8.37.0)
+      eslint-module-utils: 2.12.1(@typescript-eslint/parser@8.38.0(eslint@8.37.0)(typescript@5.9.2))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1)(eslint@8.37.0)
       hasown: 2.0.2
       is-core-module: 2.16.1
       is-glob: 4.0.3
@@ -16540,11 +16543,11 @@ snapshots:
   ox@0.6.7(typescript@5.9.2)(zod@3.25.76):
     dependencies:
       '@adraffy/ens-normalize': 1.11.1
-      '@noble/curves': 1.8.1
+      '@noble/curves': 1.9.7
       '@noble/hashes': 1.8.0
-      '@scure/bip32': 1.6.2
-      '@scure/bip39': 1.5.4
-      abitype: 1.0.8(typescript@5.9.2)(zod@3.25.76)
+      '@scure/bip32': 1.7.0
+      '@scure/bip39': 1.6.0
+      abitype: 1.2.3(typescript@5.9.2)(zod@3.25.76)
       eventemitter3: 5.0.1
     optionalDependencies:
       typescript: 5.9.2
@@ -16554,7 +16557,7 @@ snapshots:
   ox@0.6.9(typescript@5.9.2)(zod@3.25.76):
     dependencies:
       '@adraffy/ens-normalize': 1.11.1
-      '@noble/curves': 1.8.0
+      '@noble/curves': 1.9.7
       '@noble/hashes': 1.8.0
       '@scure/bip32': 1.7.0
       '@scure/bip39': 1.6.0
@@ -17142,7 +17145,7 @@ snapshots:
       buffer: 6.0.3
       eventemitter3: 5.0.1
       uuid: 11.1.0
-      ws: 8.17.1(bufferutil@4.0.9)(utf-8-validate@6.0.5)
+      ws: 8.19.0(bufferutil@4.0.9)(utf-8-validate@6.0.5)
     optionalDependencies:
       bufferutil: 4.0.9
       utf-8-validate: 6.0.5

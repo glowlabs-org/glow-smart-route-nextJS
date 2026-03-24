@@ -17,6 +17,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { useReferralLaunch } from "@/hooks/use-referral-launch";
 import { trackEvent } from "@/lib/telemetry";
 import * as Sentry from "@sentry/nextjs";
+import { useTosStatus } from "@/hooks/use-tos-status";
 
 const SPARKLES = [
   { top: "18%", left: "16%", size: "6px", delay: 0 },
@@ -55,6 +56,7 @@ export function ActivationCelebrationModal({
   const status = mock?.status ?? referralStatus;
   const [isDismissed, setIsDismissed] = React.useState(false);
   const { isLive: isReferralLive } = useReferralLaunch();
+  const { hasAcceptedTos } = useTosStatus(mock ? null : address);
 
   const shouldShow =
     mock?.open ??
@@ -105,7 +107,7 @@ export function ActivationCelebrationModal({
     mock?.onOpenChange?.(false);
   }, [markActivationSeen, mock]);
 
-  if (!isReferralLive) {
+  if (!isReferralLive || (!mock && !hasAcceptedTos)) {
     return null;
   }
 

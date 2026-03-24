@@ -33,6 +33,7 @@ import { useAccount } from "wagmi";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useReferralLaunch } from "@/hooks/use-referral-launch";
 import { QRCodeDialog } from "@/components/referral/qr-code-dialog";
+import { useTosStatus } from "@/hooks/use-tos-status";
 
 interface SuccessReceipt {
   referralCode: string;
@@ -84,6 +85,7 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
     React.useState<SuccessReceipt | null>(null);
   const hasTrackedViewRef = React.useRef(false);
   const { isLive: isReferralLive } = useReferralLaunch();
+  const { hasAcceptedTos } = useTosStatus(mock ? null : address);
 
   // Derive error message from linkError or localError
   const errorMessage = localError || (linkError as Error | null)?.message;
@@ -190,7 +192,7 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
     }
   }, [isReferralLive, shouldShow, step]);
 
-  if (!isReferralLive) {
+  if (!isReferralLive || (!mock && !hasAcceptedTos)) {
     return null;
   }
 
