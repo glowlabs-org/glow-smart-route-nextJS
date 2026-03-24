@@ -293,6 +293,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
 
   const { miningScoreMap, isLoading: isMiningScoresLoading } = useMiningScore({
     applications: activeMinersForScores,
+    extraLiveApplications: publicDelegationApplications,
     enabled: activeMinersForScores.length > 0,
   });
 
