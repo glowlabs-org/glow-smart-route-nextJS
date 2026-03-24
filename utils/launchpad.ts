@@ -7,7 +7,7 @@ export interface LaunchpadListingLike {
   activeFraction: {
     isFilled: boolean;
     remainingSteps: number | null;
-    totalSteps?: number | null;
+    totalSteps: number | null;
     marketplaceVisibleAt?: string | null;
   } | null;
 }
@@ -30,4 +30,3 @@ export function countActiveListings(
     return isPublicActiveListing(app, nowMs) ? count + 1 : count;
   }, 0);
 }
-
