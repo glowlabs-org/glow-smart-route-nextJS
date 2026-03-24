@@ -176,6 +176,10 @@ export const CONTRACT_ERROR_MESSAGES: Record<string, ContractErrorConfig> = {
   SafeERC20FailedOperation: {
     message: "Token transfer failed. Please check your balance and try again.",
   },
+  ERC20InsufficientAllowance: {
+    message:
+      "Token approval is not visible yet. Please wait a moment and retry.",
+  },
   ReentrancyGuardReentrantCall: {
     message: "Transaction in progress. Please wait and try again.",
   },
@@ -311,6 +315,8 @@ export function getErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message) return error.message;
   const anyError = error as any;
   return (
+    anyError?.cause?.data?.errorName ||
+    anyError?.data?.errorName ||
     anyError?.cause?.message ||
     anyError?.cause?.data?.message ||
     anyError?.data?.message ||

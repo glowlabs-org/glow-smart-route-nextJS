@@ -31,6 +31,7 @@ describe("CONTRACT_ERROR_MESSAGES", () => {
       "MinStepsToBuyCannotBeZero",
       "InsufficientBalance",
       "AddressInsufficientBalance",
+      "ERC20InsufficientAllowance",
       "SafeERC20FailedOperation",
       "ReentrancyGuardReentrantCall",
       "FailedInnerCall",
@@ -282,6 +283,14 @@ describe("getErrorMessage", () => {
   it("extracts message from cause.data.message (viem style)", () => {
     const error = { cause: { data: { message: "Deep nested message" } } };
     expect(getErrorMessage(error)).toBe("Deep nested message");
+  });
+
+  it("extracts custom error names from cause.data.errorName", () => {
+    const error = {
+      cause: { data: { errorName: "ERC20InsufficientAllowance" } },
+      message: "TransactionExecutionError",
+    };
+    expect(getErrorMessage(error)).toBe("ERC20InsufficientAllowance");
   });
 
   it("extracts message from data.message", () => {

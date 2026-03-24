@@ -25,7 +25,6 @@ import {
   buildDelegateSgctlMessage,
   delegateSgctlEIP712Types,
   stakeControlEIP712Domain,
-  useOffchainFractions,
 } from "@glowlabs-org/utils/browser";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWalletClient } from "wagmi";
@@ -60,6 +59,7 @@ import {
 import { EmissionsIcon, VaultIcon } from "@/components/impact-icons";
 
 import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
+import { usePatchedOffchainFractions } from "@/hooks/usePatchedOffchainFractions";
 import {
   CONTRACT_ERROR_MESSAGES,
   RPC_INTERNAL_ERROR_MESSAGE,
@@ -849,7 +849,7 @@ export function DepositDialog({
     return true;
   };
 
-  const fractionsHook = useOffchainFractions(
+  const fractionsHook = usePatchedOffchainFractions(
     walletClient,
     publicClient,
     chainId,

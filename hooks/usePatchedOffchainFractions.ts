@@ -1,0 +1,156 @@
+import {
+  OFFCHAIN_FRACTIONS_ABI,
+  OffchainFractionsError,
+  parseViemError,
+  type BuyFractionsParams,
+  useOffchainFractions as useSdkOffchainFractions,
+  waitForViemTransactionWithRetry,
+} from "@glowlabs-org/utils/browser";
+import type { Address, PublicClient, WalletClient } from "viem";
+
+const ERC20_APPROVAL_ABI = [
+  {
+    type: "function",
+    stateMutability: "nonpayable",
+    name: "approve",
+    inputs: [
+      { name: "spender", type: "address" },
+      { name: "value", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+  },
+] as const;
+
+const ALLOWANCE_NOT_VISIBLE_ERROR =
+  "Your token approval is confirmed but not visible to the next transaction yet. Please wait a moment and retry.";
+
+function toErrorWithCause(error: unknown): Error {
+  const message =
+    parseViemError(error) ||
+    (error instanceof Error ? error.message : "Unknown error");
+  const wrapped = new Error(message, error instanceof Error ? { cause: error } : undefined);
+
+  if (error && typeof error === "object" && typeof (error as { name?: unknown }).name === "string") {
+    wrapped.name = (error as { name: string }).name;
+  }
+
+  if (!(error instanceof Error) && error !== undefined) {
+    (wrapped as Error & { cause?: unknown }).cause = error;
+  }
+
+  return wrapped;
+}
+
+export function usePatchedOffchainFractions(
+  walletClient: WalletClient | undefined,
+  publicClient: PublicClient | undefined,
+  chainId: number,
+) {
+  const sdk = useSdkOffchainFractions(walletClient, publicClient, chainId);
+
+  async function buyFractions(params: BuyFractionsParams): Promise<string> {
+    if (!walletClient) {
+      throw new Error(OffchainFractionsError.SIGNER_NOT_AVAILABLE);
+    }
+    if (!walletClient.account) {
+      throw new Error("Wallet client must have an account");
+    }
+    if (!publicClient) {
+      throw new Error("Public client not available");
+    }
+
+    try {
+      const {
+        creator,
+        id,
+        stepsToBuy,
+        minStepsToBuy,
+        refundTo,
+        creditTo,
+        useCounterfactualAddressForRefund,
+      } = params;
+
+      if (!creator || !id || !refundTo || !creditTo) {
+        throw new Error(OffchainFractionsError.INVALID_PARAMETERS);
+      }
+
+      if (stepsToBuy === 0n) {
+        throw new Error("stepsToBuy must be greater than zero");
+      }
+
+      if (minStepsToBuy === 0n) {
+        throw new Error("minStepsToBuy must be greater than zero");
+      }
+
+      const fractionData = await sdk.getFraction(creator, id);
+      const requiredAmount = stepsToBuy * fractionData.step;
+      const owner = walletClient.account.address;
+
+      const balance = await sdk.checkTokenBalance(owner, fractionData.token);
+      if (balance < requiredAmount) {
+        throw new Error(OffchainFractionsError.INSUFFICIENT_BALANCE);
+      }
+
+      let allowance = await sdk.checkTokenAllowance(owner, fractionData.token);
+      if (allowance < requiredAmount) {
+        const approvalAmount = requiredAmount + 10_000_000n;
+        const approveHash = await walletClient.writeContract({
+          address: fractionData.token as Address,
+          abi: ERC20_APPROVAL_ABI,
+          functionName: "approve",
+          args: [sdk.addresses.OFFCHAIN_FRACTIONS as Address, approvalAmount],
+          chain: walletClient.chain,
+          account: walletClient.account,
+        });
+
+        await waitForViemTransactionWithRetry(publicClient, approveHash);
+
+        const maxAllowanceChecks = 5;
+        const allowanceCheckDelayMs = 500;
+
+        for (let i = 0; i < maxAllowanceChecks; i += 1) {
+          allowance = await sdk.checkTokenAllowance(owner, fractionData.token);
+          if (allowance >= requiredAmount) {
+            break;
+          }
+          if (i < maxAllowanceChecks - 1) {
+            await new Promise((resolve) => setTimeout(resolve, allowanceCheckDelayMs));
+          }
+        }
+
+        if (allowance < requiredAmount) {
+          throw new Error(ALLOWANCE_NOT_VISIBLE_ERROR);
+        }
+      }
+
+      // Reuse the simulated request so the wallet does not re-estimate against stale allowance state.
+      const { request } = await publicClient.simulateContract({
+        address: sdk.addresses.OFFCHAIN_FRACTIONS as Address,
+        abi: OFFCHAIN_FRACTIONS_ABI,
+        functionName: "buyFractions",
+        args: [
+          creator as Address,
+          id as `0x${string}`,
+          stepsToBuy,
+          minStepsToBuy,
+          refundTo as Address,
+          creditTo as Address,
+          useCounterfactualAddressForRefund,
+        ],
+        account: walletClient.account,
+      });
+
+      const hash = await walletClient.writeContract(request);
+      await waitForViemTransactionWithRetry(publicClient, hash);
+
+      return hash;
+    } catch (error) {
+      throw toErrorWithCause(error);
+    }
+  }
+
+  return {
+    ...sdk,
+    buyFractions,
+  };
+}

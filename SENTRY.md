@@ -104,6 +104,8 @@ Additional marketplace context:
 - `sgctlRequiredAmount`, `sgctlShortfall`
 - wallet context: `walletClientChainId`, `walletClientAccount`, `connectorName`, `walletAddress`
 
+Marketplace deposit errors now preserve the original viem error as `cause` when the purchase path fails, which makes linked Sentry exceptions and custom revert reasons available instead of collapsing everything into `TransactionExecutionError`. This includes allowance sequencing failures such as `ERC20InsufficientAllowance`.
+
 ### Wallet Claims
 
 | File | Stage Tag | Description |
