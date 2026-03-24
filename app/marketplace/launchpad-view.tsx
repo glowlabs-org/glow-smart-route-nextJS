@@ -53,6 +53,7 @@ import {
   type AuctionApplication,
 } from "@/hooks";
 import { useRewardScore, getRewardScoreForApplication } from "@/hooks";
+import { QUERY_CONFIG } from "@/hooks/query-config";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { useMiningCenter, type MiningCenterFilters } from "@/hooks";
 import { useMiningScore, getMiningScoreForApplication } from "@/hooks";
@@ -116,6 +117,9 @@ function countActiveListings(
     return hasAvailability ? count + 1 : count;
   }, 0);
 }
+
+const MARKETPLACE_RELEASE_POLL_INTERVAL_MS =
+  QUERY_CONFIG.REALTIME.refetchInterval;
 
 // Image component with skeleton loading state for SSR-friendly progressive loading
 function FarmImageWithSkeleton({
@@ -369,6 +373,10 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
       sortBy: selectedSort,
       sortOrder: selectedSortOrder,
     },
+    query: {
+      refetchInterval: MARKETPLACE_RELEASE_POLL_INTERVAL_MS,
+      refetchIntervalInBackground: true,
+    },
   });
 
   // Fetch mining center (miners) applications
@@ -384,6 +392,10 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
       sortBy: selectedSort,
       sortOrder: selectedSortOrder,
       paymentCurrency: "USDC",
+    },
+    query: {
+      refetchInterval: MARKETPLACE_RELEASE_POLL_INTERVAL_MS,
+      refetchIntervalInBackground: true,
     },
   });
 

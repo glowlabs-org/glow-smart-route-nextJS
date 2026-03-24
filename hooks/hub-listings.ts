@@ -175,16 +175,22 @@ export interface SponsorListingsFilters {
 export interface UseSponsorListingsParams {
   filters?: SponsorListingsFilters;
   enabled?: boolean;
+  query?: {
+    refetchInterval?: number | false;
+    refetchIntervalInBackground?: boolean;
+  };
 }
 
 export function useSponsorListings(params: UseSponsorListingsParams = {}) {
-  const { filters = {}, enabled = true } = params;
+  const { filters = {}, enabled = true, query: queryOptions } = params;
 
   const query = useQuery({
     queryKey: QUERY_KEYS.listings.sponsor(filters),
     enabled,
     staleTime: QUERY_CONFIG.DEFAULT.staleTime,
     refetchOnWindowFocus: QUERY_CONFIG.DEFAULT.refetchOnWindowFocus,
+    refetchInterval: queryOptions?.refetchInterval,
+    refetchIntervalInBackground: queryOptions?.refetchIntervalInBackground,
     queryFn: async (): Promise<AuctionApplication[]> => {
       const searchParams: Record<string, string | number | boolean | undefined> =
         {};
@@ -228,14 +234,16 @@ export interface GlowLaunchpadFilters {
 export interface UseGlowLaunchpadParams {
   filters?: GlowLaunchpadFilters;
   enabled?: boolean;
+  query?: UseSponsorListingsParams["query"];
 }
 
 // launchpad listings are returned when `type` is omitted
 export function useGlowLaunchpad(params: UseGlowLaunchpadParams = {}) {
-  const { filters = {}, enabled = true } = params;
+  const { filters = {}, enabled = true, query } = params;
   return useSponsorListings({
     filters: { ...filters },
     enabled,
+    query,
   });
 }
 
@@ -250,14 +258,16 @@ export interface MiningCenterFilters {
 export interface UseMiningCenterParams {
   filters?: MiningCenterFilters;
   enabled?: boolean;
+  query?: UseSponsorListingsParams["query"];
 }
 
 // mining-center listings require `type=mining-center`
 export function useMiningCenter(params: UseMiningCenterParams = {}) {
-  const { filters = {}, enabled = true } = params;
+  const { filters = {}, enabled = true, query } = params;
   return useSponsorListings({
     filters: { ...filters, type: "mining-center" },
     enabled,
+    query,
   });
 }
 
