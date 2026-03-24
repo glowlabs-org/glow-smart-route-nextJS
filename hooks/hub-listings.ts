@@ -120,6 +120,24 @@ export function isFractionOpenForMarketplace(
   return !fraction.isFilled && remainingSteps > 0 && totalSteps > 0;
 }
 
+export function isFractionPubliclyVisible(
+  fraction:
+    | Pick<ActiveFraction, "marketplaceVisibleAt">
+    | null
+    | undefined,
+  nowMs: number = Date.now()
+): boolean {
+  if (!fraction) return false;
+
+  const visibleAt = fraction.marketplaceVisibleAt;
+  if (!visibleAt) return true;
+
+  const visibleAtMs = Date.parse(visibleAt);
+  if (!Number.isFinite(visibleAtMs)) return true;
+
+  return nowMs >= visibleAtMs;
+}
+
 export interface AuctionApplication {
   id: string;
   userId: string;

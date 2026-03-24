@@ -45,6 +45,7 @@ import {
   getRewardScoreForApplication,
   getMiningScoreForApplication,
   isFractionOpenForMarketplace,
+  isFractionPubliclyVisible,
   type AuctionApplication,
 } from "@/hooks";
 import { parseDelegationStepAmount } from "@/utils/launchpad-rewards";
@@ -94,6 +95,15 @@ function countAvailableApplications(
     const hasAvailability = isFractionOpenForMarketplace(app.activeFraction);
     return hasAvailability ? count + 1 : count;
   }, 0);
+}
+
+function filterPublicLaunchpadApplications(
+  applications: AuctionApplication[],
+  nowMs: number = Date.now(),
+) {
+  return applications.filter((application) =>
+    isFractionPubliclyVisible(application.activeFraction, nowMs),
+  );
 }
 
 // Helper: Get availability info for an application
@@ -242,7 +252,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
   // Tag applications with their type
   const taggedDelegations = React.useMemo<LocalTaggedApplication[]>(
     () =>
-      delegationApplications.map((app) => ({
+      filterPublicLaunchpadApplications(delegationApplications).map((app) => ({
         ...app,
         _type: "delegations" as const,
       })),
@@ -288,8 +298,8 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
 
   // Count available listings per type
   const delegationsAvailableCount = React.useMemo(
-    () => countAvailableApplications(delegationApplications),
-    [delegationApplications],
+    () => countAvailableApplications(taggedDelegations),
+    [taggedDelegations],
   );
   const minersAvailableCount = React.useMemo(
     () => countAvailableApplications(minerApplications),
@@ -539,7 +549,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
   const isLoading = isDelegationsLoading || isMinersLoading;
 
   // Determine which tabs to show (hide if no listings of that type)
-  const showDelegationsTab = delegationApplications.length > 0;
+  const showDelegationsTab = taggedDelegations.length > 0;
   const showMinersTab = minerApplications.length > 0;
   const showAllTab = showDelegationsTab || showMinersTab;
 
@@ -1271,9 +1281,14 @@ export default function LaunchpadStatusWidget({
       enabled: minersEnabled,
     });
 
-  const delegationsAvailableCount = React.useMemo(
-    () => countAvailableApplications(delegationApplications),
+  const publicDelegationApplications = React.useMemo(
+    () => filterPublicLaunchpadApplications(delegationApplications),
     [delegationApplications],
+  );
+
+  const delegationsAvailableCount = React.useMemo(
+    () => countAvailableApplications(publicDelegationApplications),
+    [publicDelegationApplications],
   );
   const minersAvailableCount = React.useMemo(
     () => countAvailableApplications(minerApplications),

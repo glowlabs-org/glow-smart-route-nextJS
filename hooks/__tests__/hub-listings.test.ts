@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { isFractionOpenForMarketplace, type ActiveFraction } from "../hub-listings";
+import {
+  isFractionOpenForMarketplace,
+  isFractionPubliclyVisible,
+  type ActiveFraction,
+} from "../hub-listings";
 
 function createFraction(overrides: Partial<ActiveFraction> = {}): ActiveFraction {
   return {
@@ -46,5 +50,33 @@ describe("isFractionOpenForMarketplace", () => {
         })
       )
     ).toBe(true);
+  });
+});
+
+describe("isFractionPubliclyVisible", () => {
+  it("returns false before marketplaceVisibleAt", () => {
+    expect(
+      isFractionPubliclyVisible(
+        createFraction({
+          marketplaceVisibleAt: "2026-03-24T17:00:00.000Z",
+        }),
+        Date.parse("2026-03-24T16:15:00.000Z")
+      )
+    ).toBe(false);
+  });
+
+  it("returns true at or after marketplaceVisibleAt", () => {
+    expect(
+      isFractionPubliclyVisible(
+        createFraction({
+          marketplaceVisibleAt: "2026-03-24T17:00:00.000Z",
+        }),
+        Date.parse("2026-03-24T17:00:00.000Z")
+      )
+    ).toBe(true);
+  });
+
+  it("treats missing marketplaceVisibleAt as visible", () => {
+    expect(isFractionPubliclyVisible(createFraction(), 0)).toBe(true);
   });
 });
