@@ -651,16 +651,6 @@ export function Header({
                                 Infrastructure projects
                               </Link>
                             </DrawerClose>
-                            <DrawerClose asChild>
-                              <Link
-                                href="https://impact.glow.org/new-campaign"
-                                target="_blank"
-                                rel="noreferrer"
-                                className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
-                              >
-                                Create a Region
-                              </Link>
-                            </DrawerClose>
                           </div>
                         </div>
 
