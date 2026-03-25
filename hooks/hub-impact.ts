@@ -271,7 +271,9 @@ export function useImpactWalletStats(args: { enabled?: boolean } = {}) {
     retry: 0,
     queryFn: async (): Promise<ImpactWalletStatsResponse> => {
       try {
-        return await hubGet<ImpactWalletStatsResponse>("/impact/wallet-stats");
+        return await fetchImpactApi<ImpactWalletStatsResponse>({
+          path: "/api/impact/wallet-stats",
+        });
       } catch (error) {
         toast.error("Failed to load wallet stats", {
           description: error instanceof Error ? error.message : String(error),
