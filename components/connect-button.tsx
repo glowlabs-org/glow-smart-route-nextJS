@@ -26,6 +26,10 @@ function isProposalExpiredReason(reason: unknown): boolean {
   return /proposal expired/i.test(getRejectionMessage(reason));
 }
 
+function isBenignWalletDiscoveryRejection(reason: unknown): boolean {
+  return /not found rainbowkit/i.test(getRejectionMessage(reason));
+}
+
 export const ConnectButton = ({
   className,
   variant = "default",
@@ -139,8 +143,6 @@ export const ConnectButton = ({
   useEffect(() => {
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
       const reason = event.reason as unknown;
-      if (!isProposalExpiredReason(reason)) return;
-
       const appKitClient = getAppKitClient();
       const isModalOpen = Boolean(appKitClient?.isOpen?.());
       const hasRecentConnectAttempt =
@@ -148,6 +150,13 @@ export const ConnectButton = ({
       if (!isModalOpen && !isPendingRef.current && !hasRecentConnectAttempt) {
         return;
       }
+
+      if (isBenignWalletDiscoveryRejection(reason)) {
+        event.preventDefault();
+        return;
+      }
+
+      if (!isProposalExpiredReason(reason)) return;
 
       event.preventDefault();
 

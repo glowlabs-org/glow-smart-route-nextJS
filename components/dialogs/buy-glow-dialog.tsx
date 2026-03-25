@@ -270,7 +270,11 @@ export function BuyGlowDialog({
   const openConnectModal = React.useCallback(() => {
     const appKitClient = getAppKitClient();
     if (!appKitClient) return;
-    void appKitClient.open({ view: "Connect", namespace: "eip155" });
+    void appKitClient
+      .open({ view: "Connect", namespace: "eip155" })
+      .catch((error) => {
+        console.error("Failed to open connect modal:", error);
+      });
   }, []);
 
   const impactWeekRangeQuery = useQuery({
