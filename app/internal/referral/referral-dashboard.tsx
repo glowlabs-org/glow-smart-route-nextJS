@@ -436,6 +436,23 @@ function WeeklyReferralActivityChart({
 }
 
 function TopReferrersTable({ data }: { data: ReferralDashboardTopReferrer[] }) {
+  const sortedData = React.useMemo(
+    () =>
+      [...data].sort((a, b) => {
+        if (b.activeReferees !== a.activeReferees) {
+          return b.activeReferees - a.activeReferees;
+        }
+        if (b.totalReferees !== a.totalReferees) {
+          return b.totalReferees - a.totalReferees;
+        }
+        if (b.pendingReferees !== a.pendingReferees) {
+          return b.pendingReferees - a.pendingReferees;
+        }
+        return a.referrerWallet.localeCompare(b.referrerWallet);
+      }),
+    [data]
+  );
+
   if (data.length === 0) {
     return (
       <div className="py-12 text-center text-sm text-muted-foreground/50">
@@ -446,7 +463,7 @@ function TopReferrersTable({ data }: { data: ReferralDashboardTopReferrer[] }) {
 
   return (
     <div className="space-y-3">
-      {data.slice(0, 10).map((referrer, idx) => (
+      {sortedData.slice(0, 10).map((referrer, idx) => (
         <div
           key={referrer.referrerWallet}
           className="flex items-center justify-between py-3 border-b border-border/20 dark:border-border/40 last:border-b-0"
