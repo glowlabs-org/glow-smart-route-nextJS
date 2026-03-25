@@ -301,15 +301,13 @@ export function useImpactNewWalletsByWeek(params: {
     enabled,
     staleTime: 60_000,
     queryFn: async (): Promise<ImpactNewWalletsByWeekResponse> => {
-      return await hubGet<ImpactNewWalletsByWeekResponse>(
-        "/impact/new-wallets-by-week",
-        {
-          params: {
-            startWeek: startWeek ?? undefined,
-            endWeek: endWeek ?? undefined,
-          },
-        }
-      );
+      return await fetchImpactApi<ImpactNewWalletsByWeekResponse>({
+        path: "/api/impact/new-wallets-by-week",
+        query: {
+          startWeek: startWeek ?? undefined,
+          endWeek: endWeek ?? undefined,
+        },
+      });
     },
   });
 }

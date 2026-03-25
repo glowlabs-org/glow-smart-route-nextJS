@@ -51,6 +51,7 @@ import {
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
 import { useEthPrice } from "@/hooks/useEthPrice";
+import { useImpactWalletStats } from "@/hooks/hub-impact";
 import {
   TransactionStepper,
   type TransactionStep,
@@ -60,7 +61,6 @@ import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-war
 import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
 import { getAppKitClient } from "@/lib/wagmi-config";
 
-const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL;
 const ONE_E18 = 1_000_000_000_000_000_000n;
 const POINTS_PER_GLW_WORTH_SCALED6 = 1_000n;
 
@@ -277,33 +277,8 @@ export function BuyGlowDialog({
       });
   }, []);
 
-  const impactWeekRangeQuery = useQuery({
-    queryKey: ["impact-week-range", address?.toLowerCase()],
-    enabled: Boolean(open && HUB_URL && address),
-    staleTime: 60_000,
-    retry: 0,
-    queryFn: async (): Promise<{
-      startWeek: number;
-      endWeek: number;
-    } | null> => {
-      try {
-        if (!HUB_URL || !address) return null;
-        const url = new URL("/impact/glow-score", HUB_URL);
-        url.searchParams.set("walletAddress", address.toLowerCase());
-        url.searchParams.set("includeWeekly", "0");
-        url.searchParams.set("includeProjection", "0");
-        url.searchParams.set("includeReferral", "0");
-        const res = await fetch(url.toString());
-        if (!res.ok) return null;
-        const json = (await res.json()) as {
-          weekRange?: { startWeek: number; endWeek: number };
-        };
-        if (!json.weekRange) return null;
-        return json.weekRange;
-      } catch {
-        return null;
-      }
-    },
+  const impactWalletStatsQuery = useImpactWalletStats({
+    enabled: open,
   });
 
   const {
@@ -383,7 +358,7 @@ export function BuyGlowDialog({
     try {
       const deltaGlwWei = parseUnits(estimatedGlw, 18);
       const deltaPerWeekScaled6 = glwWeiToPointsScaled6(deltaGlwWei);
-      const weekRange = impactWeekRangeQuery.data;
+      const weekRange = impactWalletStatsQuery.data?.weekRange ?? null;
       const weeksInRange = weekRange ? getWeeksInRange(weekRange) : 1;
       const deltaTotalScaled6 = deltaPerWeekScaled6 * BigInt(weeksInRange);
 
@@ -396,7 +371,7 @@ export function BuyGlowDialog({
     } catch {
       return null;
     }
-  }, [estimatedGlw, impactWeekRangeQuery.data]);
+  }, [estimatedGlw, impactWalletStatsQuery.data?.weekRange]);
 
   const formatEthMaxFromWei = React.useCallback((valueWei: bigint) => {
     const raw = formatUnits(valueWei, 18);

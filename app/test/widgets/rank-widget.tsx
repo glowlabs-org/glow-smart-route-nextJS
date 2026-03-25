@@ -34,7 +34,6 @@ import {
   ImpactIndicatorsRow,
   type ImpactIndicatorsState,
 } from "@/components/impact-score/impact-indicators";
-import { hubGet } from "@/lib/api/hub-client";
 import { trackEvent } from "@/lib/telemetry";
 import { cn } from "@/lib/utils";
 import {
@@ -48,8 +47,6 @@ import { useReferralLaunch } from "@/hooks/use-referral-launch";
 import { formatTopPercentile } from "@/utils/impact";
 import { getCurrentEpoch } from "@/utils/getCurrentEpoch";
 import { ArrowTopRightIcon } from "@radix-ui/react-icons";
-
-const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL;
 
 function formatPoints(
   value?: string,
@@ -247,7 +244,7 @@ export function RankWidget({
     Boolean(walletAddress) && isAddress(walletAddress as string);
 
   const leaderboardQuery = useImpactLeaderboardQuery({
-    enabled: Boolean(HUB_URL && hasWallet && isValidWalletAddress),
+    enabled: Boolean(hasWallet && isValidWalletAddress),
   });
   const leaderboardRows = React.useMemo(() => {
     const rawWallets = leaderboardQuery.data?.wallets ?? [];
@@ -263,22 +260,26 @@ export function RankWidget({
 
   const impactScoreQuery = useQuery({
     queryKey: ["impact-glow-score", walletAddress, currentWeek, "no-weekly"],
-    enabled: Boolean(HUB_URL && hasWallet && isValidWalletAddress),
+    enabled: Boolean(hasWallet && isValidWalletAddress),
     staleTime: 60_000,
     gcTime: 10 * 60_000,
     refetchOnWindowFocus: false,
     retry: 0,
     queryFn: async (): Promise<ImpactGlowScoreResponse> => {
       try {
-        if (!HUB_URL) throw new Error("NEXT_PUBLIC_HUB_URL is not set");
         if (!walletAddress) throw new Error("Missing wallet address");
-        return await hubGet<ImpactGlowScoreResponse>("/impact/glow-score", {
-          params: {
-            walletAddress,
-            endWeek: currentWeek,
-            includeWeekly: "0",
-          },
+        const url = new URL("/api/impact/glow-score", window.location.origin);
+        url.searchParams.set("walletAddress", walletAddress);
+        url.searchParams.set("endWeek", String(currentWeek));
+        url.searchParams.set("includeWeekly", "0");
+
+        const response = await fetch(url.toString(), {
+          headers: { Accept: "application/json" },
         });
+        if (!response.ok) {
+          throw new Error(`Request failed (${response.status})`);
+        }
+        return (await response.json()) as ImpactGlowScoreResponse;
       } catch (error) {
         toast.error("Failed to load Impact Score", {
           description: error instanceof Error ? error.message : String(error),
@@ -423,6 +424,7 @@ export function RankWidget({
     [
       hasWallet,
       hasPositiveScore,
+      isReferralLive,
       normalizedWalletAddress,
       onMintAndStakeClick,
       source,

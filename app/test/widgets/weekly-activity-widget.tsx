@@ -21,7 +21,6 @@ import {
   useImpactLeaderboardQuery,
   type ImpactGlowScoreResponse,
 } from "@/hooks";
-import { hubGet } from "@/lib/api/hub-client";
 import {
   buildWeeklyDelegations,
   getCurrentWeekNumber,
@@ -37,8 +36,6 @@ import {
 import { useAccount } from "wagmi";
 
 type WeekStatus = "missed" | "delegated" | "miner" | "both";
-
-const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL;
 
 const V2_START_ISO = "2025-10-11T00:00:00Z";
 const V2_START_WEEK = getWeekNumberFromTimestamp(
@@ -197,7 +194,7 @@ export default function WeeklyActivityWidget({
   const isWalletConnecting = isConnecting || isReconnecting;
 
   const impactLeaderboardQuery = useImpactLeaderboardQuery({
-    enabled: Boolean(HUB_URL && hasWallet),
+    enabled: hasWallet,
   });
 
   const {
@@ -224,22 +221,26 @@ export default function WeeklyActivityWidget({
 
   const impactScoreQuery = useQuery({
     queryKey: ["impact-glow-score", walletAddress, "no-weekly"],
-    enabled: Boolean(HUB_URL && hasWallet && isValidWalletAddress),
+    enabled: Boolean(hasWallet && isValidWalletAddress),
     staleTime: 60_000,
     gcTime: 10 * 60_000,
     refetchOnWindowFocus: false,
     retry: 0,
     queryFn: async (): Promise<ImpactGlowScoreResponse> => {
-      if (!HUB_URL) throw new Error("NEXT_PUBLIC_HUB_URL is not set");
       if (!walletAddress) throw new Error("Missing wallet address");
-      return await hubGet<ImpactGlowScoreResponse>("/impact/glow-score", {
-        params: {
-          walletAddress,
-          includeWeekly: "0",
-          includeProjection: "1",
-          includeReferral: "0",
-        },
+      const url = new URL("/api/impact/glow-score", window.location.origin);
+      url.searchParams.set("walletAddress", walletAddress);
+      url.searchParams.set("includeWeekly", "0");
+      url.searchParams.set("includeProjection", "1");
+      url.searchParams.set("includeReferral", "0");
+
+      const response = await fetch(url.toString(), {
+        headers: { Accept: "application/json" },
       });
+      if (!response.ok) {
+        throw new Error(`Request failed (${response.status})`);
+      }
+      return (await response.json()) as ImpactGlowScoreResponse;
     },
   });
 

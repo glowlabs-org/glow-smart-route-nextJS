@@ -60,6 +60,7 @@ import {
 } from "@/hooks";
 import { useEnsNames } from "@/hooks/useEnsNames";
 import { useDebouncedAsync } from "@/hooks/useDebouncedAsync";
+import { useImpactWalletStats } from "@/hooks/hub-impact";
 import { trackEvent } from "@/lib/telemetry";
 import { bucketEth, bucketToken, bucketUsd } from "@/lib/telemetry-buckets";
 import { cn } from "@/lib/utils";
@@ -79,7 +80,6 @@ interface MintAndStakeGctlDialogProps {
 
 type SourceCurrency = "GCTL" | "USDC" | "USDG" | "ETH";
 
-const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL;
 const STEERING_POINTS_PER_GLW = 3;
 const ETH_DECIMALS = 18;
 const DEFAULT_SLIPPAGE_BPS = 100n; // 1%
@@ -371,33 +371,8 @@ export function MintAndStakeGctlDialog({
   } = useGctlPreparationOrchestrator({ enabled: open });
   const { data: activeSummary } = useActiveRegionsSummary({ enabled: open });
 
-  const impactWeekRangeQuery = useQuery({
-    queryKey: ["impact-week-range", address?.toLowerCase()],
-    enabled: Boolean(open && HUB_URL && address),
-    staleTime: 60_000,
-    retry: 0,
-    queryFn: async (): Promise<{
-      startWeek: number;
-      endWeek: number;
-    } | null> => {
-      try {
-        if (!HUB_URL || !address) return null;
-        const url = new URL("/impact/glow-score", HUB_URL);
-        url.searchParams.set("walletAddress", address.toLowerCase());
-        url.searchParams.set("includeWeekly", "0");
-        url.searchParams.set("includeProjection", "0");
-        url.searchParams.set("includeReferral", "0");
-        const res = await fetch(url.toString());
-        if (!res.ok) return null;
-        const json = (await res.json()) as {
-          weekRange?: { startWeek: number; endWeek: number };
-        };
-        if (!json.weekRange) return null;
-        return json.weekRange;
-      } catch {
-        return null;
-      }
-    },
+  const impactWalletStatsQuery = useImpactWalletStats({
+    enabled: open,
   });
 
   const { walletDetails } = useWallets({
@@ -744,7 +719,7 @@ export function MintAndStakeGctlDialog({
           .toFixed(0),
       );
 
-      const weekRange = impactWeekRangeQuery.data;
+      const weekRange = impactWalletStatsQuery.data?.weekRange ?? null;
       const weeksInRange = weekRange ? getWeeksInRange(weekRange) : 1;
       const deltaTotalPointsScaled6 =
         deltaPointsPerWeekScaled6 * BigInt(weeksInRange);
@@ -758,7 +733,7 @@ export function MintAndStakeGctlDialog({
     } catch {
       return null;
     }
-  }, [impactWeekRangeQuery.data, inflationPreview]);
+  }, [impactWalletStatsQuery.data?.weekRange, inflationPreview]);
 
   const sliderPct = React.useMemo(() => {
     if (!maxAmountNumber || maxAmountNumber <= 0) return 0;
