@@ -83,7 +83,7 @@ const MiniBlogGraphButton = dynamic<MiniBlogGraphButtonProps>(
         View all topics
       </button>
     ),
-  }
+  },
 );
 
 const NetworkImpactSection = dynamic(
@@ -98,7 +98,7 @@ const NetworkImpactSection = dynamic(
         </div>
       </section>
     ),
-  }
+  },
 );
 
 const PRICE_RANGE = { min: 0.001, max: 100 };
@@ -241,7 +241,7 @@ const VESTING_CATEGORIES = [
 ];
 
 const vestingCategoryChartConfig = Object.fromEntries(
-  VESTING_CATEGORIES.map((c) => [c.key, { label: c.label, color: c.color }])
+  VESTING_CATEGORIES.map((c) => [c.key, { label: c.label, color: c.color }]),
 ) as Record<string, { label: string; color: string }> satisfies ChartConfig;
 
 const vestingChartConfig = {
@@ -253,7 +253,7 @@ const delegationTrendChartConfig = {
 } satisfies ChartConfig;
 
 const gctlRegionChartConfig = Object.fromEntries(
-  GCTL_REGIONS.map((r) => [r.name, { label: r.name, color: r.color }])
+  GCTL_REGIONS.map((r) => [r.name, { label: r.name, color: r.color }]),
 ) as Record<string, { label: string; color: string }> satisfies ChartConfig;
 
 const GCTL_REGION_PIE_DATA = GCTL_REGIONS.map((r) => ({
@@ -445,8 +445,8 @@ function toFiniteNumber(value: unknown): number | null {
     typeof value === "number"
       ? value
       : typeof value === "string"
-      ? Number(value)
-      : null;
+        ? Number(value)
+        : null;
   if (parsed === null || !Number.isFinite(parsed)) return null;
   return parsed;
 }
@@ -487,7 +487,7 @@ function getBreakdownFromLq(liquidity: number, pricePerGlw: number) {
     usdgSide,
     glwSide,
     breakdown: `$${formatCompactNumber(usdgSide)} / ${formatCompactNumber(
-      glwSide
+      glwSide,
     )} GLW`,
   };
 }
@@ -499,7 +499,7 @@ function getLiquidityFromReserves(usdc: number, glw: number) {
     liquidity,
     value: formatLiquidityCompact(liquidity),
     breakdown: `$${formatCompactNumber(usdc)} / ${formatCompactNumber(
-      glw
+      glw,
     )} GLW`,
   };
 }
@@ -519,7 +519,7 @@ function isSolarPanelsImageUrl(url: string) {
 }
 
 function pickSolarPanelsImageUrl(
-  urls: Array<string | null | undefined>
+  urls: Array<string | null | undefined>,
 ): string | null {
   for (const url of urls) {
     if (!url) continue;
@@ -978,8 +978,8 @@ const WalletGrowthTooltip = React.memo(function WalletGrowthTooltip({
     typeof payload[0]?.value === "number"
       ? payload[0]!.value
       : typeof datum?.newWallets === "number"
-      ? datum.newWallets
-      : 0;
+        ? datum.newWallets
+        : 0;
 
   const labelText = (label ?? "").toString().trim() || "Week";
   const dateText =
@@ -1222,7 +1222,7 @@ function MiniBlogPanel({
     <div
       className={cn(
         "rounded-2xl border border-border/40 bg-muted/20 p-4 sm:p-5 space-y-4",
-        className
+        className,
       )}
     >
       <div className="flex items-center justify-between gap-3">
@@ -1248,7 +1248,7 @@ function MiniBlogPanel({
               "text-[13px] leading-relaxed",
               index === 0
                 ? "text-muted-foreground/90 dark:text-muted-foreground"
-                : "text-muted-foreground/80 dark:text-muted-foreground/90"
+                : "text-muted-foreground/80 dark:text-muted-foreground/90",
             )}
           >
             {paragraph}
@@ -1393,7 +1393,7 @@ const MetricCard = React.memo(function MetricCard({
       <div
         className={cn(
           "text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70",
-          labelClassName
+          labelClassName,
         )}
       >
         {label}
@@ -1401,7 +1401,7 @@ const MetricCard = React.memo(function MetricCard({
       <div
         className={cn(
           "text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums",
-          valueClassName
+          valueClassName,
         )}
       >
         {value}
@@ -1435,7 +1435,7 @@ const MiniStat = React.memo(function MiniStat({
       <div
         className={cn(
           "text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70",
-          labelClassName
+          labelClassName,
         )}
       >
         {label}
@@ -1443,7 +1443,7 @@ const MiniStat = React.memo(function MiniStat({
       <div
         className={cn(
           "text-2xl sm:text-3xl font-semibold font-mono tabular-nums",
-          valueClassName
+          valueClassName,
         )}
       >
         {value}
@@ -1497,8 +1497,8 @@ const RegionCompareCard = React.memo(function RegionCompareCard({
             row.glwPerWeek !== null
               ? formatCompactNumberPrecise(row.glwPerWeek)
               : row.ccPerWeek !== null
-              ? formatCompactNumberPrecise(row.ccPerWeek)
-              : "—"
+                ? formatCompactNumberPrecise(row.ccPerWeek)
+                : "—"
           }
           helper={
             row.glwPerWeek === null && row.ccPerWeek !== null
@@ -1527,7 +1527,7 @@ const RegionCompareCard = React.memo(function RegionCompareCard({
           label="Total PDs"
           value={
             row.totalPds !== null
-              ? formatCompactNumberPrecise(row.totalPds)
+              ? `$${formatCompactNumberPrecise(row.totalPds)}`
               : "—"
           }
           valueClassName="text-base sm:text-lg tracking-tight"
@@ -1752,7 +1752,7 @@ const OverviewSection = React.memo(function OverviewSection({
           fill: "#ffb472",
         },
       ].filter((d) => d.value > 0),
-    [circulatingSupplyForSupplyCard, polGlwInPol, vaultedGlw]
+    [circulatingSupplyForSupplyCard, polGlwInPol, vaultedGlw],
   );
 
   return (
@@ -1763,7 +1763,7 @@ const OverviewSection = React.memo(function OverviewSection({
       <Card
         className={cn(
           "!gap-0 !py-0 relative overflow-hidden border border-border/20 transition-colors cursor-pointer hover:border-border/40 dark:hover:border-border/60",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         )}
         role="button"
         tabIndex={0}
@@ -1859,7 +1859,7 @@ const OverviewSection = React.memo(function OverviewSection({
           <Card
             className={cn(
               "!gap-0 !py-0 h-full relative overflow-hidden transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
             )}
             role="button"
             tabIndex={0}
@@ -1898,7 +1898,7 @@ const OverviewSection = React.memo(function OverviewSection({
           <Card
             className={cn(
               "!gap-0 !py-0 h-full relative overflow-hidden transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
             )}
             role="button"
             tabIndex={0}
@@ -1939,7 +1939,7 @@ const OverviewSection = React.memo(function OverviewSection({
           <Card
             className={cn(
               "!gap-0 !py-0 h-full relative overflow-hidden transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
             )}
             role="button"
             tabIndex={0}
@@ -1976,7 +1976,7 @@ const OverviewSection = React.memo(function OverviewSection({
           <Card
             className={cn(
               "!gap-0 !py-0 h-full relative overflow-hidden transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
             )}
             role="button"
             tabIndex={0}
@@ -2015,7 +2015,7 @@ const OverviewSection = React.memo(function OverviewSection({
         <Card
           className={cn(
             "!gap-6 lg:h-full transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
           )}
           role="button"
           tabIndex={0}
@@ -2049,7 +2049,7 @@ const OverviewSection = React.memo(function OverviewSection({
                 value={
                   hasLiveSupply
                     ? `${formatCompactNumberPrecise(
-                        circulatingSupplyForSupplyCard
+                        circulatingSupplyForSupplyCard,
                       )} GLW`
                     : "—"
                 }
@@ -2186,7 +2186,7 @@ const SolarFarmEconomicsSection = React.memo(
                   value={farmSortKey}
                   onChange={(e) =>
                     setFarmSortKey(
-                      e.target.value as "latest" | "lifetime" | "credits"
+                      e.target.value as "latest" | "lifetime" | "credits",
                     )
                   }
                   className="rounded-lg border border-border/40 bg-background px-2.5 py-1.5 text-xs font-mono cursor-pointer hover:border-border/60 transition-colors"
@@ -2241,7 +2241,7 @@ const SolarFarmEconomicsSection = React.memo(
                 className={cn(
                   "!gap-0 !py-0 group overflow-hidden transition-all duration-200",
                   "hover:border-border/60 dark:hover:border-border/80 cursor-pointer",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 )}
               >
                 <CardContent className="p-0">
@@ -2306,7 +2306,7 @@ const SolarFarmEconomicsSection = React.memo(
         </div>
       </section>
     );
-  }
+  },
 );
 
 SolarFarmEconomicsSection.displayName = "SolarFarmEconomicsSection";
@@ -2364,15 +2364,18 @@ const LiquidityGctlWalletsSection = React.memo(
     const walletBreakdownRows = React.useMemo(
       () =>
         walletStats.breakdown.filter(
-          (row) => !/non-?participants?/i.test(row.label)
+          (row) => !/non-?participants?/i.test(row.label),
         ),
-      [walletStats.breakdown]
+      [walletStats.breakdown],
     );
 
     const walletBreakdownMaxPct = React.useMemo(
       () =>
-        walletBreakdownRows.reduce((maxPct, row) => Math.max(maxPct, row.pct), 0),
-      [walletBreakdownRows]
+        walletBreakdownRows.reduce(
+          (maxPct, row) => Math.max(maxPct, row.pct),
+          0,
+        ),
+      [walletBreakdownRows],
     );
 
     return (
@@ -2383,7 +2386,7 @@ const LiquidityGctlWalletsSection = React.memo(
           <Card
             className={cn(
               "!gap-6 h-full transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
             )}
             role="button"
             tabIndex={0}
@@ -2477,7 +2480,7 @@ const LiquidityGctlWalletsSection = React.memo(
           <Card
             className={cn(
               "!gap-6 transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
             )}
             role="button"
             tabIndex={0}
@@ -2567,10 +2570,10 @@ const LiquidityGctlWalletsSection = React.memo(
                           <ChartTooltipContent
                             formatter={(value, name) => {
                               const region = gctlRegionPieData.find(
-                                (r) => r.name === name
+                                (r) => r.name === name,
                               );
                               return `${formatCompactNumberPrecise(
-                                Number(value)
+                                Number(value),
                               )} (${region?.pct ?? 0}%)`;
                             }}
                           />
@@ -2606,7 +2609,7 @@ const LiquidityGctlWalletsSection = React.memo(
           <Card
             className={cn(
               "!gap-6 transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
             )}
             role="button"
             tabIndex={0}
@@ -2736,7 +2739,7 @@ const LiquidityGctlWalletsSection = React.memo(
         </div>
       </section>
     );
-  }
+  },
 );
 
 LiquidityGctlWalletsSection.displayName = "LiquidityGctlWalletsSection";
@@ -2791,7 +2794,7 @@ const DelegationRegionsAndImpactSection = React.memo(
             <Card
               className={cn(
                 "!gap-6 flex flex-col transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
               )}
               role="button"
               tabIndex={0}
@@ -2907,13 +2910,13 @@ const DelegationRegionsAndImpactSection = React.memo(
 
                               if (weekStart && weekEnd) {
                                 return `${formatDateShortUtc(
-                                  weekStart
+                                  weekStart,
                                 )} - ${formatDateShortUtc(weekEnd)} UTC`;
                               }
 
                               if (typeof label === "number") {
                                 return formatDateAxisUtc(
-                                  new Date(Number(label) - 1)
+                                  new Date(Number(label) - 1),
                                 );
                               }
                               return String(label ?? "");
@@ -2974,7 +2977,7 @@ const DelegationRegionsAndImpactSection = React.memo(
             <Card
               className={cn(
                 "!gap-6 transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
               )}
               role="button"
               tabIndex={0}
@@ -3020,11 +3023,11 @@ const DelegationRegionsAndImpactSection = React.memo(
                           region.lifetimeLq !== null && displayPrice > 0
                             ? {
                                 value: formatLiquidityCompact(
-                                  region.lifetimeLq
+                                  region.lifetimeLq,
                                 ),
                                 breakdown: getBreakdownFromLq(
                                   region.lifetimeLq,
-                                  displayPrice
+                                  displayPrice,
                                 ).breakdown,
                               }
                             : { value: "—", breakdown: "—" };
@@ -3032,11 +3035,11 @@ const DelegationRegionsAndImpactSection = React.memo(
                           region.ninetyDayLq !== null && displayPrice > 0
                             ? {
                                 value: formatLiquidityCompact(
-                                  region.ninetyDayLq
+                                  region.ninetyDayLq,
                                 ),
                                 breakdown: getBreakdownFromLq(
                                   region.ninetyDayLq,
-                                  displayPrice
+                                  displayPrice,
                                 ).breakdown,
                               }
                             : { value: "—", breakdown: "—" };
@@ -3053,7 +3056,7 @@ const DelegationRegionsAndImpactSection = React.memo(
                               <div className="text-[10px] sm:text-xs text-muted-foreground">
                                 {region.stakedGctl !== null
                                   ? `${formatNumber(
-                                      region.stakedGctl
+                                      region.stakedGctl,
                                     )} GCTL staked`
                                   : "—"}
                               </div>
@@ -3102,7 +3105,7 @@ const DelegationRegionsAndImpactSection = React.memo(
         />
       </>
     );
-  }
+  },
 );
 
 DelegationRegionsAndImpactSection.displayName =
@@ -3136,7 +3139,7 @@ const TokenEmissionsSection = React.memo(function TokenEmissionsSection({
       <Card
         className={cn(
           "!gap-6 transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         )}
         role="button"
         tabIndex={0}
@@ -3189,7 +3192,7 @@ const TokenEmissionsSection = React.memo(function TokenEmissionsSection({
                         const [y, m] = v.split("-");
                         const month = new Date(
                           Number(y),
-                          Number(m) - 1
+                          Number(m) - 1,
                         ).toLocaleString("en-US", { month: "short" });
                         return `${month} ${y!.slice(2)}`;
                       }
@@ -3218,7 +3221,7 @@ const TokenEmissionsSection = React.memo(function TokenEmissionsSection({
                             const [y, m] = label.split("-");
                             const month = new Date(
                               Number(y),
-                              Number(m) - 1
+                              Number(m) - 1,
                             ).toLocaleString("en-US", { month: "long" });
                             return `${month} ${y}`;
                           }
@@ -3359,7 +3362,7 @@ const TokenEmissionsSection = React.memo(function TokenEmissionsSection({
                 helper={
                   fdvUsd !== null && hasLivePrice
                     ? `${formatCompactNumberPrecise(
-                        FDV_TOTAL_TOKENS_GLW - (polGlwInPol ?? 0)
+                        FDV_TOTAL_TOKENS_GLW - (polGlwInPol ?? 0),
                       )} GLW at $${priceDetail}`
                     : "Live data unavailable"
                 }
@@ -3372,10 +3375,10 @@ const TokenEmissionsSection = React.memo(function TokenEmissionsSection({
                   <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
                     {vestingBreakdown
                       ? `${formatCompactNumberPrecise(
-                          vestingBreakdown.total
+                          vestingBreakdown.total,
                         )} GLW total`
                       : `${formatCompactNumberPrecise(
-                          FDV_TOTAL_TOKENS_GLW
+                          FDV_TOTAL_TOKENS_GLW,
                         )} GLW total`}
                   </div>
                 </div>
@@ -3474,7 +3477,7 @@ export function PolDashboardView() {
   const [isTokenEmissionsDialogOpen, setIsTokenEmissionsDialogOpen] =
     React.useState(false);
   const [selectedFarmId, setSelectedFarmId] = React.useState<string | null>(
-    null
+    null,
   );
   const [selectedRegionPrimary, setSelectedRegionPrimary] =
     React.useState<string>("");
@@ -3517,7 +3520,7 @@ export function PolDashboardView() {
         };
       });
     },
-    []
+    [],
   );
 
   const goBackModalBlog = React.useCallback((modal: ModalBlogKey) => {
@@ -3541,7 +3544,7 @@ export function PolDashboardView() {
         [modal]: { current: defaultBlog, history: [] },
       }));
     },
-    []
+    [],
   );
 
   const { poolReserves, priceRatio: poolSpotPrice } = usePoolInfo();
@@ -3558,8 +3561,8 @@ export function PolDashboardView() {
     ponderSpotPrice && Number.isFinite(ponderSpotPrice) && ponderSpotPrice > 0
       ? ponderSpotPrice
       : poolSpotPrice > 0
-      ? poolSpotPrice
-      : glowPrice;
+        ? poolSpotPrice
+        : glowPrice;
 
   const hasLivePrice = livePrice > 0;
   const currentPrice = hasLivePrice ? livePrice : 0;
@@ -3610,7 +3613,7 @@ export function PolDashboardView() {
       if (!Number.isFinite(id)) return "—";
       return regionNameById.get(id) ?? `Zone ${id}`;
     },
-    [regionNameById]
+    [regionNameById],
   );
 
   const gctlTotalSupply =
@@ -3637,7 +3640,7 @@ export function PolDashboardView() {
       activeRegionsSummary.regions.map((r) => [
         r.name,
         { label: r.name, color: REGION_COLORS[r.name] ?? DEFAULT_REGION_COLOR },
-      ])
+      ]),
     ) as Record<string, { label: string; color: string }>;
   }, [activeRegionsSummary]);
 
@@ -3678,7 +3681,7 @@ export function PolDashboardView() {
       protocolParticipantsRaw !== null
         ? Math.max(
             0,
-            Math.min(Math.round(protocolParticipantsRaw), totalWallets)
+            Math.min(Math.round(protocolParticipantsRaw), totalWallets),
           )
         : Math.max(delegatorCount, minerCount, gctlCount);
     const nonParticipants = Math.max(0, totalWallets - protocolParticipants);
@@ -3883,9 +3886,9 @@ export function PolDashboardView() {
   const delegationRatioDetail =
     totalDelegatedGlw !== null && currentCirculating > 0
       ? `${formatCompactNumberTwoDecimals(
-          totalDelegatedGlw
+          totalDelegatedGlw,
         )} of ${formatCompactNumberTwoDecimals(
-          currentCirculating
+          currentCirculating,
         )} circulating GLW delegated`
       : "Live data unavailable";
 
@@ -3960,7 +3963,7 @@ export function PolDashboardView() {
   const [price, setPrice] = React.useState(displayPrice);
   const [hasAdjustedSlider, setHasAdjustedSlider] = React.useState(false);
   const [sliderValue, setSliderValue] = React.useState(() =>
-    priceToLogSlider(displayPrice)
+    priceToLogSlider(displayPrice),
   );
   const resetSupplyModel = React.useCallback(() => {
     if (!hasLivePrice || livePrice <= 0) return;
@@ -4000,14 +4003,14 @@ export function PolDashboardView() {
       isAtLivePrice && poolUsdg > 0
         ? poolUsdg
         : k > 0 && effectivePrice > 0
-        ? Math.sqrt(k * effectivePrice)
-        : null;
+          ? Math.sqrt(k * effectivePrice)
+          : null;
     const modeledGlw =
       isAtLivePrice && poolGlw > 0
         ? poolGlw
         : k > 0 && effectivePrice > 0
-        ? Math.sqrt(k / effectivePrice)
-        : null;
+          ? Math.sqrt(k / effectivePrice)
+          : null;
 
     const poolDepthUsd =
       modeledUsdg !== null && modeledGlw !== null && effectivePrice > 0
@@ -4222,8 +4225,8 @@ export function PolDashboardView() {
           typeof auditWeekRaw === "string"
             ? Number(auditWeekRaw)
             : typeof auditWeekRaw === "number"
-            ? auditWeekRaw
-            : null;
+              ? auditWeekRaw
+              : null;
         const lifetimeWeeksTargetRaw =
           toFiniteNumber((farm as any).lifetime_weeks) ??
           toFiniteNumber((farm as any).projected_lifetime_weeks) ??
@@ -4232,13 +4235,13 @@ export function PolDashboardView() {
           100;
         const lifetimeWeeksTarget = Math.max(
           1,
-          Math.round(lifetimeWeeksTargetRaw)
+          Math.round(lifetimeWeeksTargetRaw),
         );
         const lifetimeWeeksElapsed =
           auditWeek !== null && Number.isFinite(auditWeek)
             ? Math.min(
                 lifetimeWeeksTarget,
-                Math.max(0, Math.floor(currentEpoch - auditWeek))
+                Math.max(0, Math.floor(currentEpoch - auditWeek)),
               )
             : null;
         const projectedLifetimeCreditsRaw =
@@ -4251,8 +4254,8 @@ export function PolDashboardView() {
           projectedLifetimeCreditsRaw !== null
             ? Math.max(0, projectedLifetimeCreditsRaw)
             : ccPerWeek > 0
-            ? ccPerWeek * lifetimeWeeksTarget
-            : null;
+              ? ccPerWeek * lifetimeWeeksTarget
+              : null;
 
         const recencyKey = (() => {
           // Prefer protocol week (monotonic) when available.
@@ -4331,7 +4334,7 @@ export function PolDashboardView() {
     const proxyUrl = buildImageProxyUrl(
       imageUrl,
       FARM_IMAGE_MODAL_WIDTH,
-      FARM_IMAGE_MODAL_QUALITY
+      FARM_IMAGE_MODAL_QUALITY,
     );
     if (!proxyUrl || prefetchedFarmImageUrlsRef.current.has(proxyUrl)) return;
 
@@ -4351,7 +4354,7 @@ export function PolDashboardView() {
       resetModalBlog("farm");
       setIsFarmDialogOpen(true);
     },
-    [prefetchFarmImage, resetModalBlog]
+    [prefetchFarmImage, resetModalBlog],
   );
 
   const sortedFarmRows = React.useMemo(() => {
@@ -4388,7 +4391,7 @@ export function PolDashboardView() {
   // Randomize teaser order on every page load.
   const teaserSeed = React.useMemo(
     () => Math.floor(Math.random() * 2147483647),
-    []
+    [],
   );
 
   const farmRowsTeaser = React.useMemo(() => {
@@ -4489,10 +4492,10 @@ export function PolDashboardView() {
       vaultedStart = Number(formatUnits(BigInt(vaultedStartWei), 18));
       vaultedEnd = Number(formatUnits(BigInt(vaultedEndWei), 18));
       totalSupplyStart = Number(
-        formatUnits(BigInt(startRow.breakdown.total_supply_wei), 18)
+        formatUnits(BigInt(startRow.breakdown.total_supply_wei), 18),
       );
       totalSupplyEnd = Number(
-        formatUnits(BigInt(endRow.breakdown.total_supply_wei), 18)
+        formatUnits(BigInt(endRow.breakdown.total_supply_wei), 18),
       );
     } catch {
       return null;
@@ -4655,7 +4658,7 @@ export function PolDashboardView() {
       lq,
       usd,
       breakdown: `$${formatCompactNumber(usdg)} / ${formatCompactNumber(
-        glw
+        glw,
       )} GLW`,
     };
   }, [polSummary, displayPrice, totalPolLq]);
@@ -4672,7 +4675,7 @@ export function PolDashboardView() {
     const sorted = series.slice().sort((a, b) => a.weekNumber - b.weekNumber);
     const completed = sorted.length > 1 ? sorted.slice(0, -1) : sorted;
     const windowed = completed.filter(
-      (row) => row.weekNumber >= POL_LIQUIDITY_V2_START_WEEK
+      (row) => row.weekNumber >= POL_LIQUIDITY_V2_START_WEEK,
     );
     if (windowed.length < 2) return null;
 
@@ -4770,7 +4773,7 @@ export function PolDashboardView() {
     });
     const totalStakedAcrossRegions = parsed.reduce(
       (sum, row) => sum + (row.stakedGctl ?? 0),
-      0
+      0,
     );
     return parsed.map((row) => ({
       ...row,
@@ -4808,7 +4811,7 @@ export function PolDashboardView() {
       return;
     }
     const hasPrimary = regionsTableRows.some(
-      (r) => r.region === selectedRegionPrimary
+      (r) => r.region === selectedRegionPrimary,
     );
     if (!hasPrimary) {
       setSelectedRegionPrimary(regionsTableRows[0]!.region);
@@ -4827,7 +4830,7 @@ export function PolDashboardView() {
       resetModalBlog("growthCards", GROWTH_CARD_BLOG[card]);
       setIsGrowthCardsDialogOpen(true);
     },
-    [resetModalBlog]
+    [resetModalBlog],
   );
 
   const { data: vestingSchedule } = useGlwVestingSchedule();
@@ -4858,8 +4861,7 @@ export function PolDashboardView() {
         key: "embeddedGrowth" as const,
         label: (
           <>
-            Embedded Liquidity Growth (<span className="normal-case">MoM</span>
-            )
+            Embedded Liquidity Growth (<span className="normal-case">MoM</span>)
           </>
         ),
         value: polGrowthMoMDisplay,
@@ -4870,7 +4872,7 @@ export function PolDashboardView() {
       polTrailingPolGrowthDisplay?.lq,
       supplyGrowthAnnualDisplay,
       totalSolarInstallations,
-    ]
+    ],
   );
 
   const primaryRegionRow = React.useMemo(() => {
@@ -5012,7 +5014,7 @@ export function PolDashboardView() {
                   value={
                     liquidCirculatingModeled !== null
                       ? `${formatCompactNumberPrecise(
-                          liquidCirculatingModeled
+                          liquidCirculatingModeled,
                         )} GLW`
                       : "—"
                   }
@@ -5297,7 +5299,7 @@ export function PolDashboardView() {
                       "rounded-2xl border p-4 text-left transition-all duration-200",
                       isActive
                         ? "border-glow-orange/40 bg-glow-orange/5 ring-1 ring-glow-orange/20"
-                        : "border-border/20 bg-card hover:border-border/40"
+                        : "border-border/20 bg-card hover:border-border/40",
                     )}
                     onClick={() => {
                       setSelectedGrowthCard(item.key);
@@ -5474,10 +5476,10 @@ export function PolDashboardView() {
                           <ChartTooltipContent
                             formatter={(value, name) => {
                               const region = gctlRegionPieData.find(
-                                (r) => r.name === name
+                                (r) => r.name === name,
                               );
                               return `${formatCompactNumberPrecise(
-                                Number(value)
+                                Number(value),
                               )} (${region?.pct ?? 0}%)`;
                             }}
                           />
@@ -5687,13 +5689,13 @@ export function PolDashboardView() {
 
                             if (weekStart && weekEnd) {
                               return `${formatDateShortUtc(
-                                weekStart
+                                weekStart,
                               )} - ${formatDateShortUtc(weekEnd)} UTC`;
                             }
 
                             if (typeof label === "number") {
                               return formatDateAxisUtc(
-                                new Date(Number(label) - 1)
+                                new Date(Number(label) - 1),
                               );
                             }
                             return String(label ?? "");
@@ -5768,7 +5770,7 @@ export function PolDashboardView() {
                       "rounded-lg px-3 py-1.5 text-xs font-mono transition-colors",
                       selectedRegionPrimary === row.region
                         ? "bg-foreground text-background"
-                        : "bg-muted/30 dark:bg-muted/50 text-muted-foreground hover:bg-muted/50 dark:hover:bg-muted/70"
+                        : "bg-muted/30 dark:bg-muted/50 text-muted-foreground hover:bg-muted/50 dark:hover:bg-muted/70",
                     )}
                     onClick={() => setSelectedRegionPrimary(row.region)}
                   >
@@ -5788,13 +5790,13 @@ export function PolDashboardView() {
                       value={
                         primaryRegionRow.glwPerWeek !== null
                           ? formatCompactNumberPrecise(
-                              primaryRegionRow.glwPerWeek
+                              primaryRegionRow.glwPerWeek,
                             )
                           : primaryRegionRow.ccPerWeek !== null
-                          ? formatCompactNumberPrecise(
-                              primaryRegionRow.ccPerWeek
-                            )
-                          : "—"
+                            ? formatCompactNumberPrecise(
+                                primaryRegionRow.ccPerWeek,
+                              )
+                            : "—"
                       }
                       valueClassName="text-lg sm:text-xl tracking-tight"
                     />
@@ -5803,7 +5805,7 @@ export function PolDashboardView() {
                       value={
                         primaryRegionRow.stakedGctl !== null
                           ? formatCompactNumberPrecise(
-                              primaryRegionRow.stakedGctl
+                              primaryRegionRow.stakedGctl,
                             )
                           : "—"
                       }
@@ -5822,9 +5824,9 @@ export function PolDashboardView() {
                       label="Total PDs"
                       value={
                         primaryRegionRow.totalPds !== null
-                          ? formatCompactNumberPrecise(
-                              primaryRegionRow.totalPds
-                            )
+                          ? `$${formatCompactNumberPrecise(
+                              primaryRegionRow.totalPds,
+                            )}`
                           : "—"
                       }
                       valueClassName="text-lg sm:text-xl tracking-tight"
@@ -5834,7 +5836,7 @@ export function PolDashboardView() {
                       value={
                         primaryRegionRow.gctlPerPd !== null
                           ? formatCompactNumberTwoDecimals(
-                              primaryRegionRow.gctlPerPd * 1000
+                              primaryRegionRow.gctlPerPd * 1000,
                             )
                           : "—"
                       }
@@ -5863,7 +5865,7 @@ export function PolDashboardView() {
                         <div className="mt-2 text-4xl sm:text-5xl font-mono font-semibold tabular-nums text-foreground tracking-tighter">
                           {primaryRegionRow.lifetimeLq !== null
                             ? formatLiquidityCompact(
-                                primaryRegionRow.lifetimeLq
+                                primaryRegionRow.lifetimeLq,
                               )
                             : "—"}
                         </div>
@@ -5875,7 +5877,7 @@ export function PolDashboardView() {
                         <div className="mt-2 text-4xl sm:text-5xl font-mono font-semibold tabular-nums text-foreground tracking-tighter">
                           {primaryRegionRow.ninetyDayLq !== null
                             ? formatLiquidityCompact(
-                                primaryRegionRow.ninetyDayLq
+                                primaryRegionRow.ninetyDayLq,
                               )
                             : "—"}
                         </div>
@@ -6004,7 +6006,7 @@ export function PolDashboardView() {
               <div className="text-[10px] font-mono text-muted-foreground/50 dark:text-muted-foreground/70 uppercase tracking-wider mt-2">
                 {fdvUsd !== null && hasLivePrice
                   ? `${formatCompactNumberPrecise(
-                      FDV_TOTAL_TOKENS_GLW - (polGlwInPol ?? 0)
+                      FDV_TOTAL_TOKENS_GLW - (polGlwInPol ?? 0),
                     )} GLW at $${priceDetail}`
                   : "Live data unavailable"}
               </div>
