@@ -1,3 +1,6 @@
+import "server-only";
+
+import { unstable_cache } from "next/cache";
 import { QueryClient } from "@tanstack/react-query";
 import type {
   MiningScoreParams,
@@ -32,6 +35,7 @@ import type {
 
 const SPONSOR_LISTINGS_ENDPOINT = "/applications/sponsor-listings-applications";
 const PREFETCH_TIMEOUT_MS = 3_000;
+const DASHBOARD_LISTINGS_REVALIDATE_SECONDS = 30;
 
 export const DASHBOARD_SSR_LISTING_FILTERS = {
   launchpadStatus: {} as const,
@@ -103,13 +107,20 @@ async function withTimeout<T>(
 async function defaultFetchListings(
   filters: SponsorListingsFilters
 ): Promise<AuctionApplication[]> {
-  return await withSignalTimeout((signal) =>
-    hubGet<AuctionApplication[]>(SPONSOR_LISTINGS_ENDPOINT, {
-      params: { ...filters },
-      init: { signal },
-    })
-  );
+  return await withTimeout(getCachedSponsorListings(filters));
 }
+
+const getCachedSponsorListings = unstable_cache(
+  async (filters: SponsorListingsFilters) =>
+    await hubGet<AuctionApplication[]>(SPONSOR_LISTINGS_ENDPOINT, {
+      params: { ...filters },
+    }),
+  ["dashboard-sponsor-listings"],
+  {
+    revalidate: DASHBOARD_LISTINGS_REVALIDATE_SECONDS,
+    tags: ["dashboard-sponsor-listings"],
+  }
+);
 
 export async function prefetchDashboardLaunchpadData(
   queryClient: QueryClient,

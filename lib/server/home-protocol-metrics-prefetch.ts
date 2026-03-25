@@ -1,3 +1,6 @@
+import "server-only";
+
+import { unstable_cache } from "next/cache";
 import { QueryClient } from "@tanstack/react-query";
 import type { HeadlineStats } from "./headline-stats";
 import type { TotalActivelyDelegatedResponse } from "../../hooks/hub-fractions";
@@ -6,6 +9,7 @@ import { QUERY_KEYS } from "../../hooks/query-keys";
 import { hubGet } from "../api/hub-client";
 
 const PREFETCH_TIMEOUT_MS = 3_000;
+const HOME_TOTAL_DELEGATED_REVALIDATE_SECONDS = 60;
 
 interface HomeProtocolMetricsPrefetchOptions {
   headlineStats?: HeadlineStats | null;
@@ -23,6 +27,37 @@ async function withSignalTimeout<T>(
     clearTimeout(timer);
   }
 }
+
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number = PREFETCH_TIMEOUT_MS
+): Promise<T> {
+  return await new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`Timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+
+    promise
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+  });
+}
+
+const getCachedTotalActivelyDelegated = unstable_cache(
+  async () =>
+    await hubGet<TotalActivelyDelegatedResponse>("/fractions/total-actively-delegated"),
+  ["home-total-actively-delegated"],
+  {
+    revalidate: HOME_TOTAL_DELEGATED_REVALIDATE_SECONDS,
+    tags: ["home-total-actively-delegated"],
+  }
+);
 
 export async function prefetchHomeProtocolMetricsData(
   queryClient: QueryClient,
@@ -48,11 +83,7 @@ export async function prefetchHomeProtocolMetricsData(
   if (!hubUrl) return;
 
   await Promise.allSettled([
-    withSignalTimeout((signal) =>
-      hubGet<TotalActivelyDelegatedResponse>("/fractions/total-actively-delegated", {
-        init: { signal },
-      })
-    ).then((data) => {
+    withTimeout(getCachedTotalActivelyDelegated()).then((data) => {
       queryClient.setQueryData(QUERY_KEYS.fractions.totalActivelyDelegated(), data);
     }),
     withSignalTimeout(async (signal) => {
