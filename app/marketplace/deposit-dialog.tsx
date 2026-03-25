@@ -1500,6 +1500,12 @@ export function DepositDialog({
     } catch (e: any) {
       console.error(e);
       const rawMsg = getErrorMessage(e) || "Transaction failed";
+      const errorTxHash =
+        typeof e?.txHash === "string"
+          ? e.txHash
+          : typeof e?.cause?.txHash === "string"
+            ? e.cause.txHash
+            : null;
 
       // Check multiple places where viem might store the custom error name
       const errorName =
@@ -1529,10 +1535,11 @@ export function DepositDialog({
           application_id: application?.id ?? null,
           fraction_id: application?.activeFraction?.id ?? null,
           quantity,
-          tx_hash: txHash ?? null,
+          tx_hash: errorTxHash ?? txHash ?? null,
           failed_step: activeStep?.id ?? null,
         });
 
+        setTxHash(errorTxHash ?? txHash ?? null);
         setPhase("pending_confirmation");
         setErrorMessage(rawMsg);
         setIsInsufficientSharesError(false);

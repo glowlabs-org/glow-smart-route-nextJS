@@ -23,8 +23,11 @@ const ERC20_APPROVAL_ABI = [
 
 const ALLOWANCE_NOT_VISIBLE_ERROR =
   "Your token approval is confirmed but not visible to the next transaction yet. Please wait a moment and retry.";
+const RECEIPT_NOT_FOUND_ERROR = "Transaction receipt not found within";
+const SPLIT_CONFIRMATION_DELAYED_MESSAGE =
+  "Transaction submitted but confirmation is delayed. Please refresh before retrying.";
 
-function toErrorWithCause(error: unknown): Error {
+function toErrorWithCause(error: unknown, extras?: { txHash?: string }): Error {
   const message =
     parseViemError(error) ||
     (error instanceof Error ? error.message : "Unknown error");
@@ -37,6 +40,25 @@ function toErrorWithCause(error: unknown): Error {
   if (!(error instanceof Error) && error !== undefined) {
     (wrapped as Error & { cause?: unknown }).cause = error;
   }
+
+  if (extras?.txHash) {
+    (wrapped as Error & { txHash?: string }).txHash = extras.txHash;
+  }
+
+  return wrapped;
+}
+
+function toDelayedConfirmationError(error: unknown, txHash: string): Error {
+  const wrapped = new Error(
+    SPLIT_CONFIRMATION_DELAYED_MESSAGE,
+    error instanceof Error ? { cause: error } : undefined,
+  );
+
+  if (!(error instanceof Error) && error !== undefined) {
+    (wrapped as Error & { cause?: unknown }).cause = error;
+  }
+
+  (wrapped as Error & { txHash?: string }).txHash = txHash;
 
   return wrapped;
 }
@@ -141,7 +163,20 @@ export function usePatchedOffchainFractions(
       });
 
       const hash = await walletClient.writeContract(request);
-      await waitForViemTransactionWithRetry(publicClient, hash);
+
+      try {
+        await waitForViemTransactionWithRetry(publicClient, hash);
+      } catch (error) {
+        const errorMessage =
+          parseViemError(error) ||
+          (error instanceof Error ? error.message : "Unknown error");
+
+        if (errorMessage.includes(RECEIPT_NOT_FOUND_ERROR)) {
+          throw toDelayedConfirmationError(error, hash);
+        }
+
+        throw toErrorWithCause(error, { txHash: hash });
+      }
 
       return hash;
     } catch (error) {
