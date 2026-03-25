@@ -160,6 +160,7 @@ export interface ReferralDashboardKolPaybackResponse {
   program: {
     paybackPercent: number;
     eligibleKolWallets: string[];
+    startedAt: string;
     eligibilityRule: string;
   };
   summary: {

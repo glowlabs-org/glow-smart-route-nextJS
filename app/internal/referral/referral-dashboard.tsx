@@ -88,6 +88,14 @@ function formatDate(isoString: string) {
   });
 }
 
+function formatLongDate(isoString: string) {
+  return new Date(isoString).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 function formatDateTime(isoString: string) {
   return new Date(isoString).toLocaleString("en-US", {
     month: "short",
@@ -827,6 +835,9 @@ function KolPaybackExport({
           <div className="text-sm font-medium">KoL Miner Export</div>
           <p className="text-sm text-muted-foreground/60 dark:text-muted-foreground/80 mt-1">
             Eligible mining-center sales grouped by protocol week and current referrer.
+            {data
+              ? ` Program start: ${formatLongDate(data.program.startedAt)}.`
+              : " Program start: March 2, 2026."}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -882,6 +893,9 @@ function KolPaybackExport({
               </div>
               <div className="mt-1 text-xs text-muted-foreground/60">
                 Week {data.range.startWeek} to Week {data.range.endWeek}
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground/50">
+                {formatDate(data.range.startWeekAt)} to {formatDate(data.range.endWeekAt)}
               </div>
             </div>
             <div className="rounded-2xl border border-border/20 dark:border-border/40 p-5">
