@@ -178,6 +178,54 @@ export interface ImpactWalletStatsResponse {
   delegationWeek: number;
 }
 
+async function fetchImpactApi<T>(params: {
+  path: string;
+  query?: Record<string, string | number | boolean | null | undefined>;
+}): Promise<T> {
+  const url = new URL(params.path, window.location.origin);
+
+  for (const [key, value] of Object.entries(params.query || {})) {
+    if (value === null || value === undefined) continue;
+    url.searchParams.set(key, String(value));
+  }
+
+  const response = await fetch(url.toString(), {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  const text = await response.text();
+  let payload: unknown = null;
+  if (text) {
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      payload = text;
+    }
+  }
+
+  if (!response.ok) {
+    if (
+      payload &&
+      typeof payload === "object" &&
+      "error" in payload &&
+      typeof (payload as { error?: unknown }).error === "string"
+    ) {
+      throw new Error((payload as { error: string }).error);
+    }
+
+    throw new Error(
+      typeof payload === "string"
+        ? payload
+        : `Request failed (${response.status})`
+    );
+  }
+
+  return payload as T;
+}
+
 export function useImpactLeaderboardQuery(
   args: UseImpactLeaderboardQueryArgs = {}
 ) {
@@ -195,16 +243,14 @@ export function useImpactLeaderboardQuery(
     retry: 0,
     queryFn: async (): Promise<ImpactGlowScoreLeaderboardResponse> => {
       try {
-        return await hubGet<ImpactGlowScoreLeaderboardResponse>(
-          "/impact/glow-score",
-          {
-            params: {
-              limit: limit ?? undefined,
-              sort: sort ?? undefined,
-              dir: dir ?? undefined,
-            },
-          }
-        );
+        return await fetchImpactApi<ImpactGlowScoreLeaderboardResponse>({
+          path: "/api/impact/glow-score",
+          query: {
+            limit: limit ?? undefined,
+            sort: sort ?? undefined,
+            dir: dir ?? undefined,
+          },
+        });
       } catch (error) {
         toast.error("Failed to load Impact leaderboard", {
           description: error instanceof Error ? error.message : String(error),
@@ -287,6 +333,7 @@ export interface UseImpactScoreQueryArgs {
   includeWeekly?: boolean;
   includeProjection?: boolean;
   includeReferral?: boolean;
+  summaryOnly?: boolean;
 }
 
 export function useImpactScoreQuery(args: UseImpactScoreQueryArgs) {
@@ -298,6 +345,7 @@ export function useImpactScoreQuery(args: UseImpactScoreQueryArgs) {
     includeWeekly = false,
     includeProjection = true,
     includeReferral = true,
+    summaryOnly = false,
   } = args;
 
   const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
@@ -308,6 +356,7 @@ export function useImpactScoreQuery(args: UseImpactScoreQueryArgs) {
       includeWeekly ? "weekly" : "no-weekly",
       includeProjection ? "projection" : "no-projection",
       includeReferral ? "referral" : "no-referral",
+      summaryOnly ? "summary-only" : "full",
     ],
     enabled: Boolean(enabled && normalizedWalletAddress && weekRange),
     staleTime: 60_000,
@@ -317,14 +366,16 @@ export function useImpactScoreQuery(args: UseImpactScoreQueryArgs) {
         if (!normalizedWalletAddress) throw new Error("Missing wallet address");
         if (!weekRange) throw new Error("Missing week range");
 
-        return await hubGet<ImpactGlowScoreResponse>("/impact/glow-score", {
-          params: {
+        return await fetchImpactApi<ImpactGlowScoreResponse>({
+          path: "/api/impact/glow-score",
+          query: {
             walletAddress: normalizedWalletAddress,
             startWeek: weekRange.startWeek,
             endWeek: weekRange.endWeek,
             includeWeekly: includeWeekly ? "1" : "0",
             includeProjection: includeProjection ? "1" : "0",
             includeReferral: includeReferral ? "1" : "0",
+            summaryOnly: summaryOnly ? "1" : undefined,
           },
         });
       } catch (error) {
@@ -377,8 +428,9 @@ export function useImpactGlowWorthQuery(args: UseImpactGlowWorthQueryArgs) {
         if (!normalizedWalletAddress) throw new Error("Missing wallet address");
         if (!weekRange) throw new Error("Missing week range");
 
-        return await hubGet<ImpactGlowWorthResponse>("/impact/glow-worth", {
-          params: {
+        return await fetchImpactApi<ImpactGlowWorthResponse>({
+          path: "/api/impact/glow-worth",
+          query: {
             walletAddress: normalizedWalletAddress,
             startWeek: weekRange.startWeek,
             endWeek: weekRange.endWeek,

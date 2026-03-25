@@ -29,7 +29,7 @@ import {
   AnimatedCountdownDhms,
   useCountdownTo,
 } from "@/app/components/animated-countdown";
-import { GENESIS_TIMESTAMP, getCurrentEpoch } from "@/utils/getCurrentEpoch";
+import { GENESIS_TIMESTAMP } from "@/utils/getCurrentEpoch";
 import { Input } from "@/components/ui/input";
 import {
   Pagination,
@@ -503,7 +503,7 @@ function ImpactHero(props: {
 
     // Already at or near rank 1
     return 1;
-  }, [selfPoints, estimatedCurrentRank, selfGlobalRank]);
+  }, [selfPoints, estimatedCurrentRank, selfGlobalRank, rows.length]);
 
   // Find the target row from the cached leaderboard
   const targetRow = React.useMemo(() => {
@@ -1020,6 +1020,7 @@ function ImpactHero(props: {
 export function ImpactView() {
   const { address } = useAccount();
   const normalizedAddress = address?.toLowerCase() ?? "";
+  const PAGE_SIZE = 50;
 
   const [page, setPage] = useQueryState("page", parseAsInteger.withDefault(1));
   const [search, setSearch] = useQueryState(
@@ -1038,24 +1039,27 @@ export function ImpactView() {
     return "totalPoints" as const;
   })();
   const sortDir = dir === "asc" ? ("asc" as const) : ("desc" as const);
+  const deferredSearch = React.useDeferredValue(search.trim().toLowerCase());
+  const requestedLeaderboardLimit = React.useMemo(() => {
+    if (deferredSearch) return 1000;
+    return Math.min(1000, Math.max(250, page * PAGE_SIZE));
+  }, [deferredSearch, page]);
 
   const leaderboardQuery = useImpactLeaderboardQuery({
-    limit: 1000,
+    limit: requestedLeaderboardLimit,
     sort: sortKey,
     dir: sortDir,
   });
 
   const weekRange = leaderboardQuery.data?.weekRange ?? null;
-  const currentWeek = React.useMemo(() => getCurrentEpoch(), []);
 
-  // Fetch current week data for live score (not cached)
+  // Use cached finalized totals plus a lightweight current-week projection overlay.
   const selfScoreQuery = useImpactScoreQuery({
     walletAddress: address ?? null,
-    weekRange: weekRange
-      ? { startWeek: weekRange.startWeek, endWeek: currentWeek }
-      : null,
+    weekRange,
     enabled: Boolean(address && weekRange),
     toastTitle: "Failed to load your Impact Score",
+    summaryOnly: true,
   });
 
   const selfProjection = selfScoreQuery.data?.currentWeekProjection ?? null;
@@ -1081,7 +1085,7 @@ export function ImpactView() {
     leaderboardQuery.data?.totalWalletCount ?? allRows.length;
   const totalWalletCountDisplay =
     leaderboardQuery.data?.totalWalletCount ?? null;
-  const searchLower = search.trim().toLowerCase();
+  const searchLower = deferredSearch;
 
   const allWalletAddresses = React.useMemo(
     () => allRows.map((row) => row.walletAddress),
@@ -1137,7 +1141,6 @@ export function ImpactView() {
   // Sorting is backend-driven; filtering preserves backend order.
   const orderedRows = filteredRows;
 
-  const PAGE_SIZE = 50;
   const totalPages = Math.max(1, Math.ceil(orderedRows.length / PAGE_SIZE));
   const safePage = Math.min(Math.max(1, page), totalPages);
   const startIdx = (safePage - 1) * PAGE_SIZE;
