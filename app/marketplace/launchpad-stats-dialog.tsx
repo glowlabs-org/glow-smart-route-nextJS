@@ -9,7 +9,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  calculateProtocolDepositAmount,
   type AuctionApplication,
 } from "@/hooks";
 import { formatUnits } from "viem";
@@ -32,7 +31,7 @@ import { RegionRouter } from "@glowlabs-org/utils/browser";
 import { cn } from "@/lib/utils";
 import {
   calculateLaunchpadPerShareRewards,
-  parseDelegationAmountFromBaseUnits,
+  parseDelegationStepAmount,
   parseUsd6Amount,
   resolveDelegationCurrency,
 } from "@/utils/launchpad-rewards";
@@ -98,21 +97,7 @@ export function LaunchpadStatsDialog({
   const delegationCurrency = resolveDelegationCurrency(application);
 
   // Total delegation amount per fraction (GLW during GLW phase, SGCTL during SGCTL phase)
-  const fractionStep = application?.activeFraction?.step;
-  const totalDelegationPerFraction = (() => {
-    if (!application) return 0;
-    const quoteAmount = calculateProtocolDepositAmount(
-      application.finalProtocolFee,
-      application.applicationPriceQuotes,
-      delegationCurrency,
-    );
-    if (quoteAmount) {
-      const parsedQuote = Number.parseFloat(quoteAmount);
-      if (Number.isFinite(parsedQuote) && parsedQuote > 0) return parsedQuote;
-    }
-    if (!fractionStep) return 0;
-    return parseDelegationAmountFromBaseUnits(fractionStep, delegationCurrency);
-  })();
+  const totalDelegationPerFraction = parseDelegationStepAmount(application);
 
   // Weekly CCs from application
   const weeklyCC = application?.auditFields?.netCarbonCreditEarningWeekly ?? 0;
@@ -183,12 +168,15 @@ export function LaunchpadStatsDialog({
   const costPerFractionUsdValue = (() => {
     if (application?.finalProtocolFee) {
       try {
-        return parseFloat(
+        const totalProtocolDepositUsd = parseFloat(
           formatUnits(
             BigInt(application.finalProtocolFee),
             DECIMALS_BY_TOKEN["USDC"],
           ),
         );
+        if (Number.isFinite(totalProtocolDepositUsd) && totalProtocolDepositUsd > 0) {
+          return totalProtocolDepositUsd / stepsForMath;
+        }
       } catch {
         return 0;
       }
