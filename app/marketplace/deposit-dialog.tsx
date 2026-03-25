@@ -240,6 +240,7 @@ export function DepositDialog({
   const [isSmartAccountWarningOpen, setIsSmartAccountWarningOpen] =
     React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const submitInFlightRef = React.useRef(false);
   const [phase, setPhase] = React.useState<Phase>("review");
   const [transactionSteps, setTransactionSteps] = React.useState<
     TransactionStep[]
@@ -1097,64 +1098,67 @@ export function DepositDialog({
       return;
     }
 
-    // Check smart account
-    const isSafe = await handleSmartAccountCheck();
-    if (!isSafe) return;
-
-    const currentApplication =
-      (await fetchLatestApplication()) ?? effectiveApplication;
-    const activeFraction = currentApplication?.activeFraction;
-    if (!currentApplication || !activeFraction) return;
-
-    setLiveApplication(currentApplication);
-
-    const availableSteps = Math.max(
-      0,
-      Math.floor(activeFraction.remainingSteps ?? 0),
-    );
-    if (availableSteps <= 0) {
-      toast.error("This listing is no longer available.");
-      return;
-    }
-    if (quantity > availableSteps) {
-      setQuantity(availableSteps);
-      setQuantityInput(availableSteps.toString());
-      toast.error(
-        `Only ${availableSteps} step${availableSteps === 1 ? "" : "s"} remaining for this listing.`,
-      );
-      return;
-    }
-
-    const isSwapDelegate =
-      runtimeSelectedCurrency === "GLW" && selectedPaymentMethod !== "GLW";
-    const currentDelegationStepAtomic = resolveDelegationStepAtomic({
-      activeFraction,
-      applicationPriceQuotes: currentApplication.applicationPriceQuotes,
-      selectedCurrency: runtimeSelectedCurrency,
-    });
-    const currentAffordability = calculateAffordability({
-      activeFraction,
-      delegationStepAtomic: currentDelegationStepAtomic,
-      quantity,
-      selectedCurrency: runtimeSelectedCurrency,
-      selectedPaymentMethod,
-      glwSpotPrice,
-      gctlSpotPrice: gctlPriceNumber,
-      ethSpotPrice,
-      glwBalance: glwBalance ?? 0n,
-      gctlBalance: gctlWalletBalance,
-      stakedGctlBalance,
-      usdcBalance: usdcBalance ?? 0n,
-      ethBalance: ethBalance ?? 0n,
-    });
-    const currentSgctlRequiredAmount =
-      currentAffordability.requiredByMethod.SGCTL ?? 0n;
-    const currentSgctlShortfall =
-      currentSgctlRequiredAmount > stakedGctlBalance
-        ? currentSgctlRequiredAmount - stakedGctlBalance
-        : 0n;
+    if (submitInFlightRef.current || isSubmitting) return;
+    submitInFlightRef.current = true;
 
     try {
+      // Block duplicate taps before React has time to commit the disabled button state.
+      const isSafe = await handleSmartAccountCheck();
+      if (!isSafe) return;
+
+      const currentApplication =
+        (await fetchLatestApplication()) ?? effectiveApplication;
+      const activeFraction = currentApplication?.activeFraction;
+      if (!currentApplication || !activeFraction) return;
+
+      setLiveApplication(currentApplication);
+
+      const availableSteps = Math.max(
+        0,
+        Math.floor(activeFraction.remainingSteps ?? 0),
+      );
+      if (availableSteps <= 0) {
+        toast.error("This listing is no longer available.");
+        return;
+      }
+      if (quantity > availableSteps) {
+        setQuantity(availableSteps);
+        setQuantityInput(availableSteps.toString());
+        toast.error(
+          `Only ${availableSteps} step${availableSteps === 1 ? "" : "s"} remaining for this listing.`,
+        );
+        return;
+      }
+
+      const isSwapDelegate =
+        runtimeSelectedCurrency === "GLW" && selectedPaymentMethod !== "GLW";
+      const currentDelegationStepAtomic = resolveDelegationStepAtomic({
+        activeFraction,
+        applicationPriceQuotes: currentApplication.applicationPriceQuotes,
+        selectedCurrency: runtimeSelectedCurrency,
+      });
+      const currentAffordability = calculateAffordability({
+        activeFraction,
+        delegationStepAtomic: currentDelegationStepAtomic,
+        quantity,
+        selectedCurrency: runtimeSelectedCurrency,
+        selectedPaymentMethod,
+        glwSpotPrice,
+        gctlSpotPrice: gctlPriceNumber,
+        ethSpotPrice,
+        glwBalance: glwBalance ?? 0n,
+        gctlBalance: gctlWalletBalance,
+        stakedGctlBalance,
+        usdcBalance: usdcBalance ?? 0n,
+        ethBalance: ethBalance ?? 0n,
+      });
+      const currentSgctlRequiredAmount =
+        currentAffordability.requiredByMethod.SGCTL ?? 0n;
+      const currentSgctlShortfall =
+        currentSgctlRequiredAmount > stakedGctlBalance
+          ? currentSgctlRequiredAmount - stakedGctlBalance
+          : 0n;
+
       setIsSubmitting(true);
       setPhase("processing");
       setErrorMessage(null);
@@ -1640,6 +1644,7 @@ export function DepositDialog({
         toast.error(msg);
       }
     } finally {
+      submitInFlightRef.current = false;
       setIsSubmitting(false);
     }
   };
