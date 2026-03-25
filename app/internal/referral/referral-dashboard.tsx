@@ -14,6 +14,8 @@ import {
   Pie,
   AreaChart,
   Area,
+  BarChart,
+  Bar,
 } from "recharts";
 
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +41,7 @@ import {
   type ReferralDashboardResponse,
   type ReferralDashboardKolPaybackRangePreset,
   type ReferralDashboardKolPaybackResponse,
+  type ReferralDashboardWeeklyReferralActivity,
 } from "@/hooks/useReferralDashboard";
 
 function formatWallet(wallet: string) {
@@ -323,6 +326,101 @@ function WeeklyPointsChart({
         <span className="flex items-center gap-2">
           <span className="w-3 h-0.5 bg-[#22c55e] rounded-full" />
           Referee Bonus
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function WeeklyReferralActivityChart({
+  data,
+}: {
+  data: ReferralDashboardWeeklyReferralActivity[];
+}) {
+  const chartData = data
+    .slice()
+    .reverse()
+    .map((week) => ({
+      ...week,
+      week: week.label,
+    }));
+  const totalActivity = chartData.reduce(
+    (sum, week) => sum + week.referralsLinked + week.activations,
+    0
+  );
+
+  if (chartData.length === 0 || totalActivity === 0) {
+    return (
+      <div className="h-64 flex items-center justify-center">
+        <span className="text-sm text-muted-foreground/50">
+          No weekly referral activity yet
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <ResponsiveContainer width="100%" height={240}>
+        <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+          <CartesianGrid
+            strokeDasharray="3 3"
+            vertical={false}
+            stroke="hsl(var(--border)/0.2)"
+          />
+          <XAxis
+            dataKey="week"
+            tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground)/0.5)" }}
+            axisLine={false}
+            tickLine={false}
+          />
+          <YAxis
+            allowDecimals={false}
+            tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground)/0.5)" }}
+            axisLine={false}
+            tickLine={false}
+          />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: "hsl(var(--card))",
+              border: "1px solid hsl(var(--border)/0.4)",
+              borderRadius: "12px",
+              fontSize: "12px",
+            }}
+            labelFormatter={(_label, payload) => {
+              const point = payload?.[0]?.payload as
+                | ReferralDashboardWeeklyReferralActivity
+                | undefined;
+              if (!point) return _label;
+              return `${point.label} · ${formatDate(point.startAt)} - ${formatDate(point.endAt)}`;
+            }}
+            formatter={(value: number, name: string) => [
+              value,
+              name === "referralsLinked" ? "Referrals Linked" : "Activations",
+            ]}
+          />
+          <Bar
+            dataKey="referralsLinked"
+            fill="#3b82f6"
+            radius={[4, 4, 0, 0]}
+            maxBarSize={26}
+          />
+          <Bar
+            dataKey="activations"
+            fill="#22c55e"
+            radius={[4, 4, 0, 0]}
+            maxBarSize={26}
+          />
+        </BarChart>
+      </ResponsiveContainer>
+      <div className="flex items-center justify-center gap-6 text-xs text-muted-foreground/60 dark:text-muted-foreground/80">
+        <span className="flex items-center gap-2">
+          <span className="w-3 h-3 rounded-[4px] bg-[#3b82f6]" />
+          Referrals Linked
+        </span>
+        <span className="flex items-center gap-2">
+          <span className="w-3 h-3 rounded-[4px] bg-[#22c55e]" />
+          Activations
         </span>
       </div>
     </div>
@@ -1191,24 +1289,45 @@ export function ReferralDashboard() {
         </section>
       </div>
 
-      {/* Weekly Points Chart */}
-      <section>
-        <SectionHeader title="Weekly Points (Last 12 Weeks)" />
-        {weeklyStatsQuery.isLoading ? (
-          <div className="rounded-3xl bg-card border border-border/20 dark:border-border/40 p-8">
-            <Skeleton className="h-64 w-full bg-muted/50 rounded-xl" />
-          </div>
-        ) : weeklyStatsQuery.isError || !weeklyStatsQuery.data ? (
-          <SectionError
-            message="Unable to load weekly stats."
-            onRetry={() => weeklyStatsQuery.refetch()}
-          />
-        ) : (
-          <div className="rounded-3xl bg-card border border-border/20 dark:border-border/40 p-8">
-            <WeeklyPointsChart data={weeklyStatsQuery.data.weeklyStats} />
-          </div>
-        )}
-      </section>
+      <div className="grid lg:grid-cols-2 gap-8">
+        <section>
+          <SectionHeader title="Weekly Points (Last 12 Weeks)" />
+          {weeklyStatsQuery.isLoading ? (
+            <div className="rounded-3xl bg-card border border-border/20 dark:border-border/40 p-8">
+              <Skeleton className="h-64 w-full bg-muted/50 rounded-xl" />
+            </div>
+          ) : weeklyStatsQuery.isError || !weeklyStatsQuery.data ? (
+            <SectionError
+              message="Unable to load weekly stats."
+              onRetry={() => weeklyStatsQuery.refetch()}
+            />
+          ) : (
+            <div className="rounded-3xl bg-card border border-border/20 dark:border-border/40 p-8">
+              <WeeklyPointsChart data={weeklyStatsQuery.data.weeklyStats} />
+            </div>
+          )}
+        </section>
+
+        <section>
+          <SectionHeader title="Weekly Referral Activity (Last 12 Weeks)" />
+          {weeklyStatsQuery.isLoading ? (
+            <div className="rounded-3xl bg-card border border-border/20 dark:border-border/40 p-8">
+              <Skeleton className="h-64 w-full bg-muted/50 rounded-xl" />
+            </div>
+          ) : weeklyStatsQuery.isError || !weeklyStatsQuery.data ? (
+            <SectionError
+              message="Unable to load weekly referral activity."
+              onRetry={() => weeklyStatsQuery.refetch()}
+            />
+          ) : (
+            <div className="rounded-3xl bg-card border border-border/20 dark:border-border/40 p-8">
+              <WeeklyReferralActivityChart
+                data={weeklyStatsQuery.data.weeklyReferralActivity}
+              />
+            </div>
+          )}
+        </section>
+      </div>
 
       {/* Tables Row */}
       <div className="grid lg:grid-cols-2 gap-8">

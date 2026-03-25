@@ -34,6 +34,15 @@ export interface ReferralDashboardWeeklyStat {
   uniqueReferees: number;
 }
 
+export interface ReferralDashboardWeeklyReferralActivity {
+  weekNumber: number;
+  label: string;
+  startAt: string;
+  endAt: string;
+  referralsLinked: number;
+  activations: number;
+}
+
 export interface ReferralDashboardResponse {
   overview: {
     totalReferrals: number;
@@ -54,6 +63,7 @@ export interface ReferralDashboardResponse {
   topReferrers: ReferralDashboardTopReferrer[];
   recentReferrals: ReferralDashboardRecentReferral[];
   weeklyStats: ReferralDashboardWeeklyStat[];
+  weeklyReferralActivity: ReferralDashboardWeeklyReferralActivity[];
   totalPointsAllTime: {
     referrerPoints: string;
     refereeBonusPoints: string;
@@ -122,6 +132,7 @@ export interface ReferralDashboardRecentReferralsResponse {
 
 export interface ReferralDashboardWeeklyStatsResponse {
   weeklyStats: ReferralDashboardWeeklyStat[];
+  weeklyReferralActivity: ReferralDashboardResponse["weeklyReferralActivity"];
   totalPointsAllTime: ReferralDashboardResponse["totalPointsAllTime"];
   currentWeek: number;
 }
