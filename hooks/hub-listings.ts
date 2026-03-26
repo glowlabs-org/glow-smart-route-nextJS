@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Decimal from "decimal.js";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { QUERY_CONFIG } from "@/hooks/query-config";
-import { hubGet } from "@/lib/hub-utils";
+import { hubGet } from "@/lib/api/hub-client";
 
 export type PaymentCurrency = "USDG" | "USDC" | "GLW" | "GCTL" | "SGCTL";
 export type DelegationPhase = "hidden" | "sgctl" | "glw" | null;
