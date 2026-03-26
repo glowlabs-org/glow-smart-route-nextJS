@@ -3,6 +3,7 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import { QueryClient } from "@tanstack/react-query";
 import type { HeadlineStats } from "./headline-stats";
+import { getCompletedApplicationsSummary } from "./completed-applications";
 import type { TotalActivelyDelegatedResponse } from "../../hooks/hub-fractions";
 import type { CompletedApplication } from "../../hooks/useCompletedFarms";
 import { QUERY_KEYS } from "../../hooks/query-keys";
@@ -78,24 +79,13 @@ export async function prefetchHomeProtocolMetricsData(
       totalSupply: Number(headlineStats.totalSupply ?? 0),
     });
   }
-
-  const hubUrl = process.env.NEXT_PUBLIC_HUB_URL;
-  if (!hubUrl) return;
-
   await Promise.allSettled([
     withTimeout(getCachedTotalActivelyDelegated()).then((data) => {
       queryClient.setQueryData(QUERY_KEYS.fractions.totalActivelyDelegated(), data);
     }),
-    withSignalTimeout(async (signal) => {
-      const res = await fetch(`${hubUrl}/applications/completed/summary`, {
-        headers: { "content-type": "application/json" },
-        signal,
-      });
-      if (!res.ok) throw new Error(`Failed completed farms prefetch: ${res.status}`);
-      const raw = (await res.json()) as unknown;
-      const completedFarms = Array.isArray(raw)
-        ? (raw as CompletedApplication[])
-        : [];
+    withSignalTimeout(async () => {
+      const completedFarms =
+        (await getCompletedApplicationsSummary()) as CompletedApplication[];
       queryClient.setQueryData(["completed-farms", false], completedFarms);
     }),
   ]);

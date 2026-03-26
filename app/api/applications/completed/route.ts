@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getCompletedApplications } from "@/lib/server/completed-applications";
 
 export const runtime = "nodejs";
 
@@ -7,29 +8,9 @@ const CACHE_HEADERS = {
     "public, max-age=0, s-maxage=300, stale-while-revalidate=600",
 };
 
-function getHubUrl(): string {
-  const value = process.env.NEXT_PUBLIC_HUB_URL;
-  if (!value) {
-    throw new Error("NEXT_PUBLIC_HUB_URL is not set");
-  }
-  return value;
-}
-
 export async function GET() {
   try {
-    const response = await fetch(`${getHubUrl()}/applications/completed`, {
-      next: { revalidate: 300 },
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      return NextResponse.json(
-        { error: text || `Hub error ${response.status}` },
-        { status: response.status, headers: CACHE_HEADERS }
-      );
-    }
-
-    const payload = await response.json();
+    const payload = await getCompletedApplications();
     return NextResponse.json(payload, { headers: CACHE_HEADERS });
   } catch (error) {
     return NextResponse.json(

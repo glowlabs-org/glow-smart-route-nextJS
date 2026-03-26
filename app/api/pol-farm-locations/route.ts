@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getCompletedApplications } from "@/lib/server/completed-applications";
 
 export const runtime = "nodejs";
 
@@ -118,11 +119,9 @@ export async function GET() {
     }
 
     const farmsTarget = `${HUB_URL}/pol/revenue/farms?range=90d`;
-    const completedTarget = `${HUB_URL}/applications/completed`;
-
-    const [farmsRes, completedRes] = await Promise.all([
+    const [farmsRes, completedPayload] = await Promise.all([
       fetch(farmsTarget, { next: { revalidate: 300 } }),
-      fetch(completedTarget, { next: { revalidate: 300 } }),
+      getCompletedApplications(),
     ]);
 
     if (!farmsRes.ok) {
@@ -140,10 +139,7 @@ export async function GET() {
       ? farmsPayload.farms
       : [];
 
-    const completedPayload = completedRes.ok ? await completedRes.json() : [];
-    const completedRows: CompletedFarmRow[] = Array.isArray(completedPayload)
-      ? completedPayload
-      : [];
+    const completedRows = completedPayload as CompletedFarmRow[];
     const latestLocationByFarm = buildLatestLocationByFarm(completedRows);
 
     const enriched = farms
