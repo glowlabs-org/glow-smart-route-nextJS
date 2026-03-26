@@ -6,17 +6,10 @@ import { useGlowSpotPrice as useLiveGlowSpotPrice } from "@/hooks/useGlowSpotPri
 interface EdgapPriceResponse {
   currentPriceUsdc: string;
 }
-const CONTROL_API_BASE = process.env.NEXT_PUBLIC_CONTROL_API_URL;
-
-if (!CONTROL_API_BASE) {
-  throw new Error("NEXT_PUBLIC_CONTROL_API_URL is not set");
-}
 
 async function fetchEdgapPrice(): Promise<EdgapPriceResponse | null> {
   try {
-    const res = await fetch(`${CONTROL_API_BASE}/price/glw`, {
-      cache: "no-store",
-    });
+    const res = await fetch("/api/control/glw-price");
     if (!res.ok) return null;
     return await res.json();
   } catch (error) {

@@ -74,6 +74,14 @@ const QUERY_KEYS = {
   migrationAmount: (wallet?: string) => ["migration-amount", wallet],
 } as const;
 
+async function fetchControlRoute<T>(path: string): Promise<T> {
+  const response = await fetch(path);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch ${path}`);
+  }
+  return (await response.json()) as T;
+}
+
 export function useGctlHoldersCount(options?: { enabled?: boolean }) {
   const { enabled = true } = options ?? {};
   const chainId = useChainId();
@@ -88,10 +96,10 @@ export function useGctlHoldersCount(options?: { enabled?: boolean }) {
     refetchOnWindowFocus: false,
     queryFn: async () => {
       try {
-        const holdersCount = await (
-          getControlRouter() as any
-        ).fetchHoldersCount();
-        return holdersCount as number;
+        const payload = await fetchControlRoute<{ holders: number }>(
+          "/api/control/gctl-holders-count"
+        );
+        return payload.holders ?? 0;
       } catch (error) {
         console.error("Error fetching GCTL holders count:", error);
         return 0;
@@ -133,7 +141,12 @@ export function useGctlApi(
 
   const gctlPriceQuery = useQuery({
     queryKey: QUERY_KEYS.gctlPrice(),
-    queryFn: () => (getControlRouter() as any).fetchGctlPrice(),
+    queryFn: async () => {
+      const payload = await fetchControlRoute<{ currentPriceUsdc: string }>(
+        "/api/control/gctl-price"
+      );
+      return payload.currentPriceUsdc;
+    },
     enabled: enabled && isConfigured,
     staleTime: 30_000,
     retry: 2,
@@ -141,7 +154,12 @@ export function useGctlApi(
 
   const glwPriceQuery = useQuery({
     queryKey: QUERY_KEYS.glwPrice(),
-    queryFn: () => (getControlRouter() as any).fetchGlwPrice(),
+    queryFn: async () => {
+      const payload = await fetchControlRoute<{ currentPriceUsdc: string }>(
+        "/api/control/glw-price"
+      );
+      return payload.currentPriceUsdc;
+    },
     enabled: enabled && isConfigured,
     staleTime: 60_000,
     gcTime: 5 * 60_000,
@@ -154,7 +172,12 @@ export function useGctlApi(
 
   const gctlCirculatingSupplyQuery = useQuery({
     queryKey: QUERY_KEYS.gctlCirculatingSupply(),
-    queryFn: () => (getControlRouter() as any).fetchCirculatingSupply(),
+    queryFn: async () => {
+      const payload = await fetchControlRoute<{ circulatingSupply: string }>(
+        "/api/control/gctl-circulating-supply"
+      );
+      return payload.circulatingSupply;
+    },
     enabled: enabled && isConfigured,
     staleTime: 30_000,
     retry: 2,

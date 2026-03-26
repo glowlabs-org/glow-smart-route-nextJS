@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { RegionWithMetadata } from "@glowlabs-org/utils/browser";
 import type { ActiveRegionsSummaryResponse } from "@glowlabs-org/utils/browser";
-import { getControlApiUrl, getRegionRouter } from "@/lib/api/control-routers";
+import { getControlApiUrl } from "@/lib/api/control-routers";
 
 const QUERY_KEYS = {
   regions: () => ["regions"],
@@ -20,10 +20,17 @@ export function useRegions() {
   } = useQuery({
     queryKey: QUERY_KEYS.regions(),
     enabled: isConfigured,
-    queryFn: () =>
-      (getRegionRouter() as any).fetchRegions() as Promise<
-        RegionWithMetadata[]
-      >,
+    queryFn: async () => {
+      const response = await fetch("/api/control/regions");
+      if (!response.ok) {
+        throw new Error("Failed to fetch regions");
+      }
+
+      const payload = (await response.json()) as {
+        regions?: RegionWithMetadata[];
+      };
+      return payload.regions ?? [];
+    },
     staleTime: 30_000,
     retry: 2,
   });
@@ -200,10 +207,14 @@ export function useActiveRegionsSummary(options?: { enabled?: boolean }) {
     enabled: enabled && isConfigured,
     staleTime: 30_000,
     retry: 2,
-    queryFn: async () =>
-      (await (
-        getRegionRouter() as any
-      ).fetchActiveSummary()) as ActiveRegionsSummaryResponse,
+    queryFn: async () => {
+      const response = await fetch("/api/control/regions/active-summary");
+      if (!response.ok) {
+        throw new Error("Failed to fetch active regions summary");
+      }
+
+      return (await response.json()) as ActiveRegionsSummaryResponse;
+    },
   });
 
   return {
