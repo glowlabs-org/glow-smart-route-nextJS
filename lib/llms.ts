@@ -73,12 +73,6 @@ const publicPages: LinkItem[] = [
 
 const appOnlyPages: LinkItem[] = [
   {
-    title: "Launchpad",
-    href: "/launchpad",
-    description:
-      "Primary flow for delegating GLW or buying miners to earn rewards.",
-  },
-  {
     title: "Liquidity",
     href: "/liquidity",
     description:
@@ -159,13 +153,13 @@ const highIntentQueries: IntentItem[] = [
   },
   {
     query: "glow launchpad delegation",
-    route: "/launchpad",
-    note: "Launchpad flow for delegating GLW to solar farm opportunities.",
+    route: "/",
+    note: "Primary dashboard entry for delegating GLW to solar farm opportunities.",
   },
   {
     query: "buy miners on glow",
-    route: "/launchpad",
-    note: "Mining-center flows are surfaced from the launchpad experience.",
+    route: "/",
+    note: "Primary dashboard entry for mining-center participation and sponsorship flows.",
   },
   {
     query: "glow protocol stats",
@@ -214,8 +208,8 @@ const highIntentQueries: IntentItem[] = [
   },
   {
     query: "glow miners vs delegators",
-    route: "/launchpad",
-    note: "Launchpad and mining-center participation context.",
+    route: "/",
+    note: "Primary dashboard entry for launchpad and mining-center participation context.",
   },
   {
     query: "gctl region steering",
@@ -392,12 +386,12 @@ const knowledgeTopics: TopicItem[] = [
   },
   {
     title: "Delegating GLW",
-    route: "/launchpad",
+    route: "/",
     description: "Delegation mechanics, protocol deposits, and reward tradeoffs.",
   },
   {
     title: "GLW Miners",
-    route: "/launchpad",
+    route: "/",
     description: "Miner participation model, incentives, and economics.",
   },
   {
