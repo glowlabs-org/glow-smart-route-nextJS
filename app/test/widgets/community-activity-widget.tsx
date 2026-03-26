@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSplitsActivity, type SplitActivity } from "@/hooks";
 import { useQuery } from "@tanstack/react-query";
-import { getFarmsRouter } from "@/lib/api/control-routers";
+import type { FarmImagesBatchResponse } from "@glowlabs-org/utils/browser";
 import { FallbackImage } from "@/components/ui/fallback-image";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatUnits } from "viem";
@@ -208,7 +208,17 @@ export default function CommunityActivityWidget({
     queryKey: ["farm-images-batch", farmIds],
     queryFn: async () => {
       if (farmIds.length === 0) return { results: {} };
-      return getFarmsRouter().fetchFarmImagesBatch({ farmIds });
+      const response = await fetch("/api/farms/images-batch", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ farmIds }),
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch farm images: ${response.status}`);
+      }
+      return (await response.json()) as FarmImagesBatchResponse;
     },
     enabled: farmIds.length > 0,
     staleTime: 5 * 60_000,

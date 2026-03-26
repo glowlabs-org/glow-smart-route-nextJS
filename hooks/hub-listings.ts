@@ -2,7 +2,6 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Decimal from "decimal.js";
-import { hubGet } from "@/lib/api/hub-client";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { QUERY_CONFIG } from "@/hooks/query-config";
 
@@ -401,12 +400,20 @@ export function useSplitsActivity(params: UseSplitsActivityParams = {}) {
     refetchInterval: 10_000,
     queryFn: async (): Promise<SplitsActivityResponse> => {
       const endpoint = fractionType
-        ? "/fractions/splits-activity-by-type"
-        : "/fractions/splits-activity";
+        ? "/api/fractions/splits-activity-by-type"
+        : "/api/fractions/splits-activity";
 
-      return await hubGet<SplitsActivityResponse>(endpoint, {
-        params: { limit, walletAddress, fractionType },
-      });
+      const search = new URLSearchParams();
+      search.set("limit", String(limit));
+      if (walletAddress) search.set("walletAddress", walletAddress);
+      if (fractionType) search.set("fractionType", fractionType);
+
+      const response = await fetch(`${endpoint}?${search.toString()}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch splits activity: ${response.status}`);
+      }
+
+      return (await response.json()) as SplitsActivityResponse;
     },
   });
 

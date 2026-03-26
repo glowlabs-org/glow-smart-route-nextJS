@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils";
 import { useEnsNames } from "@/hooks/useEnsNames";
 import { shortAddress } from "@/utils/impact";
 import { useQuery } from "@tanstack/react-query";
-import { getFarmsRouter } from "@/lib/api/control-routers";
+import type { FarmImagesBatchResponse } from "@glowlabs-org/utils/browser";
 
 import { Button } from "@/components/ui/button";
 import { CashMinerIcon, DelegationIcon } from "@/components/impact-icons";
@@ -181,7 +181,17 @@ export function SponsoredFarmsActivity({
     queryKey: ["farm-images-batch", farmIdsForImages],
     queryFn: async () => {
       if (farmIdsForImages.length === 0) return { results: {} };
-      return getFarmsRouter().fetchFarmImagesBatch({ farmIds: farmIdsForImages });
+      const response = await fetch("/api/farms/images-batch", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ farmIds: farmIdsForImages }),
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch farm images: ${response.status}`);
+      }
+      return (await response.json()) as FarmImagesBatchResponse;
     },
     enabled: farmIdsForImages.length > 0,
     staleTime: 5 * 60_000,
