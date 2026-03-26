@@ -1,7 +1,6 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { hubGet } from "@/lib/api/hub-client";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { QUERY_CONFIG } from "@/hooks/query-config";
 
@@ -149,6 +148,54 @@ function calculateImpact(totalWatts: number) {
   return { annualEnergyKwh, treesEquivalent, homesPowered };
 }
 
+async function fetchSolarCollectorApi<T>(params: {
+  path: string;
+  query?: Record<string, string | number | boolean | null | undefined>;
+}): Promise<T> {
+  const url = new URL(params.path, window.location.origin);
+
+  for (const [key, value] of Object.entries(params.query || {})) {
+    if (value === null || value === undefined) continue;
+    url.searchParams.set(key, String(value));
+  }
+
+  const response = await fetch(url.toString(), {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  const text = await response.text();
+  let payload: unknown = null;
+  if (text) {
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      payload = text;
+    }
+  }
+
+  if (!response.ok) {
+    if (
+      payload &&
+      typeof payload === "object" &&
+      "error" in payload &&
+      typeof (payload as { error?: unknown }).error === "string"
+    ) {
+      throw new Error((payload as { error: string }).error);
+    }
+
+    throw new Error(
+      typeof payload === "string"
+        ? payload
+        : `Request failed (${response.status})`
+    );
+  }
+
+  return payload as T;
+}
+
 export function useSolarCollectorQuery(args: {
   walletAddress: string | null | undefined;
   enabled?: boolean;
@@ -173,15 +220,13 @@ export function useSolarCollectorQuery(args: {
     queryFn: async (): Promise<SolarCollectorStatsResponse> => {
       if (!normalizedWalletAddress) throw new Error("Missing wallet address");
 
-      return await hubGet<SolarCollectorStatsResponse>(
-        "/solar-collector/stats",
-        {
-          params: {
-            walletAddress: normalizedWalletAddress,
-            includeCurrentWeekPower: includeCurrentWeekPower ? "1" : "0",
-          },
-        }
-      );
+      return await fetchSolarCollectorApi<SolarCollectorStatsResponse>({
+        path: "/api/solar-collector/stats",
+        query: {
+          walletAddress: normalizedWalletAddress,
+          includeCurrentWeekPower: includeCurrentWeekPower ? "1" : "0",
+        },
+      });
     },
   });
 
