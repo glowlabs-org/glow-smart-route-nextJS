@@ -654,10 +654,7 @@ export function MiningStats() {
     queryKey: ["pol-farm-bounties"],
     staleTime: 5 * 60_000,
     queryFn: async () => {
-      const hubUrl = process.env.NEXT_PUBLIC_HUB_URL;
-      if (!hubUrl) return new Map<string, number>();
-
-      const response = await fetch(`${hubUrl}/pol/bounties/farms`);
+      const response = await fetch("/api/pol-bounties/farms");
       if (!response.ok) {
         throw new Error(`Failed to fetch farm cash bounties: ${response.status}`);
       }

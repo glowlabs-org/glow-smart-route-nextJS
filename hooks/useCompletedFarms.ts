@@ -44,8 +44,8 @@ interface UseCompletedFarmsParams {
   includeFractions?: boolean;
 }
 
-const COMPLETED_FARMS_URL = `${process.env.NEXT_PUBLIC_HUB_URL}/applications/completed/summary`;
-const COMPLETED_FARMS_FULL_URL = `${process.env.NEXT_PUBLIC_HUB_URL}/applications/completed`;
+const COMPLETED_FARMS_URL = "/api/applications/completed/summary";
+const COMPLETED_FARMS_FULL_URL = "/api/applications/completed";
 
 export function useCompletedFarms(params: UseCompletedFarmsParams = {}) {
   const { enabled = true, includeFractions = false } = params;
