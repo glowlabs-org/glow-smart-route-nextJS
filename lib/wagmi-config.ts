@@ -213,6 +213,19 @@ function pickInjectedProvider(
   );
 }
 
+function isMetaMaskProvider(provider: any) {
+  return (
+    provider?.isMetaMask === true &&
+    provider?.isRabby !== true &&
+    provider?.isCoinbaseWallet !== true &&
+    provider?.isPhantom !== true
+  );
+}
+
+function isRabbyProvider(provider: any) {
+  return provider?.isRabby === true;
+}
+
 const wagmiAdapter = new WagmiAdapter({
   projectId: WALLET_CONNECT_PROJECT_ID,
   networks: [...networks],
@@ -242,15 +255,10 @@ const wagmiAdapter = new WagmiAdapter({
               provider: (window) => {
                 const provider = pickInjectedProvider(
                   window,
-                  (provider) =>
-                    provider.isMetaMask === true &&
-                    provider.isCoinbaseWallet !== true &&
-                    provider.isPhantom !== true,
+                  isMetaMaskProvider,
                   (provider, info) =>
                     info?.rdns === "io.metamask" ||
-                    (provider.isMetaMask === true &&
-                      provider.isCoinbaseWallet !== true &&
-                      provider.isPhantom !== true),
+                    isMetaMaskProvider(provider),
                 );
                 if (provider) return provider;
 
@@ -258,9 +266,7 @@ const wagmiAdapter = new WagmiAdapter({
                 if (
                   ethereum &&
                   typeof ethereum.request === "function" &&
-                  ethereum.isMetaMask === true &&
-                  ethereum.isCoinbaseWallet !== true &&
-                  ethereum.isPhantom !== true
+                  isMetaMaskProvider(ethereum)
                 ) {
                   reportConnectorDebug(window, {
                     connectorId: "io.metamask",
@@ -313,6 +319,20 @@ const wagmiAdapter = new WagmiAdapter({
 
                 return undefined;
               },
+            },
+          }),
+          injected({
+            ...INJECTED_CONNECTOR_OPTIONS,
+            target: {
+              id: "io.rabby",
+              name: "Rabby",
+              provider: (window) =>
+                pickInjectedProvider(
+                  window,
+                  isRabbyProvider,
+                  (provider, info) =>
+                    info?.rdns === "io.rabby" || isRabbyProvider(provider),
+                ),
             },
           }),
           injected({
