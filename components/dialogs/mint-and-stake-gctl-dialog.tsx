@@ -61,6 +61,7 @@ import {
 import { useEnsNames } from "@/hooks/useEnsNames";
 import { useDebouncedAsync } from "@/hooks/useDebouncedAsync";
 import { useImpactWalletStats } from "@/hooks/hub-impact";
+import { getGctlDialogErrorMessage } from "@/lib/gctl-dialog-error-message";
 import { trackEvent } from "@/lib/telemetry";
 import { bucketEth, bucketToken, bucketUsd } from "@/lib/telemetry-buckets";
 import { cn } from "@/lib/utils";
@@ -163,53 +164,6 @@ function formatPointsScaled6(pointsScaled6: bigint, maxFractionDigits = 2) {
   const fFull = (v % 1_000_000n).toString().padStart(6, "0");
   const f = fFull.slice(0, Math.min(6, maxFractionDigits));
   return `${sign}${i}.${f}`;
-}
-
-function extractErrorMessage(error: unknown) {
-  if (!error) return "";
-  if (typeof error === "string") return error;
-  if (error instanceof Error) return error.message ?? "";
-  const possible = error as {
-    shortMessage?: string;
-    message?: string;
-    details?: string;
-    cause?: { message?: string };
-  };
-  return (
-    possible.shortMessage ??
-    possible.message ??
-    possible.details ??
-    possible.cause?.message ??
-    ""
-  );
-}
-
-function isInsufficientBalanceError(message: string) {
-  const normalized = message.toLowerCase();
-  return (
-    normalized.includes("0xe450d38c") ||
-    normalized.includes("erc20: transfer amount exceeds balance") ||
-    normalized.includes("transfer amount exceeds balance") ||
-    normalized.includes("insufficient balance")
-  );
-}
-
-function getErrorMessage(error: unknown) {
-  const message = extractErrorMessage(error).trim();
-  if (!message) return "Unknown error";
-
-  if (isInsufficientBalanceError(message)) {
-    return "Insufficient token balance. Approval succeeded, but your balance is now below this amount. Reduce the amount and try again.";
-  }
-
-  if (message.toLowerCase().includes("user rejected")) {
-    return "Transaction was rejected in your wallet.";
-  }
-
-  const detailsMatch = message.match(/details:\s*([^\n]+)/i);
-  if (detailsMatch?.[1]) return detailsMatch[1].trim();
-
-  return message;
 }
 
 function toAtomic6(amount: number) {
@@ -1234,7 +1188,7 @@ export function MintAndStakeGctlDialog({
     } catch (error) {
       setIsApproving(false);
       setIsSubmitting(false);
-      const msg = getErrorMessage(error);
+      const msg = getGctlDialogErrorMessage(error);
       setStakeUiState("error");
       setStakeUiErrorMessage(msg);
       const currentSteps = stakeStepsRef.current;
@@ -1537,7 +1491,7 @@ export function MintAndStakeGctlDialog({
       setIsApproving(false);
       setIsSubmitting(false);
       setIsSwappingEth(false);
-      const msg = getErrorMessage(error);
+      const msg = getGctlDialogErrorMessage(error);
       setStakeUiState("error");
       setStakeUiErrorMessage(msg);
       const currentSteps = stakeStepsRef.current;
