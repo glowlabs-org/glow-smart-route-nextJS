@@ -254,6 +254,7 @@ function WalletOption({
     const lowerName = name.toLowerCase();
 
     if (detected) {
+      if (detected.isRabby) return null;
       if (detected.isMetaMask) return "/images/icons/metamask.png";
       if (detected.isPhantom) return null;
       if (detected.isTrustWallet) return null;
@@ -296,6 +297,9 @@ function WalletOption({
     if (detected) {
       if (detected.isTrustWallet) {
         return "Not well supported - use another wallet for best experience";
+      }
+      if (detected.isRabby) {
+        return "Connect using Rabby browser extension";
       }
       if (detected.isMetaMask) {
         return "Connect using MetaMask browser extension";

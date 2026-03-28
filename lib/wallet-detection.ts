@@ -1,6 +1,7 @@
 export interface DetectedWallet {
   name: string;
   provider: any;
+  isRabby: boolean;
   isMetaMask: boolean;
   isTrustWallet: boolean;
   isPhantom: boolean;
@@ -21,6 +22,7 @@ export function detectWallets(): DetectedWallet[] {
     : [ethereum];
 
   providers.forEach((provider: any) => {
+    const isRabby = provider.isRabby === true;
     const isMetaMask = provider.isMetaMask === true;
     const isTrustWallet =
       provider.isTrust === true ||
@@ -31,7 +33,8 @@ export function detectWallets(): DetectedWallet[] {
     const isBase = provider.isBase === true;
 
     let name = "Browser Wallet";
-    if (isMetaMask) name = "MetaMask";
+    if (isRabby) name = "Rabby";
+    else if (isMetaMask) name = "MetaMask";
     else if (isTrustWallet) name = "Trust Wallet";
     else if (isPhantom) name = "Phantom";
     else if (isCoinbase) name = "Coinbase Wallet";
@@ -42,6 +45,7 @@ export function detectWallets(): DetectedWallet[] {
     wallets.push({
       name,
       provider,
+      isRabby,
       isMetaMask,
       isTrustWallet,
       isPhantom,
@@ -56,6 +60,7 @@ export function detectWallets(): DetectedWallet[] {
 export function detectWalletFromProvider(provider: any): DetectedWallet | null {
   if (!provider) return null;
 
+  const isRabby = provider.isRabby === true;
   const isMetaMask = provider.isMetaMask === true;
   const isTrustWallet =
     provider.isTrust === true ||
@@ -66,7 +71,8 @@ export function detectWalletFromProvider(provider: any): DetectedWallet | null {
   const isBase = provider.isBase === true;
 
   let name = "Browser Wallet";
-  if (isMetaMask) name = "MetaMask";
+  if (isRabby) name = "Rabby";
+  else if (isMetaMask) name = "MetaMask";
   else if (isTrustWallet) name = "Trust Wallet";
   else if (isPhantom) name = "Phantom";
   else if (isCoinbase) name = "Coinbase Wallet";
@@ -77,6 +83,7 @@ export function detectWalletFromProvider(provider: any): DetectedWallet | null {
   return {
     name,
     provider,
+    isRabby,
     isMetaMask,
     isTrustWallet,
     isPhantom,
