@@ -19,6 +19,7 @@ export interface ApplicationMiningScore {
   miningScore: number;
   weeklyGlwRewards?: string;
   weeklyGlwRewardsUsd?: string;
+  weeksOfMinerLifeRemaining?: number;
   error?: string;
 }
 
@@ -265,6 +266,8 @@ export function mapMiningScoresBatchToApplications(
         miningScore: farmResult.data.miningScore || 0,
         weeklyGlwRewards: glwRewards,
         weeklyGlwRewardsUsd,
+        weeksOfMinerLifeRemaining:
+          farmResult.data.weeksOfMinerLifeRemaining,
       };
     }
 

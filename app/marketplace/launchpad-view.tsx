@@ -17,6 +17,14 @@ function getProxiedImageUrl(url: string, width?: number, quality: number = 75) {
   });
   return `/api/image-proxy?${params.toString()}`;
 }
+
+function formatMinerWeeksLabel(weeks?: number | null): string {
+  const resolvedWeeks =
+    typeof weeks === "number" && Number.isFinite(weeks) && weeks > 0
+      ? Math.floor(weeks)
+      : 99;
+  return `${resolvedWeeks} week${resolvedWeeks === 1 ? "" : "s"}`;
+}
 import {
   Select,
   SelectContent,
@@ -1217,7 +1225,9 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                   }}
                                 >
                                   {application._type === "miners"
-                                    ? "Weekly Rewards per Miner (99 weeks)"
+                                    ? `Weekly Rewards per Miner (${formatMinerWeeksLabel(
+                                        miningScore?.weeksOfMinerLifeRemaining
+                                      )})`
                                     : "Est. Weekly Rewards (100 weeks)"}
                                 </div>
                                 <div className="group/help relative">
@@ -1225,7 +1235,9 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/help:block z-50 w-64">
                                     <div className="bg-popover text-popover-foreground border border-border text-xs rounded-lg py-2 px-3 shadow-lg">
                                       {application._type === "miners"
-                                        ? "Current weekly rate per miner, paid weekly for 99 weeks. May decrease as new farms join the region and dilute emissions."
+                                        ? `Current weekly rate per miner, paid weekly for ${formatMinerWeeksLabel(
+                                            miningScore?.weeksOfMinerLifeRemaining
+                                          )}. May decrease as new farms join the region and dilute emissions.`
                                         : "Expected weekly rewards per delegation, paid weekly for 100 weeks. May vary with network changes."}
                                       <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[color:var(--color-popover)]"></div>
                                     </div>
@@ -1401,7 +1413,9 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                   }}
                                 >
                                   {application._type === "miners"
-                                    ? "Paid weekly for 99 weeks. See Advanced Stats."
+                                    ? `Paid weekly for ${formatMinerWeeksLabel(
+                                        miningScore?.weeksOfMinerLifeRemaining
+                                      )}. See Advanced Stats.`
                                     : "Paid weekly for 100 weeks. See Advanced Stats."}
                                 </div>
                               </div>
@@ -1411,11 +1425,9 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                             {application._type === "miners" ? (
                               <div className="text-sm">
                                 <div className="mb-2 text-background/80 text-xs">
-                                  Estimated weekly rewards per miner, paid
-                                  weekly for 99 weeks. This rate may decrease as
-                                  new farms join the region and dilute the
-                                  regional GLW allocation. See Advanced Stats
-                                  for details.
+                                  {`Estimated weekly rewards per miner, paid weekly for ${formatMinerWeeksLabel(
+                                    miningScore?.weeksOfMinerLifeRemaining
+                                  )}. This rate may decrease as new farms join the region and dilute the regional GLW allocation. See Advanced Stats for details.`}
                                 </div>
                               </div>
                             ) : (
@@ -2162,6 +2174,11 @@ function LaunchpadMarketplaceWidget({
     const { application, score, cost, weeklyYield, availability, scoreData } =
       row;
     const isMiner = application._type === "miners";
+    const minerWeeksRemaining = isMiner
+      ? (
+          scoreData as { weeksOfMinerLifeRemaining?: number } | null
+        )?.weeksOfMinerLifeRemaining
+      : null;
     const delegationCurrency = isMiner
       ? null
       : resolveDelegationCurrency(application);
@@ -2363,7 +2380,11 @@ function LaunchpadMarketplaceWidget({
                     <TooltipTrigger asChild>
                       <div className="flex-1 min-w-[120px] md:min-w-[140px] p-2.5 md:p-3 rounded-2xl bg-gradient-to-br from-white/20 to-white/5 border border-white flex flex-col justify-center dark:from-white/10 dark:to-transparent dark:border-white/10 cursor-help">
                         <span className="text-[9px] md:text-[10px] uppercase tracking-widest text-foreground/60 font-bold mb-0.5 md:mb-1 dark:text-white/50">
-                          {isMiner ? "Weekly (99 wks)" : "Weekly (100 wks)"}
+                          {isMiner
+                            ? `Weekly (${formatMinerWeeksLabel(
+                                minerWeeksRemaining
+                              )})`
+                            : "Weekly (100 wks)"}
                         </span>
                         <span className="text-xs md:text-sm font-semibold">
                           +{formatNumber(weeklyYield, 2)} GLW / wk
@@ -2380,7 +2401,9 @@ function LaunchpadMarketplaceWidget({
                         </div>
                         <div className="text-primary-foreground/80 leading-relaxed">
                           {isMiner
-                            ? "Estimated weekly rewards per miner, paid weekly for 99 weeks. May decrease as new farms join the region and dilute emissions."
+                            ? `Estimated weekly rewards per miner, paid weekly for ${formatMinerWeeksLabel(
+                                minerWeeksRemaining
+                              )}. May decrease as new farms join the region and dilute emissions.`
                             : "Expected weekly rewards per delegation, paid weekly for 100 weeks. May vary with network changes."}
                         </div>
                         {!isMiner && rewardsBreakdown ? (
@@ -2701,6 +2724,11 @@ function LaunchpadWidgetAssetCard({
 }) {
   const { application, availability, scoreData, cost, weeklyYield } = row;
   const isDelegation = application._type === "delegations";
+  const minerWeeksRemaining = !isDelegation
+    ? (
+        scoreData as { weeksOfMinerLifeRemaining?: number } | null
+      )?.weeksOfMinerLifeRemaining
+    : null;
   const delegationCurrency = isDelegation
     ? resolveDelegationCurrency(application)
     : "GLW";
@@ -2983,7 +3011,9 @@ function LaunchpadWidgetAssetCard({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div className="inline-flex cursor-help items-center gap-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                      Weekly Rewards (99 weeks)
+                      {`Weekly Rewards (${formatMinerWeeksLabel(
+                        minerWeeksRemaining
+                      )})`}
                       <Info className="h-3.5 w-3.5 opacity-70" />
                     </div>
                   </TooltipTrigger>
@@ -2998,10 +3028,9 @@ function LaunchpadWidgetAssetCard({
                         Estimated rewards
                       </div>
                       <div className="text-[11px] leading-snug text-primary-foreground/80">
-                        Estimated weekly rewards per miner for 99 weeks. These
-                        estimates may decrease as new farms join the region and
-                        dilute the regional GLW allocation. See Advanced Stats for
-                        detailed information.
+                        {`Estimated weekly rewards per miner for ${formatMinerWeeksLabel(
+                          minerWeeksRemaining
+                        )}. These estimates may decrease as new farms join the region and dilute the regional GLW allocation. See Advanced Stats for detailed information.`}
                       </div>
                     </div>
                   </TooltipContent>
@@ -3115,6 +3144,11 @@ function LaunchpadWidgetHeroCarouselCard({
 }) {
   const { application, availability, scoreData, cost, weeklyYield } = row;
   const isDelegation = application._type === "delegations";
+  const minerWeeksRemaining = !isDelegation
+    ? (
+        scoreData as { weeksOfMinerLifeRemaining?: number } | null
+      )?.weeksOfMinerLifeRemaining
+    : null;
   const delegationCurrency = isDelegation
     ? resolveDelegationCurrency(application)
     : "GLW";
@@ -4199,6 +4233,11 @@ function LaunchpadAssetCard({
 }) {
   const { application, availability, scoreData, cost, weeklyYield } = row;
   const isDelegation = application._type === "delegations";
+  const minerWeeksRemaining = !isDelegation
+    ? (
+        scoreData as { weeksOfMinerLifeRemaining?: number } | null
+      )?.weeksOfMinerLifeRemaining
+    : null;
   const delegationCurrency = isDelegation
     ? resolveDelegationCurrency(application)
     : "GLW";
@@ -4367,7 +4406,9 @@ function LaunchpadAssetCard({
                       <div className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
                         {isDelegation
                           ? "EST. REWARDS (100 WEEKS)"
-                          : "WEEKLY REWARDS (99 WEEKS)"}
+                          : `WEEKLY REWARDS (${formatMinerWeeksLabel(
+                              minerWeeksRemaining
+                            ).toUpperCase()})`}
                         <Info className="h-3.5 w-3.5 opacity-70" />
                       </div>
                       <div
@@ -4410,10 +4451,9 @@ function LaunchpadAssetCard({
                           Estimated rewards
                         </div>
                         <div className="text-[11px] leading-snug text-primary-foreground/80">
-                          Estimated weekly rewards per miner for 99 weeks. These
-                          estimates may decrease as new farms join the region and
-                          dilute the regional GLW allocation. See Advanced Stats
-                          for detailed information.
+                          {`Estimated weekly rewards per miner for ${formatMinerWeeksLabel(
+                            minerWeeksRemaining
+                          )}. These estimates may decrease as new farms join the region and dilute the regional GLW allocation. See Advanced Stats for detailed information.`}
                         </div>
                       </div>
                     )}

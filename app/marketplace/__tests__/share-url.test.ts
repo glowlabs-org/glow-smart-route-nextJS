@@ -68,6 +68,12 @@ describe("generateShareUrl", () => {
       expect(url).toContain(encodeURIComponent("99 weeks"));
     });
 
+    it("uses actual miner life remaining when provided", () => {
+      const url = generateShareUrl("USDC", 1, "Farm", true, 80);
+      expect(url).toContain(encodeURIComponent("80 weeks"));
+      expect(url).not.toContain(encodeURIComponent("99 weeks"));
+    });
+
     it("includes app domain with zero-width spaces", () => {
       const url = generateShareUrl("USDC", 1, "Farm", true);
       // The domain has zero-width spaces: app.\u200Bglow.\u200Borg

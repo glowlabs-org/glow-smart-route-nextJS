@@ -253,6 +253,7 @@ interface MiningCenterViewProps {
       miningScore: number;
       weeklyGlwRewards?: string;
       weeklyGlwRewardsUsd?: string;
+      weeksOfMinerLifeRemaining?: number;
     } | null
   ) => void;
 }
@@ -274,6 +275,7 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
       miningScore: number;
       weeklyGlwRewards?: string;
       weeklyGlwRewardsUsd?: string;
+      weeksOfMinerLifeRemaining?: number;
     } | null>(null);
 
   const isMobile = useIsMobile();

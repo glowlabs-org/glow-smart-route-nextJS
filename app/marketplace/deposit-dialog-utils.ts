@@ -120,6 +120,7 @@ export interface MiningCenterScore {
   miningScore: number;
   weeklyGlwRewards?: string;
   weeklyGlwRewardsUsd?: string;
+  weeksOfMinerLifeRemaining?: number;
 }
 
 export type RewardScore = LaunchpadRewardScore | MiningCenterScore;
@@ -1201,18 +1202,25 @@ export function generateShareUrl(
   selectedCurrency: DepositSelectedCurrency,
   quantity: number,
   farmLabelForShare: string | null,
-  hasSuccessMetrics: boolean
+  hasSuccessMetrics: boolean,
+  weeksOfMinerLifeRemaining?: number | null
 ): string | null {
   if (!farmLabelForShare) return null;
   if (!hasSuccessMetrics) return null;
 
   if (selectedCurrency === "USDC") {
+    const weeksLeft =
+      typeof weeksOfMinerLifeRemaining === "number" &&
+      Number.isFinite(weeksOfMinerLifeRemaining) &&
+      weeksOfMinerLifeRemaining > 0
+        ? Math.floor(weeksOfMinerLifeRemaining)
+        : 99;
     const text = [
       `I just bought ${quantity} miner${
         quantity > 1 ? "s" : ""
       } from ${farmLabelForShare} on @glowFND`,
       "",
-      `Every miner I own earns me GLW weekly for the next 99 weeks.`,
+      `Every miner I own earns me GLW weekly for the next ${weeksLeft} weeks.`,
       "",
       APP_DOMAIN_PLAIN_TEXT,
     ].join("\n");

@@ -37,6 +37,7 @@ interface MiningStatsDialogProps {
     miningScore: number;
     weeklyGlwRewards?: string;
     weeklyGlwRewardsUsd?: string;
+    weeksOfMinerLifeRemaining?: number;
   } | null;
 }
 
@@ -74,7 +75,7 @@ export function MiningStatsDialog({
     staleTime: 30 * 1000,
   });
 
-  const weeksRemaining = 99;
+  const weeksRemaining = miningScoreData?.weeksOfMinerLifeRemaining ?? 99;
 
   // Get cost per miner
   const stepPrice = application?.activeFraction?.stepPrice;

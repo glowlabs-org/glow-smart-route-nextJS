@@ -112,6 +112,7 @@ export type MiningCenterScore = {
   miningScore: number;
   weeklyGlwRewards?: string;
   weeklyGlwRewardsUsd?: string;
+  weeksOfMinerLifeRemaining?: number;
 };
 
 function isInsufficientAvailableStakedError(error: unknown): boolean {
@@ -1670,6 +1671,12 @@ export function DepositDialog({
     return application?.afterInstallPictures?.[0]?.url ?? null;
   }, [application]);
 
+  const minerLifeRemainingForShare = React.useMemo(() => {
+    if (selectedCurrency !== "USDC") return undefined;
+    return (rewardScore as MiningCenterScore | null | undefined)
+      ?.weeksOfMinerLifeRemaining;
+  }, [rewardScore, selectedCurrency]);
+
   const shareUrl = React.useMemo(
     () =>
       generateShareUrl(
@@ -1677,8 +1684,15 @@ export function DepositDialog({
         quantity,
         farmLabelForShare,
         Boolean(successMetrics),
+        minerLifeRemainingForShare,
       ),
-    [runtimeSelectedCurrency, farmLabelForShare, successMetrics, quantity],
+    [
+      runtimeSelectedCurrency,
+      quantity,
+      farmLabelForShare,
+      minerLifeRemainingForShare,
+      successMetrics,
+    ],
   );
 
   const handleShare = async () => {
