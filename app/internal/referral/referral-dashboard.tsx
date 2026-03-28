@@ -402,19 +402,17 @@ function WeeklyReferralActivityChart({
               if (!point) return _label;
               return `${point.label} · ${formatDate(point.startAt)} - ${formatDate(point.endAt)}`;
             }}
-            formatter={(value: number, name: string) => [
-              value,
-              name === "referralsLinked" ? "Referrals Linked" : "Activations",
-            ]}
           />
           <Bar
             dataKey="referralsLinked"
+            name="Referrals Linked"
             fill="#3b82f6"
             radius={[4, 4, 0, 0]}
             maxBarSize={26}
           />
           <Bar
             dataKey="activations"
+            name="Activations"
             fill="#22c55e"
             radius={[4, 4, 0, 0]}
             maxBarSize={26}
