@@ -60,7 +60,7 @@ import {
   useFarmWeeklyRewardsBatch,
   formatRewardValue,
 } from "@/hooks";
-import { getCurrentEpoch } from "@/utils/getCurrentEpoch";
+import { getFinalizedReportWeek } from "@/utils/getFinalizedReportWeek";
 import { useRegions } from "@/hooks";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { useGlowPrices } from "@/hooks/useGlowPrices";
@@ -468,7 +468,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
     return farmsList.map((f) => f.farmId);
   }, [efficiencyData]);
 
-  const currentWeek = getCurrentEpoch();
+  const finalizedReportWeek = getFinalizedReportWeek();
 
   const {
     data: batchWeeklyRewardsData,
@@ -477,7 +477,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
   } = useFarmWeeklyRewardsBatch({
     farmIds,
     startWeek: 97,
-    endWeek: currentWeek - 2,
+    endWeek: finalizedReportWeek,
     enabled: farmIds.length > 0,
   });
 

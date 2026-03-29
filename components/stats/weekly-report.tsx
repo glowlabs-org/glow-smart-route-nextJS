@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getCurrentEpoch } from "@/utils/getCurrentEpoch";
+import { getFinalizedReportWeek } from "@/utils/getFinalizedReportWeek";
 import { toast } from "sonner";
 
 interface WeeklyReportTokenAmount {
@@ -60,7 +60,7 @@ interface WeeklyReportItem {
 }
 
 export interface WeeklyReportPanelProps {
-  week?: number; // if omitted, uses currentEpoch()-1
+  week?: number; // if omitted, uses the latest finalized weekly report week
   className?: string;
 }
 
@@ -77,7 +77,7 @@ export function WeeklyReportPanel({ week, className }: WeeklyReportPanelProps) {
         setIsWeeklyLoading(true);
         setWeeklyError(null);
 
-        const baseWeek = week ?? Math.max(0, getCurrentEpoch() - 1);
+        const baseWeek = week ?? Math.max(0, getFinalizedReportWeek());
         const url = `https://pub-311748c72106476cbeabe0a22a59217d.r2.dev/weekly-report-week-${baseWeek}.json`;
         const res = await fetch(url, { cache: "no-store" });
         if (!res.ok)

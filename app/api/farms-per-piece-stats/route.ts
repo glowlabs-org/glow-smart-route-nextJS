@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentEpoch } from "@/utils/getCurrentEpoch";
+import { getFinalizedReportWeek } from "@/utils/getFinalizedReportWeek";
 
 export const dynamic = "force-dynamic";
 
 interface CacheEntry {
   data: any;
-  epoch: number;
+  rolloverWeek: number;
   params: string;
 }
 
@@ -18,11 +18,16 @@ export async function GET(request: NextRequest) {
     const startWeek = searchParams.get("startWeek");
     const endWeek = searchParams.get("endWeek");
 
-    const cacheKey = [farmId, startWeek, endWeek].filter(Boolean).join("-") || "all";
-    const currentEpoch = getCurrentEpoch();
+    const cacheKey =
+      [farmId, startWeek, endWeek].filter(Boolean).join("-") || "all";
+    const explicitEndWeek = endWeek ? Number.parseInt(endWeek, 10) : null;
+    const rolloverWeek =
+      explicitEndWeek !== null && Number.isFinite(explicitEndWeek)
+        ? explicitEndWeek
+        : getFinalizedReportWeek();
 
     const cached = cache.get(cacheKey);
-    if (cached && cached.epoch === currentEpoch) {
+    if (cached && cached.rolloverWeek === rolloverWeek) {
       return NextResponse.json(cached.data, {
         headers: {
           "Cache-Control": "public, max-age=3600",
@@ -59,7 +64,7 @@ export async function GET(request: NextRequest) {
 
     cache.set(cacheKey, {
       data,
-      epoch: currentEpoch,
+      rolloverWeek,
       params: cacheKey,
     });
 
@@ -77,4 +82,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-
