@@ -79,7 +79,6 @@ describe("sponsor listings query options", () => {
     expect(queryOptions.queryKey).toEqual([
       "sponsor-listings",
       {
-        paymentCurrency: "USDC",
         type: "mining-center",
       },
     ]);

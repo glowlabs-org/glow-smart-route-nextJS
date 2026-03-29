@@ -112,6 +112,7 @@ export type MiningCenterScore = {
   miningScore: number;
   weeklyGlwRewards?: string;
   weeklyGlwRewardsUsd?: string;
+  weeksOfMinerLifeRemaining?: number;
 };
 
 function isInsufficientAvailableStakedError(error: unknown): boolean {
@@ -1100,9 +1101,11 @@ export function DepositDialog({
 
     if (submitInFlightRef.current || isSubmitting) return;
     submitInFlightRef.current = true;
+    setIsSubmitting(true);
 
     try {
-      // Block duplicate taps before React has time to commit the disabled button state.
+      // Lock the CTA before any async preflight work so repeat clicks cannot queue
+      // duplicate purchase flows while wallet checks and listing refreshes run.
       const isSafe = await handleSmartAccountCheck();
       if (!isSafe) return;
 
@@ -1159,7 +1162,6 @@ export function DepositDialog({
           ? currentSgctlRequiredAmount - stakedGctlBalance
           : 0n;
 
-      setIsSubmitting(true);
       setPhase("processing");
       setErrorMessage(null);
 
@@ -1670,6 +1672,12 @@ export function DepositDialog({
     return application?.afterInstallPictures?.[0]?.url ?? null;
   }, [application]);
 
+  const minerLifeRemainingForShare = React.useMemo(() => {
+    if (selectedCurrency !== "USDC") return undefined;
+    return (rewardScore as MiningCenterScore | null | undefined)
+      ?.weeksOfMinerLifeRemaining;
+  }, [rewardScore, selectedCurrency]);
+
   const shareUrl = React.useMemo(
     () =>
       generateShareUrl(
@@ -1677,8 +1685,15 @@ export function DepositDialog({
         quantity,
         farmLabelForShare,
         Boolean(successMetrics),
+        minerLifeRemainingForShare,
       ),
-    [runtimeSelectedCurrency, farmLabelForShare, successMetrics, quantity],
+    [
+      runtimeSelectedCurrency,
+      quantity,
+      farmLabelForShare,
+      minerLifeRemainingForShare,
+      successMetrics,
+    ],
   );
 
   const handleShare = async () => {
@@ -1904,108 +1919,55 @@ export function DepositDialog({
           ) : null}
 
           {hasAnyEstimatedRewards ? (
-            <div className="space-y-3">
-              <div
-                className={cn(
-                  "w-full rounded-2xl p-4 border",
-                  runtimeSelectedCurrency === "USDC"
-                    ? "bg-gradient-to-r from-blue-500/10 via-cyan-500/10 to-blue-500/10 border-blue-500/20"
-                    : "bg-gradient-to-r from-green-500/10 via-[#D1FF4D]/10 to-green-500/10 border-green-500/20",
-                )}
-              >
-                <div className="flex justify-between items-center">
-                  <div>
-                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
-                      Projected Weekly Rewards
-                    </div>
-                    <div className="flex items-baseline gap-1.5 flex-wrap">
-                      {isMultiAssetEstimatedRewards ? (
-                        <>
-                          <span
-                            className={cn(
-                              "text-xl sm:text-2xl font-bold font-mono",
-                              runtimeSelectedCurrency === "USDC"
-                                ? "text-blue-600 dark:text-cyan-400"
-                                : "text-green-600 dark:text-[#D1FF4D]",
-                            )}
-                          >
-                            {estimatedRewardsBreakdown.glw.toLocaleString(
-                              undefined,
-                              {
-                                maximumFractionDigits: 2,
-                              },
-                            )}
-                          </span>
-                          <span
-                            className={cn(
-                              "text-sm font-medium",
-                              runtimeSelectedCurrency === "USDC"
-                                ? "text-blue-600/70 dark:text-cyan-400/70"
-                                : "text-green-600/70 dark:text-[#D1FF4D]/70",
-                            )}
-                          >
-                            GLW +
-                          </span>
-                          <span
-                            className={cn(
-                              "text-lg sm:text-xl font-bold font-mono",
-                              runtimeSelectedCurrency === "USDC"
-                                ? "text-blue-600 dark:text-cyan-400"
-                                : "text-green-600 dark:text-[#D1FF4D]",
-                            )}
-                          >
-                            {estimatedRewardsBreakdown.pd.toLocaleString(
-                              undefined,
-                              {
-                                maximumFractionDigits: 2,
-                              },
-                            )}
-                          </span>
-                          <span
-                            className={cn(
-                              "text-sm font-medium",
-                              runtimeSelectedCurrency === "USDC"
-                                ? "text-blue-600/70 dark:text-cyan-400/70"
-                                : "text-green-600/70 dark:text-[#D1FF4D]/70",
-                            )}
-                          >
-                            SGCTL
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <span
-                            className={cn(
-                              "text-xl sm:text-2xl font-bold font-mono",
-                              runtimeSelectedCurrency === "USDC"
-                                ? "text-blue-600 dark:text-cyan-400"
-                                : "text-green-600 dark:text-[#D1FF4D]",
-                            )}
-                          >
-                            {estimatedRewards.toLocaleString(undefined, {
+            <div className="w-full rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 overflow-hidden">
+              {/* Projected Weekly Rewards */}
+              <div className="px-5 py-4">
+                <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest mb-2">
+                  Projected Weekly Rewards
+                </div>
+                <div className="flex justify-between items-end">
+                  <div className="flex items-baseline gap-1.5 flex-wrap">
+                    {isMultiAssetEstimatedRewards ? (
+                      <>
+                        <span className="text-2xl font-mono font-semibold text-foreground leading-none">
+                          {estimatedRewardsBreakdown.glw.toLocaleString(
+                            undefined,
+                            {
                               maximumFractionDigits: 2,
-                            })}
-                          </span>
-                          <span
-                            className={cn(
-                              "text-sm font-medium",
-                              runtimeSelectedCurrency === "USDC"
-                                ? "text-blue-600/70 dark:text-cyan-400/70"
-                                : "text-green-600/70 dark:text-[#D1FF4D]/70",
-                            )}
-                          >
-                            GLW
-                          </span>
-                        </>
-                      )}
-                    </div>
+                            },
+                          )}
+                        </span>
+                        <span className="text-sm font-mono text-muted-foreground">
+                          GLW +
+                        </span>
+                        <span className="text-xl font-mono font-semibold text-foreground leading-none">
+                          {estimatedRewardsBreakdown.pd.toLocaleString(
+                            undefined,
+                            {
+                              maximumFractionDigits: 2,
+                            },
+                          )}
+                        </span>
+                        <span className="text-sm font-mono text-muted-foreground">
+                          SGCTL
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-2xl font-mono font-semibold text-foreground leading-none">
+                          {estimatedRewards.toLocaleString(undefined, {
+                            maximumFractionDigits: 2,
+                          })}
+                        </span>
+                        <span className="text-sm font-mono text-muted-foreground">
+                          GLW
+                        </span>
+                      </>
+                    )}
                   </div>
-                  <div className="text-right">
-                    <div className="text-xs text-muted-foreground/80 mb-1">
-                      ≈ Value
-                    </div>
-                    <div className="text-sm text-foreground/80 font-mono">
-                      $
+                  <div className="text-right shrink-0 ml-3">
+                    <div className="text-sm font-mono text-muted-foreground/60 dark:text-muted-foreground/80">
+                      ≈ $
                       {estimatedRewardsUsdValue.toLocaleString(undefined, {
                         maximumFractionDigits: 2,
                       })}
@@ -2014,35 +1976,38 @@ export function DepositDialog({
                 </div>
               </div>
 
+              {/* Impact Points Section */}
               {impactPointsBreakdown.total > 0 ? (
-                <div className="w-full rounded-2xl p-4 border bg-gradient-to-r from-glow-orange/10 via-glow-orange-500/10 to-glow-orange/20 border-glow-orange/30">
+                <div className="px-5 py-4 border-t border-border/20 dark:border-border/40">
                   <div className="flex justify-between items-center mb-3">
-                    <div className="text-xs font-medium text-left text-muted-foreground uppercase tracking-wider">
+                    <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
                       Est. Weekly Impact Points
                     </div>
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="text-base md:text-xl font-bold font-mono text-amber-600 dark:text-amber-400">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-lg font-mono font-semibold text-foreground leading-none">
                         +
                         {impactPointsBreakdown.total.toLocaleString(undefined, {
                           maximumFractionDigits: 2,
                         })}
                       </span>
-                      <span className="text-sm font-medium text-amber-600/70 dark:text-amber-400/70">
+                      <span className="text-xs font-mono text-muted-foreground">
                         pts
                       </span>
                     </div>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     {/* Emissions Row */}
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center justify-center w-6 h-6 rounded-md bg-[color:var(--color-miner)]/10 text-[color:var(--color-miner)]">
+                    <div className="flex items-center justify-between py-1">
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex items-center justify-center w-6 h-6 rounded-lg shrink-0 bg-[color:var(--color-miner)]/10 text-[color:var(--color-miner)]">
                           <EmissionsIcon className="w-3.5 h-3.5" />
                         </div>
-                        <span className="text-muted-foreground">Emissions</span>
+                        <span className="text-sm text-muted-foreground">
+                          Emissions
+                        </span>
                       </div>
-                      <span className="font-mono font-medium text-[color:var(--color-miner)]">
+                      <span className="font-mono text-sm font-medium text-[color:var(--color-miner)]">
                         +
                         {impactPointsBreakdown.emissionPoints.toLocaleString(
                           undefined,
@@ -2053,16 +2018,16 @@ export function DepositDialog({
 
                     {/* Vault Bonus Row (only for delegations) */}
                     {impactPointsBreakdown.vaultBonusPoints > 0 ? (
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-2">
-                          <div className="flex items-center justify-center w-6 h-6 rounded-md bg-[color:var(--delegation-purple)]/10 text-[color:var(--delegation-purple)]">
+                      <div className="flex items-center justify-between py-1">
+                        <div className="flex items-center gap-2.5">
+                          <div className="flex items-center justify-center w-6 h-6 rounded-lg shrink-0 bg-[color:var(--delegation-purple)]/10 text-[color:var(--delegation-purple)]">
                             <VaultIcon className="w-3.5 h-3.5" />
                           </div>
-                          <span className="text-muted-foreground">
+                          <span className="text-sm text-muted-foreground">
                             Vault Bonus
                           </span>
                         </div>
-                        <span className="font-mono font-medium text-[color:var(--delegation-purple)]">
+                        <span className="font-mono text-sm font-medium text-[color:var(--delegation-purple)]">
                           +
                           {impactPointsBreakdown.vaultBonusPoints.toLocaleString(
                             undefined,
@@ -2075,9 +2040,9 @@ export function DepositDialog({
 
                   {/* Miner bonus note */}
                   {runtimeSelectedCurrency === "USDC" ? (
-                    <div className="mt-3 pt-2 border-t border-amber-500/20 text-[11px] text-muted-foreground/80">
+                    <div className="mt-3 pt-2.5 border-t border-border/20 dark:border-border/40 text-[11px] text-muted-foreground/50 dark:text-muted-foreground/70">
                       <span className="text-[color:var(--color-miner)] font-medium">
-                        3× miner bonus
+                        3x miner bonus
                       </span>{" "}
                       applies at weekly rollover
                     </div>
@@ -2138,7 +2103,7 @@ export function DepositDialog({
                   className="h-14 w-14 rounded-full bg-red-500/20 flex items-center justify-center border border-red-500/50"
                   initial={{ scale: 0.8, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
-                  transition={{ type: "spring", duration: 0.5 }}
+                  transition={{ duration: 0.15, ease: "easeOut" }}
                 >
                   <X className="h-8 w-8 text-red-500" />
                 </motion.div>
@@ -2147,7 +2112,7 @@ export function DepositDialog({
                   className="h-14 w-14 rounded-full bg-amber-500/15 flex items-center justify-center border border-amber-500/40"
                   initial={{ scale: 0.8, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
-                  transition={{ type: "spring", duration: 0.5 }}
+                  transition={{ duration: 0.15, ease: "easeOut" }}
                 >
                   <RefreshCw className="h-7 w-7 text-amber-500 animate-spin" />
                 </motion.div>

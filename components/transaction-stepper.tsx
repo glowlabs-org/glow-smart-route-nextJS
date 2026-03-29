@@ -215,6 +215,12 @@ function TimelineItem({
             {step.status === "confirming" && step.statusLabel
               ? step.statusLabel
               : statusLabel[step.status]}
+            {step.status === "confirming" && step.id === "CONFIRM_TX" && (
+              <span className="text-muted-foreground/50">
+                {" "}
+                &middot; typically ~30s
+              </span>
+            )}
           </p>
         )}
 

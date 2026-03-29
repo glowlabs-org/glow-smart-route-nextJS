@@ -283,6 +283,7 @@ describe("mapMiningScoresBatchToApplications", () => {
             miningScore: 88,
             userWeeklyGlwRewards: parseUnits("5", 18).toString(),
             glwPriceUsd6: "2500000",
+            weeksOfMinerLifeRemaining: 80,
           },
         },
         {
@@ -304,6 +305,7 @@ describe("mapMiningScoresBatchToApplications", () => {
       farmId: "success-farm",
       miningScore: 88,
       weeklyGlwRewardsUsd: "12.50",
+      weeksOfMinerLifeRemaining: 80,
     });
     expect(mapped[1]).toMatchObject({
       applicationId: "no-farm",
