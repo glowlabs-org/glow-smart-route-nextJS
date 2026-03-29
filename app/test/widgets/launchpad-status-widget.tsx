@@ -180,6 +180,16 @@ function formatMinerWeeksLabel(weeks?: number | null): string {
   return `${roundedWeeks} week${roundedWeeks === 1 ? "" : "s"}`;
 }
 
+function getMinerWeeksRemaining(
+  scoreData: LaunchpadRewardScore | MiningCenterScore | null,
+): number | null {
+  if (!scoreData || "userWeeklyGlwRewards" in scoreData) {
+    return null;
+  }
+
+  return scoreData.weeksOfMinerLifeRemaining ?? null;
+}
+
 function getAuctionBatchStartAtMs(publishedTimestamp: string | null) {
   if (!publishedTimestamp) return null;
   try {
@@ -792,7 +802,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                     <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">
                       {isMiner
                         ? `for ${formatMinerWeeksLabel(
-                            row.scoreData?.weeksOfMinerLifeRemaining,
+                            getMinerWeeksRemaining(row.scoreData),
                           )}`
                         : "for 100 weeks"}
                     </span>
@@ -802,7 +812,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                   {isMiner ? (
                     <p className="text-xs">
                       {`Estimated weekly rewards per miner, paid for ${formatMinerWeeksLabel(
-                        row.scoreData?.weeksOfMinerLifeRemaining,
+                        getMinerWeeksRemaining(row.scoreData),
                       )}. May decrease as new farms join.`}
                     </p>
                   ) : (
