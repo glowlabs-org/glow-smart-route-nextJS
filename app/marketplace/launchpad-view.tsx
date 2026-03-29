@@ -1724,6 +1724,7 @@ function LaunchpadMarketplaceWidget({
           miningScore: number;
           weeklyGlwRewards?: string;
           weeklyGlwRewardsUsd?: string;
+          weeksOfMinerLifeRemaining?: number;
         }
       | null
     >(null);
@@ -1832,6 +1833,7 @@ function LaunchpadMarketplaceWidget({
               miningScore: mining.miningScore,
               weeklyGlwRewards: mining.weeklyGlwRewards,
               weeklyGlwRewardsUsd: mining.weeklyGlwRewardsUsd,
+              weeksOfMinerLifeRemaining: mining.weeksOfMinerLifeRemaining,
             }
           : null;
       const delegationCurrency =
@@ -2490,6 +2492,7 @@ function LaunchpadMarketplaceWidget({
               miningScore: number;
               weeklyGlwRewards?: string;
               weeklyGlwRewardsUsd?: string;
+              weeksOfMinerLifeRemaining?: number;
             } | null
           }
         />
@@ -2695,6 +2698,7 @@ function LaunchpadWidgetAssetCard({
           miningScore: number;
           weeklyGlwRewards?: string;
           weeklyGlwRewardsUsd?: string;
+          weeksOfMinerLifeRemaining?: number;
         }
       | null;
     cost: number;
@@ -3633,6 +3637,7 @@ function LaunchpadMarketplaceDialog({
               miningScore: mining.miningScore,
               weeklyGlwRewards: mining.weeklyGlwRewards,
               weeklyGlwRewardsUsd: mining.weeklyGlwRewardsUsd,
+              weeksOfMinerLifeRemaining: mining.weeksOfMinerLifeRemaining,
             }
           : null;
       const delegationCurrency =
@@ -3992,6 +3997,7 @@ function LaunchpadMarketplaceDialogContent({
           miningScore: number;
           weeklyGlwRewards?: string;
           weeklyGlwRewardsUsd?: string;
+          weeksOfMinerLifeRemaining?: number;
         }
       | null
   ) => void;

@@ -171,6 +171,15 @@ function formatTimeToSellOut(
   }
 }
 
+function formatMinerWeeksLabel(weeks?: number | null): string {
+  if (typeof weeks !== "number" || !Number.isFinite(weeks) || weeks <= 0) {
+    return "99 weeks";
+  }
+
+  const roundedWeeks = Math.floor(weeks);
+  return `${roundedWeeks} week${roundedWeeks === 1 ? "" : "s"}`;
+}
+
 function getAuctionBatchStartAtMs(publishedTimestamp: string | null) {
   if (!publishedTimestamp) return null;
   try {
@@ -339,6 +348,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                 miningScore: mining.miningScore,
                 weeklyGlwRewards: mining.weeklyGlwRewards,
                 weeklyGlwRewardsUsd: mining.weeklyGlwRewardsUsd,
+                weeksOfMinerLifeRemaining: mining.weeksOfMinerLifeRemaining,
               }
             : null;
 
@@ -780,15 +790,20 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                       )}
                     </div>
                     <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">
-                      {`for ${isMiner ? "99" : "100"} weeks`}
+                      {isMiner
+                        ? `for ${formatMinerWeeksLabel(
+                            row.scoreData?.weeksOfMinerLifeRemaining,
+                          )}`
+                        : "for 100 weeks"}
                     </span>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs">
                   {isMiner ? (
                     <p className="text-xs">
-                      Estimated weekly rewards per miner, paid for 99 weeks. May
-                      decrease as new farms join.
+                      {`Estimated weekly rewards per miner, paid for ${formatMinerWeeksLabel(
+                        row.scoreData?.weeksOfMinerLifeRemaining,
+                      )}. May decrease as new farms join.`}
                     </p>
                   ) : (
                     <div className="space-y-2">
@@ -1571,7 +1586,7 @@ export default function LaunchpadStatusWidget({
                       </div>
                       <div className="mt-1.5 text-sm text-muted-foreground line-clamp-3 leading-relaxed">
                         Buy "Solar Miners" with USDC. They earn GLW emissions
-                        tokens for 99 weeks based on real-world electricity
+                        tokens over the farm's remaining reward schedule based on real-world electricity
                         generation.
                       </div>
                       <div className="mt-3 text-xs font-medium text-muted-foreground group-hover:text-[color:var(--color-miner-contrast)]/80 transition-colors flex items-center gap-1">
@@ -1680,7 +1695,7 @@ export default function LaunchpadStatusWidget({
                       </div>
                       <div className="mt-1.5 text-sm text-muted-foreground line-clamp-3 leading-relaxed">
                         Buy "Solar Miners" with USDC. They earn GLW emissions
-                        tokens for 99 weeks based on real-world electricity
+                        tokens over the farm's remaining reward schedule based on real-world electricity
                         generation.
                       </div>
                       <div className="mt-3 text-xs font-medium text-muted-foreground group-hover:text-[color:var(--color-miner-contrast)]/80 transition-colors flex items-center gap-1">
