@@ -24,6 +24,7 @@ import {
 
 import { cn } from "@/lib/utils";
 
+import { AddGlwToWalletButton } from "./add-glw-to-wallet-button";
 import { GlowLockup } from "./glow-lockup";
 import { TosDialog } from "./tos-dialog";
 import { ThemeToggle } from "./ui/theme-toggle";
@@ -151,6 +152,10 @@ export function HeaderHamburgerMenu({
                         Protocol Stats
                       </Link>
                     </DrawerClose>
+                    <AddGlwToWalletButton
+                      appearance="drawer"
+                      source="header_app_drawer"
+                    />
                   </div>
                 </div>
 
@@ -399,6 +404,12 @@ export function Header({
                       <ListItem href="/stats" title="Protocol Stats">
                         Real-time protocol metrics and market data
                       </ListItem>
+                      <li>
+                        <AddGlwToWalletButton
+                          appearance="menu"
+                          source="header_app_menu"
+                        />
+                      </li>
                     </ul>
                   </NavigationMenuContent>
                 </NavigationMenuItem>
@@ -633,6 +644,10 @@ export function Header({
                                 Protocol Stats
                               </Link>
                             </DrawerClose>
+                            <AddGlwToWalletButton
+                              appearance="drawer"
+                              source="header_app_drawer_mobile"
+                            />
                           </div>
                         </div>
 

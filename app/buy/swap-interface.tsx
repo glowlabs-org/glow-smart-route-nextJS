@@ -2,6 +2,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { AddGlwToWalletButton } from "@/components/add-glw-to-wallet-button";
 
 import {
   Select,
@@ -1952,6 +1953,16 @@ export function SwapInterface({
             {actionErrorMessage && (
               <div className="text-sm text-destructive mt-3">
                 {actionErrorMessage}
+              </div>
+            )}
+
+            {(selectedTokenSell.label === "GLOW" ||
+              selectedTokenBuy.label === "GLOW") && (
+              <div className="pt-2 flex justify-center">
+                <AddGlwToWalletButton
+                  appearance="subtle"
+                  source="buy_swap_interface"
+                />
               </div>
             )}
           </div>
