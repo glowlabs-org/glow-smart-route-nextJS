@@ -1,6 +1,11 @@
 import { Header } from "@/components/header";
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo";
+import {
+  isReferralDashboardAuthorized,
+  isReferralDashboardPasswordConfigured,
+} from "@/lib/referral-dashboard-auth";
+import { InternalPasswordGate } from "./internal-password-gate";
 import InternalView from "./view";
 
 export const metadata: Metadata = buildPageMetadata({
@@ -10,12 +15,18 @@ export const metadata: Metadata = buildPageMetadata({
   noIndex: true,
 });
 
-export default function InternalPage() {
+export default async function InternalPage() {
+  const isAuthorized = await isReferralDashboardAuthorized();
+  const isConfigured = isReferralDashboardPasswordConfigured();
+
   return (
     <>
       <Header withIsScrolled={true} />
-
-      <InternalView />
+      {isAuthorized ? (
+        <InternalView />
+      ) : (
+        <InternalPasswordGate configured={isConfigured} />
+      )}
     </>
   );
 }
