@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { normalizeMinerWeeksRemainingDisplay } from "@/lib/mining-score";
 import { FallbackImage } from "@/components/ui/fallback-image";
 import { SponsoredFarmsActivity } from "@/app/marketplace/sponsored-farms-activity";
 import { ArrowUpRight } from "lucide-react";
@@ -19,10 +20,7 @@ function getProxiedImageUrl(url: string, width?: number, quality: number = 75) {
 }
 
 function formatMinerWeeksLabel(weeks?: number | null): string {
-  const resolvedWeeks =
-    typeof weeks === "number" && Number.isFinite(weeks) && weeks > 0
-      ? Math.floor(weeks)
-      : 99;
+  const resolvedWeeks = normalizeMinerWeeksRemainingDisplay(weeks) ?? 99;
   return `${resolvedWeeks} week${resolvedWeeks === 1 ? "" : "s"}`;
 }
 import {

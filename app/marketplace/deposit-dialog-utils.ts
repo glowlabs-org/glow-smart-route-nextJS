@@ -4,6 +4,7 @@
  */
 
 import { formatUnits, parseUnits } from "viem";
+import { normalizeMinerWeeksRemainingDisplay } from "@/lib/mining-score";
 
 // ============================================================================
 // Types
@@ -1210,11 +1211,7 @@ export function generateShareUrl(
 
   if (selectedCurrency === "USDC") {
     const weeksLeft =
-      typeof weeksOfMinerLifeRemaining === "number" &&
-      Number.isFinite(weeksOfMinerLifeRemaining) &&
-      weeksOfMinerLifeRemaining > 0
-        ? Math.floor(weeksOfMinerLifeRemaining)
-        : 99;
+      normalizeMinerWeeksRemainingDisplay(weeksOfMinerLifeRemaining) ?? 99;
     const text = [
       `I just bought ${quantity} miner${
         quantity > 1 ? "s" : ""

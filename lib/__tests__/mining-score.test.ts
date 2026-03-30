@@ -9,6 +9,7 @@ import {
   filterActiveMiningApplications,
   mergeMiningScoreExtraLiveFarms,
   mapMiningScoresBatchToApplications,
+  normalizeMinerWeeksRemainingDisplay,
 } from "../mining-score";
 
 function createActiveFraction(
@@ -249,6 +250,19 @@ describe("buildMiningScoreExtraLiveFarms", () => {
         },
       ]
     );
+  });
+});
+
+describe("normalizeMinerWeeksRemainingDisplay", () => {
+  it("adds the current reward epoch for positive values", () => {
+    expect(normalizeMinerWeeksRemainingDisplay(74)).toBe(75);
+    expect(normalizeMinerWeeksRemainingDisplay(74.9)).toBe(75);
+  });
+
+  it("keeps zero and invalid values safe", () => {
+    expect(normalizeMinerWeeksRemainingDisplay(0)).toBe(0);
+    expect(normalizeMinerWeeksRemainingDisplay(null)).toBeNull();
+    expect(normalizeMinerWeeksRemainingDisplay(undefined)).toBeNull();
   });
 });
 

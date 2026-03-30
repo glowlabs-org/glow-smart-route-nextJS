@@ -24,6 +24,7 @@ import { HelpCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { RegionRouter } from "@glowlabs-org/utils/browser";
+import { normalizeMinerWeeksRemainingDisplay } from "@/lib/mining-score";
 
 const regionRouter = RegionRouter(
   process.env.NEXT_PUBLIC_CONTROL_API_URL || ""
@@ -75,7 +76,9 @@ export function MiningStatsDialog({
     staleTime: 30 * 1000,
   });
 
-  const weeksRemaining = miningScoreData?.weeksOfMinerLifeRemaining ?? 99;
+  const weeksRemaining = normalizeMinerWeeksRemainingDisplay(
+    miningScoreData?.weeksOfMinerLifeRemaining,
+  ) ?? 99;
 
   // Get cost per miner
   const stepPrice = application?.activeFraction?.stepPrice;

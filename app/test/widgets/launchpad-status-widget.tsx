@@ -38,6 +38,7 @@ import { useLaunchpadStatus } from "@/hooks/useLaunchpadStatus";
 import { getNextTuesdayAt1pmET } from "@/utils/nextTuesdayET";
 import { filterPublicLaunchpadApplications } from "@/utils/launchpad";
 import { useGlowSpotPriceSummary } from "@/hooks/useGlowSpotPriceSummary";
+import { normalizeMinerWeeksRemainingDisplay } from "@/lib/mining-score";
 import {
   useGlowLaunchpad,
   useMiningCenter,
@@ -187,7 +188,9 @@ function getMinerWeeksRemaining(
     return null;
   }
 
-  return scoreData.weeksOfMinerLifeRemaining ?? null;
+  return normalizeMinerWeeksRemainingDisplay(
+    scoreData.weeksOfMinerLifeRemaining,
+  );
 }
 
 function getAuctionBatchStartAtMs(publishedTimestamp: string | null) {

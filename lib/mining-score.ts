@@ -23,6 +23,26 @@ export interface ApplicationMiningScore {
   error?: string;
 }
 
+export function normalizeMinerWeeksRemainingDisplay(
+  weeksOfMinerLifeRemaining: number | null | undefined
+): number | null {
+  if (
+    typeof weeksOfMinerLifeRemaining !== "number" ||
+    !Number.isFinite(weeksOfMinerLifeRemaining)
+  ) {
+    return null;
+  }
+
+  if (weeksOfMinerLifeRemaining <= 0) {
+    return 0;
+  }
+
+  // Control reports the remaining miner life exclusive of the current
+  // reward epoch. Marketplace copy should reflect the weeks a buyer can
+  // still earn from the purchase week forward.
+  return Math.floor(weeksOfMinerLifeRemaining) + 1;
+}
+
 export function filterActiveMiningApplications(
   applications: AuctionApplication[]
 ): AuctionApplication[] {
