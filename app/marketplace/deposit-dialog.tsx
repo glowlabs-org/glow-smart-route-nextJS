@@ -31,7 +31,11 @@ import { useWalletClient } from "wagmi";
 import { useGlowSpotPriceSummary } from "@/hooks/useGlowSpotPriceSummary";
 import { useEthPrice } from "@/hooks/useEthPrice";
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
-import { useSponsorApplication, type AuctionApplication } from "@/hooks";
+import {
+  fetchSponsorListings,
+  useSponsorApplication,
+  type AuctionApplication,
+} from "@/hooks";
 import {
   fetchWalletRegionAvailableStake,
   useWalletRegionAvailableStake,
@@ -101,7 +105,6 @@ import {
 } from "./deposit-dialog-utils";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { hubGet } from "@/lib/api/hub-client";
 
 export type LaunchpadRewardScore = {
   userWeeklyGlwRewards: string;
@@ -265,13 +268,7 @@ export function DepositDialog({
     const listings = await queryClient.fetchQuery({
       queryKey: QUERY_KEYS.listings.sponsor(filters),
       staleTime: 0,
-      queryFn: async () =>
-        hubGet<AuctionApplication[]>(
-          "/applications/sponsor-listings-applications",
-          {
-            params: filters,
-          },
-        ),
+      queryFn: async () => await fetchSponsorListings(filters),
     });
 
     return listings.find((item) => item.id === application.id) ?? application;
