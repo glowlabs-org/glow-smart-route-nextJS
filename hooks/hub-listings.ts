@@ -4,7 +4,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Decimal from "decimal.js";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { QUERY_CONFIG } from "@/hooks/query-config";
-import { hubGet } from "@/lib/api/hub-client";
 
 export type PaymentCurrency = "USDG" | "USDC" | "GLW" | "GCTL" | "SGCTL";
 export type DelegationPhase = "hidden" | "sgctl" | "glw" | null;
@@ -197,6 +196,58 @@ export interface UseSponsorListingsParams {
   };
 }
 
+const SPONSOR_LISTINGS_PROXY_PATH = "/api/applications/sponsor-listings-applications";
+
+function buildSponsorListingsProxyUrl(
+  filters: SponsorListingsFilters = {},
+): string {
+  const searchParams = new URLSearchParams();
+
+  // Backwards compatibility with the existing API behavior:
+  // - launchpad listings are returned when `type` is omitted
+  // - mining-center listings require `type=mining-center`
+  if (filters.type === "mining-center") {
+    searchParams.set("type", "mining-center");
+  }
+  if (filters.zoneId !== undefined) {
+    searchParams.set("zoneId", String(filters.zoneId));
+  }
+  if (filters.sortBy) {
+    searchParams.set("sortBy", filters.sortBy);
+  }
+  if (filters.sortOrder) {
+    searchParams.set("sortOrder", filters.sortOrder);
+  }
+  if (filters.paymentCurrency) {
+    searchParams.set("paymentCurrency", filters.paymentCurrency);
+  }
+  if (filters.includeFilled) {
+    searchParams.set("includeFilled", String(filters.includeFilled));
+  }
+
+  const query = searchParams.toString();
+  return query
+    ? `${SPONSOR_LISTINGS_PROXY_PATH}?${query}`
+    : SPONSOR_LISTINGS_PROXY_PATH;
+}
+
+export async function fetchSponsorListings(
+  filters: SponsorListingsFilters = {},
+): Promise<AuctionApplication[]> {
+  const response = await fetch(buildSponsorListingsProxyUrl(filters), {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(
+      `Sponsor listings fetch failed: ${response.status} - ${text}`,
+    );
+  }
+
+  return (await response.json()) as AuctionApplication[];
+}
+
 export function useSponsorListings(params: UseSponsorListingsParams = {}) {
   const { filters = {}, enabled = true, query: queryOptions } = params;
 
@@ -207,27 +258,8 @@ export function useSponsorListings(params: UseSponsorListingsParams = {}) {
     refetchOnWindowFocus: QUERY_CONFIG.DEFAULT.refetchOnWindowFocus,
     refetchInterval: queryOptions?.refetchInterval,
     refetchIntervalInBackground: queryOptions?.refetchIntervalInBackground,
-    queryFn: async (): Promise<AuctionApplication[]> => {
-      const searchParams: Record<string, string | number | boolean | undefined> =
-        {};
-
-      // Backwards compatibility with the existing API behavior:
-      // - launchpad listings are returned when `type` is omitted
-      // - mining-center listings require `type=mining-center`
-      if (filters.type === "mining-center") searchParams.type = "mining-center";
-      if (filters.zoneId !== undefined) searchParams.zoneId = filters.zoneId;
-      if (filters.sortBy) searchParams.sortBy = filters.sortBy;
-      if (filters.sortOrder) searchParams.sortOrder = filters.sortOrder;
-      if (filters.paymentCurrency)
-        searchParams.paymentCurrency = filters.paymentCurrency;
-      if (filters.includeFilled)
-        searchParams.includeFilled = String(filters.includeFilled);
-
-      return await hubGet<AuctionApplication[]>(
-        "/applications/sponsor-listings-applications",
-        { params: searchParams }
-      );
-    },
+    queryFn: async (): Promise<AuctionApplication[]> =>
+      await fetchSponsorListings(filters),
   });
 
   return {
