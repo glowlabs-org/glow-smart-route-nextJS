@@ -1,8 +1,13 @@
 export const WALLET_INTERACTION_TIMEOUT_MESSAGE =
   "Wallet interaction timed out. Reopen your wallet and try again.";
+export const INSUFFICIENT_GAS_ERROR_MESSAGE =
+  "Insufficient ETH for gas. Add more ETH to your wallet and try again.";
+export const GENERIC_SWAP_FAILURE_MESSAGE =
+  "Transaction failed. This could be due to insufficient liquidity, slippage tolerance exceeded, or contract revert. Please try again with a smaller amount or adjust your slippage tolerance.";
 
 export function getRpcErrorMessage(error: unknown): string {
   if (!error) return "Unknown error";
+  if (typeof error === "string") return error;
   if (error instanceof Error && error.message) return error.message;
   const anyError = error as any;
   return (
@@ -16,6 +21,49 @@ export function getRpcErrorMessage(error: unknown): string {
   );
 }
 
+function extractRevertReason(message: string): string | null {
+  const patterns = [
+    /reverted with the following reason:\s*([^\n]+)/i,
+    /execution reverted with reason:\s*([^\n]+)/i,
+    /details:\s*([^\n]+)/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = message.match(pattern);
+    const reason = match?.[1]?.trim();
+    if (reason) return reason;
+  }
+
+  return null;
+}
+
+export function getReadableRpcErrorMessage(
+  error: unknown,
+  defaultMessage = "Unknown error"
+): string {
+  let message = defaultMessage;
+
+  if (typeof error === "string") {
+    message = error;
+  } else {
+    const anyError = error as any;
+    if (typeof anyError?.reason === "string" && anyError.reason.trim()) {
+      message = anyError.reason;
+    } else {
+      const extracted = getRpcErrorMessage(error);
+      if (extracted && extracted !== "Unknown error") {
+        message = extracted;
+      }
+    }
+  }
+
+  if (isWalletInteractionTimeoutError(error) || isWalletInteractionTimeoutError(message)) {
+    return WALLET_INTERACTION_TIMEOUT_MESSAGE;
+  }
+
+  return extractRevertReason(message) ?? message;
+}
+
 export function getRpcErrorCode(error: unknown): number | undefined {
   const anyError = error as any;
   const code = anyError?.cause?.code ?? anyError?.code;
@@ -25,6 +73,59 @@ export function getRpcErrorCode(error: unknown): number | undefined {
 export function isWalletInteractionTimeoutError(error: unknown): boolean {
   const message = getRpcErrorMessage(error).toLowerCase();
   return message.includes("interaction timeout");
+}
+
+export function isInsufficientGasError(error: unknown): boolean {
+  const message =
+    typeof error === "string"
+      ? error.toLowerCase()
+      : getReadableRpcErrorMessage(error).toLowerCase();
+
+  return (
+    message.includes("gas required exceeds allowance") ||
+    message.includes("insufficient funds for gas") ||
+    message.includes("insufficient funds for intrinsic transaction cost") ||
+    message.includes("cannot afford txn gas")
+  );
+}
+
+export function normalizeSwapFailureMessage(errorMessage: string): string {
+  const normalized = errorMessage.toLowerCase();
+
+  if (isInsufficientGasError(errorMessage)) {
+    return INSUFFICIENT_GAS_ERROR_MESSAGE;
+  }
+
+  if (
+    normalized.includes("user rejected") ||
+    normalized.includes("user denied") ||
+    normalized.includes("transaction canceled") ||
+    normalized.includes("request rejected")
+  ) {
+    return "Transaction was rejected";
+  }
+
+  if (
+    normalized.includes("insufficient balance") ||
+    normalized.includes("transfer amount exceeds balance")
+  ) {
+    return "Insufficient balance";
+  }
+
+  if (normalized.includes("insufficient liquidity")) {
+    return "Insufficient liquidity for this swap. Try a smaller amount.";
+  }
+
+  if (
+    normalized.includes("failed to get amount out") ||
+    normalized.includes("missing revert data") ||
+    normalized === "execution reverted" ||
+    normalized === "revert"
+  ) {
+    return GENERIC_SWAP_FAILURE_MESSAGE;
+  }
+
+  return errorMessage;
 }
 
 export function isInternalRpcError(error: unknown): boolean {

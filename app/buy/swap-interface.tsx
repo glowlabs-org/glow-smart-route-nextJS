@@ -71,6 +71,10 @@ import {
   isInvalidWalletTxResponseError,
 } from "@/lib/normalize-tx-hash";
 import {
+  getReadableRpcErrorMessage,
+  normalizeSwapFailureMessage,
+} from "@/lib/rpc-error-utils";
+import {
   computeGlowSwapPriceImpactPct,
   DEFAULT_SLIPPAGE_BPS,
   DEFAULT_SLIPPAGE_TOLERANCE,
@@ -817,23 +821,18 @@ export function SwapInterface({
     } catch (error: any) {
       setPendingTx(false);
 
-      let errorMessage = "Transaction failed";
-
-      if (error?.message) {
-        errorMessage = error.message;
-      } else if (error?.reason) {
-        errorMessage = error.reason;
-      } else if (error?.shortMessage) {
-        errorMessage = error.shortMessage;
-      } else if (typeof error === "string") {
-        errorMessage = error;
-      }
+      let errorMessage = getReadableRpcErrorMessage(
+        error,
+        "Transaction failed"
+      );
 
       if (
         isInvalidWalletTxResponseError(error) ||
         isInvalidWalletTxResponseError(errorMessage)
       ) {
         errorMessage = INVALID_WALLET_TX_RESPONSE_MESSAGE;
+      } else {
+        errorMessage = normalizeSwapFailureMessage(errorMessage);
       }
 
       // Log critical swap errors to Sentry (skip user rejections)
@@ -859,23 +858,6 @@ export function SwapInterface({
             errorReason: error?.reason,
           },
         });
-      }
-
-      // Handle common error cases
-      if (
-        errorMessage.includes("revert") ||
-        errorMessage.includes("revert data") ||
-        errorMessage.includes("missing revert data")
-      ) {
-        errorMessage =
-          "Transaction failed. This could be due to insufficient liquidity, slippage tolerance exceeded, or contract revert. Please try again with a smaller amount or adjust your slippage tolerance.";
-      } else if (errorMessage.includes("insufficient")) {
-        errorMessage = "Insufficient balance or liquidity";
-      } else if (
-        errorMessage.includes("User rejected") ||
-        errorMessage.includes("User denied")
-      ) {
-        errorMessage = "Transaction was rejected";
       }
 
       // Prefer inline UI error for swap submit errors (avoid duplicating toast + UI).
