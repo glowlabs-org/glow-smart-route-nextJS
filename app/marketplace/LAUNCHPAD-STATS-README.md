@@ -4,6 +4,28 @@
 
 The Launchpad Stats Dialog (`launchpad-stats-dialog.tsx`) displays detailed analytics for GLW delegation opportunities. Shows expected returns based on audited farm performance and regional competitiveness.
 
+## Critical Note: Do Not Ignore `liveSoon` / `extraLiveFarms`
+
+- When validating marketplace stats from the dashboard widget, do not inspect miner rewards from a raw `POST /farms/mining-scores-batch` call by itself.
+- The dashboard widget passes launchpad delegations into `useMiningScore(..., extraLiveApplications)` and `useMiningScore` also merges `/applications/live-soon` into `extraLiveFarms`.
+- This means upcoming launchpad farms can dilute miners before the `1:00 PM ET` release window, even while the listing is still hidden from public sponsor-listing routes.
+- If you skip that merge, miner dialogs can be materially overstated.
+
+### Concrete failure mode
+
+- On `2026-03-31`, `ClearSky Vale` looked like `75.85 GLW/week` from a raw mining-score batch call with no extra live farms.
+- The real widget path included launchpad app `475b8977-ece0-4f8e-b6c6-a99bb6113411` from `/applications/live-soon`, which diluted `ClearSky Vale` to about `46.32 GLW/week`.
+- Future stats checks should treat the widget path as authoritative:
+  - miners: `useMiningScore()` with merged `liveSoon` and `extraLiveApplications`
+  - delegations: `useRewardScore()`
+
+### Files to verify before trusting a manual stats check
+
+- [launchpad-status-widget.tsx](/Users/julientremblay/Projects/glow/main-repos/glow-smart-route-nextJS/app/test/widgets/launchpad-status-widget.tsx)
+- [control-farms.ts](/Users/julientremblay/Projects/glow/main-repos/glow-smart-route-nextJS/hooks/control-farms.ts)
+- [mining-score.ts](/Users/julientremblay/Projects/glow/main-repos/glow-smart-route-nextJS/lib/mining-score.ts)
+- [liveSoon.ts](/Users/julientremblay/Projects/glow/main-repos/gca-crm-backend/src/routers/applications-router/liveSoon.ts)
+
 ## Props/Inputs
 
 ### `application` (AuctionApplication from `useGlowLaunchpad`)
