@@ -12,7 +12,14 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Gift, ChevronRight, ExternalLink } from "lucide-react";
-import { useRewardsBreakdown, formatGLW, formatUSDC } from "@/hooks";
+import {
+  useRewardsBreakdown,
+  formatGLW,
+  formatUSDC,
+  useSplitsActivity,
+  useMiningCenter,
+  useMiningScore,
+} from "@/hooks";
 import { useWalletFarms, useRegions } from "@/hooks";
 import { FallbackImage } from "@/components/ui/fallback-image";
 import { useGlowSpotPrice } from "@/hooks/useGlowPrices";
@@ -25,6 +32,9 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { estimateMiningCenterWeeklyGlw } from "@/utils/sponsorships-in-progress";
+import { getCurrentEpoch } from "@/utils/getCurrentEpoch";
+import { isPendingStartStatus } from "@/utils/pending-start-cards";
 
 interface RewardsBreakdownPanelProps {
   walletAddress: string | undefined;
@@ -48,10 +58,119 @@ export function RewardsBreakdownPanel({
     walletAddress: walletAddress || undefined,
     enabled: Boolean(walletAddress),
   });
+  const { activity: splitsActivity = [] } = useSplitsActivity({
+    walletAddress: walletAddress || undefined,
+    enabled: Boolean(walletAddress),
+    limit: 200,
+  });
 
   const { regions } = useRegions();
 
   const { spotPrice } = useGlowSpotPrice();
+
+  const recentPendingMiningFarmIds = React.useMemo(() => {
+    return new Set(
+      (data?.recentPurchasesWithoutRewards || [])
+        .filter((purchase) => purchase.types.includes("mining-center"))
+        .map((purchase) => purchase.farmId)
+    );
+  }, [data?.recentPurchasesWithoutRewards]);
+
+  const pendingMiningPurchasesByApplication = React.useMemo(() => {
+    const map = new Map<
+      string,
+      { applicationId: string; farmId: string; userSteps: number }
+    >();
+    if (!data) return map;
+
+    for (const evt of splitsActivity) {
+      if (evt.fractionType !== "mining-center") continue;
+      if (
+        !isPendingStartStatus({
+          fractionType: "mining-center",
+          status: evt.fractionStatus ?? "",
+        })
+      ) {
+        continue;
+      }
+
+      const farmId = evt.farmId ?? evt.applicationId;
+      if (!farmId || !recentPendingMiningFarmIds.has(farmId)) continue;
+
+      const eventEpoch = getCurrentEpoch(Number(evt.timestamp ?? 0));
+      if (eventEpoch <= data.weekRange.endWeek) continue;
+
+      const existing = map.get(evt.applicationId) ?? {
+        applicationId: evt.applicationId,
+        farmId,
+        userSteps: 0,
+      };
+      existing.userSteps += evt.stepsPurchased ?? 0;
+      map.set(evt.applicationId, existing);
+    }
+
+    return map;
+  }, [data, recentPendingMiningFarmIds, splitsActivity]);
+
+  const { applications: pendingMiningCenterListings = [] } = useMiningCenter({
+    filters: { paymentCurrency: "USDC", includeFilled: true },
+    enabled:
+      Boolean(walletAddress) && pendingMiningPurchasesByApplication.size > 0,
+  });
+
+  const pendingMiningCenterListingById = React.useMemo(() => {
+    const map = new Map<string, (typeof pendingMiningCenterListings)[number]>();
+    for (const app of pendingMiningCenterListings) {
+      map.set(app.id, app);
+    }
+    return map;
+  }, [pendingMiningCenterListings]);
+
+  const pendingMiningAppsForScores = React.useMemo(() => {
+    return Array.from(pendingMiningPurchasesByApplication.values())
+      .map((entry) => pendingMiningCenterListingById.get(entry.applicationId))
+      .filter((app): app is (typeof pendingMiningCenterListings)[number] =>
+        Boolean(app)
+      );
+  }, [pendingMiningCenterListingById, pendingMiningPurchasesByApplication]);
+
+  const { miningScoreMap } = useMiningScore({
+    applications: pendingMiningAppsForScores,
+    enabled: pendingMiningAppsForScores.length > 0,
+  });
+
+  const pendingMiningWeeklyGlwByFarmId = React.useMemo(() => {
+    const map = new Map<string, number>();
+
+    for (const entry of pendingMiningPurchasesByApplication.values()) {
+      const estimatedWeeklyGlw = estimateMiningCenterWeeklyGlw({
+        miningScore: miningScoreMap.get(entry.applicationId),
+        userSteps: entry.userSteps,
+      });
+      if (estimatedWeeklyGlw <= 0) continue;
+
+      map.set(
+        entry.farmId,
+        (map.get(entry.farmId) ?? 0) + estimatedWeeklyGlw
+      );
+    }
+
+    return map;
+  }, [miningScoreMap, pendingMiningPurchasesByApplication]);
+
+  const formatGlwEstimate = React.useCallback((value: number) => {
+    if (!Number.isFinite(value) || value <= 0) return "0.00";
+    if (value >= 1000) {
+      return value.toLocaleString("en-US", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      });
+    }
+    return value.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }, []);
 
   if (isLoading) {
     return (
@@ -1177,10 +1296,27 @@ export function RewardsBreakdownPanel({
                     const estimatedWeeklyPD =
                       pending.farmMetadata.userWeeklyRewards
                         ?.protocolDepositRewards || "0";
-                    const weeklyRewardFormatted = formatGLW(
-                      estimatedWeeklyReward,
-                    );
+                    const isMinerOnlyPending =
+                      pending.types.length === 1 &&
+                      pending.types[0] === "mining-center";
+                    const incrementalPendingMiningWeeklyGlw =
+                      isMinerOnlyPending
+                        ? pendingMiningWeeklyGlwByFarmId.get(pending.farmId) ?? 0
+                        : 0;
+                    const weeklyRewardFormatted =
+                      incrementalPendingMiningWeeklyGlw > 0
+                        ? formatGlwEstimate(incrementalPendingMiningWeeklyGlw)
+                        : formatGLW(estimatedWeeklyReward);
                     const weeklyPDFormatted = formatGLW(estimatedWeeklyPD);
+                    const totalWeeklyFormatted =
+                      incrementalPendingMiningWeeklyGlw > 0
+                        ? formatGlwEstimate(incrementalPendingMiningWeeklyGlw)
+                        : formatGLW(
+                            (
+                              Number(estimatedWeeklyReward) +
+                              Number(estimatedWeeklyPD)
+                            ).toString(),
+                          );
 
                     return (
                       <Card
@@ -1259,13 +1395,7 @@ export function RewardsBreakdownPanel({
                                     Est. Total Weekly
                                   </span>
                                   <span className="font-semibold">
-                                    {formatGLW(
-                                      (
-                                        Number(estimatedWeeklyReward) +
-                                        Number(estimatedWeeklyPD)
-                                      ).toString(),
-                                    )}{" "}
-                                    GLW
+                                    {totalWeeklyFormatted} GLW
                                   </span>
                                 </div>
                               </div>

@@ -1837,18 +1837,39 @@ export default function MyFarmsGridSection({
     pendingByFarm.forEach((item) => {
       // Try to find images from purchasedFarms first, then sponsorListings/miningCenterListings
       const farmMetadata = purchasedFarms.find((f) => f.farmId === item.farmId);
+      const pendingLaunchpadListing = sponsorListingById.get(item.applicationId);
+      const pendingMiningCenterListing = miningCenterListingById.get(
+        item.applicationId
+      );
       const imageUrls =
         farmMetadata?.afterInstallPictures?.map((p) => p.url) || [];
+      const regionName =
+        (() => {
+          if (farmMetadata) {
+            const region = regions.find((r) => r.id === farmMetadata.regionId);
+            if (region?.name) return region.name;
+          }
+
+          if (item.fractionType === "launchpad") {
+            return pendingLaunchpadListing?.zone?.name || "Launchpad";
+          }
+
+          return pendingMiningCenterListing?.zone?.name || "Miner";
+        })();
 
       // If no images from purchasedFarms, try listings
       if (imageUrls.length === 0) {
         if (item.fractionType === "launchpad") {
-          const app = sponsorListings?.find((a) => a.id === item.farmId);
+          const app =
+            pendingLaunchpadListing ??
+            sponsorListings?.find((a) => a.id === item.farmId);
           if (app?.afterInstallPictures?.length) {
             app.afterInstallPictures.forEach((p) => imageUrls.push(p.url));
           }
         } else {
-          const app = miningCenterListings?.find((a) => a.id === item.farmId);
+          const app =
+            pendingMiningCenterListing ??
+            miningCenterListings?.find((a) => a.id === item.farmId);
           if (app?.afterInstallPictures?.length) {
             app.afterInstallPictures.forEach((p) => imageUrls.push(p.url));
           }
@@ -1946,7 +1967,7 @@ export default function MyFarmsGridSection({
           farmKey: `${item.farmId}:delegation:${launchpadCurrency}:pending-start`,
           farmId: item.farmId,
           farmName: item.farmName,
-          regionName: "Launchpad",
+          regionName,
           imageUrls,
           type: "delegation", // Explicitly delegation
           isPendingStart: true,
@@ -1973,7 +1994,7 @@ export default function MyFarmsGridSection({
           farmKey: `${item.farmId}:miner:pending-start`,
           farmId: item.farmId,
           farmName: item.farmName,
-          regionName: "Miner",
+          regionName,
           imageUrls,
           type: "miner",
           isPendingStart: true,
@@ -2130,6 +2151,7 @@ export default function MyFarmsGridSection({
     launchpadCurrenciesByFarmId,
     currentLaunchpadCurrencyByFarmId,
     miningCenterListings,
+    miningCenterListingById,
     miningScoreMap,
     sponsorshipsInProgressWithEstimates,
   ]);

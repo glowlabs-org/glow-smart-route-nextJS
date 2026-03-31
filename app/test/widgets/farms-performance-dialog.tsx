@@ -1432,7 +1432,15 @@ export function FarmsPerformanceDialogContent({
       }
 
       if (item.fractionType === "launchpad") {
-        const launchpadApp = sponsorListings.find((a) => a.id === item.farmId);
+        const launchpadApp = sponsorListingById.get(item.applicationId);
+        const regionName =
+          (() => {
+            if (farmData) {
+              const region = regions.find((r) => r.id === farmData.regionId);
+              if (region?.name) return region.name;
+            }
+            return launchpadApp?.zone?.name || "Launchpad";
+          })();
         const launchpadCurrency =
           item.launchpadCurrency ?? resolveDelegationCurrency(launchpadApp);
         const investedDelegationAmount = parseDelegationAmountFromBaseUnits(
@@ -1442,7 +1450,7 @@ export function FarmsPerformanceDialogContent({
         return {
           farmId: item.farmId,
           id: item.farmName,
-          region: "Launchpad",
+          region: regionName,
           type: "delegation",
           isPendingStart: true,
           initialCost: investedDelegationAmount,
@@ -1462,11 +1470,20 @@ export function FarmsPerformanceDialogContent({
         };
       }
 
+      const miningCenterApp = miningCenterListingById.get(item.applicationId);
+      const regionName =
+        (() => {
+          if (farmData) {
+            const region = regions.find((r) => r.id === farmData.regionId);
+            if (region?.name) return region.name;
+          }
+          return miningCenterApp?.zone?.name || "Miner";
+        })();
       const investedUsd = parseUsdcFromBaseUnits(item.totalAmount.toString());
       return {
         farmId: item.farmId,
         id: item.farmName,
-        region: "Miner",
+        region: regionName,
         type: "miner",
         isPendingStart: true,
         initialCost: investedUsd,
@@ -1483,13 +1500,14 @@ export function FarmsPerformanceDialogContent({
     });
   }, [
     launchpadDelegatedAmountsByFarmId,
+    regions,
     purchasedFarms,
     rewardedFarmTypeKeys,
     splitsActivity,
-    sponsorListings,
     sponsorListingById,
     launchpadCurrenciesByFarmId,
     currentLaunchpadCurrencyByFarmId,
+    miningCenterListingById,
     miningScoreMap,
   ]);
 
