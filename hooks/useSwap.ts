@@ -18,8 +18,9 @@ import {
   normalizeTxHash,
 } from "@/lib/normalize-tx-hash";
 import {
-  getRpcErrorMessage,
+  getReadableRpcErrorMessage,
   isWalletInteractionTimeoutError,
+  normalizeSwapFailureMessage,
   WALLET_INTERACTION_TIMEOUT_MESSAGE,
   withInternalRpcRetry,
 } from "@/lib/rpc-error-utils";
@@ -83,15 +84,7 @@ function isUserRejectedRequest(err: unknown, errorMessage?: string): boolean {
 }
 
 function extractErrorMessage(err: any, defaultMessage: string): string {
-  let errorMessage: string = defaultMessage;
-
-  if (err?.reason) {
-    errorMessage = err.reason;
-  } else if (typeof err === "string") {
-    errorMessage = err;
-  } else {
-    errorMessage = getRpcErrorMessage(err);
-  }
+  let errorMessage = getReadableRpcErrorMessage(err, defaultMessage);
 
   if (
     isInvalidWalletTxResponseError(err) ||
@@ -104,25 +97,7 @@ function extractErrorMessage(err: any, defaultMessage: string): string {
     return WALLET_INTERACTION_TIMEOUT_MESSAGE;
   }
 
-  // Handle common error cases
-  if (
-    errorMessage.includes("revert") ||
-    errorMessage.includes("revert data") ||
-    errorMessage.includes("missing revert data")
-  ) {
-    errorMessage =
-      "Transaction failed. This could be due to insufficient liquidity, slippage tolerance exceeded, or contract revert. Please try again with a smaller amount or adjust your slippage tolerance.";
-  } else if (errorMessage.includes("insufficient")) {
-    errorMessage = "Insufficient balance or liquidity";
-  } else if (
-    errorMessage.includes("User rejected") ||
-    errorMessage.includes("User denied") ||
-    errorMessage.includes("rejected")
-  ) {
-    errorMessage = "Transaction was rejected";
-  }
-
-  return errorMessage;
+  return normalizeSwapFailureMessage(errorMessage);
 }
 type UseSwapProps = {
   tokenA_address: string;
@@ -717,8 +692,6 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
 
     const amountBigInt = toBigIntAmount(amount);
     const slippageBigInt = toBigIntPlain(slippagePercentTenThousandDenominator);
-    console.log("balanceGlow", balanceGlow.toString());
-    console.log("amountBigInt", amountBigInt.toString());
     if (balanceGlow < amountBigInt)
       return new Err(SwapError.INSUFFICIENT_TOKEN_A_BALANCE);
 
