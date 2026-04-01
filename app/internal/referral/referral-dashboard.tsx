@@ -756,6 +756,7 @@ type KolPaybackWeekRow = {
     totalPaybackRaw: string;
     saleCount: number;
     uniqueBuyers: number;
+    attributionBreakdown: ReferralDashboardKolPaybackResponse["kols"][number]["attributionBreakdown"];
   }>;
 };
 
@@ -784,6 +785,7 @@ function buildKolPaybackWeekRows(
               totalPaybackRaw: week.totalPaybackRaw,
               saleCount: week.saleCount,
               uniqueBuyers: week.uniqueBuyers,
+              attributionBreakdown: week.attributionBreakdown,
             },
           ],
         });
@@ -804,6 +806,7 @@ function buildKolPaybackWeekRows(
         totalPaybackRaw: week.totalPaybackRaw,
         saleCount: week.saleCount,
         uniqueBuyers: week.uniqueBuyers,
+        attributionBreakdown: week.attributionBreakdown,
       });
     }
   }
@@ -849,7 +852,8 @@ function KolPaybackExport({
         <div>
           <div className="text-sm font-medium">KoL Miner Export</div>
           <p className="text-sm text-muted-foreground/60 dark:text-muted-foreground/80 mt-1">
-            Eligible mining-center sales grouped by protocol week and current referrer.
+            Eligible mining-center sales grouped by protocol week with direct and
+            second-degree KoL attribution.
             {data
               ? ` Program start: ${formatLongDate(data.program.startedAt)}.`
               : " Program start: March 2, 2026."}
@@ -1048,6 +1052,15 @@ function KolPaybackExport({
                             </div>
                           </div>
                         </div>
+                        <div className="mt-4 flex flex-wrap gap-2 text-[10px] text-muted-foreground/60">
+                          <span>
+                            Direct: {kol.attributionBreakdown.direct.saleCount} sales
+                          </span>
+                          <span>
+                            2nd degree:{" "}
+                            {kol.attributionBreakdown.secondDegree.saleCount} sales
+                          </span>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1062,6 +1075,7 @@ function KolPaybackExport({
                         <TableHeader>
                           <TableRow className="bg-muted/40 hover:bg-muted/40">
                             <TableHead className="px-4">KoL</TableHead>
+                            <TableHead>Attribution</TableHead>
                             <TableHead>Buyer</TableHead>
                             <TableHead>Farm</TableHead>
                             <TableHead className="text-right">Amount</TableHead>
@@ -1075,6 +1089,24 @@ function KolPaybackExport({
                             <TableRow key={sale.transactionHash}>
                               <TableCell className="px-4 py-3">
                                 <CopyableWallet wallet={sale.kolWallet} className="text-xs" />
+                              </TableCell>
+                              <TableCell className="py-3">
+                                <div className="flex flex-col gap-1">
+                                  <Badge
+                                    variant="outline"
+                                    className="w-fit border-border/20 dark:border-border/40 text-[10px] font-mono"
+                                  >
+                                    {sale.attributionType === "direct_kol"
+                                      ? "direct"
+                                      : "2nd degree"}
+                                  </Badge>
+                                  {sale.attributionType === "second_degree_kol" ? (
+                                    <CopyableWallet
+                                      wallet={sale.directReferrerWallet}
+                                      className="text-[10px]"
+                                    />
+                                  ) : null}
+                                </div>
                               </TableCell>
                               <TableCell className="py-3">
                                 <CopyableWallet wallet={sale.buyer} className="text-xs" />
@@ -1110,6 +1142,11 @@ function KolPaybackExport({
                                 <div className="text-[10px] text-muted-foreground/50">
                                   Linked {formatDateTime(sale.referralLinkedAt)}
                                 </div>
+                                {sale.kolReferralLinkedAt ? (
+                                  <div className="text-[10px] text-muted-foreground/50">
+                                    KoL linked {formatDateTime(sale.kolReferralLinkedAt)}
+                                  </div>
+                                ) : null}
                               </TableCell>
                             </TableRow>
                           ))}

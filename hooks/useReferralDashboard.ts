@@ -177,6 +177,24 @@ export interface ReferralDashboardKolPaybackResponse {
     totalMinerSalesUsdc: string;
     totalPaybackRaw: string;
     totalPaybackUsdc: string;
+    attributionBreakdown: {
+      direct: {
+        saleCount: number;
+        uniqueBuyers: number;
+        totalMinerSalesRaw: string;
+        totalMinerSalesUsdc: string;
+        totalPaybackRaw: string;
+        totalPaybackUsdc: string;
+      };
+      secondDegree: {
+        saleCount: number;
+        uniqueBuyers: number;
+        totalMinerSalesRaw: string;
+        totalMinerSalesUsdc: string;
+        totalPaybackRaw: string;
+        totalPaybackUsdc: string;
+      };
+    };
     weeks: Array<{
       weekNumber: number;
       label: string;
@@ -188,8 +206,28 @@ export interface ReferralDashboardKolPaybackResponse {
       totalMinerSalesUsdc: string;
       totalPaybackRaw: string;
       totalPaybackUsdc: string;
+      attributionBreakdown: {
+        direct: {
+          saleCount: number;
+          uniqueBuyers: number;
+          totalMinerSalesRaw: string;
+          totalMinerSalesUsdc: string;
+          totalPaybackRaw: string;
+          totalPaybackUsdc: string;
+        };
+        secondDegree: {
+          saleCount: number;
+          uniqueBuyers: number;
+          totalMinerSalesRaw: string;
+          totalMinerSalesUsdc: string;
+          totalPaybackRaw: string;
+          totalPaybackUsdc: string;
+        };
+      };
       sales: Array<{
         kolWallet: string;
+        directReferrerWallet: string;
+        attributionType: "direct_kol" | "second_degree_kol";
         weekNumber: number;
         weekLabel: string;
         weekStartAt: string;
@@ -204,6 +242,8 @@ export interface ReferralDashboardKolPaybackResponse {
         paybackUsdc: string;
         saleAt: string;
         referralLinkedAt: string;
+        buyerReferralLinkedAt: string;
+        kolReferralLinkedAt: string | null;
         referralActivatedAt: string | null;
         referralStatus: string;
         fractionId: string;
