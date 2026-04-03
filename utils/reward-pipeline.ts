@@ -51,7 +51,10 @@ export function formatRewardPipelineDate(
     day: "numeric",
   }
 ) {
-  return new Date(timestampMs).toLocaleDateString("en-US", options);
+  return new Date(timestampMs).toLocaleDateString("en-US", {
+    timeZone: options.timeZone ?? "UTC",
+    ...options,
+  });
 }
 
 export function buildPendingRewardTimeline(params: {

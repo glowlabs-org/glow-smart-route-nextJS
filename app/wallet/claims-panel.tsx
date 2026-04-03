@@ -59,10 +59,7 @@ import {
 import { getCurrentEpoch, GENESIS_TIMESTAMP } from "@/utils/getCurrentEpoch";
 import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-warning-dialog";
 import { trackEvent } from "@/lib/telemetry";
-import {
-  formatRewardPipelineDate,
-  getEpochStartMs,
-} from "@/utils/reward-pipeline";
+import { formatRewardPipelineDate } from "@/utils/reward-pipeline";
 
 // Currency configurations - neutral containers, colored icons only when active
 const CURRENCY_CONFIG = {
@@ -141,8 +138,7 @@ const CLAIM_STATUS_STYLES: Record<ClaimStageStatus, string> = {
 // Helper to format week number to date
 function formatWeekDate(week: number): string {
   const weekTimestamp = GENESIS_TIMESTAMP + (week + 1) * 7 * 86400;
-  const date = new Date(weekTimestamp * 1000);
-  return date.toLocaleDateString("en-US", {
+  return formatRewardPipelineDate(weekTimestamp * 1000, {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -684,7 +680,7 @@ function WeekRewardsContent({
     const weekSeconds = 7 * 86_400;
     const claimableTimestamp =
       (GENESIS_TIMESTAMP + (weekData.week + 4) * weekSeconds) * 1000;
-    return new Date(claimableTimestamp).toLocaleDateString("en-US", {
+    return formatRewardPipelineDate(claimableTimestamp, {
       month: "short",
       day: "numeric",
     });
@@ -1092,18 +1088,10 @@ function PendingRewardsNotice({
   const claimableTimestamp =
     (GENESIS_TIMESTAMP + (earliestPending.week + earliestWait) * weekSeconds) *
     1000;
-  const claimableDate = new Date(claimableTimestamp);
-  const dateLabel = claimableDate.toLocaleDateString("en-US", {
+  const dateLabel = formatRewardPipelineDate(claimableTimestamp, {
     month: "short",
     day: "numeric",
   });
-  const postedLabel = formatRewardPipelineDate(
-    getEpochStartMs(earliestPending.week + 1) + 5 * 24 * 60 * 60 * 1000,
-    {
-      month: "short",
-      day: "numeric",
-    }
-  );
   const pendingLabel =
     pendingWeeks.length === 1
       ? "1 reward week in the pipeline"
@@ -1118,10 +1106,8 @@ function PendingRewardsNotice({
         <div className="space-y-1">
           <div className="text-sm font-medium text-foreground">{pendingLabel}</div>
           <div className="text-sm text-foreground/80 dark:text-foreground/70">
-            The earliest pending batch should post on-chain around{" "}
-            <span className="font-semibold text-foreground">{postedLabel}</span>
-            . After that, the finalization window continues before claims open.
-            Your next batch becomes claimable around{" "}
+            These rewards are still moving through review and finalization. Your
+            next claim should open around{" "}
             <span className="font-semibold text-foreground">{dateLabel}</span>.
           </div>
         </div>
