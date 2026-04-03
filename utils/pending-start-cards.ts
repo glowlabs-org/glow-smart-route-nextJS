@@ -1,3 +1,5 @@
+import { buildPendingRewardTimeline } from "@/utils/reward-pipeline";
+
 export type PendingStartFractionType = "launchpad" | "mining-center";
 
 export function isPendingStartStatus(params: {
@@ -20,6 +22,7 @@ export function shouldIncludePendingStartCard(params: {
   farmTypeKey: string;
   rewardedFarmTypeKeys: Set<string>;
   hasCurrentOwnership: boolean;
+  purchaseDate?: string | null;
 }): boolean {
   const {
     fractionType,
@@ -27,18 +30,29 @@ export function shouldIncludePendingStartCard(params: {
     farmTypeKey,
     rewardedFarmTypeKeys,
     hasCurrentOwnership,
+    purchaseDate,
   } = params;
 
   if (!fractionType) return false;
   if (!hasCurrentOwnership) return false;
 
-  // Mining-center purchases can legitimately have both:
-  // 1. an existing rewarded farm card for older miner splits, and
-  // 2. a newer "starts soon" purchase on the same farm that has not begun earning.
-  // Keep showing the pending-start card in that case so the additional purchase
-  // is not hidden until rewards catch up in later report weeks.
-  if (rewardedFarmTypeKeys.has(farmTypeKey) && fractionType !== "mining-center") {
-    return false;
+  if (rewardedFarmTypeKeys.has(farmTypeKey)) {
+    if (fractionType !== "mining-center") {
+      return false;
+    }
+
+    const phase = purchaseDate
+      ? buildPendingRewardTimeline({ purchaseDate }).phase
+      : null;
+
+    // Mining-center purchases can legitimately have both:
+    // 1. an existing rewarded farm card for older miner splits, and
+    // 2. a newer pending purchase on the same farm that has not begun earning.
+    // Once that newer purchase is already claimable, the rewarded/active card
+    // should take over again instead of rendering a duplicate claim-ready card.
+    if (phase === "claimable") {
+      return false;
+    }
   }
 
   return isPendingStartStatus({ fractionType, status });

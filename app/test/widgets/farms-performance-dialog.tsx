@@ -11,6 +11,7 @@ import {
   Gift,
   Clock,
   ChevronDown,
+  HelpCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/telemetry";
@@ -53,6 +54,10 @@ import {
   deriveMiningCenterSponsorshipsInProgress,
   estimateMiningCenterWeeklyGlw,
 } from "@/utils/sponsorships-in-progress";
+import {
+  buildPendingRewardTimeline,
+  formatRewardPipelineDate,
+} from "@/utils/reward-pipeline";
 import {
   normalizeDelegationCurrency,
   parseDelegationAmountFromBaseUnits,
@@ -199,6 +204,7 @@ interface PerformanceRowData {
   region: string;
   type: "miner" | "delegation" | "other" | "in-progress";
   isPendingStart?: boolean;
+  purchaseDate?: string | null;
   initialCost: number;
   recovered: number;
   inflation: number;
@@ -320,6 +326,79 @@ function parseProtocolDepositTokenAmount(
   return parseDelegationAmountFromBaseUnits(value, delegationCurrency);
 }
 
+function getPendingPhaseLabel(phase: ReturnType<typeof buildPendingRewardTimeline>["phase"]) {
+  switch (phase) {
+    case "epoch":
+      return "Week Closing";
+    case "audit":
+      return "Audit Review";
+    case "finalization":
+      return "Finalizing";
+    case "claimable":
+      return "Claim Ready";
+    default:
+      return "Pending";
+  }
+}
+
+function getPendingNextMilestone(params: {
+  phase: ReturnType<typeof buildPendingRewardTimeline>["phase"];
+  epochEndsAtMs: number;
+  auditPostedAtMs: number;
+  claimableAtMs: number;
+}) {
+  const { phase, epochEndsAtMs, auditPostedAtMs, claimableAtMs } = params;
+
+  if (phase === "epoch") {
+    return {
+      label: "Week closes",
+      date: formatRewardPipelineDate(epochEndsAtMs),
+    };
+  }
+  if (phase === "audit") {
+    return {
+      label: "Audited & posted",
+      date: formatRewardPipelineDate(auditPostedAtMs),
+    };
+  }
+  return {
+    label: phase === "claimable" ? "Funds available" : "First funds available",
+    date:
+      phase === "claimable"
+        ? "Now"
+        : formatRewardPipelineDate(claimableAtMs, {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          }),
+  };
+}
+
+const FIRST_FUNDS_TOOLTIP_COPY =
+  "Rewards are posted after the protocol week closes on Sunday and auditors review the batch. Funds then stay locked for a 3-week on-chain finalization window before the first claim opens.";
+
+function FirstFundsInfo(props: { className?: string }) {
+  return (
+    <ShadTooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground/70 transition-colors hover:text-foreground",
+            props.className
+          )}
+          aria-label="Why first funds are delayed"
+        >
+          <HelpCircle className="h-3.5 w-3.5" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-[260px] text-xs leading-relaxed">
+        {FIRST_FUNDS_TOOLTIP_COPY}
+      </TooltipContent>
+    </ShadTooltip>
+  );
+}
+
 // --- COMPONENT: THE FARM ROW ---
 const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
   const [isExpanded, setIsExpanded] = React.useState(false);
@@ -356,6 +435,37 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
       estimatedUserWeeklyPdAsset:
         data.estimatedUserWeeklyPdAsset ?? data.protocolDepositAsset,
     }) ?? "—";
+  const pendingTimeline = React.useMemo(() => {
+    if (!isPendingStart || !data.purchaseDate) return null;
+    return buildPendingRewardTimeline({ purchaseDate: data.purchaseDate });
+  }, [data.purchaseDate, isPendingStart]);
+  const pendingPhaseLabel = pendingTimeline
+    ? getPendingPhaseLabel(pendingTimeline.phase)
+    : "Pending";
+  const isClaimReadyPending = pendingTimeline?.phase === "claimable";
+  const pendingNextMilestone = pendingTimeline
+    ? getPendingNextMilestone({
+        phase: pendingTimeline.phase,
+        epochEndsAtMs: pendingTimeline.epochEndsAtMs,
+        auditPostedAtMs: pendingTimeline.auditPostedAtMs,
+        claimableAtMs: pendingTimeline.claimableAtMs,
+      })
+    : null;
+  const pendingStartsEarningLabel = pendingTimeline
+    ? formatRewardPipelineDate(pendingTimeline.epochEndsAtMs)
+    : null;
+  const pendingAuditPostedLabel = pendingTimeline
+    ? formatRewardPipelineDate(pendingTimeline.auditPostedAtMs)
+    : null;
+  const pendingClaimingStartsLabel = pendingTimeline
+    ? pendingTimeline.phase === "claimable"
+      ? "Now"
+      : formatRewardPipelineDate(pendingTimeline.claimableAtMs, {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        })
+    : null;
 
   const {
     totalEarned,
@@ -375,7 +485,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
       ? `${fmtGlw(data.lastWeekRewardsGlw)} GLW`
       : "—";
   const lastWeekValue = isPendingStart
-    ? "Pending"
+    ? "—"
     : isInProgress
     ? "—"
     : lastWeekLabel;
@@ -412,7 +522,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
             className
           )}
         >
-          PENDING
+          {pendingPhaseLabel.toUpperCase()}
         </div>
       );
     }
@@ -464,7 +574,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
     <div
       className={cn(
         "rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 transition-colors",
-        isPendingStart && "opacity-60"
+        isPendingStart && "border-border/30 dark:border-border/50"
       )}
     >
       {/* MOBILE CARD */}
@@ -557,7 +667,9 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
               <div className="text-center">
                 <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
                   {isPendingStart && data.estimatedUserWeeklyGlw
-                    ? "Est. Weekly"
+                    ? isClaimReadyPending
+                      ? "Rewards"
+                      : "Est. Weekly"
                     : "Earned"}
                 </div>
                 <div className="flex items-baseline justify-center gap-1">
@@ -572,7 +684,9 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                     )}
                   >
                     {isPendingStart
-                      ? estimatedWeeklyLabel
+                      ? isClaimReadyPending
+                        ? "Ready to claim"
+                        : estimatedWeeklyLabel
                       : isMiner
                       ? fmtGlw(totalEarnedGlw)
                       : getTotalRewardsLabel(data)}
@@ -581,28 +695,53 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
               </div>
             </div>
 
-            <div className="mt-4">
-              <div className="flex items-center justify-between text-[10px] font-mono text-muted-foreground mb-2">
-                <span>
-                  {data.weeksActive} / {data.totalWeeks} weeks
-                </span>
-                <span>{weeksRemaining} left</span>
+            {isPendingStart && pendingTimeline ? (
+              <div className="mt-4 rounded-xl border border-border/20 dark:border-border/40 bg-card/70 px-3 py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                      Starts earning
+                    </div>
+                    <div className="text-sm font-semibold text-foreground mt-1">
+                      {pendingStartsEarningLabel}
+                    </div>
+                  </div>
+                  {pendingNextMilestone ? (
+                    <div className="text-right">
+                      <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                        Next step
+                      </div>
+                      <div className="text-sm font-semibold text-foreground mt-1">
+                        {pendingNextMilestone.date}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
               </div>
-              <div className="relative w-full h-3 bg-muted/70 dark:bg-muted rounded-full overflow-hidden border border-border/30 dark:border-border/40">
-                <div
-                  className="absolute left-0 h-full bg-foreground/20"
-                  style={{ width: `${timePercent}%` }}
-                />
+            ) : (
+              <div className="mt-4">
+                <div className="flex items-center justify-between text-[10px] font-mono text-muted-foreground mb-2">
+                  <span>
+                    {data.weeksActive} / {data.totalWeeks} weeks
+                  </span>
+                  <span>{weeksRemaining} left</span>
+                </div>
+                <div className="relative w-full h-3 bg-muted/70 dark:bg-muted rounded-full overflow-hidden border border-border/30 dark:border-border/40">
+                  <div
+                    className="absolute left-0 h-full bg-foreground/20"
+                    style={{ width: `${timePercent}%` }}
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             {isExpanded && (
               <div className="mt-4 pt-4 border-t border-border/30 dark:border-border/40 space-y-3">
                 <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                  Breakdown
+                  {isPendingStart ? "Reward Pipeline" : "Breakdown"}
                 </div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm font-mono">
-                  {!isMiner && (
+                  {!isMiner && !isPendingStart && (
                     <>
                       <span className="text-muted-foreground">
                         PD Recovered
@@ -617,39 +756,81 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                       </span>
                     </>
                   )}
-                  <span className="text-muted-foreground">Emissions</span>
-                  <span className="text-right text-[color:var(--color-miner-contrast)]">
-                    +{fmtGlw(data.inflationGlw)} GLW
-                  </span>
-                  <div className="col-span-2 h-px bg-border/30 dark:bg-border/40" />
-                  <span className="text-muted-foreground font-bold">Total</span>
-                  <span className="text-right font-bold text-foreground">
-                    {isMiner ? fmtUsd(totalEarned) : totalRewardsLabel ?? "—"}
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm font-mono mt-3">
-                  <span className="text-muted-foreground">Time Progress</span>
-                  <span className="text-right text-foreground">
-                    {timePercent.toFixed(0)}%
-                  </span>
-                  {!isMiner && (
+                  {isPendingStart ? (
                     <>
                       <span className="text-muted-foreground">
-                        Value Progress
+                        {isMiner ? "Cost" : "Delegated"}
                       </span>
-                      <span
-                        className={cn(
-                          "text-right",
-                          isProfit
-                            ? "text-emerald-600 dark:text-emerald-500"
-                            : "text-foreground"
-                        )}
-                      >
-                        {valuePercent.toFixed(0)}%
+                      <span className="text-right text-foreground">
+                        {isMiner ? fmtUsd(data.initialCost) : delegatedLabel}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {isClaimReadyPending ? "Rewards" : "Est. weekly"}
+                      </span>
+                      <span className="text-right text-[color:var(--color-miner-contrast)]">
+                        {isClaimReadyPending ? "Ready to claim" : estimatedWeeklyLabel}
+                      </span>
+                      <div className="col-span-2 h-px bg-border/30 dark:bg-border/40" />
+                      <span className="text-muted-foreground">Rewards start</span>
+                      <span className="text-right text-foreground">
+                        {pendingStartsEarningLabel ?? "—"}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-muted-foreground">Emissions</span>
+                      <span className="text-right text-[color:var(--color-miner-contrast)]">
+                        +{fmtGlw(data.inflationGlw)} GLW
+                      </span>
+                      <div className="col-span-2 h-px bg-border/30 dark:bg-border/40" />
+                      <span className="text-muted-foreground font-bold">Total</span>
+                      <span className="text-right font-bold text-foreground">
+                        {isMiner ? fmtUsd(totalEarned) : totalRewardsLabel ?? "—"}
                       </span>
                     </>
                   )}
                 </div>
+                {isPendingStart && pendingTimeline ? (
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm font-mono mt-3">
+                    <span className="text-muted-foreground">Week closes</span>
+                    <span className="text-right text-foreground">
+                      {pendingStartsEarningLabel}
+                    </span>
+                    <span className="text-muted-foreground">Audited & posted</span>
+                    <span className="text-right text-foreground">
+                      {pendingAuditPostedLabel ?? "—"}
+                    </span>
+                    <span className="text-muted-foreground">First funds available</span>
+                    <span className="flex items-center justify-end gap-1 text-right text-foreground">
+                      <FirstFundsInfo />
+                      <span>{pendingClaimingStartsLabel ?? "—"}</span>
+                    </span>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm font-mono mt-3">
+                    <span className="text-muted-foreground">Time Progress</span>
+                    <span className="text-right text-foreground">
+                      {timePercent.toFixed(0)}%
+                    </span>
+                    {!isMiner && (
+                      <>
+                        <span className="text-muted-foreground">
+                          Value Progress
+                        </span>
+                        <span
+                          className={cn(
+                            "text-right",
+                            isProfit
+                              ? "text-emerald-600 dark:text-emerald-500"
+                              : "text-foreground"
+                          )}
+                        >
+                          {valuePercent.toFixed(0)}%
+                        </span>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </>
@@ -691,6 +872,15 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
               <div className="text-xs font-mono text-muted-foreground">
                 {data.inProgressFilledLabel ??
                   `${Math.round(data.inProgressPercent ?? 0)}% filled`}
+              </div>
+            ) : isPendingStart && pendingTimeline ? (
+              <div className="space-y-1">
+                <div className="text-xs font-mono text-muted-foreground">
+                  Starts earning {pendingStartsEarningLabel}
+                </div>
+                <div className="text-[11px] font-mono text-muted-foreground/80">
+                  First funds available {pendingClaimingStartsLabel}
+                </div>
               </div>
             ) : (
               <div>
@@ -817,7 +1007,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                 {/* LEFT: BREAKDOWN */}
                 <div>
                   <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-3">
-                    Breakdown
+                    {isPendingStart ? "Reward Pipeline" : "Breakdown"}
                   </div>
                   <div className="space-y-2 text-sm font-mono">
                     {!isOther && (
@@ -832,7 +1022,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                         </span>
                       </div>
                     )}
-                    {!isMiner && (
+                    {!isMiner && !isPendingStart && (
                       <div className="flex justify-between">
                         <div className="flex items-center gap-2">
                           <div className="w-2 h-2 rounded-full bg-delegation-purple dark:bg-delegation-purple" />
@@ -847,22 +1037,45 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                         </span>
                       </div>
                     )}
-                    <div className="flex justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-[color:var(--color-miner)]" />
-                        <span className="text-muted-foreground">Emissions</span>
+                    {isPendingStart ? (
+                      <div className="flex justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-[color:var(--color-miner)]" />
+                          <span className="text-muted-foreground">
+                            Est. weekly
+                          </span>
+                        </div>
+                        <span className="text-[color:var(--color-miner-contrast)]">
+                          {estimatedWeeklyLabel}
+                        </span>
                       </div>
-                      <span className="text-[color:var(--color-miner-contrast)]">
-                        +{fmtGlw(data.inflationGlw)} GLW
-                      </span>
-                    </div>
+                    ) : (
+                      <div className="flex justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-[color:var(--color-miner)]" />
+                          <span className="text-muted-foreground">Emissions</span>
+                        </div>
+                        <span className="text-[color:var(--color-miner-contrast)]">
+                          +{fmtGlw(data.inflationGlw)} GLW
+                        </span>
+                      </div>
+                    )}
                     <div className="h-px bg-border/30 dark:bg-border/40 my-2" />
-                    <div className="flex justify-between font-bold">
-                      <span className="text-muted-foreground">Total</span>
-                      <span className="text-foreground">
-                        {isMiner ? fmtUsd(totalEarned) : totalRewardsLabel ?? "—"}
-                      </span>
-                    </div>
+                    {isPendingStart ? (
+                      <div className="flex justify-between font-bold">
+                        <span className="text-muted-foreground">Rewards start</span>
+                        <span className="text-foreground">
+                          {pendingStartsEarningLabel ?? "—"}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex justify-between font-bold">
+                        <span className="text-muted-foreground">Total</span>
+                        <span className="text-foreground">
+                          {isMiner ? fmtUsd(totalEarned) : totalRewardsLabel ?? "—"}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -872,43 +1085,82 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                     Timeline
                   </div>
                   <div className="space-y-2 text-sm font-mono">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Week</span>
-                      <span className="text-foreground">
-                        {data.weeksActive} of {data.totalWeeks}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        Time Progress
-                      </span>
-                      <span className="text-foreground">
-                        {timePercent.toFixed(1)}%
-                      </span>
-                    </div>
-                    {!isMiner && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">
-                          Value Progress
-                        </span>
-                        <span
-                          className={cn(
-                            isProfit
-                              ? "text-emerald-600 dark:text-emerald-500 font-bold"
-                              : "text-foreground"
-                          )}
-                        >
-                          {valuePercent.toFixed(1)}%
-                        </span>
-                      </div>
+                    {isPendingStart && pendingTimeline ? (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">
+                            Current phase
+                          </span>
+                          <span className="text-foreground">
+                            {pendingPhaseLabel}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Week closes</span>
+                          <span className="text-foreground">
+                            {pendingStartsEarningLabel ?? "—"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">
+                            Audited & posted
+                          </span>
+                          <span className="text-foreground">
+                            {pendingAuditPostedLabel ?? "—"}
+                          </span>
+                        </div>
+                        <div className="h-px bg-border/30 dark:bg-border/40 my-2" />
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">
+                            First funds available
+                          </span>
+                          <span className="flex items-center gap-1 text-foreground">
+                            <FirstFundsInfo />
+                            <span>{pendingClaimingStartsLabel ?? "—"}</span>
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Week</span>
+                          <span className="text-foreground">
+                            {data.weeksActive} of {data.totalWeeks}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">
+                            Time Progress
+                          </span>
+                          <span className="text-foreground">
+                            {timePercent.toFixed(1)}%
+                          </span>
+                        </div>
+                        {!isMiner && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">
+                              Value Progress
+                            </span>
+                            <span
+                              className={cn(
+                                isProfit
+                                  ? "text-emerald-600 dark:text-emerald-500 font-bold"
+                                  : "text-foreground"
+                              )}
+                            >
+                              {valuePercent.toFixed(1)}%
+                            </span>
+                          </div>
+                        )}
+                        <div className="h-px bg-border/30 dark:bg-border/40 my-2" />
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Remaining</span>
+                          <span className="text-foreground">
+                            {weeksRemaining} weeks
+                          </span>
+                        </div>
+                      </>
                     )}
-                    <div className="h-px bg-border/30 dark:bg-border/40 my-2" />
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Remaining</span>
-                      <span className="text-foreground">
-                        {weeksRemaining} weeks
-                      </span>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -1264,6 +1516,7 @@ export function FarmsPerformanceDialogContent({
         farmId: string;
         applicationId: string;
         farmName: string;
+        purchaseDate: string | null;
         fractionType: "launchpad" | "mining-center";
         launchpadCurrency?: "GLW" | "SGCTL";
         totalAmount: bigint;
@@ -1306,19 +1559,24 @@ export function FarmsPerformanceDialogContent({
           : undefined;
 
       if (rewardedFarmTypeKeys.has(farmTypeKey)) {
-        if (fractionType !== "launchpad") continue;
+        if (fractionType !== "launchpad") {
+          const phase = evt.purchaseDate
+            ? buildPendingRewardTimeline({ purchaseDate: evt.purchaseDate }).phase
+            : null;
+          if (phase === "claimable") continue;
+        } else {
+          const currencies = launchpadCurrenciesByFarmId.get(farmId);
+          const hasMultipleLaunchpadCurrencies = (currencies?.size ?? 0) > 1;
+          const currentLaunchpadCurrency = currentLaunchpadCurrencyByFarmId.get(farmId);
 
-        const currencies = launchpadCurrenciesByFarmId.get(farmId);
-        const hasMultipleLaunchpadCurrencies = (currencies?.size ?? 0) > 1;
-        const currentLaunchpadCurrency = currentLaunchpadCurrencyByFarmId.get(farmId);
-
-        if (
-          !hasMultipleLaunchpadCurrencies ||
-          !launchpadCurrency ||
-          !currentLaunchpadCurrency ||
-          launchpadCurrency !== currentLaunchpadCurrency
-        ) {
-          continue;
+          if (
+            !hasMultipleLaunchpadCurrencies ||
+            !launchpadCurrency ||
+            !currentLaunchpadCurrency ||
+            launchpadCurrency !== currentLaunchpadCurrency
+          ) {
+            continue;
+          }
         }
       }
 
@@ -1337,6 +1595,7 @@ export function FarmsPerformanceDialogContent({
         farmId,
         applicationId: evt.applicationId,
         farmName: evt.farmName || `Farm ${farmId.substring(0, 8)}`,
+        purchaseDate: evt.purchaseDate ?? null,
         fractionType,
         launchpadCurrency,
         totalAmount: BigInt(0),
@@ -1344,6 +1603,9 @@ export function FarmsPerformanceDialogContent({
       };
       existing.totalAmount += amount;
       existing.totalStepsPurchased += evt.stepsPurchased ?? 0;
+      if (evt.purchaseDate) {
+        existing.purchaseDate = evt.purchaseDate;
+      }
       byFarm.set(pendingKey, existing);
     }
 
@@ -1453,6 +1715,7 @@ export function FarmsPerformanceDialogContent({
           region: regionName,
           type: "delegation",
           isPendingStart: true,
+          purchaseDate: item.purchaseDate,
           initialCost: investedDelegationAmount,
           recovered: 0,
           inflation: 0,
@@ -1486,6 +1749,7 @@ export function FarmsPerformanceDialogContent({
         region: regionName,
         type: "miner",
         isPendingStart: true,
+        purchaseDate: item.purchaseDate,
         initialCost: investedUsd,
         recovered: 0,
         inflation: 0,
@@ -1715,7 +1979,7 @@ export function FarmsPerformanceDialogContent({
   }, [inProgressRows, pendingStartRows, rows]);
 
   return (
-    <DialogContent className="max-w-4xl h-[92dvh] sm:h-[80vh] min-h-0 flex flex-col p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40">
+    <DialogContent className="max-w-5xl h-[92dvh] sm:h-[80vh] min-h-0 flex flex-col p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40">
       {/* Header */}
       <DialogHeader className="px-4 sm:px-6 py-4 sm:py-5 border-b border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 flex-shrink-0 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6 space-y-0">
         <DialogTitle className="text-xl sm:text-2xl font-bold font-mono uppercase tracking-wide leading-tight">

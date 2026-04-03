@@ -172,6 +172,41 @@ export function RewardsBreakdownPanel({
     });
   }, []);
 
+  const recentPurchases = data?.recentPurchasesWithoutRewards || [];
+  const pendingFarms = recentPurchases
+    .map((purchase) => {
+      const farmMetadata = purchasedFarms.find(
+        (f) => f.farmId === purchase.farmId,
+      );
+      if (!farmMetadata) return null;
+      return {
+        ...purchase,
+        farmMetadata,
+      };
+    })
+    .filter((f) => f !== null);
+
+  const pendingEstimatedWeeklyGlwTotal = React.useMemo(() => {
+    return pendingFarms.reduce((sum, pending) => {
+      const rewards = pending.farmMetadata.userWeeklyRewards;
+      if (!rewards) return sum;
+
+      const isMinerOnlyPending =
+        pending.types.length === 1 && pending.types[0] === "mining-center";
+      if (isMinerOnlyPending) {
+        return sum + (pendingMiningWeeklyGlwByFarmId.get(pending.farmId) ?? 0);
+      }
+
+      const inflationGlw = Number(rewards.glwInflationRewards || 0);
+      const pdGlw = Number(rewards.protocolDepositRewards || 0);
+      const total = Number.isFinite(inflationGlw + pdGlw)
+        ? inflationGlw + pdGlw
+        : 0;
+
+      return sum + total;
+    }, 0);
+  }, [pendingFarms, pendingMiningWeeklyGlwByFarmId]);
+
   if (isLoading) {
     return (
       <Card className="mb-8">
@@ -233,20 +268,6 @@ export function RewardsBreakdownPanel({
   const delegations = data.farmDetails.filter((f) => f.type === "launchpad");
   const miners = data.farmDetails.filter((f) => f.type === "mining-center");
   const otherFarms = data.otherFarmsWithRewards?.farms || [];
-  const recentPurchases = data.recentPurchasesWithoutRewards || [];
-
-  const pendingFarms = recentPurchases
-    .map((purchase) => {
-      const farmMetadata = purchasedFarms.find(
-        (f) => f.farmId === purchase.farmId,
-      );
-      if (!farmMetadata) return null;
-      return {
-        ...purchase,
-        farmMetadata,
-      };
-    })
-    .filter((f) => f !== null);
 
   const formatPDRewards = (value: string, asset: string | null): string => {
     try {
@@ -617,36 +638,57 @@ export function RewardsBreakdownPanel({
 
               <Card className="bg-muted/30">
                 <CardContent className="p-6 py-2">
-                  <div className="text-sm text-muted-foreground mb-3">
-                    Total Earned from Miners and Delegations
-                  </div>
-                  <div className="text-4xl font-bold mb-3">
-                    {formattedTotalEarnings} GLW
-                    {totalEarningsInDollars !== null && (
-                      <span className="text-xl text-muted-foreground ml-2">
-                        ≈ $
-                        {totalEarningsInDollars.toLocaleString("en-US", {
-                          minimumFractionDigits: 0,
-                          maximumFractionDigits: 0,
-                        })}
-                      </span>
-                    )}
-                  </div>
+                  {totalEarnings === 0 && pendingEstimatedWeeklyGlwTotal > 0 ? (
+                    <>
+                      <div className="text-sm text-muted-foreground mb-3">
+                        Estimated Weekly Rewards
+                      </div>
+                      <div className="text-4xl font-bold mb-3">
+                        ~
+                        {formatGlwEstimate(pendingEstimatedWeeklyGlwTotal)} GLW
+                        <span className="text-xl text-muted-foreground ml-2">
+                          / wk
+                        </span>
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Your purchases are confirmed. Rewards start after the
+                        week closes and auditors post the next batch.
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-sm text-muted-foreground mb-3">
+                        Total Earned from Miners and Delegations
+                      </div>
+                      <div className="text-4xl font-bold mb-3">
+                        {formattedTotalEarnings} GLW
+                        {totalEarningsInDollars !== null && (
+                          <span className="text-xl text-muted-foreground ml-2">
+                            ≈ $
+                            {totalEarningsInDollars.toLocaleString("en-US", {
+                              minimumFractionDigits: 0,
+                              maximumFractionDigits: 0,
+                            })}
+                          </span>
+                        )}
+                      </div>
 
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-baseline gap-2 text-sm">
-                      <span className="font-medium">
-                        {formattedLastWeek} GLW
-                      </span>
-                      <span className="text-muted-foreground text-xs">
-                        last week
-                      </span>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      over {weeksWithRewards}{" "}
-                      {weeksWithRewards === 1 ? "week" : "weeks"}
-                    </div>
-                  </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-baseline gap-2 text-sm">
+                          <span className="font-medium">
+                            {formattedLastWeek} GLW
+                          </span>
+                          <span className="text-muted-foreground text-xs">
+                            last week
+                          </span>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          over {weeksWithRewards}{" "}
+                          {weeksWithRewards === 1 ? "week" : "weeks"}
+                        </div>
+                      </div>
+                    </>
+                  )}
 
                   {totalEarnings > 0 && (hasDelegations || hasMiners) && (
                     <div className="mt-3 pt-3 border-t space-y-2">

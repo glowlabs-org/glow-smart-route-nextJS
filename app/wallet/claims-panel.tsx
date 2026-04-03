@@ -59,6 +59,10 @@ import {
 import { getCurrentEpoch, GENESIS_TIMESTAMP } from "@/utils/getCurrentEpoch";
 import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-warning-dialog";
 import { trackEvent } from "@/lib/telemetry";
+import {
+  formatRewardPipelineDate,
+  getEpochStartMs,
+} from "@/utils/reward-pipeline";
 
 // Currency configurations - neutral containers, colored icons only when active
 const CURRENCY_CONFIG = {
@@ -795,8 +799,9 @@ function WeekRewardsContent({
         hasProtocolRewards &&
         !isPdFinalized && (
           <div className="rounded-xl border border-border/20 bg-muted/30 px-3 py-2 text-xs text-muted-foreground dark:border-border/40 dark:bg-muted/50">
-            Emissions for this week are already claimed. Protocol deposits
-            unlock on {protocolUnlockDateLabel}.
+            Emissions for this week are already claimed. Protocol deposits are
+            still moving through the posting and finalization pipeline and
+            should unlock around {protocolUnlockDateLabel}.
           </div>
         )}
       {weekData.rewards.map((reward, idx) => {
@@ -1045,11 +1050,13 @@ function ClaimsAboutInfo() {
             Security &amp; Finality
           </div>
           <div className="text-sm text-foreground/80 dark:text-foreground/70">
-            Every batch of rewards goes through a 3-week finalization buffer
-            before it can be claimed. This window gives the protocol team time
-            to pause distributions if an exploit or anomaly is ever detected,
-            protecting all participants. Once finalized, rewards are claimable
-            on-chain at any time. Week 96 and earlier are available on the{" "}
+            Each reward batch follows the same pipeline: the protocol week
+            closes on Sunday, the control backend generates the batch on
+            Thursday, auditors review and post it on-chain on Friday, and then
+            the finalization window completes before claims open. That buffer
+            gives the protocol team time to pause distributions if an exploit
+            or anomaly is ever detected, protecting all participants. Week 96
+            and earlier are available on the{" "}
             <a
               href="https://hub.glow.org"
               target="_blank"
@@ -1073,15 +1080,6 @@ function PendingRewardsNotice({
 }) {
   if (pendingWeeks.length === 0) return null;
 
-  const totalPendingGlw = pendingWeeks.reduce((sum, w) => {
-    const glw = parseFloat(w.totalGlw || "0");
-    const pd = Array.from(w.totalProtocolDeposit.entries()).reduce(
-      (s, [, amount]) => s + parseFloat(amount || "0"),
-      0
-    );
-    return sum + glw + pd;
-  }, 0);
-
   const earliestPending = pendingWeeks.reduce(
     (earliest, w) => (w.week < earliest.week ? w : earliest),
     pendingWeeks[0]
@@ -1099,6 +1097,17 @@ function PendingRewardsNotice({
     month: "short",
     day: "numeric",
   });
+  const postedLabel = formatRewardPipelineDate(
+    getEpochStartMs(earliestPending.week + 1) + 5 * 24 * 60 * 60 * 1000,
+    {
+      month: "short",
+      day: "numeric",
+    }
+  );
+  const pendingLabel =
+    pendingWeeks.length === 1
+      ? "1 reward week in the pipeline"
+      : `${pendingWeeks.length} reward weeks in the pipeline`;
 
   return (
     <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
@@ -1107,19 +1116,12 @@ function PendingRewardsNotice({
           <Shield className="h-4 w-4 text-muted-foreground" />
         </div>
         <div className="space-y-1">
-          <div className="text-sm font-medium text-foreground">
-            {totalPendingGlw > 0
-              ? `${totalPendingGlw.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })} GLW finalizing`
-              : "Rewards finalizing"}
-          </div>
+          <div className="text-sm font-medium text-foreground">{pendingLabel}</div>
           <div className="text-sm text-foreground/80 dark:text-foreground/70">
-            New rewards go through a 3-week security verification period before
-            they become claimable. This buffer allows the protocol team to pause
-            distributions if an exploit is ever detected, protecting all
-            participants. Your next batch becomes claimable around{" "}
+            The earliest pending batch should post on-chain around{" "}
+            <span className="font-semibold text-foreground">{postedLabel}</span>
+            . After that, the finalization window continues before claims open.
+            Your next batch becomes claimable around{" "}
             <span className="font-semibold text-foreground">{dateLabel}</span>.
           </div>
         </div>

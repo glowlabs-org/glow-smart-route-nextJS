@@ -6,6 +6,7 @@ import {
   ChevronRight,
   Clock,
   X,
+  HelpCircle,
   LayoutGrid,
   Grid3x3,
   List,
@@ -50,6 +51,12 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { FallbackImage } from "@/components/ui/fallback-image";
 import { GlowSymbol } from "@/components/glow-symbol";
 
@@ -84,6 +91,11 @@ import {
   type DelegationAmountsByAsset,
 } from "@/utils/wallet-launchpad";
 import { shouldIncludePendingStartCard } from "@/utils/pending-start-cards";
+import {
+  buildPendingRewardTimeline,
+  formatRewardPipelineDate,
+  type PendingRewardPipelinePhase,
+} from "@/utils/reward-pipeline";
 
 const fmtGlw = (n: number) =>
   new Intl.NumberFormat("en-US", {
@@ -218,6 +230,159 @@ function formatEstimatedWeeklyRewards(params: {
   return null;
 }
 
+type PendingTimelineStep = {
+  key: "epoch" | "audit" | "claim";
+  label: string;
+  dateLabel: string;
+  isActive: boolean;
+  isComplete: boolean;
+};
+
+type PendingTimelineCopy = {
+  isClaimReady: boolean;
+  badgeLabel: string;
+  statusLabel: string;
+  helperLabel: string;
+  timelineLabel: string;
+  timelineValue: string;
+  nextMilestoneLabel: string;
+  nextMilestoneValue: string;
+  progressPercent: number;
+  steps: PendingTimelineStep[];
+};
+
+const FIRST_FUNDS_TOOLTIP_COPY =
+  "Rewards are posted after the protocol week closes on Sunday and auditors review the batch. Funds then stay locked for a 3-week on-chain finalization window before the first claim opens.";
+
+function FirstFundsInfo(props: { className?: string }) {
+  return (
+    <TooltipProvider delayDuration={0}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className={cn(
+              "inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground/70 transition-colors hover:text-foreground",
+              props.className,
+            )}
+            aria-label="Why first funds are delayed"
+          >
+            <HelpCircle className="h-3.5 w-3.5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-[260px] text-xs leading-relaxed">
+          {FIRST_FUNDS_TOOLTIP_COPY}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+function getPendingStartPositionLabel(farm: FarmCardData) {
+  if (farm.type === "miner") return "miner";
+  if (farm.type === "delegation") return "delegation";
+  return "position";
+}
+
+function getPendingStartTimelineCopy(params: {
+  positionLabel: string;
+  purchaseDate: string | null | undefined;
+}
+): PendingTimelineCopy | null {
+  const { positionLabel, purchaseDate } = params;
+  if (!purchaseDate) return null;
+
+  const timeline = buildPendingRewardTimeline({ purchaseDate });
+  const epochEndLabel = formatRewardPipelineDate(timeline.epochEndsAtMs);
+  const postedLabel = formatRewardPipelineDate(timeline.auditPostedAtMs);
+  const claimableLabel = formatRewardPipelineDate(timeline.claimableAtMs, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+
+  const normalizedPositionLabel = positionLabel.toLowerCase();
+  const ownershipLabel = `Your ${normalizedPositionLabel} is confirmed`;
+  const isClaimable = timeline.phase === "claimable";
+
+  const statusLabel =
+    timeline.phase === "epoch"
+      ? ownershipLabel
+      : timeline.phase === "audit"
+        ? `Your ${normalizedPositionLabel} starts earning now`
+        : timeline.phase === "finalization"
+          ? `Your ${normalizedPositionLabel} is earning`
+          : `Your ${normalizedPositionLabel} is claimable`;
+
+  const helperLabel =
+    timeline.phase === "epoch"
+      ? `Rewards start after Sunday close. Claiming opens after posting and finalization.`
+      : timeline.phase === "audit"
+        ? `Rewards are being prepared and audited before they are posted on-chain.`
+        : timeline.phase === "finalization"
+          ? `Rewards are posted on-chain. The 3-week protection window is still running.`
+          : `Your first batch is available now in Rewards.`;
+
+  const phaseOrder: PendingRewardPipelinePhase[] = [
+    "epoch",
+    "audit",
+    "finalization",
+    "claimable",
+  ];
+  const currentPhaseIndex = phaseOrder.indexOf(timeline.phase);
+
+  return {
+    isClaimReady: isClaimable,
+    badgeLabel:
+      timeline.phase === "epoch"
+        ? "Owned"
+        : timeline.phase === "claimable"
+          ? "Claim Ready"
+          : "Earning Soon",
+    statusLabel,
+    helperLabel,
+    timelineLabel: isClaimable ? "Funds available" : "First funds available",
+    timelineValue: isClaimable ? "Now" : claimableLabel,
+    nextMilestoneLabel:
+      timeline.phase === "epoch"
+        ? "Starts earning"
+        : timeline.phase === "claimable"
+          ? "Funds available"
+          : "Started earning",
+    nextMilestoneValue:
+      timeline.phase === "epoch"
+        ? epochEndLabel
+        : timeline.phase === "claimable"
+          ? "Now"
+          : postedLabel,
+    progressPercent: timeline.progressPercent,
+    steps: [
+      {
+        key: "epoch",
+        label: "Week closes",
+        dateLabel: epochEndLabel,
+        isActive: timeline.phase === "epoch",
+        isComplete: currentPhaseIndex > 0,
+      },
+      {
+        key: "audit",
+        label: "Audited & posted",
+        dateLabel: postedLabel,
+        isActive: timeline.phase === "audit",
+        isComplete: currentPhaseIndex > 1,
+      },
+      {
+        key: "claim",
+        label: "First funds available",
+        dateLabel: claimableLabel,
+        isActive:
+          timeline.phase === "finalization" || timeline.phase === "claimable",
+        isComplete: timeline.phase === "claimable",
+      },
+    ],
+  };
+}
+
 function getFarmEarnedLabel(farm: FarmCardData): string {
   const protocolDepositAsset = formatProtocolDepositAsset(
     farm.protocolDepositAsset
@@ -274,6 +439,7 @@ interface FarmCardData {
   estimatedUserWeeklyPdAsset?: string | null;
   delegatedAmountsByAsset?: DelegationAmountsByAsset;
   isPendingStart?: boolean;
+  pendingPurchaseDate?: string | null;
 }
 
 interface FarmListRowProps {
@@ -286,8 +452,211 @@ interface FarmMosaicCardProps {
   onClick: () => void;
 }
 
+function PendingTimelinePanel(props: {
+  timeline: PendingTimelineCopy;
+  compact?: boolean;
+}) {
+  const { timeline, compact = false } = props;
+
+  return (
+    <div
+      className={cn(
+        "rounded-xl border border-border/20 bg-muted/20 dark:border-border/40 dark:bg-muted/40",
+        compact ? "p-2.5 space-y-2" : "p-3 space-y-2.5",
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
+            What Happens Next
+          </div>
+          <div
+            className={cn(
+              "mt-1 font-medium text-foreground",
+              compact ? "text-[11px]" : "text-xs",
+            )}
+          >
+            {timeline.helperLabel}
+          </div>
+        </div>
+        <div className="text-right shrink-0">
+          <div className="flex items-center justify-end gap-1 text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
+            <span>{timeline.timelineLabel}</span>
+            <FirstFundsInfo />
+          </div>
+          <div
+            className={cn(
+              "mt-1 font-mono font-semibold text-foreground",
+              compact ? "text-[11px]" : "text-xs",
+            )}
+          >
+            {timeline.timelineValue}
+          </div>
+        </div>
+      </div>
+
+      <div className={cn("grid gap-2", compact ? "grid-cols-1" : "grid-cols-3")}>
+        {timeline.steps.map((step) => (
+          <div
+            key={step.key}
+            className={cn(
+              "rounded-lg border px-2.5 py-2 transition-colors",
+              step.isComplete
+                ? "border-emerald-500/20 bg-emerald-500/5"
+                : step.isActive
+                  ? "border-primary/25 bg-primary/5"
+                  : "border-border/20 bg-background/50 dark:border-border/40 dark:bg-background/20",
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <div
+                className={cn(
+                  "h-2 w-2 rounded-full shrink-0",
+                  step.isComplete
+                    ? "bg-emerald-500"
+                    : step.isActive
+                      ? "bg-primary"
+                      : "bg-muted-foreground/30",
+                )}
+              />
+              <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                {step.label}
+              </div>
+            </div>
+            <div
+              className={cn(
+                "mt-1.5 font-mono font-semibold text-foreground",
+                compact ? "text-[11px]" : "text-xs",
+              )}
+            >
+              {step.dateLabel}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PendingTimelineCompact(props: {
+  timeline: PendingTimelineCopy;
+  compact?: boolean;
+}) {
+  const { timeline, compact = false } = props;
+
+  return (
+    <div
+      className={cn(
+        "rounded-xl border border-border/20 bg-muted/20 dark:border-border/40 dark:bg-muted/40",
+        compact ? "px-2.5 py-2" : "px-3 py-2.5",
+      )}
+    >
+      <div className="grid grid-cols-2 gap-3">
+        <div className="min-w-0">
+          <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
+            {timeline.nextMilestoneLabel}
+          </div>
+          <div
+            className={cn(
+              "mt-1 font-mono font-semibold text-foreground",
+              compact ? "text-[11px]" : "text-xs",
+            )}
+          >
+            {timeline.nextMilestoneValue}
+          </div>
+        </div>
+        <div className="min-w-0 text-right">
+          <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
+            {timeline.isClaimReady ? "Next step" : timeline.timelineLabel}
+          </div>
+          <div
+            className={cn(
+              "mt-1 font-mono font-semibold text-foreground",
+              compact ? "text-[11px]" : "text-xs",
+            )}
+          >
+            {timeline.isClaimReady ? "Open Rewards" : timeline.timelineValue}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PendingTimelineModalPanel(props: {
+  timeline: PendingTimelineCopy;
+}) {
+  const { timeline } = props;
+
+  return (
+    <Card className="bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 md:col-span-3">
+      <CardContent className="p-6 md:p-7 space-y-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="space-y-3 max-w-2xl">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/20 bg-card dark:border-border/40">
+                <Clock className="w-4 h-4 text-[color:var(--color-miner-contrast)]" />
+              </div>
+              <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+                Status
+              </div>
+            </div>
+            <div className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground">
+              {timeline.statusLabel}
+            </div>
+            <div className="text-sm md:text-base leading-relaxed text-muted-foreground dark:text-muted-foreground/80 max-w-xl">
+              {timeline.helperLabel}
+            </div>
+          </div>
+          <div className="shrink-0 rounded-xl border border-border/20 dark:border-border/40 bg-card px-4 py-3">
+            <div className="flex items-center gap-1 text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+              <span>First Funds Available</span>
+              <FirstFundsInfo />
+            </div>
+            <div className="mt-2 text-xl font-semibold text-foreground">
+              {timeline.timelineValue}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="rounded-xl border border-border/20 dark:border-border/40 bg-card px-4 py-3">
+            <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+              Starts Earning
+            </div>
+            <div className="mt-2 text-lg font-semibold text-foreground">
+              {timeline.steps[0]?.dateLabel}
+            </div>
+          </div>
+          <div className="rounded-xl border border-border/20 dark:border-border/40 bg-card px-4 py-3">
+            <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+              Audited &amp; Posted
+            </div>
+            <div className="mt-2 text-lg font-semibold text-foreground">
+              {timeline.steps[1]?.dateLabel}
+            </div>
+          </div>
+          <div className="rounded-xl border border-border/20 dark:border-border/40 bg-card px-4 py-3">
+            <div className="flex items-center gap-1 text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+              <span>First Funds Available</span>
+              <FirstFundsInfo />
+            </div>
+            <div className="mt-2 text-lg font-semibold text-foreground">
+              {timeline.steps[2]?.dateLabel}
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function FarmMosaicCard({ farm, onClick }: FarmMosaicCardProps) {
   const isPendingStart = Boolean(farm.isPendingStart);
+  const pendingTimeline = getPendingStartTimelineCopy({
+    positionLabel: getPendingStartPositionLabel(farm),
+    purchaseDate: farm.pendingPurchaseDate,
+  });
 
   return (
     <Card
@@ -309,7 +678,7 @@ function FarmMosaicCard({ farm, onClick }: FarmMosaicCardProps) {
           <div className="absolute top-2 right-2 z-10">
             <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold font-mono uppercase tracking-wider border bg-background/90 text-foreground border-border/40">
               <Clock className="w-2.5 h-2.5" />
-              Soon
+              {pendingTimeline?.badgeLabel ?? "Pending"}
             </div>
           </div>
         )}
@@ -348,6 +717,10 @@ function FarmCard({
   const isDelegation = farm.type === "delegation";
   const isOther = farm.type === "other";
   const isPendingStart = Boolean(farm.isPendingStart);
+  const pendingTimeline = getPendingStartTimelineCopy({
+    positionLabel: getPendingStartPositionLabel(farm),
+    purchaseDate: farm.pendingPurchaseDate,
+  });
   const inProgressIsMiningCenter =
     isInProgress && farm.inProgressKind === "mining-center";
   const protocolDepositAssetLabel = formatProtocolDepositAsset(
@@ -369,6 +742,9 @@ function FarmCard({
       farm.estimatedUserWeeklyPdAsset ?? farm.protocolDepositAsset,
   });
   const auditUrl = showAuditButton ? getAuditUrl({ id: farm.farmId }) : null;
+  const isClaimReadyPending = Boolean(
+    isPendingStart && pendingTimeline?.isClaimReady,
+  );
 
   const totalValue = farm.recovered + farm.inflation;
   const timeBasedProgress =
@@ -385,7 +761,6 @@ function FarmCard({
       ? `${fmtGlw(farm.lastWeekRewardsGlw)} GLW`
       : null;
   const hasLastWeekRewards = lastWeekLabel !== null;
-  const usesWidePendingSummary = isPendingStart && !isCompact && !hasLastWeekRewards;
 
   const getTypeBadge = () => {
     // For pending start, we still want to show the type (Miner/Delegation)
@@ -476,6 +851,19 @@ function FarmCard({
               isCompact ? "top-2 right-2" : "top-3 right-3",
             )}
           >
+            {isPendingStart && pendingTimeline && (
+              <div
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-lg font-bold font-mono tracking-wider border bg-background/90 text-foreground border-border/40",
+                  isCompact
+                    ? "px-1.5 py-0.5 text-[9px]"
+                    : "px-2 py-1 text-[10px]",
+                )}
+              >
+                <Clock className={isCompact ? "w-2.5 h-2.5" : "w-3 h-3"} />
+                {pendingTimeline.badgeLabel}
+              </div>
+            )}
             {auditUrl && (
               <a
                 href={auditUrl}
@@ -620,8 +1008,6 @@ function FarmCard({
                 "grid",
                 isCompact
                   ? "grid-cols-2 gap-2"
-                  : usesWidePendingSummary
-                    ? "grid-cols-[max-content_minmax(0,1fr)] gap-6"
                   : hasLastWeekRewards
                     ? "grid-cols-3 gap-4"
                     : "grid-cols-2 gap-4",
@@ -634,7 +1020,7 @@ function FarmCard({
                     isCompact ? "text-[9px]" : "text-[10px]",
                   )}
                 >
-                  Active
+                  {isPendingStart ? "Status" : "Active"}
                 </div>
                 <div
                   className={cn(
@@ -643,7 +1029,7 @@ function FarmCard({
                   )}
                 >
                   {isPendingStart
-                    ? "Starts Soon"
+                    ? pendingTimeline?.statusLabel ?? "Processing purchase"
                     : `${farm.weeksActive} / ${farm.totalWeeks} wks`}
                 </div>
               </div>
@@ -662,20 +1048,24 @@ function FarmCard({
                   </div>
                 </div>
               )}
-              <div className={cn("text-right", usesWidePendingSummary && "min-w-0")}>
+              <div className="text-right">
                 <div
                   className={cn(
                     "uppercase tracking-wider text-muted-foreground font-semibold mb-1",
                     isCompact ? "text-[9px]" : "text-[10px]",
                   )}
                 >
-                  {isPendingStart ? "Est. Weekly" : "Earned"}
+                  {isPendingStart
+                    ? isClaimReadyPending
+                      ? "Rewards"
+                      : "Est. Weekly"
+                    : "Earned"}
                 </div>
                 <div
                   className={cn(
                     "font-mono font-bold",
                     isCompact ? "text-xs" : "text-sm",
-                    usesWidePendingSummary && "whitespace-nowrap",
+                    !isCompact && "whitespace-nowrap",
                     isPendingStart
                       ? "text-muted-foreground"
                       : isMiner
@@ -686,7 +1076,9 @@ function FarmCard({
                   )}
                 >
                   {isPendingStart
-                    ? estimatedWeeklyLabel ?? "Pending"
+                    ? isClaimReadyPending
+                      ? "Ready to claim"
+                      : estimatedWeeklyLabel ?? "Calculating"
                     : getFarmEarnedLabel(farm)}
                 </div>
                 {isCompact && !isPendingStart && hasLastWeekRewards && (
@@ -704,49 +1096,53 @@ function FarmCard({
                 )}
               </div>
             </div>
-            <div className={cn("space-y-1.5", isCompact && "space-y-1")}>
-              <div
-                className={cn(
-                  "flex items-center justify-between font-medium text-muted-foreground",
-                  isCompact ? "text-[9px]" : "text-[10px]",
-                )}
-              >
-                <span>
-                  {isOther ? "Timeline" : isMiner ? "Cost" : "Delegated"}:{" "}
-                  {isOther
-                    ? `${farm.weeksActive} / ${farm.totalWeeks} wks`
-                    : isMiner
-                      ? fmtUsd(farm.initialCost)
-                      : formatDelegatedAmountsByAsset({
-                          amounts: farm.delegatedAmountsByAsset,
-                          fallbackAmount: farm.initialCost,
-                          fallbackAsset: farm.protocolDepositAsset,
-                        })}
-                </span>
-                <span
+            {isPendingStart ? (
+              pendingTimeline ? (
+                <PendingTimelineCompact
+                  timeline={pendingTimeline}
+                  compact={isCompact}
+                />
+              ) : null
+            ) : (
+              <div className={cn("space-y-1.5", isCompact && "space-y-1")}>
+                <div
                   className={cn(
-                    "font-mono font-bold",
-                    isPendingStart
-                      ? "text-muted-foreground"
-                      : isProfitable
-                        ? "text-emerald-500"
-                        : "text-foreground",
+                    "flex items-center justify-between font-medium text-muted-foreground",
+                    isCompact ? "text-[9px]" : "text-[10px]",
                   )}
                 >
-                  {isPendingStart
-                    ? "Pending"
-                    : `${roiPercent.toFixed(0)}% Progress`}
-                </span>
+                  <span>
+                    {`${isOther ? "Timeline" : isMiner ? "Cost" : "Delegated"}: ${
+                      isOther
+                        ? `${farm.weeksActive} / ${farm.totalWeeks} wks`
+                        : isMiner
+                          ? fmtUsd(farm.initialCost)
+                          : formatDelegatedAmountsByAsset({
+                              amounts: farm.delegatedAmountsByAsset,
+                              fallbackAmount: farm.initialCost,
+                              fallbackAsset: farm.protocolDepositAsset,
+                            })
+                    }`}
+                  </span>
+                  <span
+                    className={cn(
+                      "font-mono font-bold",
+                      isProfitable ? "text-emerald-500" : "text-foreground",
+                    )}
+                  >
+                    {`${roiPercent.toFixed(0)}% Progress`}
+                  </span>
+                </div>
+                <Progress
+                  value={Math.min(roiPercent, 100)}
+                  className={cn(
+                    "bg-muted",
+                    isCompact ? "h-1" : "h-1.5",
+                    isProfitable && "[&>div]:bg-emerald-500",
+                  )}
+                />
               </div>
-              <Progress
-                value={isPendingStart ? 0 : Math.min(roiPercent, 100)}
-                className={cn(
-                  "bg-muted",
-                  isCompact ? "h-1" : "h-1.5",
-                  isProfitable && !isPendingStart && "[&>div]:bg-emerald-500",
-                )}
-              />
-            </div>
+            )}
             <div
               className={cn(
                 "border-t border-border/20 dark:border-border/40 flex justify-between items-center",
@@ -792,6 +1188,10 @@ function FarmDetailDialog({
   const isMiner = farm.type === "miner";
   const isOther = farm.type === "other";
   const isPendingStart = Boolean(farm.isPendingStart);
+  const pendingTimeline = getPendingStartTimelineCopy({
+    positionLabel: getPendingStartPositionLabel(farm),
+    purchaseDate: farm.pendingPurchaseDate,
+  });
   const inProgressIsMiningCenter =
     isInProgress && farm.inProgressKind === "mining-center";
 
@@ -827,7 +1227,7 @@ function FarmDetailDialog({
           estimatedUserWeeklyPd: farm.estimatedUserWeeklyPd,
           estimatedUserWeeklyPdAsset:
             farm.estimatedUserWeeklyPdAsset ?? farm.protocolDepositAsset,
-        }) ?? "Pending"
+        }) ?? "Calculating"
       );
     }
     if (isMiner) return `${fmtGlw(farm.inflationGlw)} GLW`;
@@ -841,26 +1241,32 @@ function FarmDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl h-[90vh] p-0 gap-0 flex flex-col overflow-hidden border-0 sm:border sm:border-border/20 sm:rounded-2xl bg-card">
-        <DialogHeader className="px-6 py-5 shrink-0 border-b border-border/20 bg-muted/30 z-20 relative">
+      <DialogContent
+        showCloseButton={false}
+        className="sm:max-w-[760px] max-h-[90vh] p-0 gap-0 flex flex-col overflow-hidden rounded-[24px] bg-card border border-border/40"
+      >
+        <DialogHeader className="px-6 pt-6 pb-4 shrink-0 border-b border-border/40 bg-card z-20 relative">
           <Button
             variant="ghost"
             size="icon"
-            className="absolute right-4 top-4 h-8 w-8 rounded-full hover:bg-muted/50"
+            className="absolute right-4 top-4 h-8 w-8 rounded-full border border-transparent hover:border-border/40 dark:hover:border-border/60 hover:bg-transparent"
             onClick={() => onOpenChange(false)}
           >
             <X className="h-4 w-4" />
             <span className="sr-only">Close</span>
           </Button>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pr-8">
-            <div>
-              <DialogTitle className="text-2xl font-bold font-mono tracking-tight text-foreground">
+            <div className="space-y-2">
+              <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+                Farm Overview
+              </div>
+              <DialogTitle className="text-3xl font-semibold tracking-tight text-foreground">
                 {farm.farmName}
               </DialogTitle>
               <div className="flex items-center gap-2 mt-2">
                 <Badge
                   variant="secondary"
-                  className="bg-muted text-muted-foreground hover:bg-muted font-normal"
+                  className="bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 text-muted-foreground hover:bg-muted/30 dark:hover:bg-muted/50 font-normal"
                 >
                   {farm.regionName}
                 </Badge>
@@ -868,36 +1274,33 @@ function FarmDetailDialog({
             </div>
             <div className="flex items-center gap-2">
               {farm.type === "miner" && (
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider border text-[color:var(--color-miner)] bg-[color:var(--color-miner)]/10 border-[color:var(--color-miner)]/30">
-                  <CashMinerIcon className="w-4 h-4" />
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 text-foreground">
+                  <CashMinerIcon className="w-4 h-4 text-[color:var(--color-miner)]" />
                   Miner
                 </div>
               )}
               {farm.type === "delegation" && (
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider border text-delegation-purple bg-delegation-purple/10 border-delegation-purple/30">
-                  <DelegationIcon className="w-4 h-4" />
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 text-foreground">
+                  <DelegationIcon className="w-4 h-4 text-delegation-purple" />
                   Delegation
                 </div>
               )}
               {farm.type === "other" && (
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider border text-emerald-700 dark:text-[color:var(--color-glow-green)] bg-[color:var(--color-glow-green)]/10 border-[color:var(--color-glow-green)]/30">
-                  <Gift className="w-3.5 h-3.5" />
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 text-foreground">
+                  <Gift className="w-3.5 h-3.5 text-emerald-700 dark:text-[color:var(--color-glow-green)]" />
                   Rewards
                 </div>
               )}
               {farm.type === "in-progress" && (
                 <div
                   className={cn(
-                    "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider border",
-                    farm.inProgressKind === "mining-center"
-                      ? "text-[color:var(--color-miner)] bg-[color:var(--color-miner)]/10 border-[color:var(--color-miner)]/30"
-                      : "text-delegation-purple bg-delegation-purple/10 border-delegation-purple/30",
+                    "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 text-foreground",
                   )}
                 >
                   {farm.inProgressKind === "mining-center" ? (
-                    <CashMinerIcon className="w-4 h-4" />
+                    <CashMinerIcon className="w-4 h-4 text-[color:var(--color-miner)]" />
                   ) : (
-                    <DelegationIcon className="w-4 h-4" />
+                    <DelegationIcon className="w-4 h-4 text-delegation-purple" />
                   )}
                   In Progress
                 </div>
@@ -909,7 +1312,7 @@ function FarmDetailDialog({
         <div className="flex-1 overflow-y-auto">
           <div className="p-6 md:p-8 space-y-8 max-w-4xl mx-auto w-full">
             {/* Farm Image Grid */}
-            <div className="rounded-2xl overflow-hidden border border-border/20">
+            <div className="rounded-2xl overflow-hidden border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50">
               {farm.imageUrls.length >= 3 ? (
                 <div className="grid grid-cols-3 grid-rows-2 gap-1 h-[360px]">
                   <div className="col-span-2 row-span-2 relative">
@@ -978,7 +1381,7 @@ function FarmDetailDialog({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Invested / Delegated */}
               {!isOther && (
-                <Card className="bg-muted/30 border-border/20">
+                <Card className="bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40">
                   <CardContent className="p-6 flex flex-col h-full justify-between gap-4">
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <div
@@ -995,7 +1398,7 @@ function FarmDetailDialog({
                           <DelegationIcon className="w-5 h-5" />
                         )}
                       </div>
-                      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                      <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
                         {isMiner || inProgressIsMiningCenter
                           ? "Initial Cost"
                           : "Total Delegated"}
@@ -1011,7 +1414,7 @@ function FarmDetailDialog({
               {/* Total Earned */}
               <Card
                 className={cn(
-                  "bg-muted/30 border-border/20 relative overflow-hidden",
+                  "bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 relative overflow-hidden",
                   (isInProgress || isPendingStart || isOther) &&
                     "md:col-span-2",
                 )}
@@ -1031,14 +1434,14 @@ function FarmDetailDialog({
                       >
                         <Gift className="w-4 h-4" />
                       </div>
-                      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                      <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
                         {isInProgress || isPendingStart
                           ? "Est. Weekly Rewards"
                           : "Lifetime Earnings"}
                       </div>
                     </div>
                     {!isInProgress && !isPendingStart && !isOther && (
-                      <div className="text-xs font-mono font-medium text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-lg">
+                      <div className="text-xs font-mono font-medium text-muted-foreground bg-card border border-border/20 dark:border-border/40 px-2 py-0.5 rounded-lg">
                         {farm.initialCost > 0
                           ? `${Math.round(
                               ((farm.recovered +
@@ -1068,18 +1471,18 @@ function FarmDetailDialog({
 
               {/* Time Progress */}
               {!isInProgress && !isPendingStart && (
-                <Card className="bg-muted/30 border-border/20">
+                <Card className="bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40">
                   <CardContent className="p-6 flex flex-col h-full justify-between gap-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <div className="p-1.5 rounded-lg bg-muted/50">
                           <Clock className="w-4 h-4" />
                         </div>
-                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                        <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
                           Timeline
                         </div>
                       </div>
-                      <div className="text-xs font-mono font-medium text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-lg">
+                      <div className="text-xs font-mono font-medium text-muted-foreground bg-card border border-border/20 dark:border-border/40 px-2 py-0.5 rounded-lg">
                         {Math.round(progressPercent)}%
                       </div>
                     </div>
@@ -1106,7 +1509,7 @@ function FarmDetailDialog({
 
               {/* In Progress Funding */}
               {isInProgress && (
-                <Card className="bg-muted/30 border-border/20">
+                <Card className="bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40">
                   <CardContent className="p-6 flex flex-col h-full justify-between gap-4">
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <div
@@ -1123,7 +1526,7 @@ function FarmDetailDialog({
                           <DelegationIcon className="w-5 h-5" />
                         )}
                       </div>
-                      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                      <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
                         Funding Progress
                       </div>
                     </div>
@@ -1144,22 +1547,8 @@ function FarmDetailDialog({
               )}
 
               {/* Pending Start Status */}
-              {isPendingStart && (
-                <Card className="bg-muted/30 border-border/20">
-                  <CardContent className="p-6 flex flex-col h-full justify-between gap-4">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <div className="p-1.5 rounded-lg bg-muted/50">
-                        <Clock className="w-5 h-5" />
-                      </div>
-                      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
-                        Status
-                      </div>
-                    </div>
-                    <div className="text-2xl font-semibold font-mono tracking-tight text-foreground">
-                      Starts Soon
-                    </div>
-                  </CardContent>
-                </Card>
+              {isPendingStart && pendingTimeline && (
+                <PendingTimelineModalPanel timeline={pendingTimeline} />
               )}
             </div>
 
@@ -1742,6 +2131,7 @@ export default function MyFarmsGridSection({
         launchpadCurrency?: "GLW" | "SGCTL";
         totalAmount: bigint;
         totalStepsPurchased: number;
+        latestPurchaseDate: string | null;
       }
     >();
 
@@ -1779,6 +2169,7 @@ export default function MyFarmsGridSection({
         farmTypeKey,
         rewardedFarmTypeKeys,
         hasCurrentOwnership,
+        purchaseDate: evt.purchaseDate ?? null,
       });
 
       if (!includePendingStartCard) {
@@ -1828,9 +2219,17 @@ export default function MyFarmsGridSection({
         launchpadCurrency,
         totalAmount: BigInt(0),
         totalStepsPurchased: 0,
+        latestPurchaseDate: evt.purchaseDate ?? null,
       };
       existing.totalAmount += amount;
       existing.totalStepsPurchased += evt.stepsPurchased ?? 0;
+      if (
+        evt.purchaseDate &&
+        (!existing.latestPurchaseDate ||
+          Date.parse(evt.purchaseDate) > Date.parse(existing.latestPurchaseDate))
+      ) {
+        existing.latestPurchaseDate = evt.purchaseDate;
+      }
       pendingByFarm.set(pendingKey, existing);
     }
 
@@ -1985,6 +2384,7 @@ export default function MyFarmsGridSection({
           estimatedUserWeeklyPdAsset,
           delegatedAmountsByAsset:
             launchpadDelegatedAmountsByFarmId.get(item.farmId),
+          pendingPurchaseDate: item.latestPurchaseDate,
         });
       } else {
         const initialCostUsd = parseUsdcFromBaseUnits(
@@ -2010,6 +2410,7 @@ export default function MyFarmsGridSection({
           estimatedUserWeeklyGlw,
           estimatedUserWeeklyPd,
           estimatedUserWeeklyPdAsset,
+          pendingPurchaseDate: item.latestPurchaseDate,
         });
       }
     });
@@ -2395,6 +2796,10 @@ export default function MyFarmsGridSection({
                 const isMiner = farm.type === "miner";
                 const isDelegation = farm.type === "delegation";
                 const isPendingStart = Boolean(farm.isPendingStart);
+                const pendingTimeline = getPendingStartTimelineCopy({
+                  positionLabel: getPendingStartPositionLabel(farm),
+                  purchaseDate: farm.pendingPurchaseDate,
+                });
                 const inProgressIsMiningCenter =
                   isInProgress && farm.inProgressKind === "mining-center";
                 const timeBasedProgress =
@@ -2459,7 +2864,7 @@ export default function MyFarmsGridSection({
                         </div>
                       ) : isPendingStart ? (
                         <div className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-bold font-mono uppercase tracking-wider border bg-muted/50 text-muted-foreground border-border/40">
-                          Starts Soon
+                          {pendingTimeline?.badgeLabel ?? "Pending"}
                         </div>
                       ) : (
                         <div
@@ -2482,7 +2887,7 @@ export default function MyFarmsGridSection({
                     </TableCell>
                     <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
                       {isPendingStart
-                        ? "Pending"
+                        ? pendingTimeline?.statusLabel ?? "Processing"
                         : isInProgress
                           ? "—"
                           : `${farm.weeksActive} / ${farm.totalWeeks} wks`}
@@ -2537,7 +2942,7 @@ export default function MyFarmsGridSection({
                                 estimatedUserWeeklyPdAsset:
                                   farm.estimatedUserWeeklyPdAsset ??
                                   farm.protocolDepositAsset,
-                              }) ?? "Pending"
+                              }) ?? "Calculating"
                             : getFarmEarnedLabel(farm)}
                         </span>
                       )}
@@ -2566,7 +2971,7 @@ export default function MyFarmsGridSection({
                         </div>
                       ) : isPendingStart ? (
                         <span className="text-muted-foreground text-xs font-mono">
-                          Pending
+                          {pendingTimeline?.timelineValue ?? "Pending"}
                         </span>
                       ) : (
                         <span

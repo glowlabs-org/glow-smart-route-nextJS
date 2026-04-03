@@ -59,12 +59,14 @@ import {
 import {
   attachEstimatedWeeklyMiningCenterRewards,
   deriveMiningCenterSponsorshipsInProgress,
+  estimateMiningCenterWeeklyGlw,
 } from "@/utils/sponsorships-in-progress";
 import { useWalletLaunchpadInProgress } from "@/hooks/use-wallet-launchpad-in-progress";
 import { resolveLaunchpadActivityFarmId } from "@/utils/wallet-launchpad";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { trackEvent } from "@/lib/telemetry";
 import { GENESIS_TIMESTAMP, getCurrentEpoch } from "@/utils/getCurrentEpoch";
+import { isPendingStartStatus } from "@/utils/pending-start-cards";
 
 interface AssetHistoryPoint {
   weekNumber: number;
@@ -679,6 +681,50 @@ export default function SolarFarmWidget({
     enabled: hasWallet,
   });
 
+  const recentPendingMiningFarmIds = React.useMemo(() => {
+    return new Set(
+      (data?.recentPurchasesWithoutRewards || [])
+        .filter((purchase) => purchase.types.includes("mining-center"))
+        .map((purchase) => purchase.farmId)
+    );
+  }, [data?.recentPurchasesWithoutRewards]);
+
+  const pendingMiningPurchasesByApplication = React.useMemo(() => {
+    const map = new Map<
+      string,
+      { applicationId: string; farmId: string; userSteps: number }
+    >();
+    if (!data) return map;
+
+    for (const evt of splitsActivity) {
+      if (evt.fractionType !== "mining-center") continue;
+      if (
+        !isPendingStartStatus({
+          fractionType: "mining-center",
+          status: evt.fractionStatus ?? "",
+        })
+      ) {
+        continue;
+      }
+
+      const farmId = evt.farmId ?? evt.applicationId;
+      if (!farmId || !recentPendingMiningFarmIds.has(farmId)) continue;
+
+      const eventEpoch = getCurrentEpoch(Number(evt.timestamp ?? 0));
+      if (eventEpoch <= data.weekRange.endWeek) continue;
+
+      const existing = map.get(evt.applicationId) ?? {
+        applicationId: evt.applicationId,
+        farmId,
+        userSteps: 0,
+      };
+      existing.userSteps += evt.stepsPurchased ?? 0;
+      map.set(evt.applicationId, existing);
+    }
+
+    return map;
+  }, [data, recentPendingMiningFarmIds, splitsActivity]);
+
   const hasMiningCenterSplits = React.useMemo(() => {
     return splitsActivity.some((s) => s.fractionType === "mining-center");
   }, [splitsActivity]);
@@ -686,6 +732,10 @@ export default function SolarFarmWidget({
   const { applications: miningCenterApplications } = useMiningCenter({
     filters: { paymentCurrency: "USDC" },
     enabled: hasWallet && hasMiningCenterSplits,
+  });
+  const { applications: pendingMiningCenterListings = [] } = useMiningCenter({
+    filters: { paymentCurrency: "USDC", includeFilled: true },
+    enabled: hasWallet && pendingMiningPurchasesByApplication.size > 0,
   });
 
   const miningCenterInProgress = React.useMemo(() => {
@@ -701,10 +751,37 @@ export default function SolarFarmWidget({
       .filter((app): app is NonNullable<typeof app> => app !== null);
   }, [miningCenterInProgress]);
 
+  const pendingMiningCenterListingById = React.useMemo(() => {
+    const map = new Map<string, (typeof pendingMiningCenterListings)[number]>();
+    for (const app of pendingMiningCenterListings) {
+      map.set(app.id, app);
+    }
+    return map;
+  }, [pendingMiningCenterListings]);
+
+  const pendingMiningAppsForMiningScore = React.useMemo(() => {
+    return Array.from(pendingMiningPurchasesByApplication.values())
+      .map((entry) => pendingMiningCenterListingById.get(entry.applicationId))
+      .filter((app): app is (typeof pendingMiningCenterListings)[number] =>
+        Boolean(app)
+      );
+  }, [pendingMiningCenterListingById, pendingMiningPurchasesByApplication]);
+
+  const miningScoreApplications = React.useMemo(() => {
+    const byId = new Map<string, (typeof miningCenterAppsForMiningScore)[number]>();
+    for (const app of miningCenterAppsForMiningScore) {
+      byId.set(app.id, app);
+    }
+    for (const app of pendingMiningAppsForMiningScore) {
+      byId.set(app.id, app);
+    }
+    return Array.from(byId.values());
+  }, [miningCenterAppsForMiningScore, pendingMiningAppsForMiningScore]);
+
   const { miningScoreMap, isLoading: isMiningScoreLoading } = useMiningScore({
-    applications: miningCenterAppsForMiningScore,
+    applications: miningScoreApplications,
     extraLiveApplications: extraLiveLaunchpadApplications,
-    enabled: hasWallet && miningCenterAppsForMiningScore.length > 0,
+    enabled: hasWallet && miningScoreApplications.length > 0,
   });
 
   const miningCenterInProgressWithEstimates = React.useMemo(() => {
@@ -713,6 +790,25 @@ export default function SolarFarmWidget({
       miningScoreMap,
     });
   }, [miningCenterInProgress, miningScoreMap]);
+
+  const pendingMiningWeeklyGlwByFarmId = React.useMemo(() => {
+    const map = new Map<string, number>();
+
+    for (const entry of pendingMiningPurchasesByApplication.values()) {
+      const estimatedWeeklyGlw = estimateMiningCenterWeeklyGlw({
+        miningScore: miningScoreMap.get(entry.applicationId),
+        userSteps: entry.userSteps,
+      });
+      if (estimatedWeeklyGlw <= 0) continue;
+
+      map.set(
+        entry.farmId,
+        (map.get(entry.farmId) ?? 0) + estimatedWeeklyGlw
+      );
+    }
+
+    return map;
+  }, [miningScoreMap, pendingMiningPurchasesByApplication]);
 
   const isWidgetLoading = isLoading || isSplitsActivityLoading;
   const isWidgetError = isError || isSplitsActivityError;
@@ -800,9 +896,13 @@ export default function SolarFarmWidget({
         add(item.pdAsset, item.estimatedUserWeeklyPd ?? 0);
       }
     }
+    for (const amount of pendingMiningWeeklyGlwByFarmId.values()) {
+      add("GLW", amount);
+    }
 
     return totals;
   }, [
+    pendingMiningWeeklyGlwByFarmId,
     pendingStartLaunchpadStats,
     miningCenterInProgressWithEstimates,
     sponsorshipsInProgressWithEstimates,
@@ -1090,6 +1190,7 @@ export default function SolarFarmWidget({
     sponsorshipsInProgressWithEstimates.length > 0 ||
     miningCenterInProgressWithEstimates.length > 0 ||
     pendingStartLaunchpadStats.length > 0 ||
+    pendingMiningPurchasesByApplication.size > 0 ||
     ((isRewardScoresLoading || isSgctlRewardScoresLoading) &&
       sponsorshipsInProgress.length > 0) ||
     (isMiningScoreLoading && miningCenterInProgress.length > 0);

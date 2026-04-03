@@ -21,13 +21,17 @@ import {
   AnimatedCountdownDhms,
   useCountdownTo,
 } from "@/app/components/animated-countdown";
-import { useClaimableRewards } from "@/hooks";
+import { useClaimableRewards, useRewardsBreakdown } from "@/hooks";
 import { useRewardsKernelWrapper } from "@/hooks/useRewardsKernelWrapper";
 import { weekToNonce } from "@/hooks/useMerkleProofs";
 import { GENESIS_TIMESTAMP, getCurrentEpoch } from "@/utils/getCurrentEpoch";
 import { cn } from "@/lib/utils";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { QUERY_CONFIG } from "@/hooks/query-config";
+import {
+  formatRewardPipelineDate,
+  getEpochStartMs,
+} from "@/utils/reward-pipeline";
 
 const DEFAULT_INITIAL_DURATION_MS = (4 * 60 * 60 + 12 * 60 + 33) * 1000;
 
@@ -131,7 +135,7 @@ function RewardsCountdown(props: { initialDurationMs: number }) {
         <div className="flex flex-col items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground/80 shrink-0">
             <Timer className="h-3.5 w-3.5" />
-            <span>Next Claim</span>
+            <span>Epoch Closes</span>
           </div>
           <AnimatedCountdownDhms
             remainingMs={remainingMs}
@@ -174,6 +178,13 @@ export default function RewardsWidget({
   } = useClaimableRewards(address, {
     refreshKey,
     query: QUERY_CONFIG.STICKY,
+  });
+  const {
+    data: rewardsBreakdown,
+    isLoading: isRewardsBreakdownLoading,
+  } = useRewardsBreakdown({
+    walletAddress: address ?? null,
+    enabled: hasWallet,
   });
 
   const { checkIfClaimed, checkIfGlwClaimed } = useRewardsKernelWrapper();
@@ -250,7 +261,10 @@ export default function RewardsWidget({
   });
 
   const isWidgetLoading =
-    hasWallet && (isRewardsLoading || isClaimableTotalsLoading);
+    hasWallet &&
+    (isRewardsLoading ||
+      isClaimableTotalsLoading ||
+      isRewardsBreakdownLoading);
 
   const isWidgetError = hasWallet && (isRewardsError || isClaimableTotalsError);
 
@@ -299,6 +313,19 @@ export default function RewardsWidget({
     return totals;
   }, [weeklyBreakdown]);
 
+  const nextPendingWeek = React.useMemo(() => {
+    const nonFinalizedWeeks = weeklyBreakdown.filter((w) => !w.isFinalized);
+    if (nonFinalizedWeeks.length === 0) return null;
+
+    return nonFinalizedWeeks.reduce((prev, curr) =>
+      prev.week < curr.week ? prev : curr,
+    );
+  }, [weeklyBreakdown]);
+
+  const hasPendingPurchasesWaitingForFirstPost = React.useMemo(() => {
+    return (rewardsBreakdown?.recentPurchasesWithoutRewards?.length ?? 0) > 0;
+  }, [rewardsBreakdown?.recentPurchasesWithoutRewards]);
+
   const nextClaimLabel = React.useMemo(() => {
     const entries: string[] = [];
     const glw = nonFinalizedTotals.GLW ?? 0;
@@ -312,9 +339,33 @@ export default function RewardsWidget({
     return entries.length > 0 ? entries.join(" + ") : null;
   }, [nonFinalizedTotals]);
 
+  const pendingReferenceWeek = React.useMemo(() => {
+    if (nextPendingWeek) return nextPendingWeek.week;
+    if (!hasPendingPurchasesWaitingForFirstPost) return null;
+
+    const currentEpoch = safeGetCurrentEpoch();
+    return typeof currentEpoch === "number" ? currentEpoch : null;
+  }, [hasPendingPurchasesWaitingForFirstPost, nextPendingWeek]);
+
+  const nextBatchPostedLabel = React.useMemo(() => {
+    if (pendingReferenceWeek === null) return null;
+    const epochEndsAtMs = getEpochStartMs(pendingReferenceWeek + 1);
+    return formatRewardPipelineDate(epochEndsAtMs + 5 * 24 * 60 * 60 * 1000, {
+      month: "short",
+      day: "numeric",
+    });
+  }, [pendingReferenceWeek]);
+
   const hasPending = React.useMemo(() => {
-    return hasClaimable || nextClaimLabel !== null;
-  }, [hasClaimable, nextClaimLabel]);
+    return (
+      hasClaimable ||
+      nextPendingWeek !== null ||
+      hasPendingPurchasesWaitingForFirstPost
+    );
+  }, [hasClaimable, hasPendingPurchasesWaitingForFirstPost, nextPendingWeek]);
+  const hasPendingOnly =
+    !hasClaimable &&
+    (nextPendingWeek !== null || hasPendingPurchasesWaitingForFirstPost);
 
   const shouldHide =
     hasWallet &&
@@ -347,7 +398,7 @@ export default function RewardsWidget({
           !isWalletConnecting &&
           !isWidgetLoading &&
           !isWidgetError &&
-          nextClaimLabel && (
+          (nextClaimLabel || hasPendingOnly) && (
             <div className="pt-0">
               <RewardsCountdown initialDurationMs={initialDurationMs} />
             </div>
@@ -383,6 +434,32 @@ export default function RewardsWidget({
                 <div className="text-center text-destructive text-sm font-medium">
                   Unable to load
                 </div>
+              ) : hasPendingOnly ? (
+                <div className="flex flex-col items-center text-center gap-3 max-w-md animate-in fade-in zoom-in-95 duration-300">
+                  <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50">
+                    Rewards In Progress
+                  </div>
+                  <div className="text-2xl lg:text-3xl font-semibold tracking-tight text-foreground">
+                    Nothing claimable yet
+                  </div>
+                  <div className="text-sm leading-relaxed text-muted-foreground/80">
+                    This week&apos;s rewards will be posted after the epoch ends
+                    and auditors complete their review.
+                    {nextBatchPostedLabel
+                      ? ` The next batch should post around ${nextBatchPostedLabel}.`
+                      : ""}
+                  </div>
+                  {nextClaimLabel && (
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70">
+                        in pipeline:
+                      </span>
+                      <span className="text-[11px] font-mono font-medium text-muted-foreground tabular-nums">
+                        {nextClaimLabel}
+                      </span>
+                    </div>
+                  )}
+                </div>
               ) : (
                 <>
                   <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50 mb-2">
@@ -410,14 +487,22 @@ export default function RewardsWidget({
                   </div>
 
                   {nextClaimLabel && (
-                    <div className="pt-3">
+                    <div className="pt-3 space-y-2">
                       <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40">
                         <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70">
-                          next claim:
+                          in pipeline:
                         </span>
                         <span className="text-[11px] font-mono font-medium text-muted-foreground tabular-nums">
                           {nextClaimLabel}
                         </span>
+                      </div>
+                      <div className="max-w-sm text-[11px] leading-relaxed text-muted-foreground/80">
+                        Weeks close on Sunday. Rewards are generated on
+                        Thursday, reviewed, and posted on-chain on Friday
+                        before moving through finalization.
+                        {nextBatchPostedLabel
+                          ? ` Your next batch should post around ${nextBatchPostedLabel}.`
+                          : ""}
                       </div>
                     </div>
                   )}
