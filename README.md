@@ -27,6 +27,9 @@ MAINNET_RPC_URL="https://eth.merkle.io"
 
 # Used by newsletter API route
 BREVO_API_TOKEN="..."
+
+# Used by /internal/sim to embed the separate simulator frontend
+INTERNAL_SIM_URL="https://glow-mechanistic-twin-icrg-launch.vercel.app"
 ```
 
 ## Caching / revalidation
