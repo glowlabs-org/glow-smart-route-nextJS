@@ -55,33 +55,12 @@ export default async function InternalSimPage() {
               </div>
             </div>
           ) : (
-            <div className="space-y-4">
-              <div className="flex flex-col gap-3 rounded-3xl border border-border/20 bg-card p-5 dark:border-border/40 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
-                    Internal Simulator
-                  </div>
-                  <p className="mt-2 text-sm text-muted-foreground/70 dark:text-muted-foreground/80">
-                    Embedded from <code>{simUrl}</code>
-                  </p>
-                </div>
-                <a
-                  href={simUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex h-11 items-center justify-center rounded-2xl border border-border/20 px-4 text-sm font-medium transition-colors hover:border-border/40 dark:border-border/40 dark:hover:border-border/60"
-                >
-                  Open In New Tab
-                </a>
-              </div>
-
-              <div className="overflow-hidden rounded-3xl border border-border/20 bg-card dark:border-border/40">
-                <iframe
-                  title="Glow Internal Simulator"
-                  src={simUrl}
-                  className="h-[calc(100vh-16rem)] min-h-[720px] w-full bg-background"
-                />
-              </div>
+            <div className="overflow-hidden rounded-3xl border border-border/20 bg-card dark:border-border/40">
+              <iframe
+                title="Glow Internal Simulator"
+                src={simUrl}
+                className="h-[calc(100vh-12rem)] min-h-[720px] w-full bg-background"
+              />
             </div>
           )}
         </section>
