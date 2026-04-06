@@ -27,8 +27,8 @@ export default async function InternalSimPage() {
   return (
     <>
       <Header withIsScrolled={true} />
-      <div className="min-h-screen bg-background pt-20">
-        {!simUrl ? (
+      {!simUrl ? (
+        <div className="min-h-screen bg-background pt-16">
           <section className="max-w-screen-2xl mx-auto px-4 md:px-6 lg:px-12 py-16">
             <div className="rounded-3xl border border-border/20 bg-card p-8 dark:border-border/40 lg:p-12">
               <div className="max-w-2xl">
@@ -46,14 +46,15 @@ export default async function InternalSimPage() {
               </div>
             </div>
           </section>
-        ) : (
-          <iframe
-            title="Glow Internal Simulator"
-            src={simUrl}
-            className="h-[calc(100vh-5rem)] w-full border-0 bg-background"
-          />
-        )}
-      </div>
+        </div>
+      ) : (
+        <iframe
+          title="Glow Internal Simulator"
+          src={simUrl}
+          className="h-[calc(100vh-72px)] w-full border-0 bg-background"
+          allow="clipboard-write"
+        />
+      )}
     </>
   );
 }
