@@ -1,11 +1,6 @@
 import { Header } from "@/components/header";
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo";
-import {
-  isReferralDashboardAuthorized,
-  isReferralDashboardPasswordConfigured,
-} from "@/lib/referral-dashboard-auth";
-import { InternalPasswordGate } from "../internal-password-gate";
 
 export const metadata: Metadata = buildPageMetadata({
   title: "Simulator",
@@ -27,18 +22,14 @@ function getInternalSimUrl() {
 }
 
 export default async function InternalSimPage() {
-  const isAuthorized = await isReferralDashboardAuthorized();
-  const isConfigured = isReferralDashboardPasswordConfigured();
   const simUrl = getInternalSimUrl();
 
   return (
     <>
       <Header withIsScrolled={true} />
-      <div className="min-h-screen bg-background">
-        <section className="max-w-screen-2xl mx-auto px-4 md:px-6 lg:px-12 pb-16 pt-32">
-          {!isAuthorized ? (
-            <InternalPasswordGate configured={isConfigured} />
-          ) : !simUrl ? (
+      <div className="min-h-screen bg-background pt-20">
+        {!simUrl ? (
+          <section className="max-w-screen-2xl mx-auto px-4 md:px-6 lg:px-12 py-16">
             <div className="rounded-3xl border border-border/20 bg-card p-8 dark:border-border/40 lg:p-12">
               <div className="max-w-2xl">
                 <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
@@ -54,16 +45,14 @@ export default async function InternalSimPage() {
                 </p>
               </div>
             </div>
-          ) : (
-            <div className="overflow-hidden rounded-3xl border border-border/20 bg-card dark:border-border/40">
-              <iframe
-                title="Glow Internal Simulator"
-                src={simUrl}
-                className="h-[calc(100vh-12rem)] min-h-[720px] w-full bg-background"
-              />
-            </div>
-          )}
-        </section>
+          </section>
+        ) : (
+          <iframe
+            title="Glow Internal Simulator"
+            src={simUrl}
+            className="h-[calc(100vh-5rem)] w-full border-0 bg-background"
+          />
+        )}
       </div>
     </>
   );
