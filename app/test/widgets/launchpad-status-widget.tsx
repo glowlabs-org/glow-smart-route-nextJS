@@ -35,7 +35,6 @@ import {
   useCountdownTo,
 } from "@/app/components/animated-countdown";
 import { useLaunchpadStatus } from "@/hooks/useLaunchpadStatus";
-import { getNextTuesdayAt1pmET } from "@/utils/nextTuesdayET";
 import { filterPublicLaunchpadApplications } from "@/utils/launchpad";
 import { useGlowSpotPriceSummary } from "@/hooks/useGlowSpotPriceSummary";
 import { normalizeMinerWeeksRemainingDisplay } from "@/lib/mining-score";
@@ -49,6 +48,7 @@ import {
   isFractionOpenForMarketplace,
   type AuctionApplication,
 } from "@/hooks";
+import { getLaunchpadNowMs } from "@/utils/launchpad-now";
 import {
   calculateLaunchpadPerShareRewards,
   parseDelegationStepAmount,
@@ -73,6 +73,7 @@ import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import { formatUnits } from "viem";
 import { LaunchpadStatsDialog } from "@/app/marketplace/launchpad-stats-dialog";
 import { MiningStatsDialog } from "@/app/marketplace/mining-stats-dialog";
+import { getListingVisibleStartAtMs } from "@/utils/launchpad";
 
 const DEFINED_POOL_ACTIVITY_URL =
   "https://www.defined.fi/eth/0x6fa09ffc45f1ddc95c1bc192956717042f142c5d";
@@ -193,13 +194,15 @@ function getMinerWeeksRemaining(
   );
 }
 
-function getAuctionBatchStartAtMs(publishedTimestamp: string | null) {
-  if (!publishedTimestamp) return null;
-  try {
-    return getNextTuesdayAt1pmET(new Date(publishedTimestamp)).getTime();
-  } catch {
-    return null;
-  }
+function formatEtDateTime(value: number): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(value);
 }
 
 // Extended type for applications with type tagging
@@ -752,9 +755,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                 </span>
                 <span className="text-base sm:text-lg font-bold text-foreground leading-tight">
                   {formatTimeToSellOut(
-                    getAuctionBatchStartAtMs(
-                      application.publishedOnAuctionTimestamp,
-                    ),
+                    getListingVisibleStartAtMs(application),
                     application.activeFraction?.filledAt || null,
                   )}
                 </span>
@@ -1248,8 +1249,15 @@ export default function LaunchpadStatusWidget({
   const walletAddress = address?.toLowerCase() ?? null;
   const source = "launchpad_status_widget";
   const queryClient = useQueryClient();
-  const { isLive, nextBatchAtMs, refreshNextBatchAtMs, isLoading, isError } =
-    useLaunchpadStatus();
+  const {
+    isLive,
+    nextBatchAtMs,
+    nextMinerBatchAtMs,
+    nextDelegationBatchAtMs,
+    refreshNextBatchAtMs,
+    isLoading,
+    isError,
+  } = useLaunchpadStatus();
   const { spotPriceUsd } = useGlowSpotPriceSummary();
   const { usdcBalance } = useWalletTokenBalances(address);
   const isMobile = useIsMobile();
@@ -1259,12 +1267,19 @@ export default function LaunchpadStatusWidget({
 
   const internalIsApproaching = React.useMemo(() => {
     if (isLive) return false;
-    const now = Date.now();
+    const now = getLaunchpadNowMs();
     const timeUntilLive = nextBatchAtMs - now;
     return timeUntilLive > 0 && timeUntilLive <= ONE_HOUR_MS;
   }, [isLive, nextBatchAtMs]);
 
   const effectiveIsApproaching = isApproaching || internalIsApproaching;
+  const hasSplitBatchSchedule =
+    nextMinerBatchAtMs !== nextDelegationBatchAtMs &&
+    nextMinerBatchAtMs < nextDelegationBatchAtMs;
+  const splitDelegationLaunchLabel = React.useMemo(() => {
+    if (!hasSplitBatchSchedule) return null;
+    return formatEtDateTime(nextDelegationBatchAtMs);
+  }, [hasSplitBatchSchedule, nextDelegationBatchAtMs]);
 
   type ListTypeFilter = "all" | "delegations" | "miners" | "activity";
   const [liveTypeFilter, setLiveTypeFilter] = React.useState<ListTypeFilter>(
@@ -1306,6 +1321,11 @@ export default function LaunchpadStatusWidget({
   const hasMinersAvailable = minersAvailableCount > 0;
   const totalAvailable = delegationsAvailableCount + minersAvailableCount;
   const hasAnyListings = totalAvailable > 0;
+  const hasMinerLeadWindow =
+    hasSplitBatchSchedule &&
+    hasMinersAvailable &&
+    !hasDelegationsAvailable &&
+    getLaunchpadNowMs() < nextDelegationBatchAtMs;
 
   const resolvedTab = React.useMemo((): ListTypeFilter => {
     if (!isLive) return liveTypeFilter;
@@ -1397,8 +1417,12 @@ export default function LaunchpadStatusWidget({
                 {isLive
                   ? "Glow Launchpad"
                   : effectiveIsApproaching
-                    ? "Get ready"
-                    : "New Solar Farm Listing In..."}
+                    ? hasSplitBatchSchedule
+                      ? "New miners in..."
+                      : "Get ready"
+                    : hasSplitBatchSchedule
+                      ? "New Mining Center Listing In..."
+                      : "New Solar Farm Listing In..."}
               </CardTitle>
             </div>
 
@@ -1529,7 +1553,22 @@ export default function LaunchpadStatusWidget({
             </div>
           ) : variant === "full-row" ? (
             <div className="min-h-0 flex-1">
-              <FullRowLaunchpadGrid onPayDeposit={handlePayDeposit} />
+              <div className="min-h-0 flex h-full flex-col">
+                {hasMinerLeadWindow && splitDelegationLaunchLabel ? (
+                  <div className="px-4 pt-3">
+                    <div className="rounded-2xl border border-border/30 bg-muted/25 px-4 py-3 text-sm text-muted-foreground">
+                      Miners are live now. Delegations open at{" "}
+                      <span className="font-medium text-foreground">
+                        {splitDelegationLaunchLabel}
+                      </span>
+                      .
+                    </div>
+                  </div>
+                ) : null}
+                <div className="min-h-0 flex-1">
+                  <FullRowLaunchpadGrid onPayDeposit={handlePayDeposit} />
+                </div>
+              </div>
             </div>
           ) : (
             <div
@@ -1772,13 +1811,14 @@ export default function LaunchpadStatusWidget({
 
                 <div className="flex-1 space-y-1 py-0.5">
                   <p className="text-base font-semibold text-foreground">
-                    Have your GLW ready to delegate on the launchpad.
+                    {hasSplitBatchSchedule
+                      ? "Have USDC ready for the mini miner release."
+                      : "Have your GLW ready to delegate on the launchpad."}
                   </p>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Every Tuesday at 1 PM EST, Glow lists at least one new solar
-                    farm for crowdfunding. Users can delegate GLW tokens to help
-                    fund the farm, support real-world impact, and earn GLW
-                    tokens weekly for 100 weeks.
+                    {hasSplitBatchSchedule
+                      ? "Tomorrow's mini miner goes live Tuesday at 1:00 AM ET. Launchpad delegations stay on their normal Tuesday 1:00 PM ET schedule."
+                      : "Every Tuesday at 1 PM EST, Glow lists at least one new solar farm for crowdfunding. Users can delegate GLW tokens to help fund the farm, support real-world impact, and earn GLW tokens weekly for 100 weeks."}
                   </p>
                 </div>
               </div>

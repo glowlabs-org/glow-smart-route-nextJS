@@ -13,6 +13,12 @@ import type {
 import { QUERY_KEYS } from "../../hooks/query-keys";
 import { hubGet } from "../api/hub-client";
 import {
+  applyLocalSponsorListingOverrides,
+  isLocalMinerLaunchpadDuplicate,
+  isSponsorListingVisibleAndOpen,
+} from "../../utils/sponsor-listings-overrides";
+import { isLocalMinerLaunchOverrideEnabled } from "../../utils/nextTuesdayET";
+import {
   buildMiningScoreBatchInputs,
   buildMiningScoreExtraLiveFarmsKey,
   fetchLiveSoonMiningScoreFarms,
@@ -107,7 +113,30 @@ async function withTimeout<T>(
 async function defaultFetchListings(
   filters: SponsorListingsFilters
 ): Promise<AuctionApplication[]> {
-  return await withTimeout(getCachedSponsorListings(filters));
+  const shouldUseMiningCenterLocalOverride =
+    filters.type === "mining-center" && isLocalMinerLaunchOverrideEnabled();
+  const fetchFilters =
+    shouldUseMiningCenterLocalOverride && !filters.includeFilled
+      ? { ...filters, includeFilled: true }
+      : filters;
+
+  let applications = applyLocalSponsorListingOverrides(
+    await withTimeout(getCachedSponsorListings(fetchFilters))
+  );
+
+  if (filters.type !== "mining-center" && isLocalMinerLaunchOverrideEnabled()) {
+    applications = applications.filter(
+      (application) => !isLocalMinerLaunchpadDuplicate(application),
+    );
+  }
+
+  if (shouldUseMiningCenterLocalOverride && !filters.includeFilled) {
+    applications = applications.filter((application) =>
+      isSponsorListingVisibleAndOpen(application),
+    );
+  }
+
+  return applications;
 }
 
 const getCachedSponsorListings = unstable_cache(

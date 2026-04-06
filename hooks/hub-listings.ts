@@ -4,6 +4,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Decimal from "decimal.js";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { QUERY_CONFIG } from "@/hooks/query-config";
+import {
+  getLaunchpadNowMs,
+  isMarketplaceVisibleAt,
+} from "@/utils/launchpad-now";
 
 export type PaymentCurrency = "USDG" | "USDC" | "GLW" | "GCTL" | "SGCTL";
 export type DelegationPhase = "hidden" | "sgctl" | "glw" | null;
@@ -102,22 +106,6 @@ export interface ActiveFraction {
   rewardScore: number | null;
 }
 
-const LAUNCHPAD_TIME_OVERRIDE_ENV = "NEXT_PUBLIC_LAUNCHPAD_TIME_OVERRIDE_ISO";
-
-const launchpadTimeOverrideMs = (() => {
-  const raw = process.env[LAUNCHPAD_TIME_OVERRIDE_ENV]?.trim();
-  if (!raw) return null;
-
-  const parsedMs = Date.parse(raw);
-  if (!Number.isFinite(parsedMs)) return null;
-
-  return parsedMs;
-})();
-
-export function getLaunchpadNowMs(nowMs: number = Date.now()): number {
-  return launchpadTimeOverrideMs ?? nowMs;
-}
-
 export function isFractionOpenForMarketplace(
   fraction:
     | Pick<
@@ -143,14 +131,7 @@ export function isFractionPubliclyVisible(
   nowMs: number = Date.now()
 ): boolean {
   if (!fraction) return false;
-
-  const visibleAt = fraction.marketplaceVisibleAt;
-  if (!visibleAt) return true;
-
-  const visibleAtMs = Date.parse(visibleAt);
-  if (!Number.isFinite(visibleAtMs)) return true;
-
-  return getLaunchpadNowMs(nowMs) >= visibleAtMs;
+  return isMarketplaceVisibleAt(fraction.marketplaceVisibleAt, nowMs);
 }
 
 export interface AuctionApplication {

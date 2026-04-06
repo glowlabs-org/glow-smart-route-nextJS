@@ -27,7 +27,10 @@ import { useMiningScore, getMiningScoreForApplication } from "@/hooks";
 import { formatNumber } from "@/app/marketplace/utils";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import { formatUnits } from "viem";
-import { getNextTuesdayAt1pmET } from "@/utils/nextTuesdayET";
+import {
+  getNextLaunchpadDelegationBatchAtET,
+  getNextMiningCenterBatchAtET,
+} from "@/utils/nextTuesdayET";
 import { filterPublicLaunchpadApplications } from "@/utils/launchpad";
 import {
   parseFractionsSummary,
@@ -653,7 +656,7 @@ export function ProtocolActivity({
     summaryLoading: summaryLoading || summaryFetching,
     delegatorsCount: launchpadContributors ?? 0,
     availableFarms: launchpadInventory,
-    farmsCountdownDate: getNextTuesdayAt1pmET(),
+    farmsCountdownDate: getNextLaunchpadDelegationBatchAtET(),
     delegationPreviewEvents,
     hasDelegationPreview,
     shouldShowDelegationSeeAll,
@@ -665,7 +668,7 @@ export function ProtocolActivity({
     summaryLoading: summaryLoading || summaryFetching,
     buyersCount: miningCenterContributors ?? 0,
     availableMiners: miningCenterInventory,
-    minersCountdownDate: getNextTuesdayAt1pmET(),
+    minersCountdownDate: getNextMiningCenterBatchAtET(),
     minerPreviewEvents,
     minerEvents,
     hasMinerPreview,

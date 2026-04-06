@@ -4,6 +4,7 @@ import * as React from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
 import { cn } from "@/lib/utils";
+import { getLaunchpadNowMs } from "@/utils/launchpad-now";
 
 interface CountdownClockParts {
   hours: string;
@@ -53,11 +54,14 @@ export function useCountdownTo(params: {
   tickMs?: number;
 }) {
   const { targetAtMs, onComplete, tickMs = 1000 } = params;
-  const [nowMs, setNowMs] = React.useState(() => Date.now());
+  const [nowMs, setNowMs] = React.useState(() => getLaunchpadNowMs());
   const hasCompletedRef = React.useRef(false);
 
   React.useEffect(() => {
-    const intervalId = window.setInterval(() => setNowMs(Date.now()), tickMs);
+    const intervalId = window.setInterval(
+      () => setNowMs(getLaunchpadNowMs()),
+      tickMs,
+    );
     return () => window.clearInterval(intervalId);
   }, [tickMs]);
 

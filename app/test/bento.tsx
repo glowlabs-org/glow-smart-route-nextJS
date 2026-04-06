@@ -39,6 +39,7 @@ import {
 import { RefundClaimsPanel } from "@/app/wallet/refund-claims-panel";
 import { MigrationClaimPanel } from "@/app/wallet/migration-claim-panel";
 import { useLaunchpadStatus } from "@/hooks/useLaunchpadStatus";
+import { getLaunchpadNowMs } from "@/utils/launchpad-now";
 import { trackEvent } from "@/lib/telemetry";
 import { useCountdownTo } from "@/app/components/animated-countdown";
 import {
@@ -271,7 +272,7 @@ export default function GlowSoftDashboard({
   const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
   const isApproachingLaunchpad = React.useMemo(() => {
     if (isLaunchpadLive) return false;
-    const now = Date.now();
+    const now = getLaunchpadNowMs();
     const timeUntilLive = launchpadNextBatchAtMs - now;
     return timeUntilLive > 0 && timeUntilLive <= THREE_HOURS_MS;
   }, [THREE_HOURS_MS, isLaunchpadLive, launchpadNextBatchAtMs]);

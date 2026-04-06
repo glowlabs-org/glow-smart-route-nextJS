@@ -47,7 +47,7 @@ import {
 import { FarmsPerformanceDialogContent } from "./farms-performance-dialog";
 import { cn } from "@/lib/utils";
 import { LaunchpadDialog } from "@/components/dialogs/launchpad-dialog";
-import { getNextTuesdayAt1pmET } from "@/utils/nextTuesdayET";
+import { getNextSponsorListingsBatchAtET } from "@/utils/nextTuesdayET";
 import {
   countActiveListings,
   filterPublicLaunchpadApplications,
@@ -638,7 +638,7 @@ export default function SolarFarmWidget({
   const [isLaunchpadOpen, setIsLaunchpadOpen] = React.useState(false);
   const [selectedAsset, setSelectedAsset] = React.useState<string>("GLW");
   const [nextBatchAtMs, setNextBatchAtMs] = React.useState(() =>
-    getNextTuesdayAt1pmET().getTime()
+    getNextSponsorListingsBatchAtET().getTime()
   );
 
   const { data, isLoading, isError, refetch } = useRewardsBreakdown({
@@ -1204,7 +1204,7 @@ export default function SolarFarmWidget({
     !hasInProgressSponsorships;
 
   const handleBatchCountdownComplete = React.useCallback(() => {
-    setNextBatchAtMs(getNextTuesdayAt1pmET().getTime());
+    setNextBatchAtMs(getNextSponsorListingsBatchAtET().getTime());
     void (async () => {
       try {
         await queryClient.refetchQueries({

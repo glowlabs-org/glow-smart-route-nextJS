@@ -45,3 +45,20 @@ export function filterPublicLaunchpadApplications<
     isFractionPubliclyVisible(application.activeFraction, nowMs)
   );
 }
+
+export function getListingVisibleStartAtMs<
+  T extends {
+    publishedOnAuctionTimestamp?: string | null;
+    activeFraction?: { marketplaceVisibleAt?: string | null } | null;
+  },
+>(application: T): number | null {
+  const visibleAtMs = Date.parse(
+    application.activeFraction?.marketplaceVisibleAt ?? "",
+  );
+  if (Number.isFinite(visibleAtMs)) return visibleAtMs;
+
+  const publishedAtMs = Date.parse(application.publishedOnAuctionTimestamp ?? "");
+  if (Number.isFinite(publishedAtMs)) return publishedAtMs;
+
+  return null;
+}

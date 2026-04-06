@@ -137,6 +137,8 @@ vi.mock("@/hooks/useLaunchpadStatus", () => ({
   useLaunchpadStatus: () => ({
     isLive: true,
     nextBatchAtMs: Date.now(),
+    nextMinerBatchAtMs: Date.now(),
+    nextDelegationBatchAtMs: Date.now(),
     refreshNextBatchAtMs: vi.fn(),
     isLoading: false,
     isError: false,

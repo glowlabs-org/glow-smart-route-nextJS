@@ -98,6 +98,7 @@ import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useER20Balances } from "@/hooks/useERC20Balances";
 import { LaunchCountdown } from "@/components/launch-countdown";
 import { getNextTuesdayAt1pmET } from "@/utils/nextTuesdayET";
+import { getListingVisibleStartAtMs } from "@/utils/launchpad";
 import { LaunchpadStatsDialog } from "./launchpad-stats-dialog";
 import { MiningStatsDialog } from "./mining-stats-dialog";
 import { trackEvent } from "@/lib/telemetry";
@@ -1677,9 +1678,13 @@ function getFarmEfficiency(application: AuctionApplication) {
   }
 }
 
-function formatTimeToSellOut(createdAt: string, filledAt: string | null) {
-  if (!filledAt) return "—";
-  const start = new Date(createdAt).getTime();
+function formatTimeToSellOut(
+  startAt: number | string | null,
+  filledAt: string | null,
+) {
+  if (!startAt || !filledAt) return "—";
+  const start =
+    typeof startAt === "number" ? startAt : new Date(startAt).getTime();
   const end = new Date(filledAt).getTime();
   const diffMs = end - start;
   if (diffMs <= 0) return "Instant";
@@ -2361,7 +2366,7 @@ function LaunchpadMarketplaceWidget({
                     {availability.isSoldOut ? (
                       <span className="text-[9px] md:text-[10px] text-foreground/50 dark:text-white/40">
                         {formatTimeToSellOut(
-                          application.publishedOnAuctionTimestamp,
+                          getListingVisibleStartAtMs(application),
                           application.activeFraction?.filledAt || null
                         )}{" "}
                         to sell out
@@ -2894,7 +2899,7 @@ function LaunchpadWidgetAssetCard({
                     <>
                       SOLD OUT IN{" "}
                       {formatTimeToSellOut(
-                        application.publishedOnAuctionTimestamp,
+                        getListingVisibleStartAtMs(application),
                         application.activeFraction?.filledAt || null
                       )}
                     </>
@@ -3181,7 +3186,7 @@ function LaunchpadWidgetHeroCarouselCard({
 
   const unitsValue = isSoldOut
     ? formatTimeToSellOut(
-        application.publishedOnAuctionTimestamp,
+        getListingVisibleStartAtMs(application),
         application.activeFraction?.filledAt || null
       )
     : `${availability.remaining.toLocaleString()} / ${availability.total.toLocaleString()}`;
@@ -4379,7 +4384,7 @@ function LaunchpadAssetCard({
                     <>
                       SOLD OUT IN{" "}
                       {formatTimeToSellOut(
-                        application.publishedOnAuctionTimestamp,
+                        getListingVisibleStartAtMs(application),
                         application.activeFraction?.filledAt || null
                       )}
                     </>

@@ -63,7 +63,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { SlidersHorizontal, X, ArrowRight, HelpCircle } from "lucide-react";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { LaunchCountdown } from "@/components/launch-countdown";
-import { getNextTuesdayAt1pmET } from "@/utils/nextTuesdayET";
+import { getNextMiningCenterBatchAtET } from "@/utils/nextTuesdayET";
 import { HowItWorks } from "@/components/how-it-works";
 
 // Component to show owned fractions for a specific mining center application
@@ -498,7 +498,7 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
             ) : applications.length === 0 ? (
               <>
                 <LaunchCountdown
-                  target={getNextTuesdayAt1pmET()}
+                  target={getNextMiningCenterBatchAtET()}
                   title="Mining Center"
                   subtitle="The next batch of miners will be available soon"
                   onComplete={handleCountdownComplete}
