@@ -126,6 +126,20 @@ function formatUsdFromRawUsdc6(value: string | bigint) {
   return `$${isNegative ? "-" : ""}${addCommas(whole.toString())}.${fraction}`;
 }
 
+function formatGlwAmount(value: string) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return `${value} GLW`;
+  return `${num.toLocaleString("en-US", {
+    maximumFractionDigits: 2,
+  })} GLW`;
+}
+
+function formatPercentValue(value: string | number) {
+  const num = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(num)) return `${value}%`;
+  return `${num.toFixed(num >= 10 ? 2 : 3)}%`;
+}
+
 const TIER_CONFIG = {
   Seed: { color: "#71717a", label: "5%" },
   Grow: { color: "#3b82f6", label: "10%" },
@@ -740,6 +754,8 @@ function SectionError({
 
 type KolPaybackSale =
   ReferralDashboardKolPaybackResponse["kols"][number]["weeks"][number]["sales"][number];
+type KolPaybackWeek =
+  ReferralDashboardKolPaybackResponse["kols"][number]["weeks"][number];
 
 type KolPaybackWeekRow = {
   weekNumber: number;
@@ -749,6 +765,9 @@ type KolPaybackWeekRow = {
   totalPaybackRaw: string;
   saleCount: number;
   uniqueBuyers: number;
+  totalDelegatedGlwRaw: string;
+  delegationCount: number;
+  uniqueDelegators: number;
   sales: KolPaybackSale[];
   kols: Array<{
     kolWallet: string;
@@ -756,7 +775,11 @@ type KolPaybackWeekRow = {
     totalPaybackRaw: string;
     saleCount: number;
     uniqueBuyers: number;
-    attributionBreakdown: ReferralDashboardKolPaybackResponse["kols"][number]["attributionBreakdown"];
+    delegationBreakdown: KolPaybackWeek["delegationBreakdown"];
+    rolling30DayDelegation: KolPaybackWeek["rolling30DayDelegation"];
+    rollingAttributionBreakdown:
+      ReferralDashboardKolPaybackResponse["kols"][number]["rolling30DayDelegation"]["attributionBreakdown"];
+    attributionBreakdown: KolPaybackWeek["attributionBreakdown"];
   }>;
 };
 
@@ -777,6 +800,16 @@ function buildKolPaybackWeekRows(
           totalPaybackRaw: week.totalPaybackRaw,
           saleCount: week.saleCount,
           uniqueBuyers: week.uniqueBuyers,
+          totalDelegatedGlwRaw: (
+            BigInt(week.delegationBreakdown.direct.totalDelegatedGlwRaw) +
+            BigInt(week.delegationBreakdown.secondDegree.totalDelegatedGlwRaw)
+          ).toString(),
+          delegationCount:
+            week.delegationBreakdown.direct.delegationCount +
+            week.delegationBreakdown.secondDegree.delegationCount,
+          uniqueDelegators:
+            week.delegationBreakdown.direct.uniqueDelegators +
+            week.delegationBreakdown.secondDegree.uniqueDelegators,
           sales: [...week.sales],
           kols: [
             {
@@ -785,6 +818,10 @@ function buildKolPaybackWeekRows(
               totalPaybackRaw: week.totalPaybackRaw,
               saleCount: week.saleCount,
               uniqueBuyers: week.uniqueBuyers,
+              delegationBreakdown: week.delegationBreakdown,
+              rolling30DayDelegation: week.rolling30DayDelegation,
+              rollingAttributionBreakdown:
+                kol.rolling30DayDelegation.attributionBreakdown,
               attributionBreakdown: week.attributionBreakdown,
             },
           ],
@@ -798,7 +835,18 @@ function buildKolPaybackWeekRows(
       existing.totalPaybackRaw = (
         BigInt(existing.totalPaybackRaw) + BigInt(week.totalPaybackRaw)
       ).toString();
+      existing.totalDelegatedGlwRaw = (
+        BigInt(existing.totalDelegatedGlwRaw) +
+        BigInt(week.delegationBreakdown.direct.totalDelegatedGlwRaw) +
+        BigInt(week.delegationBreakdown.secondDegree.totalDelegatedGlwRaw)
+      ).toString();
       existing.saleCount += week.saleCount;
+      existing.delegationCount +=
+        week.delegationBreakdown.direct.delegationCount +
+        week.delegationBreakdown.secondDegree.delegationCount;
+      existing.uniqueDelegators +=
+        week.delegationBreakdown.direct.uniqueDelegators +
+        week.delegationBreakdown.secondDegree.uniqueDelegators;
       existing.sales.push(...week.sales);
       existing.kols.push({
         kolWallet: kol.kolWallet,
@@ -806,6 +854,9 @@ function buildKolPaybackWeekRows(
         totalPaybackRaw: week.totalPaybackRaw,
         saleCount: week.saleCount,
         uniqueBuyers: week.uniqueBuyers,
+        delegationBreakdown: week.delegationBreakdown,
+        rolling30DayDelegation: week.rolling30DayDelegation,
+        rollingAttributionBreakdown: kol.rolling30DayDelegation.attributionBreakdown,
         attributionBreakdown: week.attributionBreakdown,
       });
     }
@@ -850,10 +901,11 @@ function KolPaybackExport({
     <div className="rounded-3xl bg-card border border-border/20 dark:border-border/40 p-8 space-y-8">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <div className="text-sm font-medium">KoL Miner Export</div>
+          <div className="text-sm font-medium">KoL Commission Export</div>
           <p className="text-sm text-muted-foreground/60 dark:text-muted-foreground/80 mt-1">
-            Eligible mining-center sales grouped by protocol week with direct and
-            second-degree KoL attribution.
+            Miner sales stay grouped by protocol week. GLW delegation metrics use the
+            live rolling {data?.program.rollingDelegationWindowDays ?? 30}-day window
+            from the commission structure.
             {data
               ? ` Program start: ${formatLongDate(data.program.startedAt)}.`
               : " Program start: March 2, 2026."}
@@ -902,8 +954,8 @@ function KolPaybackExport({
         />
       ) : (
         <>
-          <div className="grid gap-4 md:grid-cols-4">
-            <div className="rounded-2xl border border-border/20 dark:border-border/40 p-5">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+            <div className="rounded-2xl border border-border/20 dark:border-border/40 p-5 xl:col-span-1">
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
                 Weeks Covered
               </div>
@@ -917,7 +969,7 @@ function KolPaybackExport({
                 {formatDate(data.range.startWeekAt)} to {formatDate(data.range.endWeekAt)}
               </div>
             </div>
-            <div className="rounded-2xl border border-border/20 dark:border-border/40 p-5">
+            <div className="rounded-2xl border border-border/20 dark:border-border/40 p-5 xl:col-span-1">
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
                 Eligible Sales
               </div>
@@ -928,7 +980,7 @@ function KolPaybackExport({
                 {data.program.eligibleKolWallets.length} KoL wallets tracked
               </div>
             </div>
-            <div className="rounded-2xl border border-border/20 dark:border-border/40 p-5">
+            <div className="rounded-2xl border border-border/20 dark:border-border/40 p-5 xl:col-span-1">
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
                 Miner Sales
               </div>
@@ -939,15 +991,38 @@ function KolPaybackExport({
                 Gross eligible miner volume
               </div>
             </div>
-            <div className="rounded-2xl border border-border/20 dark:border-border/40 p-5">
+            <div className="rounded-2xl border border-border/20 dark:border-border/40 p-5 xl:col-span-1">
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
-                Payback
+                Base Payback
               </div>
               <div className="mt-3 text-3xl font-semibold tracking-tight tabular-nums">
                 {formatUsdFromRawUsdc6(data.summary.totalPaybackRaw)}
               </div>
               <div className="mt-1 text-xs text-muted-foreground/60">
-                {data.program.paybackPercent}% of eligible sales
+                {data.program.baseCommissionPercent}% of eligible sales
+              </div>
+            </div>
+            <div className="rounded-2xl border border-border/20 dark:border-border/40 p-5 xl:col-span-1">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
+                Rolling 30D GLW
+              </div>
+              <div className="mt-3 text-3xl font-semibold tracking-tight tabular-nums">
+                {formatGlwAmount(data.summary.rolling30DayDelegation.totalDelegatedGlw)}
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground/60">
+                {data.summary.rolling30DayDelegation.uniqueDelegators} unique delegators
+              </div>
+            </div>
+            <div className="rounded-2xl border border-border/20 dark:border-border/40 p-5 xl:col-span-1">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
+                Delegation Split
+              </div>
+              <div className="mt-3 text-3xl font-semibold tracking-tight tabular-nums">
+                {data.summary.rolling30DayDelegation.attributionBreakdown.direct.uniqueDelegators}/
+                {data.summary.rolling30DayDelegation.attributionBreakdown.secondDegree.uniqueDelegators}
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground/60">
+                Direct / 2nd-degree delegators
               </div>
             </div>
           </div>
@@ -968,7 +1043,7 @@ function KolPaybackExport({
                         {formatDate(week.startAt)} to {formatDate(week.endAt)}
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
                       <div className="rounded-xl bg-background/70 px-3 py-2">
                         <div className="text-[10px] uppercase tracking-widest text-muted-foreground/50">
                           Sales
@@ -999,6 +1074,22 @@ function KolPaybackExport({
                         </div>
                         <div className="mt-1 text-lg font-semibold tabular-nums text-emerald-500">
                           {formatUsdFromRawUsdc6(week.totalPaybackRaw)}
+                        </div>
+                      </div>
+                      <div className="rounded-xl bg-background/70 px-3 py-2">
+                        <div className="text-[10px] uppercase tracking-widest text-muted-foreground/50">
+                          GLW Delegated
+                        </div>
+                        <div className="mt-1 text-lg font-semibold tabular-nums">
+                          {formatGlwAmount(week.totalDelegatedGlwRaw)}
+                        </div>
+                      </div>
+                      <div className="rounded-xl bg-background/70 px-3 py-2">
+                        <div className="text-[10px] uppercase tracking-widest text-muted-foreground/50">
+                          Delegators
+                        </div>
+                        <div className="mt-1 text-lg font-semibold tabular-nums">
+                          {week.uniqueDelegators}
                         </div>
                       </div>
                     </div>
@@ -1059,6 +1150,88 @@ function KolPaybackExport({
                           <span>
                             2nd degree:{" "}
                             {kol.attributionBreakdown.secondDegree.saleCount} sales
+                          </span>
+                        </div>
+                        <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <div className="text-[10px] uppercase tracking-widest text-muted-foreground/50">
+                              Weekly GLW
+                            </div>
+                            <div className="mt-1 font-semibold tabular-nums">
+                              {formatGlwAmount(
+                                (
+                                  BigInt(kol.delegationBreakdown.direct.totalDelegatedGlwRaw) +
+                                  BigInt(
+                                    kol.delegationBreakdown.secondDegree.totalDelegatedGlwRaw
+                                  )
+                                ).toString()
+                              )}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground/50">
+                              {kol.delegationBreakdown.direct.uniqueDelegators +
+                                kol.delegationBreakdown.secondDegree.uniqueDelegators}{" "}
+                              delegators
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-[10px] uppercase tracking-widest text-muted-foreground/50">
+                              Rolling 30D GLW
+                            </div>
+                            <div className="mt-1 font-semibold tabular-nums">
+                              {formatGlwAmount(kol.rolling30DayDelegation.totalDelegatedGlw)}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground/50">
+                              {kol.rolling30DayDelegation.uniqueDelegators} delegators
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <div className="text-[10px] uppercase tracking-widest text-muted-foreground/50">
+                              Ecosystem Bonus
+                            </div>
+                            <div className="mt-1 font-semibold tabular-nums">
+                              {formatPercentValue(
+                                kol.rolling30DayDelegation.ecosystemBonusPercent
+                              )}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-[10px] uppercase tracking-widest text-muted-foreground/50">
+                              Total Commission
+                            </div>
+                            <div className="mt-1 font-semibold tabular-nums">
+                              {formatPercentValue(
+                                kol.rolling30DayDelegation.totalCommissionPercent
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2 text-[10px] text-muted-foreground/60">
+                          <span>
+                            Weekly direct GLW:{" "}
+                            {formatGlwAmount(
+                              kol.delegationBreakdown.direct.totalDelegatedGlw
+                            )}
+                          </span>
+                          <span>
+                            Weekly 2nd degree GLW:{" "}
+                            {formatGlwAmount(
+                              kol.delegationBreakdown.secondDegree.totalDelegatedGlw
+                            )}
+                          </span>
+                          <span>
+                            Rolling direct GLW:{" "}
+                            {formatGlwAmount(
+                              kol.rollingAttributionBreakdown.direct.totalDelegatedGlw
+                            )}
+                          </span>
+                          <span>
+                            Rolling 2nd degree GLW:{" "}
+                            {formatGlwAmount(
+                              kol.rollingAttributionBreakdown.secondDegree
+                                .totalDelegatedGlw
+                            )}
                           </span>
                         </div>
                       </div>
@@ -1161,6 +1334,8 @@ function KolPaybackExport({
 
           <div className="text-xs text-muted-foreground/50">
             {data.program.eligibilityRule}
+            {" "}
+            Rolling delegation bonus uses {data.program.ecosystemBonusFormula}.
             {isFetching ? " Refreshing…" : ""}
           </div>
         </>

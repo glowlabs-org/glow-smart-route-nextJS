@@ -159,6 +159,14 @@ export interface ReferralDashboardKolPaybackResponse {
   };
   program: {
     paybackPercent: number;
+    baseCommissionPercent: number;
+    maxEcosystemBonusPercent: number;
+    rollingDelegationWindowDays: number;
+    ecosystemBonusFormula: string;
+    ecosystemBonusReferencePoints: Array<{
+      glwDelegated: string;
+      bonusPercent: string;
+    }>;
     eligibleKolWallets: string[];
     startedAt: string;
     eligibilityRule: string;
@@ -169,6 +177,25 @@ export interface ReferralDashboardKolPaybackResponse {
     totalMinerSalesUsdc: string;
     totalPaybackRaw: string;
     totalPaybackUsdc: string;
+    rolling30DayDelegation: {
+      totalDelegatedGlwRaw: string;
+      totalDelegatedGlw: string;
+      uniqueDelegators: number;
+      attributionBreakdown: {
+        direct: {
+          delegationCount: number;
+          uniqueDelegators: number;
+          totalDelegatedGlwRaw: string;
+          totalDelegatedGlw: string;
+        };
+        secondDegree: {
+          delegationCount: number;
+          uniqueDelegators: number;
+          totalDelegatedGlwRaw: string;
+          totalDelegatedGlw: string;
+        };
+      };
+    };
   };
   kols: Array<{
     kolWallet: string;
@@ -177,6 +204,28 @@ export interface ReferralDashboardKolPaybackResponse {
     totalMinerSalesUsdc: string;
     totalPaybackRaw: string;
     totalPaybackUsdc: string;
+    rolling30DayDelegation: {
+      delegationWindowDays: number;
+      totalDelegatedGlwRaw: string;
+      totalDelegatedGlw: string;
+      uniqueDelegators: number;
+      ecosystemBonusPercent: string;
+      totalCommissionPercent: string;
+      attributionBreakdown: {
+        direct: {
+          delegationCount: number;
+          uniqueDelegators: number;
+          totalDelegatedGlwRaw: string;
+          totalDelegatedGlw: string;
+        };
+        secondDegree: {
+          delegationCount: number;
+          uniqueDelegators: number;
+          totalDelegatedGlwRaw: string;
+          totalDelegatedGlw: string;
+        };
+      };
+    };
     attributionBreakdown: {
       direct: {
         saleCount: number;
@@ -223,6 +272,28 @@ export interface ReferralDashboardKolPaybackResponse {
           totalPaybackRaw: string;
           totalPaybackUsdc: string;
         };
+      };
+      delegationBreakdown: {
+        direct: {
+          delegationCount: number;
+          uniqueDelegators: number;
+          totalDelegatedGlwRaw: string;
+          totalDelegatedGlw: string;
+        };
+        secondDegree: {
+          delegationCount: number;
+          uniqueDelegators: number;
+          totalDelegatedGlwRaw: string;
+          totalDelegatedGlw: string;
+        };
+      };
+      rolling30DayDelegation: {
+        delegationWindowDays: number;
+        totalDelegatedGlwRaw: string;
+        totalDelegatedGlw: string;
+        uniqueDelegators: number;
+        ecosystemBonusPercent: string;
+        totalCommissionPercent: string;
       };
       sales: Array<{
         kolWallet: string;
