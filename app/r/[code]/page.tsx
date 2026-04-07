@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { useAccount, useDisconnect } from "wagmi";
+import { useAccount, useChainId, useDisconnect, useSwitchChain } from "wagmi";
 import { hubGet } from "@/lib/api/hub-client";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,6 +18,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useReferralLaunch } from "@/hooks/use-referral-launch";
 import { REFERRAL_LAUNCH_LABEL } from "@/lib/referral-launch";
 import { parseReferralError } from "@/lib/referral-errors";
+import {
+  getReferralChainLabel,
+  isReferralWrongChain,
+} from "@/lib/referral-chain";
 import { toast } from "sonner";
 
 interface ValidateCodeResponse {
@@ -37,7 +41,9 @@ export default function ReferralLandingPage() {
   const router = useRouter();
   const code = params.code as string;
   const { isConnected, address } = useAccount();
+  const chainId = useChainId();
   const { disconnect } = useDisconnect();
+  const { switchChain, isPending: isSwitchingChain } = useSwitchChain();
   const {
     status,
     linkReferrer,
@@ -45,11 +51,17 @@ export default function ReferralLandingPage() {
     changeReferrer,
     isChanging,
     isLoadingStatus,
+    expectedChainId,
+    isWrongNetwork,
   } = useReferral();
   const { isLive: isReferralLive } = useReferralLaunch();
   const [isSuccess, setIsSuccess] = React.useState(false);
   const [isChangeSuccess, setIsChangeSuccess] = React.useState(false);
   const [isOwnLinkCopied, setIsOwnLinkCopied] = React.useState(false);
+  const expectedChainLabel = React.useMemo(
+    () => getReferralChainLabel(expectedChainId),
+    [expectedChainId]
+  );
   const handleConnectClick = React.useCallback(() => {
     if (isConnected) return;
     trackEvent("referral_connect_wallet_click", {
@@ -74,6 +86,16 @@ export default function ReferralLandingPage() {
     },
     [code, address, router]
   );
+
+  const handleSwitchNetwork = React.useCallback(async () => {
+    try {
+      await switchChain({ chainId: expectedChainId });
+      toast.success(`Switched to ${expectedChainLabel}`);
+    } catch (error: any) {
+      console.error("Failed to switch network for referral flow:", error);
+      toast.error(error?.message || `Failed to switch to ${expectedChainLabel}`);
+    }
+  }, [expectedChainId, expectedChainLabel, switchChain]);
 
   // Fetch user's own referral code after successful link
   const ownCodeQuery = useQuery({
@@ -163,6 +185,8 @@ export default function ReferralLandingPage() {
     currentReferrerWallet !== newReferrerWallet;
   const canChangeReferrer =
     isAlreadyLinked && canChangeReferrerFlag && isDifferentReferrer;
+  const walletOnWrongNetwork =
+    isConnected && (isWrongNetwork || isReferralWrongChain(chainId));
 
   // Track page view when validation completes
   const hasTrackedViewRef = React.useRef(false);
@@ -440,6 +464,17 @@ export default function ReferralLandingPage() {
                         onConnect={handleConnectSuccess}
                       />
                     </div>
+                  ) : walletOnWrongNetwork ? (
+                    <Button
+                      variant="orange"
+                      className="h-12 sm:h-14 w-full sm:max-w-xs"
+                      onClick={handleSwitchNetwork}
+                      disabled={isSwitchingChain}
+                    >
+                      {isSwitchingChain
+                        ? "Switching..."
+                        : `Switch to ${expectedChainLabel}`}
+                    </Button>
                   ) : isValidationLoading ? (
                     <Button disabled className="h-12 sm:h-14 w-full sm:max-w-xs">
                       Checking link...
@@ -511,6 +546,8 @@ export default function ReferralLandingPage() {
               <div className="text-xs sm:text-sm text-muted-foreground/60">
                 {!isConnected
                   ? "Connect wallet to verify eligibility"
+                  : walletOnWrongNetwork
+                    ? `Switch wallet network to ${expectedChainLabel} before signing your referral link.`
                   : isEligibilityLoading
                     ? "Checking eligibility..."
                     : canClaim === false

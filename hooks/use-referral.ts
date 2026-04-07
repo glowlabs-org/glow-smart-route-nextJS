@@ -6,6 +6,11 @@ import { hubGet, hubPost } from "@/lib/api/hub-client";
 import { toast } from "sonner";
 import { trackEvent } from "@/lib/telemetry";
 import { parseReferralError } from "@/lib/referral-errors";
+import {
+  buildReferralWrongChainError,
+  getReferralExpectedChainId,
+  isReferralWrongChain,
+} from "@/lib/referral-chain";
 import * as Sentry from "@sentry/nextjs";
 
 // ============================================
@@ -51,12 +56,12 @@ export interface ValidateCodeResult {
 // ============================================
 
 export function useReferral() {
-  const { address } = useAccount();
+  const { address, connector } = useAccount();
   const connectedChainId = useChainId();
   const queryClient = useQueryClient();
   const { signTypedDataAsync } = useSignTypedData();
-  // Use the connected wallet's chain, falling back to mainnet
-  const chainId = connectedChainId || 1;
+  const expectedChainId = getReferralExpectedChainId();
+  const wrongChain = isReferralWrongChain(connectedChainId);
 
   // 1. Referral Status & Nonce
   const statusQuery = useQuery({
@@ -82,6 +87,7 @@ export function useReferral() {
     mutationFn: async (referralCode: string) => {
       const walletAddress = address;
       if (!walletAddress) throw new Error("Wallet not connected");
+      if (wrongChain) throw buildReferralWrongChainError(connectedChainId);
 
       // Validate code before asking for signature
       const validation = await validateCode(referralCode);
@@ -106,7 +112,7 @@ export function useReferral() {
 
       const signature = await signTypedDataAsync({
         account: walletAddress,
-        domain: referralEIP712Domain(chainId),
+        domain: referralEIP712Domain(expectedChainId),
         types: linkReferralEIP712Types,
         primaryType: "LinkReferral",
         message: {
@@ -145,8 +151,19 @@ export function useReferral() {
       const normalizedError =
         error instanceof Error ? error : new Error(String(error?.message || error));
       Sentry.captureException(normalizedError, {
-        tags: { referralStage: "link", referralErrorType: parsed.type },
-        extra: { referralCode, walletAddress: address, parsedMessage: parsed.message },
+        tags: {
+          referralStage: "link",
+          referralErrorType: parsed.type,
+          connectedChainId: `${connectedChainId ?? "unknown"}`,
+          expectedChainId: `${expectedChainId}`,
+        },
+        extra: {
+          referralCode,
+          walletAddress: address,
+          parsedMessage: parsed.message,
+          connectorId: connector?.id ?? null,
+          connectorName: connector?.name ?? null,
+        },
       });
       toast.error(parsed.message || "Failed to link referrer");
     },
@@ -157,6 +174,7 @@ export function useReferral() {
     mutationFn: async (newReferralCode: string) => {
       const walletAddress = address;
       if (!walletAddress) throw new Error("Wallet not connected");
+      if (wrongChain) throw buildReferralWrongChainError(connectedChainId);
 
       // Validate code before asking for signature
       const validation = await validateCode(newReferralCode);
@@ -181,7 +199,7 @@ export function useReferral() {
 
       const signature = await signTypedDataAsync({
         account: walletAddress,
-        domain: referralEIP712Domain(chainId),
+        domain: referralEIP712Domain(expectedChainId),
         types: changeReferrerEIP712Types,
         primaryType: "ChangeReferrer",
         message: {
@@ -220,11 +238,18 @@ export function useReferral() {
       const normalizedError =
         error instanceof Error ? error : new Error(String(error?.message || error));
       Sentry.captureException(normalizedError, {
-        tags: { referralStage: "change", referralErrorType: parsed.type },
+        tags: {
+          referralStage: "change",
+          referralErrorType: parsed.type,
+          connectedChainId: `${connectedChainId ?? "unknown"}`,
+          expectedChainId: `${expectedChainId}`,
+        },
         extra: {
           newReferralCode,
           walletAddress: address,
           parsedMessage: parsed.message,
+          connectorId: connector?.id ?? null,
+          connectorName: connector?.name ?? null,
         },
       });
       toast.error(parsed.message || "Failed to change referrer");
@@ -241,5 +266,8 @@ export function useReferral() {
     changeReferrer: changeMutation.mutateAsync,
     isChanging: changeMutation.isPending,
     changeError: changeMutation.error,
+    connectedChainId,
+    expectedChainId,
+    isWrongNetwork: wrongChain,
   };
 }
