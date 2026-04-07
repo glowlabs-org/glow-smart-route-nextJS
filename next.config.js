@@ -17,6 +17,18 @@ const nextConfig = {
   async redirects() {
     return [
       {
+        source: "/blog/:path*",
+        has: [
+          {
+            type: "host",
+            value: "app.glow.org",
+          },
+        ],
+        destination: "https://glow.org/blog/:path*",
+        permanent: true,
+        basePath: false,
+      },
+      {
         source: "/glow-swap/:path*",
         destination: "/",
         permanent: true,
