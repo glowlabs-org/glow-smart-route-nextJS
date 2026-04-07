@@ -1812,12 +1812,12 @@ export default function LaunchpadStatusWidget({
                 <div className="flex-1 space-y-1 py-0.5">
                   <p className="text-base font-semibold text-foreground">
                     {hasSplitBatchSchedule
-                      ? "Have USDC ready for the mini miner release."
+                      ? "Have USDC ready for the flash miner release."
                       : "Have your GLW ready to delegate on the launchpad."}
                   </p>
                   <p className="text-xs text-muted-foreground leading-relaxed">
                     {hasSplitBatchSchedule
-                      ? "Tomorrow's mini miner goes live Tuesday at 1:00 AM ET. Launchpad delegations stay on their normal Tuesday 1:00 PM ET schedule."
+                      ? "Tomorrow's flash miner goes live Tuesday at 1:00 AM ET. Launchpad delegations stay on their normal Tuesday 1:00 PM ET schedule."
                       : "Every Tuesday at 1 PM EST, Glow lists at least one new solar farm for crowdfunding. Users can delegate GLW tokens to help fund the farm, support real-world impact, and earn GLW tokens weekly for 100 weeks."}
                   </p>
                 </div>
