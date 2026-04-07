@@ -22,4 +22,14 @@ describe("launchpad timing helpers", () => {
     expect(result.toISOString()).toBe("2026-04-07T05:00:00.000Z");
     vi.unstubAllEnvs();
   });
+
+  it("defaults the next mining batch to Tuesday at 1 AM ET", async () => {
+    const { getNextMiningCenterBatchAtET } = await import("../nextTuesdayET");
+
+    const result = getNextMiningCenterBatchAtET(
+      new Date("2026-04-06T15:00:00.000Z"),
+    );
+
+    expect(result.toISOString()).toBe("2026-04-07T05:00:00.000Z");
+  });
 });

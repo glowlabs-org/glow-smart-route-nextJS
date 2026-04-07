@@ -156,7 +156,7 @@ export function getNextMiningCenterBatchAtET(
     }
   }
 
-  return getNextTuesdayAt1pmET(fromDate);
+  return getNextTuesdayAt1amET(fromDate);
 }
 
 export function getNextLaunchpadDelegationBatchAtET(
