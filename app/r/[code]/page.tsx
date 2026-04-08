@@ -19,6 +19,7 @@ import { useReferralLaunch } from "@/hooks/use-referral-launch";
 import { REFERRAL_LAUNCH_LABEL } from "@/lib/referral-launch";
 import { parseReferralError } from "@/lib/referral-errors";
 import { toast } from "sonner";
+import { storeReferralAttribution } from "@/lib/referral-attribution";
 
 interface ValidateCodeResponse {
   valid: boolean;
@@ -54,6 +55,8 @@ export default function ReferralLandingPage() {
     changeReferrer,
     isChanging,
     isLoadingStatus,
+    isAutoLinking,
+    autoLinkSucceeded,
   } = useReferral();
   const { isLive: isReferralLive } = useReferralLaunch();
   const [isSuccess, setIsSuccess] = React.useState(false);
@@ -128,6 +131,16 @@ export default function ReferralLandingPage() {
     (referrerWallet
       ? `${referrerWallet.slice(0, 6)}...${referrerWallet.slice(-4)}`
       : "A friend");
+
+  React.useEffect(() => {
+    if (!isValid) return;
+    storeReferralAttribution(referralCode || code);
+  }, [isValid, referralCode, code]);
+
+  React.useEffect(() => {
+    if (!autoLinkSucceeded) return;
+    setIsSuccess(true);
+  }, [autoLinkSucceeded]);
 
   const handleLink = async () => {
     if (!isConnected) return;
@@ -473,10 +486,16 @@ export default function ReferralLandingPage() {
                     <Button
                       className="h-12 sm:h-14 w-full sm:max-w-xs"
                       onClick={handleChangeReferrer}
-                      disabled={isChanging}
+                      disabled={isChanging || isAutoLinking}
                     >
-                      {isChanging ? "Changing..." : "Switch to This Referrer"}
-                      {!isChanging && <ArrowRight className="ml-2 h-4 w-4" />}
+                      {isChanging
+                        ? "Changing..."
+                        : isAutoLinking
+                          ? "Linking..."
+                          : "Switch to This Referrer"}
+                      {!isChanging && !isAutoLinking && (
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      )}
                     </Button>
                   ) : isAlreadyLinked ? (
                     <div className="space-y-2 w-full sm:max-w-xs">
@@ -509,11 +528,20 @@ export default function ReferralLandingPage() {
                       className="h-12 sm:h-14 w-full sm:max-w-xs"
                       onClick={handleLink}
                       disabled={
-                        isLinking || canClaim === false || isEligibilityLoading
+                        isLinking ||
+                        isAutoLinking ||
+                        canClaim === false ||
+                        isEligibilityLoading
                       }
                     >
-                      {isLinking ? "Verifying..." : "Claim Bonus"}
-                      {!isLinking && <ArrowRight className="ml-2 h-4 w-4" />}
+                      {isAutoLinking
+                        ? "Linking..."
+                        : isLinking
+                          ? "Verifying..."
+                          : "Claim Bonus"}
+                      {!isLinking && !isAutoLinking && (
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      )}
                     </Button>
                   )}
                 </div>
@@ -524,6 +552,8 @@ export default function ReferralLandingPage() {
                   ? "Connect wallet to verify eligibility"
                   : isEligibilityLoading
                     ? "Checking eligibility..."
+                    : isAutoLinking
+                      ? "Linking your stored referral automatically..."
                     : canClaim === false
                       ? claimReason || "You're not eligible to claim right now."
                       : hasValidationError

@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAccount, useChainId, useSignTypedData } from "wagmi";
 import { hubGet, hubPost } from "@/lib/api/hub-client";
@@ -7,6 +8,10 @@ import { toast } from "sonner";
 import { trackEvent } from "@/lib/telemetry";
 import { parseReferralError } from "@/lib/referral-errors";
 import * as Sentry from "@sentry/nextjs";
+import {
+  clearStoredReferralAttribution,
+  REFERRAL_AUTO_LINK_EVENT,
+} from "@/lib/referral-attribution";
 
 // ============================================
 // EIP-712 Definitions (Must match backend)
@@ -47,6 +52,11 @@ export interface ValidateCodeResult {
   message?: string;
 }
 
+type ReferralAutoLinkEventDetail = {
+  wallet?: string | null;
+  referralCode?: string | null;
+};
+
 // ============================================
 // Hook
 // ============================================
@@ -56,8 +66,36 @@ export function useReferral() {
   const connectedChainId = useChainId();
   const queryClient = useQueryClient();
   const { signTypedDataAsync } = useSignTypedData();
+  const [autoLinkSucceeded, setAutoLinkSucceeded] = React.useState(false);
   // Use the connected wallet's chain, falling back to mainnet
   const chainId = connectedChainId || 1;
+
+  React.useEffect(() => {
+    setAutoLinkSucceeded(false);
+  }, [address]);
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleAutoLink = (event: Event) => {
+      const customEvent = event as CustomEvent<ReferralAutoLinkEventDetail>;
+      if (!address) return;
+      if (customEvent.detail?.wallet?.toLowerCase() !== address.toLowerCase()) {
+        return;
+      }
+
+      setAutoLinkSucceeded(true);
+      trackEvent("referral_auto_link_success", {
+        referralCode: customEvent.detail?.referralCode ?? null,
+        wallet: address,
+      });
+    };
+
+    window.addEventListener(REFERRAL_AUTO_LINK_EVENT, handleAutoLink);
+    return () => {
+      window.removeEventListener(REFERRAL_AUTO_LINK_EVENT, handleAutoLink);
+    };
+  }, [address]);
 
   // 1. Referral Status & Nonce
   const statusQuery = useQuery({
@@ -126,6 +164,7 @@ export function useReferral() {
       });
     },
     onSuccess: (_, referralCode) => {
+      clearStoredReferralAttribution();
       queryClient.invalidateQueries({ queryKey: ["referral-status", address] });
       queryClient.invalidateQueries({ queryKey: ["impact-glow-score", address] });
       trackEvent("referral_link_success", { referralCode, wallet: address });
@@ -201,6 +240,7 @@ export function useReferral() {
       });
     },
     onSuccess: (_, newReferralCode) => {
+      clearStoredReferralAttribution();
       queryClient.invalidateQueries({ queryKey: ["referral-status", address] });
       queryClient.invalidateQueries({ queryKey: ["impact-glow-score", address] });
       trackEvent("referral_change_success", { newReferralCode, wallet: address });
@@ -242,5 +282,7 @@ export function useReferral() {
     changeReferrer: changeMutation.mutateAsync,
     isChanging: changeMutation.isPending,
     changeError: changeMutation.error,
+    isAutoLinking: false,
+    autoLinkSucceeded,
   };
 }

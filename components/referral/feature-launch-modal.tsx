@@ -34,6 +34,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useReferralLaunch } from "@/hooks/use-referral-launch";
 import { QRCodeDialog } from "@/components/referral/qr-code-dialog";
 import { useTosStatus } from "@/hooks/use-tos-status";
+import { getStoredReferralAttribution } from "@/lib/referral-attribution";
 
 interface SuccessReceipt {
   referralCode: string;
@@ -199,6 +200,16 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
       trackEvent("referral_feature_launch_modal_view");
     }
   }, [isReferralLive, shouldShow, step]);
+
+  React.useEffect(() => {
+    if (!shouldShow || step !== "form") return;
+    if (code.trim()) return;
+
+    const storedAttribution = getStoredReferralAttribution();
+    if (!storedAttribution?.referralCode) return;
+
+    setCode(storedAttribution.referralCode);
+  }, [shouldShow, step, code]);
 
   if (!isReferralLive || (!mock && !hasAcceptedTos)) {
     return null;

@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useAccount,
   useChainId,
@@ -29,6 +30,7 @@ import {
 } from "@/lib/tos-signature-errors";
 import { WalletsRouter } from "@glowlabs-org/utils/browser";
 import * as Sentry from "@sentry/nextjs";
+import { REFERRAL_AUTO_LINK_EVENT } from "@/lib/referral-attribution";
 
 // Helper to get signature debugging info
 function getSignatureDebugInfo(signature: string | undefined) {
@@ -210,6 +212,7 @@ const tosEIP712Types = {
 
 export function TosDialog() {
   const { isConnected, address, connector } = useAccount();
+  const queryClient = useQueryClient();
   const connectedChainId = useChainId();
   const { data: connectorClient } = useConnectorClient();
   const { disconnect } = useDisconnect();
@@ -508,15 +511,50 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
         return;
       }
 
+      let tosResponse:
+        | {
+            autoLink?: {
+              attempted: boolean;
+              linked: boolean;
+              referralCode?: string;
+              error?: string;
+            };
+          }
+        | undefined;
+
       try {
-        await walletsApi.acceptToS(address, {
-          signature,
-          nonce,
-          tosVersion: TOS_VERSION,
-          tosHash,
-          message,
-          deadline,
+        const response = await fetch("/api/tos/accept", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            wallet: address,
+            signature,
+            nonce,
+            tosVersion: TOS_VERSION,
+            tosHash,
+            message,
+            deadline,
+          }),
         });
+
+        const responseBody = await response.json().catch(() => null);
+        if (!response.ok) {
+          throw new Error(
+            (responseBody as { error?: string } | null)?.error ||
+              "Failed to accept Terms of Service"
+          );
+        }
+
+        tosResponse = responseBody as {
+          autoLink?: {
+            attempted: boolean;
+            linked: boolean;
+            referralCode?: string;
+            error?: string;
+          };
+        };
       } catch (apiError) {
         // Log API errors to Sentry with comprehensive debugging info
         if (typeof window !== "undefined") {
@@ -570,14 +608,38 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
             signature = await signer.signMessage(message);
             signingContext.signature = signature;
 
-            await walletsApi.acceptToS(address, {
-              signature,
-              nonce,
-              tosVersion: TOS_VERSION,
-              tosHash,
-              message,
-              deadline,
+            const retryResponse = await fetch("/api/tos/accept", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                wallet: address,
+                signature,
+                nonce,
+                tosVersion: TOS_VERSION,
+                tosHash,
+                message,
+                deadline,
+              }),
             });
+
+            const retryBody = await retryResponse.json().catch(() => null);
+            if (!retryResponse.ok) {
+              throw new Error(
+                (retryBody as { error?: string } | null)?.error ||
+                  "Failed to accept Terms of Service"
+              );
+            }
+
+            tosResponse = retryBody as {
+              autoLink?: {
+                attempted: boolean;
+                linked: boolean;
+                referralCode?: string;
+                error?: string;
+              };
+            };
           } catch (personalSignRetryError) {
             if (typeof window !== "undefined") {
               const normalizedError =
@@ -627,9 +689,30 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
         }
       }
 
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["tos-status", address] }),
+        queryClient.invalidateQueries({ queryKey: ["referral-status", address] }),
+        queryClient.invalidateQueries({ queryKey: ["impact-glow-score", address] }),
+      ]);
+
+      if (tosResponse?.autoLink?.linked && typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent(REFERRAL_AUTO_LINK_EVENT, {
+            detail: {
+              wallet: address.toLowerCase(),
+              referralCode: tosResponse.autoLink.referralCode ?? null,
+            },
+          })
+        );
+      }
+
       setHasAccepted(true);
       setIsOpen(false);
-      toast.success("Terms of Service accepted successfully");
+      toast.success(
+        tosResponse?.autoLink?.linked
+          ? "Terms accepted and referral linked"
+          : "Terms of Service accepted successfully"
+      );
     } catch (error) {
       const parsedError = parseTosApiError(error);
       setError(parsedError);
