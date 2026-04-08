@@ -22,6 +22,7 @@ import { toast } from "sonner";
 
 interface ValidateCodeResponse {
   valid: boolean;
+  referralCode?: string;
   referrerWallet?: string;
   referrerEns?: string;
   message?: string;
@@ -30,6 +31,14 @@ interface ValidateCodeResponse {
 interface ReferralCodeResponse {
   code: string;
   shareableLink: string;
+}
+
+function formatReferralDisplayName(referralCode?: string) {
+  if (!referralCode) return null;
+  if (/^[a-z]+$/.test(referralCode)) {
+    return `${referralCode.slice(0, 1).toUpperCase()}${referralCode.slice(1)}`;
+  }
+  return referralCode;
 }
 
 export default function ReferralLandingPage() {
@@ -109,11 +118,13 @@ export default function ReferralLandingPage() {
   const isValidationLoading =
     validateQuery.isLoading ||
     (validateQuery.isFetching && !validateQuery.data);
+  const referralCode = validateQuery.data?.referralCode;
   const referrerEns = validateQuery.data?.referrerEns;
   const referrerWallet = validateQuery.data?.referrerWallet;
 
   const referrerDisplayName =
     referrerEns ||
+    formatReferralDisplayName(referralCode) ||
     (referrerWallet
       ? `${referrerWallet.slice(0, 6)}...${referrerWallet.slice(-4)}`
       : "A friend");

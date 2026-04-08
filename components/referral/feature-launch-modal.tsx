@@ -41,6 +41,14 @@ interface SuccessReceipt {
   referrerEns?: string;
 }
 
+function formatReferralDisplayName(referralCode?: string) {
+  if (!referralCode) return null;
+  if (/^[a-z]+$/.test(referralCode)) {
+    return `${referralCode.slice(0, 1).toUpperCase()}${referralCode.slice(1)}`;
+  }
+  return referralCode;
+}
+
 interface ReferralCodeResponse {
   code: string;
   shareableLink: string;
@@ -233,7 +241,7 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
 
       // Show success state instead of closing
       setSuccessReceipt({
-        referralCode: trimmedCode,
+        referralCode: validation.referralCode ?? trimmedCode,
         referrerWallet: validation.referrerWallet,
         referrerEns: validation.referrerEns,
       });
@@ -730,11 +738,12 @@ function SuccessScreen({
 
   const referrerDisplay =
     receipt?.referrerEns ||
+    formatReferralDisplayName(receipt?.referralCode) ||
     (receipt?.referrerWallet
       ? `${receipt.referrerWallet.slice(0, 6)}...${receipt.referrerWallet.slice(
           -4,
         )}`
-      : receipt?.referralCode);
+      : null);
 
   return (
     <div className="relative overflow-hidden">

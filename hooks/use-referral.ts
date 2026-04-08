@@ -41,6 +41,7 @@ export const changeReferrerEIP712Types = {
 
 export interface ValidateCodeResult {
   valid: boolean;
+  referralCode?: string;
   referrerWallet?: string;
   referrerEns?: string;
   message?: string;
