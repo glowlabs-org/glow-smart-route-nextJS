@@ -214,6 +214,7 @@ export interface ReferralDashboardKolPaybackResponse {
       totalDelegatedGlw: string;
       uniqueDelegators: number;
       ecosystemBonusPercent: string;
+      flatBonusPercent?: string;
       totalCommissionPercent: string;
       attributionBreakdown: {
         direct: {

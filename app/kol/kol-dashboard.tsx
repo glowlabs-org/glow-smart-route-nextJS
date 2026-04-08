@@ -11,8 +11,8 @@ import {
   CartesianGrid,
   ResponsiveContainer,
   Tooltip,
-  BarChart,
-  Bar,
+  LineChart,
+  Line,
 } from "recharts";
 
 import { Badge } from "@/components/ui/badge";
@@ -254,7 +254,9 @@ function ChartTooltip({
           />
           <span className="text-muted-foreground/60 dark:text-muted-foreground/80">{entry.name}</span>
           <span className="ml-auto font-mono font-medium tabular-nums">
-            ${entry.value.toLocaleString()}
+            {entry.dataKey === "delegatedGlw"
+              ? `${entry.value.toLocaleString()} GLW`
+              : `$${entry.value.toLocaleString()}`}
           </span>
         </div>
       ))}
@@ -630,10 +632,9 @@ function KolContent({
       volume: Math.round(
         Number(formatUnits(BigInt(w.totalMinerSalesRaw), 6))
       ),
-      payback:
-        Math.round(
-          Number(formatUnits(BigInt(w.totalPaybackRaw), 6)) * 100
-        ) / 100,
+      delegatedGlw: Math.round(
+        Number(formatUnits(BigInt(w.rolling30DayDelegation.totalDelegatedGlwRaw), 18))
+      ),
     }));
 
   return (
@@ -661,11 +662,16 @@ function KolContent({
           hint={`${kol.rolling30DayDelegation.uniqueDelegators} delegators`}
         />
         <MetricCard
-          label="Commission"
-          value={formatPercentValue(
-            kol.rolling30DayDelegation.totalCommissionPercent
-          )}
-          hint={`${formatPercentValue(kol.rolling30DayDelegation.ecosystemBonusPercent)} bonus`}
+          label="Payback Rate"
+          value="5%"
+          hint={[
+            Number(kol.rolling30DayDelegation.ecosystemBonusPercent) > 0
+              ? `+${formatPercentValue(kol.rolling30DayDelegation.ecosystemBonusPercent)} delegation`
+              : null,
+            Number(kol.rolling30DayDelegation.flatBonusPercent ?? 0) > 0
+              ? `+${formatPercentValue(kol.rolling30DayDelegation.flatBonusPercent ?? "0")} bonus`
+              : null,
+          ].filter(Boolean).join(", ") || "of miner sales"}
         />
       </div>
 
@@ -680,9 +686,8 @@ function KolContent({
           </div>
           <div className="rounded-2xl border border-border/20 dark:border-border/40 bg-card p-4">
             <ResponsiveContainer width="100%" height={220}>
-              <BarChart
+              <LineChart
                 data={chartData}
-                barGap={2}
                 margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
               >
                 <CartesianGrid
@@ -697,6 +702,7 @@ function KolContent({
                   tickLine={false}
                 />
                 <YAxis
+                  yAxisId="usd"
                   tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground)/0.5)" }}
                   axisLine={false}
                   tickLine={false}
@@ -704,19 +710,45 @@ function KolContent({
                     `$${v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`
                   }
                 />
+                <YAxis
+                  yAxisId="glw"
+                  orientation="right"
+                  tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground)/0.5)" }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v: number) =>
+                    v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`
+                  }
+                />
                 <Tooltip content={<ChartTooltip />} />
-                <Bar dataKey="volume" name="Volume" fill="#d4d4d8" radius={[4, 4, 0, 0]} maxBarSize={32} />
-                <Bar dataKey="payback" name="Payback" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={32} />
-              </BarChart>
+                <Line
+                  yAxisId="usd"
+                  type="monotone"
+                  dataKey="volume"
+                  name="Miner Sales"
+                  stroke="#71717a"
+                  strokeWidth={2}
+                  dot={{ r: 4, fill: "#71717a" }}
+                />
+                <Line
+                  yAxisId="glw"
+                  type="monotone"
+                  dataKey="delegatedGlw"
+                  name="Delegated GLW"
+                  stroke="#10b981"
+                  strokeWidth={2}
+                  dot={{ r: 4, fill: "#10b981" }}
+                />
+              </LineChart>
             </ResponsiveContainer>
             <div className="mt-3 flex items-center justify-center gap-6 text-xs text-muted-foreground/60">
               <span className="flex items-center gap-2">
-                <span className="h-3 w-3 rounded-[4px] bg-[#d4d4d8]" />
-                Volume
+                <span className="h-0.5 w-4 rounded-full bg-[#71717a]" />
+                Miner Sales ($)
               </span>
               <span className="flex items-center gap-2">
-                <span className="h-3 w-3 rounded-[4px] bg-[#10b981]" />
-                Payback
+                <span className="h-0.5 w-4 rounded-full bg-[#10b981]" />
+                Delegated GLW
               </span>
             </div>
           </div>
@@ -739,8 +771,7 @@ function KolContent({
                 <TableHead className="text-right">Sales</TableHead>
                 <TableHead className="text-right">Volume</TableHead>
                 <TableHead className="text-right">Payback</TableHead>
-                <TableHead className="text-right">Delegated GLW</TableHead>
-                <TableHead className="text-right pr-4">Rolling GLW</TableHead>
+                <TableHead className="text-right pr-4">30D Delegated GLW</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -748,9 +779,6 @@ function KolContent({
                 .slice()
                 .sort((a, b) => b.weekNumber - a.weekNumber)
                 .map((week) => {
-                  const weekDelegated =
-                    BigInt(week.delegationBreakdown.direct.totalDelegatedGlwRaw) +
-                    BigInt(week.delegationBreakdown.secondDegree.totalDelegatedGlwRaw);
                   const isCurrentWeek = week.weekNumber === currentWeek;
 
                   return (
@@ -778,9 +806,6 @@ function KolContent({
                         <TableCell className="py-3 text-right font-medium tabular-nums text-emerald-500">
                           {formatUsdFromRawUsdc6(week.totalPaybackRaw)}
                         </TableCell>
-                        <TableCell className="py-3 text-right tabular-nums">
-                          {formatGlwAmount(weekDelegated, { raw: true })}
-                        </TableCell>
                         <TableCell className="py-3 text-right pr-4 tabular-nums">
                           {formatGlwAmount(week.rolling30DayDelegation.totalDelegatedGlwRaw, { raw: true })}
                         </TableCell>
@@ -789,7 +814,7 @@ function KolContent({
                       {/* Expandable sale rows */}
                       {week.sales.length > 0 && (
                         <TableRow className="hover:bg-transparent">
-                          <TableCell colSpan={6} className="p-0">
+                          <TableCell colSpan={5} className="p-0">
                             <details className="group">
                               <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-2 text-xs font-medium text-muted-foreground/50 transition-colors marker:content-none hover:text-muted-foreground/70">
                                 <span className="transition group-open:rotate-90">&#9654;</span>
