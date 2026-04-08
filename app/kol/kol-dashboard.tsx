@@ -674,7 +674,7 @@ function KolContent({
             </div>
             {Number(kol.rolling30DayDelegation.flatBonusPercent ?? 0) > 0 && (
               <div>
-                +{formatPercentValue(kol.rolling30DayDelegation.flatBonusPercent ?? "0")} KoL bonus
+                +{formatPercentValue(kol.rolling30DayDelegation.flatBonusPercent ?? "0")} uncertainty bonus
               </div>
             )}
           </div>
