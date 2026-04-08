@@ -42,6 +42,12 @@ function formatReferralDisplayName(referralCode?: string) {
   return referralCode;
 }
 
+const landingPanelClassName =
+  "order-2 lg:order-1 lg:flex-1 flex flex-col justify-between px-5 pb-6 pt-5 sm:px-8 sm:pb-8 sm:pt-6 lg:p-16 lg:min-h-screen";
+
+const heroPanelClassName =
+  "order-1 lg:order-2 h-[36svh] min-h-[280px] sm:h-[42svh] lg:h-auto lg:flex-1 p-3 sm:p-4 lg:p-8 lg:min-h-screen";
+
 export default function ReferralLandingPage() {
   const params = useParams();
   const router = useRouter();
@@ -251,41 +257,43 @@ export default function ReferralLandingPage() {
             className="min-h-screen flex flex-col lg:flex-row bg-white dark:bg-background"
           >
             {/* Left Side - Content */}
-            <div className="order-2 lg:order-1 lg:flex-1 flex flex-col lg:justify-between p-6 sm:p-8 lg:p-16 lg:min-h-screen">
+            <div className={landingPanelClassName}>
               <div className="hidden lg:block">
                 <GlowLockup className="h-6 sm:h-8 w-auto" />
               </div>
 
-              <div className="lg:flex-1 flex flex-col lg:justify-center max-w-md py-0 lg:py-0">
+              <div className="flex flex-1 flex-col justify-center gap-6 sm:gap-7 lg:max-w-md lg:gap-0">
+                <div className="space-y-3 sm:space-y-4">
+                  <div className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.22em] text-[#4ade80]">
+                    You&apos;re In
+                  </div>
+
+                  <h1 className="max-w-[12ch] text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-4xl">
+                    Referral Linked to{" "}
+                    <span className="text-[color:var(--color-glow-orange)]">
+                      {referrerDisplayName}
+                    </span>
+                  </h1>
+
+                  <p className="max-w-sm text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
+                    {isChangeSuccess
+                      ? "Your boost stays on its original schedule. The +100 bonus points will unlock after you reach 100 points."
+                      : "Your 12-week boost starts now. Earn 10% more points each week, and unlock +100 bonus points after you reach 100 points."}
+                  </p>
+                </div>
+
                 <motion.div
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ delay: 0.1, duration: 0.2, ease: "easeOut" }}
-                  className="mb-4 sm:mb-6 flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full bg-[#4ade80]/10 border border-[#4ade80]/20"
+                  className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full border border-[#4ade80]/20 bg-[#4ade80]/10"
                 >
                   <svg className="h-6 w-6 sm:h-7 sm:w-7 text-[#4ade80]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                 </motion.div>
 
-                <div className="mb-3 sm:mb-4 text-[10px] sm:text-xs font-semibold uppercase tracking-widest text-[#4ade80]">
-                  You&apos;re In
-                </div>
-
-                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-foreground mb-4 sm:mb-6">
-                  Referral Linked to{" "}
-                  <span className="text-[color:var(--color-glow-orange)]">
-                    {referrerDisplayName}
-                  </span>
-                </h1>
-
-                <p className="text-sm sm:text-base text-muted-foreground mb-6 sm:mb-8 leading-relaxed">
-                  {isChangeSuccess
-                    ? "Your boost stays on its original schedule. The +100 bonus points will unlock after you reach 100 points."
-                    : "Your 12-week boost starts now. Earn 10% more points each week, and unlock +100 bonus points after you reach 100 points."}
-                </p>
-
-                <div className="space-y-3">
+                <div className="space-y-3 pt-1 sm:pt-2">
                   <Button
                     className="h-12 sm:h-14 w-full sm:max-w-xs"
                     onClick={() => handleGoToDashboard("success")}
@@ -300,7 +308,7 @@ export default function ReferralLandingPage() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3, duration: 0.3 }}
-                  className="mt-8 pt-6 border-t border-dashed border-border/40"
+                  className="rounded-2xl border border-dashed border-border/40 bg-muted/[0.18] p-4 sm:mt-8 sm:border-0 sm:bg-transparent sm:p-0 sm:pt-6"
                 >
                   <div className="flex items-center gap-2 mb-3">
                     <div className="p-1.5 rounded-lg bg-primary/10">
@@ -344,13 +352,13 @@ export default function ReferralLandingPage() {
                 </motion.div>
               </div>
 
-              <div className="text-xs sm:text-sm text-muted-foreground/60 mt-6 lg:mt-0">
+              <div className="mt-6 text-xs leading-5 text-muted-foreground/60 sm:text-sm lg:mt-0">
                 Start earning points to unlock your activation bonus.
               </div>
             </div>
 
             {/* Right Side - Hero Image */}
-            <div className="order-1 lg:order-2 h-[45vh] lg:h-auto lg:flex-1 p-3 sm:p-4 lg:p-8 lg:min-h-screen">
+            <div className={heroPanelClassName}>
               <div className="relative h-full w-full rounded-xl sm:rounded-2xl overflow-hidden">
                 <Image
                   src="/images/referral-hero.jpg"
@@ -369,10 +377,10 @@ export default function ReferralLandingPage() {
                 </div>
 
                 {/* Bonus badges - now showing as "unlocked" */}
-                <div className="absolute top-12 sm:top-8 lg:top-12 left-0 right-0 px-4 sm:px-8 lg:px-12">
-                  <div className="flex justify-center gap-6 sm:gap-12 lg:gap-24">
+                <div className="absolute left-0 right-0 top-12 px-4 sm:top-8 sm:px-8 lg:top-12 lg:px-12">
+                  <div className="flex justify-center gap-5 sm:gap-12 lg:gap-24">
                     <div className="text-center text-white">
-                      <div className="text-3xl sm:text-5xl lg:text-7xl font-bold tracking-tight">
+                      <div className="text-[2rem] font-bold tracking-tight sm:text-5xl lg:text-7xl">
                         +10%
                       </div>
                       <div className="mt-1 sm:mt-2 text-xs sm:text-sm lg:text-base font-semibold text-[#4ade80]">
@@ -389,7 +397,7 @@ export default function ReferralLandingPage() {
                     </div>
 
                     <div className="text-center text-white">
-                      <div className="text-3xl sm:text-5xl lg:text-7xl font-bold tracking-tight">
+                      <div className="text-[2rem] font-bold tracking-tight sm:text-5xl lg:text-7xl">
                         +100
                       </div>
                       <div className="mt-1 sm:mt-2 text-xs sm:text-sm lg:text-base font-semibold text-white/80">
@@ -417,44 +425,46 @@ export default function ReferralLandingPage() {
             className="min-h-screen flex flex-col lg:flex-row bg-white dark:bg-background"
           >
             {/* Left Side - Content */}
-            <div className="order-2 lg:order-1 lg:flex-1 flex flex-col lg:justify-between p-6 sm:p-8 lg:p-16 lg:min-h-screen">
+            <div className={landingPanelClassName}>
               <div className="hidden lg:block">
                 <GlowLockup className="h-6 sm:h-8 w-auto" />
               </div>
 
-              <div className="lg:flex-1 flex flex-col lg:justify-center max-w-md py-0 lg:py-0">
-                <div className="mb-3 sm:mb-4 text-[10px] sm:text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                  Personal Invitation
+              <div className="flex flex-1 flex-col justify-center gap-6 sm:gap-7 lg:max-w-md lg:gap-0">
+                <div className="space-y-3 sm:space-y-4">
+                  <div className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                    Personal Invitation
+                  </div>
+
+                  <h1 className="max-w-[11ch] text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-4xl">
+                    {validateQuery.isLoading ? (
+                      <Skeleton className="h-8 w-44 bg-muted sm:h-10 sm:w-64" />
+                    ) : (
+                      <>
+                        Join{" "}
+                        <span className="text-foreground">{referrerDisplayName}</span>
+                      </>
+                    )}
+                  </h1>
+
+                  <p className="max-w-sm text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
+                    I&apos;m supporting scaling solar where it&apos;s needed most and
+                    earning rewards for doing so, and now you can too. Sign up
+                    below and let&apos;s build a brighter future together.
+                  </p>
                 </div>
-
-                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-foreground mb-4 sm:mb-6">
-                  {validateQuery.isLoading ? (
-                    <Skeleton className="h-8 sm:h-10 w-48 sm:w-72 bg-muted" />
-                  ) : (
-                    <>
-                      Join{" "}
-                      <span className="text-foreground">{referrerDisplayName}</span>
-                    </>
-                  )}
-                </h1>
-
-                <p className="text-sm sm:text-base text-muted-foreground mb-6 sm:mb-8 leading-relaxed">
-                  I&apos;m supporting scaling solar where it&apos;s needed most and
-                  earning rewards for doing so, and now you can too. Sign up
-                  below and let&apos;s build a brighter future together.
-                </p>
 
                 <a
                   href="https://glow.org/blog/the-simple-way-to-fund-solar"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors mb-6 sm:mb-8"
+                  className="inline-flex w-fit items-center gap-1.5 text-xs sm:text-sm text-muted-foreground transition-colors hover:text-foreground"
                 >
                   Learn how it works
                   <ExternalLink className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                 </a>
 
-                <div className="space-y-4">
+                <div className="space-y-4 pt-1 sm:pt-2">
                   {!isConnected ? (
                     <div onClickCapture={handleConnectClick}>
                       <ConnectButton
@@ -547,7 +557,7 @@ export default function ReferralLandingPage() {
                 </div>
               </div>
 
-              <div className="text-xs sm:text-sm text-muted-foreground/60">
+              <div className="mt-6 text-xs leading-5 text-muted-foreground/60 sm:text-sm">
                 {!isConnected
                   ? "Connect wallet to verify eligibility"
                   : isEligibilityLoading
@@ -565,7 +575,7 @@ export default function ReferralLandingPage() {
             </div>
 
             {/* Right Side - Hero Image (shows first on mobile via order) */}
-            <div className="order-1 lg:order-2 h-[45vh] lg:h-auto lg:flex-1 p-3 sm:p-4 lg:p-8 lg:min-h-screen">
+            <div className={heroPanelClassName}>
               <div className="relative h-full w-full rounded-xl sm:rounded-2xl overflow-hidden">
                 <Image
                   src="/images/referral-hero.jpg"
@@ -584,10 +594,10 @@ export default function ReferralLandingPage() {
                 </div>
 
                 {/* Bonus badges */}
-                <div className="absolute top-12 sm:top-8 lg:top-12 left-0 right-0 px-4 sm:px-8 lg:px-12">
-                  <div className="flex justify-center gap-6 sm:gap-12 lg:gap-24">
+                <div className="absolute left-0 right-0 top-12 px-4 sm:top-8 sm:px-8 lg:top-12 lg:px-12">
+                  <div className="flex justify-center gap-5 sm:gap-12 lg:gap-24">
                     <div className="text-center text-white">
-                      <div className="text-3xl sm:text-5xl lg:text-7xl font-bold tracking-tight">
+                      <div className="text-[2rem] font-bold tracking-tight sm:text-5xl lg:text-7xl">
                         +10%
                       </div>
                       <div className="mt-1 sm:mt-2 text-xs sm:text-sm lg:text-base font-semibold">
@@ -604,7 +614,7 @@ export default function ReferralLandingPage() {
                     </div>
 
                     <div className="text-center text-white">
-                      <div className="text-3xl sm:text-5xl lg:text-7xl font-bold tracking-tight">
+                      <div className="text-[2rem] font-bold tracking-tight sm:text-5xl lg:text-7xl">
                         +100
                       </div>
                       <div className="mt-1 sm:mt-2 text-xs sm:text-sm lg:text-base font-semibold">
