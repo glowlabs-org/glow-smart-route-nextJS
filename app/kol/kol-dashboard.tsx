@@ -661,18 +661,24 @@ function KolContent({
           )}
           hint={`${kol.rolling30DayDelegation.uniqueDelegators} delegators`}
         />
-        <MetricCard
-          label="Payback Rate"
-          value="5%"
-          hint={[
-            Number(kol.rolling30DayDelegation.ecosystemBonusPercent) > 0
-              ? `+${formatPercentValue(kol.rolling30DayDelegation.ecosystemBonusPercent)} delegation`
-              : null,
-            Number(kol.rolling30DayDelegation.flatBonusPercent ?? 0) > 0
-              ? `+${formatPercentValue(kol.rolling30DayDelegation.flatBonusPercent ?? "0")} bonus`
-              : null,
-          ].filter(Boolean).join(", ") || "of miner sales"}
-        />
+        <div className="rounded-2xl border border-border/20 dark:border-border/40 bg-card px-5 py-4">
+          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
+            Payback Rate
+          </div>
+          <div className="mt-2 text-2xl font-bold tracking-tight tabular-nums sm:text-3xl">
+            5%
+          </div>
+          <div className="mt-1.5 space-y-0.5 text-xs leading-5 text-muted-foreground/60">
+            <div>
+              +{formatPercentValue(kol.rolling30DayDelegation.ecosystemBonusPercent)} delegation bonus
+            </div>
+            {Number(kol.rolling30DayDelegation.flatBonusPercent ?? 0) > 0 && (
+              <div>
+                +{formatPercentValue(kol.rolling30DayDelegation.flatBonusPercent ?? "0")} KoL bonus
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Weekly Trends Chart */}
