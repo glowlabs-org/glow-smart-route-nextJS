@@ -695,6 +695,7 @@ Ponder (via Next API proxy):
 
 CRM (via Next API proxy):
 - `/pol/revenue/aggregate`, `/pol/revenue/farms`, `/pol/revenue/regions`
+- PoL revenue `*_lq` values, including weekly series fields like `total_lq`, `miner_sales_lq`, `gctl_mints_lq`, and `pol_yield_lq`, are raw LQ atomic units with 12 decimals. Divide by `1e12` for display.
 - `/pol/liquidity` (12-week PoL liquidity series derived from Ponder `/pol/points`)
 - `/fmi/pressure` (latest completed week; currently consumed through hybrid adapter)
 - `/glw/vesting-schedule`
