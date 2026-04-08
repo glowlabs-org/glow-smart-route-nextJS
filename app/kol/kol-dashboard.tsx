@@ -616,8 +616,13 @@ function KolContent({
     kol.attributionBreakdown.direct.saleCount +
     kol.attributionBreakdown.secondDegree.saleCount;
 
+  const currentWeek = getProtocolWeekForDate(new Date());
+
+  // Only include weeks that have started (current + past)
+  const activeWeeks = kol.weeks.filter((w) => w.weekNumber <= currentWeek);
+
   // Chart data
-  const chartData = kol.weeks
+  const chartData = activeWeeks
     .slice()
     .sort((a, b) => a.weekNumber - b.weekNumber)
     .map((w) => ({
@@ -739,19 +744,27 @@ function KolContent({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {kol.weeks
+              {activeWeeks
                 .slice()
                 .sort((a, b) => b.weekNumber - a.weekNumber)
                 .map((week) => {
                   const weekDelegated =
                     BigInt(week.delegationBreakdown.direct.totalDelegatedGlwRaw) +
                     BigInt(week.delegationBreakdown.secondDegree.totalDelegatedGlwRaw);
+                  const isCurrentWeek = week.weekNumber === currentWeek;
 
                   return (
                     <React.Fragment key={week.weekNumber}>
                       <TableRow className="hover:bg-muted/20">
                         <TableCell className="px-4 py-3">
-                          <div className="font-semibold">Week {week.weekNumber}</div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold">Week {week.weekNumber}</span>
+                            {isCurrentWeek && (
+                              <Badge variant="outline" className="border-border/20 dark:border-border/40 text-[10px] font-mono">
+                                In progress
+                              </Badge>
+                            )}
+                          </div>
                           <div className="text-[10px] text-muted-foreground/50">
                             {formatDate(week.startAt)} - {formatDate(week.endAt)}
                           </div>
