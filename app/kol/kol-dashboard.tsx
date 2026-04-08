@@ -665,7 +665,7 @@ function KolContent({
           value={formatPercentValue(
             kol.rolling30DayDelegation.totalCommissionPercent
           )}
-          hint={`${formatPercentValue(kol.rolling30DayDelegation.ecosystemBonusPercent)} ecosystem bonus`}
+          hint={`${formatPercentValue(kol.rolling30DayDelegation.ecosystemBonusPercent)} bonus`}
         />
       </div>
 
