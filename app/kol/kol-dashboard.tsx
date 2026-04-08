@@ -17,6 +17,7 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -29,8 +30,10 @@ import {
 
 import { isKolWallet } from "@/lib/kol";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
+import { KOL_WALLETS } from "@/lib/kol";
 import {
   useKolDashboard,
+  type KolAuth,
   type KolDashboardFilter,
   type KolDashboardResponse,
 } from "@/hooks/useKolDashboard";
@@ -200,7 +203,7 @@ function MetricCard({
   tone?: "default" | "success";
 }) {
   return (
-    <div className="rounded-2xl border border-border/20 bg-background/80 px-5 py-4 dark:border-border/40 dark:bg-background/30">
+    <div className="rounded-2xl border border-border/20 dark:border-border/40 bg-card px-5 py-4">
       <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
         {label}
       </div>
@@ -238,8 +241,8 @@ function ChartTooltip({
 }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border border-border/20 bg-card px-3 py-2.5 shadow-lg dark:border-border/40">
-      <div className="mb-1.5 text-xs font-medium">{label}</div>
+    <div className="rounded-xl border border-border/20 dark:border-border/40 bg-card px-3 py-2.5">
+      <div className="mb-1.5 text-xs font-mono font-medium">{label}</div>
       {payload.map((entry) => (
         <div
           key={entry.dataKey}
@@ -249,8 +252,8 @@ function ChartTooltip({
             className="h-2 w-2 shrink-0 rounded-sm"
             style={{ backgroundColor: entry.color }}
           />
-          <span className="text-muted-foreground">{entry.name}</span>
-          <span className="ml-auto font-medium tabular-nums">
+          <span className="text-muted-foreground/60 dark:text-muted-foreground/80">{entry.name}</span>
+          <span className="ml-auto font-mono font-medium tabular-nums">
             ${entry.value.toLocaleString()}
           </span>
         </div>
@@ -264,16 +267,19 @@ function ChartTooltip({
 function AuthGate({
   onAuthenticated,
 }: {
-  onAuthenticated: (auth: {
-    walletAddress: string;
-    signature: string;
-    message: string;
-  }) => void;
+  onAuthenticated: (auth: KolAuth) => void;
 }) {
   const { address, isConnected } = useAccount();
   const { signer, isLoading: isSignerLoading } = useEthersSigner();
   const [isSigning, setIsSigning] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+
+  // Admin mode state: step 1 = password, step 2 = wallet picker
+  const [showAdminLogin, setShowAdminLogin] = React.useState(false);
+  const [adminPassword, setAdminPassword] = React.useState("");
+  const [adminAuthenticated, setAdminAuthenticated] = React.useState(false);
+  const [adminWallet, setAdminWallet] = React.useState(KOL_WALLETS[0]!);
+  const [adminError, setAdminError] = React.useState<string | null>(null);
 
   const isKol = isKolWallet(address);
 
@@ -294,34 +300,160 @@ function AuthGate({
     }
   }, [signer, address, onAuthenticated]);
 
-  if (!isConnected) {
+  const handleAdminPasswordSubmit = React.useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!adminPassword) return;
+      setAdminError(null);
+      // Verify password server-side by making a test request
+      const res = await fetch("/api/kol/payback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          walletAddress: KOL_WALLETS[0],
+          adminPassword,
+          rangePreset: "all_time",
+        }),
+      });
+      if (res.ok) {
+        setAdminAuthenticated(true);
+      } else {
+        setAdminError("Invalid password");
+      }
+    },
+    [adminPassword]
+  );
+
+  const handleAdminWalletSelect = React.useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      onAuthenticated({ walletAddress: adminWallet, adminPassword });
+    },
+    [adminWallet, adminPassword, onAuthenticated]
+  );
+
+  // Admin login: step 1 - password
+  if (showAdminLogin && !adminAuthenticated) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
-        <div className="max-w-md space-y-4 text-center">
-          <h1 className="text-2xl font-bold tracking-tight">KoL Dashboard</h1>
-          <p className="text-muted-foreground">
-            Connect your wallet to access your commission tracking and
-            performance metrics.
+        <form
+          onSubmit={handleAdminPasswordSubmit}
+          className="w-full max-w-sm space-y-4"
+        >
+          <h1 className="text-2xl font-bold tracking-tight">Admin Access</h1>
+          <p className="text-sm text-muted-foreground/60 dark:text-muted-foreground/80">
+            Enter the admin password to continue.
+          </p>
+          <Input
+            type="password"
+            placeholder="Admin password"
+            value={adminPassword}
+            onChange={(e) => setAdminPassword(e.target.value)}
+          />
+          {adminError && (
+            <p className="text-sm text-red-500">{adminError}</p>
+          )}
+          <div className="flex gap-2">
+            <Button
+              type="submit"
+              disabled={!adminPassword}
+              className="flex-1 bg-foreground text-background hover:bg-foreground/90"
+            >
+              Continue
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setShowAdminLogin(false);
+                setAdminPassword("");
+                setAdminError(null);
+              }}
+              className="border-border/20 dark:border-border/40 hover:border-border/40 dark:hover:border-border/60"
+            >
+              Back
+            </Button>
+          </div>
+        </form>
+      </div>
+    );
+  }
+
+  // Admin login: step 2 - wallet picker (only after password verified)
+  if (showAdminLogin && adminAuthenticated) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <form
+          onSubmit={handleAdminWalletSelect}
+          className="w-full max-w-sm space-y-4"
+        >
+          <h1 className="text-2xl font-bold tracking-tight">Select KoL</h1>
+          <p className="text-sm text-muted-foreground/60 dark:text-muted-foreground/80">
+            Choose a KoL wallet to view their dashboard.
+          </p>
+          <select
+            value={adminWallet}
+            onChange={(e) => setAdminWallet(e.target.value)}
+            className="flex h-9 w-full rounded-xl border border-input bg-transparent px-3 py-1 text-sm font-mono transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+          >
+            {KOL_WALLETS.map((w) => (
+              <option key={w} value={w}>
+                {formatWallet(w)}
+              </option>
+            ))}
+          </select>
+          <Button
+            type="submit"
+            className="w-full bg-foreground text-background hover:bg-foreground/90"
+          >
+            View Dashboard
+          </Button>
+        </form>
+      </div>
+    );
+  }
+
+  if (!isConnected) {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-between py-16">
+        <div />
+        <div className="max-w-md space-y-3 text-center">
+          <h1 className="text-3xl font-bold tracking-tight">KoL Dashboard</h1>
+          <p className="text-sm text-muted-foreground/60 dark:text-muted-foreground/80">
+            Connect your KoL wallet to access your commission tracking
+            and performance metrics.
           </p>
         </div>
+        <button
+          type="button"
+          onClick={() => setShowAdminLogin(true)}
+          className="text-[10px] text-muted-foreground/30 hover:text-muted-foreground/50 transition-colors"
+        >
+          Admin
+        </button>
       </div>
     );
   }
 
   if (!isKol) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <div className="max-w-md space-y-4 text-center">
-          <h1 className="text-2xl font-bold tracking-tight">Access Denied</h1>
-          <p className="text-muted-foreground">
+      <div className="flex min-h-[60vh] flex-col items-center justify-between py-16">
+        <div />
+        <div className="max-w-md space-y-3 text-center">
+          <h1 className="text-3xl font-bold tracking-tight">Access Denied</h1>
+          <p className="text-sm text-muted-foreground/60 dark:text-muted-foreground/80">
             The connected wallet{" "}
             <span className="font-mono text-sm">{formatWallet(address!)}</span>{" "}
-            is not registered as a KoL.
-          </p>
-          <p className="text-sm text-muted-foreground/60">
-            Please connect with your approved KoL wallet.
+            is not registered as a KoL. Please connect with your approved wallet.
           </p>
         </div>
+        <button
+          type="button"
+          onClick={() => setShowAdminLogin(true)}
+          className="text-[10px] text-muted-foreground/30 hover:text-muted-foreground/50 transition-colors"
+        >
+          Admin
+        </button>
       </div>
     );
   }
@@ -354,11 +486,7 @@ function AuthGate({
 
 type KolData = NonNullable<KolDashboardResponse["kol"]>;
 
-function KolDashboardView({
-  auth,
-}: {
-  auth: { walletAddress: string; signature: string; message: string };
-}) {
+function KolDashboardView({ auth }: { auth: KolAuth }) {
   const [filter, setFilter] = React.useState<KolDashboardFilter>({
     kind: "all_time",
   });
@@ -545,7 +673,7 @@ function KolContent({
               Weekly Trends
             </span>
           </div>
-          <div className="rounded-2xl border border-border/20 bg-background/60 p-4 dark:border-border/40">
+          <div className="rounded-2xl border border-border/20 dark:border-border/40 bg-card p-4">
             <ResponsiveContainer width="100%" height={220}>
               <BarChart
                 data={chartData}
@@ -598,7 +726,7 @@ function KolContent({
             Weekly Breakdown
           </span>
         </div>
-        <div className="overflow-hidden rounded-2xl border border-border/20 dark:border-border/40">
+        <div className="overflow-hidden rounded-2xl border border-border/20 dark:border-border/40 bg-card">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/30 hover:bg-muted/30">
@@ -710,12 +838,9 @@ function KolContent({
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="text-xs leading-5 text-muted-foreground/50">
-        {program.eligibilityRule} Rolling delegation bonus uses{" "}
-        {program.ecosystemBonusFormula}.
-        {isFetching ? " Refreshing\u2026" : ""}
-      </div>
+      {isFetching && (
+        <div className="text-xs text-muted-foreground/50">Refreshing...</div>
+      )}
     </>
   );
 }
@@ -723,11 +848,7 @@ function KolContent({
 // ---- Main export ----
 
 export function KolDashboard() {
-  const [auth, setAuth] = React.useState<{
-    walletAddress: string;
-    signature: string;
-    message: string;
-  } | null>(null);
+  const [auth, setAuth] = React.useState<KolAuth | null>(null);
 
   if (!auth) {
     return <AuthGate onAuthenticated={setAuth} />;

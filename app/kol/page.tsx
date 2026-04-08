@@ -11,9 +11,11 @@ export const metadata: Metadata = {
 export default function KolPage() {
   return (
     <>
-      <Header />
-      <div className="mx-auto max-w-7xl px-4 pb-16 pt-8 sm:px-6 lg:px-8">
-        <KolDashboard />
+      <Header withIsScrolled={true} />
+      <div className="min-h-screen bg-background">
+        <section className="max-w-screen-2xl mx-auto px-4 md:px-6 lg:px-12 pb-16 pt-8">
+          <KolDashboard />
+        </section>
       </div>
     </>
   );

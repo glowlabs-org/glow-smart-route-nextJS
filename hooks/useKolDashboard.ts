@@ -9,15 +9,23 @@ type KolPaybackKol = ReferralDashboardKolPaybackResponse["kols"][number];
 
 export interface KolDashboardResponse {
   range: ReferralDashboardKolPaybackResponse["range"];
-  program: ReferralDashboardKolPaybackResponse["program"];
-  summary: ReferralDashboardKolPaybackResponse["summary"];
+  program: {
+    paybackPercent: number;
+    baseCommissionPercent: number;
+    maxEcosystemBonusPercent: number;
+    rollingDelegationWindowDays: number;
+    ecosystemBonusFormula: string;
+    startedAt: string;
+    eligibilityRule: string;
+  };
   kol: KolPaybackKol | null;
 }
 
-interface KolAuth {
+export interface KolAuth {
   walletAddress: string;
-  signature: string;
-  message: string;
+  signature?: string;
+  message?: string;
+  adminPassword?: string;
 }
 
 export function useKolDashboard(
@@ -31,9 +39,14 @@ export function useKolDashboard(
 
       const body: Record<string, string | number> = {
         walletAddress: auth.walletAddress,
-        signature: auth.signature,
-        message: auth.message,
       };
+
+      if (auth.adminPassword) {
+        body.adminPassword = auth.adminPassword;
+      } else if (auth.signature && auth.message) {
+        body.signature = auth.signature;
+        body.message = auth.message;
+      }
 
       if (filter.kind === "all_time") {
         body.rangePreset = "all_time";
