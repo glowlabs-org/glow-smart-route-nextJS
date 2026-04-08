@@ -22,7 +22,9 @@ import {
   DrawerDescription,
 } from "@/components/ui/drawer";
 
+import { useAccount } from "wagmi";
 import { cn } from "@/lib/utils";
+import { isKolWallet } from "@/lib/kol";
 
 import { GlowLockup } from "./glow-lockup";
 import { TosDialog } from "./tos-dialog";
@@ -368,6 +370,9 @@ export function Header({
 }: {
   withIsScrolled?: boolean;
 }) {
+  const { address } = useAccount();
+  const showKolLink = isKolWallet(address);
+
   const headerClassName = cn(
     "relative isolate z-50 h-[72px] w-full border-b border-border/40 bg-card/95 backdrop-blur-sm supports-[backdrop-filter]:bg-card/90",
     !withIsScrolled && "bg-transparent border-transparent backdrop-blur-0",
@@ -399,6 +404,11 @@ export function Header({
                       <ListItem href="/stats" title="Protocol Stats">
                         Real-time protocol metrics and market data
                       </ListItem>
+                      {showKolLink && (
+                        <ListItem href="/kol" title="KoL Dashboard">
+                          Commission tracking and performance
+                        </ListItem>
+                      )}
                     </ul>
                   </NavigationMenuContent>
                 </NavigationMenuItem>
@@ -633,6 +643,24 @@ export function Header({
                                 Protocol Stats
                               </Link>
                             </DrawerClose>
+                            {showKolLink && (
+                              <DrawerClose asChild>
+                                <Link
+                                  href="/kol"
+                                  onClick={() => {
+                                    setTimeout(() => {
+                                      window.scrollTo({
+                                        top: 0,
+                                        behavior: "smooth",
+                                      });
+                                    }, 100);
+                                  }}
+                                  className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                                >
+                                  KoL Dashboard
+                                </Link>
+                              </DrawerClose>
+                            )}
                           </div>
                         </div>
 
