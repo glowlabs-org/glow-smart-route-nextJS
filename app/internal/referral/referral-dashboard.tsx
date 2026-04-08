@@ -3,6 +3,7 @@
 import React from "react";
 import { Check, Copy, Gift, RefreshCw, TrendingUp, Users, UserCheck } from "lucide-react";
 import { toast } from "sonner";
+import { formatUnits } from "viem";
 import {
   XAxis,
   YAxis,
@@ -39,7 +40,7 @@ import {
   type ReferralDashboardTopReferrer,
   type ReferralDashboardRecentReferral,
   type ReferralDashboardResponse,
-  type ReferralDashboardKolPaybackRangePreset,
+  type KolPaybackFilter,
   type ReferralDashboardKolPaybackResponse,
   type ReferralDashboardWeeklyReferralActivity,
 } from "@/hooks/useReferralDashboard";
@@ -126,11 +127,28 @@ function formatUsdFromRawUsdc6(value: string | bigint) {
   return `$${isNegative ? "-" : ""}${addCommas(whole.toString())}.${fraction}`;
 }
 
-function formatGlwAmount(value: string) {
-  const num = Number(value);
+function formatGlwAmount(
+  value: string | bigint,
+  options?: { raw?: boolean; maximumFractionDigits?: number }
+) {
+  const maximumFractionDigits = options?.maximumFractionDigits ?? 2;
+
+  let normalized = "";
+  if (options?.raw) {
+    try {
+      const raw = typeof value === "bigint" ? value : BigInt(value);
+      normalized = formatUnits(raw, 18);
+    } catch {
+      normalized = String(value);
+    }
+  } else {
+    normalized = typeof value === "bigint" ? value.toString() : value;
+  }
+
+  const num = Number(normalized);
   if (!Number.isFinite(num)) return `${value} GLW`;
   return `${num.toLocaleString("en-US", {
-    maximumFractionDigits: 2,
+    maximumFractionDigits,
   })} GLW`;
 }
 
@@ -140,6 +158,52 @@ function formatPercentValue(value: string | number) {
   return `${num.toFixed(num >= 10 ? 2 : 3)}%`;
 }
 
+function ExportMetric({
+  label,
+  value,
+  hint,
+  tone = "default",
+}: {
+  label: string;
+  value: React.ReactNode;
+  hint?: React.ReactNode;
+  tone?: "default" | "success";
+}) {
+  return (
+    <div className="rounded-2xl border border-border/20 bg-background/80 px-5 py-4 dark:border-border/40 dark:bg-background/30">
+      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
+        {label}
+      </div>
+      <div
+        className={`mt-2 text-2xl font-bold tracking-tight tabular-nums sm:text-3xl ${
+          tone === "success" ? "text-emerald-500" : ""
+        }`}
+      >
+        {value}
+      </div>
+      {hint ? (
+        <div className="mt-1.5 text-xs leading-5 text-muted-foreground/60">{hint}</div>
+      ) : null}
+    </div>
+  );
+}
+
+function ExportSplitPill({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-full border border-border/20 bg-background/70 px-3 py-1.5 text-[11px] leading-none text-muted-foreground/70 dark:border-border/40">
+      <span className="font-medium text-foreground">{value}</span>
+      {" "}
+      <span>{label}</span>
+    </div>
+  );
+}
+
 const TIER_CONFIG = {
   Seed: { color: "#71717a", label: "5%" },
   Grow: { color: "#3b82f6", label: "10%" },
@@ -147,17 +211,56 @@ const TIER_CONFIG = {
   Legend: { color: "#f59e0b", label: "20%" },
 } as const;
 
-const KOL_PAYBACK_RANGE_OPTIONS: Array<{
-  value: ReferralDashboardKolPaybackRangePreset;
+const GENESIS_TIMESTAMP = 1700352000;
+const WEEK_SECONDS = 604800;
+
+function getProtocolWeekForDate(date: Date): number {
+  const unix = Math.floor(date.getTime() / 1000);
+  return Math.floor((unix - GENESIS_TIMESTAMP) / WEEK_SECONDS);
+}
+
+function generateKolMonthOptions(): Array<{
+  kind: "month";
+  startWeek: number;
+  endWeek: number;
   label: string;
-}> = [
-  { value: "this_week", label: "This Week" },
-  { value: "past_month", label: "Past Month" },
-  { value: "past_3_months", label: "Past 3 Months" },
-  { value: "past_6_months", label: "Past 6 Months" },
-  { value: "year_to_date", label: "YTD" },
-  { value: "all_time", label: "All Time" },
-];
+  key: string;
+}> {
+  const now = new Date();
+  const options: Array<{
+    kind: "month";
+    startWeek: number;
+    endWeek: number;
+    label: string;
+    key: string;
+  }> = [];
+
+  // KoL program started March 1, 2026
+  let cursor = new Date(Date.UTC(2026, 2, 1));
+
+  while (cursor <= now) {
+    const year = cursor.getUTCFullYear();
+    const month = cursor.getUTCMonth();
+    const firstDay = new Date(Date.UTC(year, month, 1));
+    const firstDayNextMonth = new Date(Date.UTC(year, month + 1, 1));
+
+    options.push({
+      kind: "month",
+      startWeek: getProtocolWeekForDate(firstDay),
+      endWeek: getProtocolWeekForDate(firstDayNextMonth) - 1,
+      label: firstDay.toLocaleDateString("en-US", {
+        month: "short",
+        year: "numeric",
+        timeZone: "UTC",
+      }),
+      key: `${year}-${month}`,
+    });
+
+    cursor = new Date(Date.UTC(year, month + 1, 1));
+  }
+
+  return options;
+}
 
 function SectionHeader({ title }: { title: string }) {
   return (
@@ -878,74 +981,152 @@ function buildKolPaybackWeekRows(
     .sort((a, b) => b.weekNumber - a.weekNumber);
 }
 
+function buildWeeklyChartData(weeks: KolPaybackWeekRow[]) {
+  return weeks
+    .slice()
+    .sort((a, b) => a.weekNumber - b.weekNumber)
+    .map((week) => ({
+      name: `W${week.weekNumber}`,
+      volume: Math.round(Number(formatUnits(BigInt(week.totalMinerSalesRaw), 6))),
+      payback:
+        Math.round(Number(formatUnits(BigInt(week.totalPaybackRaw), 6)) * 100) / 100,
+      sales: week.saleCount,
+      delegators: week.uniqueDelegators,
+    }));
+}
+
+function KolChartTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: Array<{
+    dataKey: string;
+    name: string;
+    value: number;
+    color: string;
+  }>;
+  label?: string;
+}) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-lg border border-border/20 bg-card px-3 py-2.5 shadow-lg dark:border-border/40">
+      <div className="mb-1.5 text-xs font-medium">{label}</div>
+      {payload.map((entry) => (
+        <div
+          key={entry.dataKey}
+          className="flex items-center gap-2 text-xs leading-5"
+        >
+          <div
+            className="h-2 w-2 shrink-0 rounded-sm"
+            style={{ backgroundColor: entry.color }}
+          />
+          <span className="text-muted-foreground">{entry.name}</span>
+          <span className="ml-auto font-medium tabular-nums">
+            ${entry.value.toLocaleString()}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function KolPaybackExport({
   data,
   isLoading,
   isError,
   isFetching,
-  rangePreset,
-  isRangePending,
-  onRangePresetChange,
+  filter,
+  isFilterPending,
+  onFilterChange,
   onRetry,
 }: {
   data?: ReferralDashboardKolPaybackResponse;
   isLoading: boolean;
   isError: boolean;
   isFetching: boolean;
-  rangePreset: ReferralDashboardKolPaybackRangePreset;
-  isRangePending: boolean;
-  onRangePresetChange: (preset: ReferralDashboardKolPaybackRangePreset) => void;
+  filter: KolPaybackFilter;
+  isFilterPending: boolean;
+  onFilterChange: (filter: KolPaybackFilter) => void;
   onRetry: () => void;
 }) {
+  const weeks = data ? buildKolPaybackWeekRows(data) : [];
+  const chartData = data ? buildWeeklyChartData(weeks) : [];
+  const monthOptions = React.useMemo(() => generateKolMonthOptions(), []);
+
   return (
-    <div className="rounded-3xl bg-card border border-border/20 dark:border-border/40 p-8 space-y-8">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <div className="text-sm font-medium">KoL Commission Export</div>
-          <p className="text-sm text-muted-foreground/60 dark:text-muted-foreground/80 mt-1">
-            Miner sales stay grouped by protocol week. GLW delegation metrics use the
-            live rolling {data?.program.rollingDelegationWindowDays ?? 30}-day window
-            from the commission structure.
+    <div className="space-y-8 rounded-3xl border border-border/20 bg-card p-6 shadow-sm dark:border-border/40 sm:p-8">
+      {/* Header + Month Selector */}
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div className="max-w-3xl space-y-1.5">
+          <h2 className="text-xl font-bold tracking-tight">
+            KoL Commission Export
+          </h2>
+          <p className="text-sm leading-6 text-muted-foreground/70 dark:text-muted-foreground/80">
+            Per-KoL performance and weekly breakdown.
             {data
               ? ` Program start: ${formatLongDate(data.program.startedAt)}.`
-              : " Program start: March 2, 2026."}
+              : ""}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {KOL_PAYBACK_RANGE_OPTIONS.map((option) => (
-            <Button
-              key={option.value}
-              type="button"
-              size="sm"
-              variant={rangePreset === option.value ? "default" : "outline"}
-              disabled={isRangePending}
-              onClick={() => onRangePresetChange(option.value)}
-              className={
-                rangePreset === option.value
-                  ? "bg-foreground text-background hover:bg-foreground/90"
-                  : "border-border/20 dark:border-border/40 hover:border-border/40 dark:hover:border-border/60"
-              }
-            >
-              {option.label}
-            </Button>
-          ))}
+          {monthOptions.map((option) => {
+            const isActive =
+              filter.kind === "month" &&
+              filter.startWeek === option.startWeek &&
+              filter.endWeek === option.endWeek;
+            return (
+              <Button
+                key={option.key}
+                type="button"
+                size="sm"
+                variant={isActive ? "default" : "outline"}
+                disabled={isFilterPending}
+                onClick={() => onFilterChange(option)}
+                className={
+                  isActive
+                    ? "bg-foreground text-background hover:bg-foreground/90"
+                    : "border-border/20 dark:border-border/40 hover:border-border/40 dark:hover:border-border/60"
+                }
+              >
+                {option.label}
+              </Button>
+            );
+          })}
+          <Button
+            type="button"
+            size="sm"
+            variant={filter.kind === "all_time" ? "default" : "outline"}
+            disabled={isFilterPending}
+            onClick={() => onFilterChange({ kind: "all_time" })}
+            className={
+              filter.kind === "all_time"
+                ? "bg-foreground text-background hover:bg-foreground/90"
+                : "border-border/20 dark:border-border/40 hover:border-border/40 dark:hover:border-border/60"
+            }
+          >
+            All Time
+          </Button>
         </div>
       </div>
 
       {isLoading ? (
         <div className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {Array.from({ length: 4 }).map((_, idx) => (
               <div
                 key={idx}
-                className="rounded-2xl border border-border/20 dark:border-border/40 p-5"
+                className="rounded-2xl border border-border/20 p-5 dark:border-border/40"
               >
                 <Skeleton className="h-3 w-24 bg-muted/50" />
-                <Skeleton className="h-8 w-24 bg-muted/50 mt-3" />
+                <Skeleton className="mt-3 h-8 w-28 bg-muted/50" />
+                <Skeleton className="mt-2 h-3 w-32 bg-muted/50" />
               </div>
             ))}
           </div>
-          <Skeleton className="h-56 w-full bg-muted/50 rounded-2xl" />
+          <Skeleton className="h-40 w-full rounded-2xl bg-muted/50" />
+          <Skeleton className="h-72 w-full rounded-2xl bg-muted/50" />
         </div>
       ) : isError || !data ? (
         <SectionError
@@ -954,389 +1135,510 @@ function KolPaybackExport({
         />
       ) : (
         <>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
-            <div className="rounded-2xl border border-border/20 dark:border-border/40 p-5 xl:col-span-1">
-              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
-                Weeks Covered
-              </div>
-              <div className="mt-3 text-3xl font-semibold tracking-tight tabular-nums">
-                {data.range.endWeek - data.range.startWeek + 1}
-              </div>
-              <div className="mt-1 text-xs text-muted-foreground/60">
-                Week {data.range.startWeek} to Week {data.range.endWeek}
-              </div>
-              <div className="mt-1 text-xs text-muted-foreground/50">
-                {formatDate(data.range.startWeekAt)} to {formatDate(data.range.endWeekAt)}
-              </div>
-            </div>
-            <div className="rounded-2xl border border-border/20 dark:border-border/40 p-5 xl:col-span-1">
-              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
-                Eligible Sales
-              </div>
-              <div className="mt-3 text-3xl font-semibold tracking-tight tabular-nums">
-                {data.summary.totalEligibleSales}
-              </div>
-              <div className="mt-1 text-xs text-muted-foreground/60">
-                {data.program.eligibleKolWallets.length} KoL wallets tracked
-              </div>
-            </div>
-            <div className="rounded-2xl border border-border/20 dark:border-border/40 p-5 xl:col-span-1">
-              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
-                Miner Sales
-              </div>
-              <div className="mt-3 text-3xl font-semibold tracking-tight tabular-nums">
-                {formatUsdFromRawUsdc6(data.summary.totalMinerSalesRaw)}
-              </div>
-              <div className="mt-1 text-xs text-muted-foreground/60">
-                Gross eligible miner volume
-              </div>
-            </div>
-            <div className="rounded-2xl border border-border/20 dark:border-border/40 p-5 xl:col-span-1">
-              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
-                Base Payback
-              </div>
-              <div className="mt-3 text-3xl font-semibold tracking-tight tabular-nums">
-                {formatUsdFromRawUsdc6(data.summary.totalPaybackRaw)}
-              </div>
-              <div className="mt-1 text-xs text-muted-foreground/60">
-                {data.program.baseCommissionPercent}% of eligible sales
-              </div>
-            </div>
-            <div className="rounded-2xl border border-border/20 dark:border-border/40 p-5 xl:col-span-1">
-              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
-                Rolling 30D GLW
-              </div>
-              <div className="mt-3 text-3xl font-semibold tracking-tight tabular-nums">
-                {formatGlwAmount(data.summary.rolling30DayDelegation.totalDelegatedGlw)}
-              </div>
-              <div className="mt-1 text-xs text-muted-foreground/60">
-                {data.summary.rolling30DayDelegation.uniqueDelegators} unique delegators
-              </div>
-            </div>
-            <div className="rounded-2xl border border-border/20 dark:border-border/40 p-5 xl:col-span-1">
-              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
-                Delegation Split
-              </div>
-              <div className="mt-3 text-3xl font-semibold tracking-tight tabular-nums">
-                {data.summary.rolling30DayDelegation.attributionBreakdown.direct.uniqueDelegators}/
-                {data.summary.rolling30DayDelegation.attributionBreakdown.secondDegree.uniqueDelegators}
-              </div>
-              <div className="mt-1 text-xs text-muted-foreground/60">
-                Direct / 2nd-degree delegators
-              </div>
-            </div>
+          {/* ---- Program-wide KPIs ---- */}
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <ExportMetric
+              label="Total Volume"
+              value={formatUsdFromRawUsdc6(data.summary.totalMinerSalesRaw)}
+              hint={`${data.summary.totalEligibleSales} eligible sales`}
+            />
+            <ExportMetric
+              label="Total Payback"
+              value={formatUsdFromRawUsdc6(data.summary.totalPaybackRaw)}
+              hint={`${data.program.baseCommissionPercent}% base commission`}
+              tone="success"
+            />
+            <ExportMetric
+              label="Rolling 30D GLW"
+              value={formatGlwAmount(
+                data.summary.rolling30DayDelegation.totalDelegatedGlwRaw,
+                { raw: true }
+              )}
+              hint={`${data.summary.rolling30DayDelegation.uniqueDelegators} unique delegators`}
+            />
+            <ExportMetric
+              label="Weeks Covered"
+              value={data.range.endWeek - data.range.startWeek + 1}
+              hint={`Week ${data.range.startWeek} - ${data.range.endWeek}`}
+            />
           </div>
 
-          <div className="space-y-4">
-            {buildKolPaybackWeekRows(data).map((week) => (
-              <div
-                key={week.weekNumber}
-                className="rounded-2xl border border-border/20 dark:border-border/40 overflow-hidden"
-              >
-                <div className="border-b border-border/20 dark:border-border/40 px-5 py-4 bg-muted/20 dark:bg-muted/40">
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                    <div>
-                      <div className="text-lg font-semibold tracking-tight">
-                        Week {week.weekNumber}
+          {/* ---- KoL Scorecards ---- */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2.5">
+              <div className="h-4 w-1 rounded-full bg-foreground/70" />
+              <span className="text-xs font-semibold uppercase tracking-wide">
+                KoL Performance
+              </span>
+            </div>
+            {data.kols.map((kol, kolIndex) => {
+              const totalSales =
+                kol.attributionBreakdown.direct.saleCount +
+                kol.attributionBreakdown.secondDegree.saleCount;
+
+              return (
+                <div
+                  key={kol.kolWallet}
+                  className="overflow-hidden rounded-2xl border border-border/20 bg-background/60 dark:border-border/40"
+                >
+                  {/* Compact KoL summary */}
+                  <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start gap-3.5">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-foreground text-sm font-bold text-background">
+                        {kolIndex + 1}
                       </div>
-                      <div className="text-xs text-muted-foreground/60 mt-1">
-                        {formatDate(week.startAt)} to {formatDate(week.endAt)}
+                      <div className="space-y-1.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <CopyableWallet
+                            wallet={kol.kolWallet}
+                            className="text-sm font-semibold"
+                          />
+                        <Badge
+                          variant="outline"
+                          className="border-border/20 bg-background/70 text-[10px] font-mono dark:border-border/40"
+                        >
+                          {formatPercentValue(
+                            kol.rolling30DayDelegation.totalCommissionPercent
+                          )}{" "}
+                          commission
+                        </Badge>
+                      </div>
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground/60">
+                        <span>
+                          {kol.attributionBreakdown.direct.saleCount} direct
+                        </span>
+                        <span>
+                          {kol.attributionBreakdown.secondDegree.saleCount}{" "}
+                          2nd-degree
+                        </span>
+                        <span>
+                          {kol.rolling30DayDelegation.uniqueDelegators} rolling
+                          delegators
+                        </span>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
-                      <div className="rounded-xl bg-background/70 px-3 py-2">
-                        <div className="text-[10px] uppercase tracking-widest text-muted-foreground/50">
+                    </div>
+
+                    <div className="flex flex-wrap gap-x-8 gap-y-3 tabular-nums">
+                      <div>
+                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
                           Sales
                         </div>
-                        <div className="mt-1 text-lg font-semibold tabular-nums">
-                          {week.saleCount}
+                        <div className="text-2xl font-bold">{totalSales}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
+                          Volume
+                        </div>
+                        <div className="text-2xl font-bold">
+                          {formatUsdFromRawUsdc6(kol.totalMinerSalesRaw)}
                         </div>
                       </div>
-                      <div className="rounded-xl bg-background/70 px-3 py-2">
-                        <div className="text-[10px] uppercase tracking-widest text-muted-foreground/50">
-                          Buyers
-                        </div>
-                        <div className="mt-1 text-lg font-semibold tabular-nums">
-                          {week.uniqueBuyers}
-                        </div>
-                      </div>
-                      <div className="rounded-xl bg-background/70 px-3 py-2">
-                        <div className="text-[10px] uppercase tracking-widest text-muted-foreground/50">
-                          Miner Sales
-                        </div>
-                        <div className="mt-1 text-lg font-semibold tabular-nums">
-                          {formatUsdFromRawUsdc6(week.totalMinerSalesRaw)}
-                        </div>
-                      </div>
-                      <div className="rounded-xl bg-background/70 px-3 py-2">
-                        <div className="text-[10px] uppercase tracking-widest text-muted-foreground/50">
+                      <div>
+                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
                           Payback
                         </div>
-                        <div className="mt-1 text-lg font-semibold tabular-nums text-emerald-500">
-                          {formatUsdFromRawUsdc6(week.totalPaybackRaw)}
+                        <div className="text-2xl font-bold text-emerald-500">
+                          {formatUsdFromRawUsdc6(kol.totalPaybackRaw)}
                         </div>
                       </div>
-                      <div className="rounded-xl bg-background/70 px-3 py-2">
-                        <div className="text-[10px] uppercase tracking-widest text-muted-foreground/50">
-                          GLW Delegated
+                      <div>
+                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
+                          Rolling GLW
                         </div>
-                        <div className="mt-1 text-lg font-semibold tabular-nums">
-                          {formatGlwAmount(week.totalDelegatedGlwRaw)}
+                        <div className="text-2xl font-bold">
+                          {formatGlwAmount(
+                            kol.rolling30DayDelegation.totalDelegatedGlwRaw,
+                            { raw: true }
+                          )}
                         </div>
-                      </div>
-                      <div className="rounded-xl bg-background/70 px-3 py-2">
-                        <div className="text-[10px] uppercase tracking-widest text-muted-foreground/50">
-                          Delegators
-                        </div>
-                        <div className="mt-1 text-lg font-semibold tabular-nums">
-                          {week.uniqueDelegators}
+                        <div className="text-[10px] text-muted-foreground/50">
+                          {formatPercentValue(
+                            kol.rolling30DayDelegation.ecosystemBonusPercent
+                          )}{" "}
+                          bonus
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="p-5 space-y-5">
-                  <div className="grid gap-4 lg:grid-cols-2">
-                    {week.kols.map((kol) => (
-                      <div
-                        key={`${week.weekNumber}-${kol.kolWallet}`}
-                        className="rounded-2xl border border-border/20 dark:border-border/40 p-4 bg-muted/20 dark:bg-muted/40"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 mb-2">
-                              KoL Wallet
-                            </div>
-                            <CopyableWallet wallet={kol.kolWallet} className="text-sm" />
-                          </div>
-                          <Badge
-                            variant="outline"
-                            className="border-border/20 dark:border-border/40 text-[10px] font-mono"
-                          >
-                            {data.program.paybackPercent}% payback
-                          </Badge>
-                        </div>
-                        <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
-                          <div>
-                            <div className="text-[10px] uppercase tracking-widest text-muted-foreground/50">
-                              Sales
-                            </div>
-                            <div className="mt-1 font-semibold tabular-nums">
-                              {kol.saleCount}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-[10px] uppercase tracking-widest text-muted-foreground/50">
-                              Volume
-                            </div>
-                            <div className="mt-1 font-semibold tabular-nums">
-                              {formatUsdFromRawUsdc6(kol.totalMinerSalesRaw)}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-[10px] uppercase tracking-widest text-muted-foreground/50">
-                              Payback
-                            </div>
-                            <div className="mt-1 font-semibold tabular-nums text-emerald-500">
-                              {formatUsdFromRawUsdc6(kol.totalPaybackRaw)}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="mt-4 flex flex-wrap gap-2 text-[10px] text-muted-foreground/60">
-                          <span>
-                            Direct: {kol.attributionBreakdown.direct.saleCount} sales
-                          </span>
-                          <span>
-                            2nd degree:{" "}
-                            {kol.attributionBreakdown.secondDegree.saleCount} sales
-                          </span>
-                        </div>
-                        <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                          <div>
-                            <div className="text-[10px] uppercase tracking-widest text-muted-foreground/50">
-                              Weekly GLW
-                            </div>
-                            <div className="mt-1 font-semibold tabular-nums">
-                              {formatGlwAmount(
-                                (
-                                  BigInt(kol.delegationBreakdown.direct.totalDelegatedGlwRaw) +
-                                  BigInt(
-                                    kol.delegationBreakdown.secondDegree.totalDelegatedGlwRaw
-                                  )
-                                ).toString()
-                              )}
-                            </div>
-                            <div className="text-[10px] text-muted-foreground/50">
-                              {kol.delegationBreakdown.direct.uniqueDelegators +
-                                kol.delegationBreakdown.secondDegree.uniqueDelegators}{" "}
-                              delegators
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-[10px] uppercase tracking-widest text-muted-foreground/50">
-                              Rolling 30D GLW
-                            </div>
-                            <div className="mt-1 font-semibold tabular-nums">
-                              {formatGlwAmount(kol.rolling30DayDelegation.totalDelegatedGlw)}
-                            </div>
-                            <div className="text-[10px] text-muted-foreground/50">
-                              {kol.rolling30DayDelegation.uniqueDelegators} delegators
-                            </div>
-                          </div>
-                        </div>
-                        <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                          <div>
-                            <div className="text-[10px] uppercase tracking-widest text-muted-foreground/50">
-                              Ecosystem Bonus
-                            </div>
-                            <div className="mt-1 font-semibold tabular-nums">
-                              {formatPercentValue(
-                                kol.rolling30DayDelegation.ecosystemBonusPercent
-                              )}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-[10px] uppercase tracking-widest text-muted-foreground/50">
-                              Total Commission
-                            </div>
-                            <div className="mt-1 font-semibold tabular-nums">
-                              {formatPercentValue(
-                                kol.rolling30DayDelegation.totalCommissionPercent
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="mt-3 flex flex-wrap gap-2 text-[10px] text-muted-foreground/60">
-                          <span>
-                            Weekly direct GLW:{" "}
-                            {formatGlwAmount(
-                              kol.delegationBreakdown.direct.totalDelegatedGlw
-                            )}
-                          </span>
-                          <span>
-                            Weekly 2nd degree GLW:{" "}
-                            {formatGlwAmount(
-                              kol.delegationBreakdown.secondDegree.totalDelegatedGlw
-                            )}
-                          </span>
-                          <span>
-                            Rolling direct GLW:{" "}
-                            {formatGlwAmount(
-                              kol.rollingAttributionBreakdown.direct.totalDelegatedGlw
-                            )}
-                          </span>
-                          <span>
-                            Rolling 2nd degree GLW:{" "}
-                            {formatGlwAmount(
-                              kol.rollingAttributionBreakdown.secondDegree
-                                .totalDelegatedGlw
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {week.sales.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-border/20 dark:border-border/40 px-4 py-8 text-center text-sm text-muted-foreground/50">
-                      No eligible miner sales in this week.
-                    </div>
-                  ) : (
-                    <div className="rounded-2xl border border-border/20 dark:border-border/40 overflow-hidden">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="bg-muted/40 hover:bg-muted/40">
-                            <TableHead className="px-4">KoL</TableHead>
-                            <TableHead>Attribution</TableHead>
-                            <TableHead>Buyer</TableHead>
-                            <TableHead>Farm</TableHead>
-                            <TableHead className="text-right">Amount</TableHead>
-                            <TableHead className="text-right">Payback</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Sale At</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {week.sales.map((sale) => (
-                            <TableRow key={sale.transactionHash}>
-                              <TableCell className="px-4 py-3">
-                                <CopyableWallet wallet={sale.kolWallet} className="text-xs" />
-                              </TableCell>
-                              <TableCell className="py-3">
-                                <div className="flex flex-col gap-1">
-                                  <Badge
-                                    variant="outline"
-                                    className="w-fit border-border/20 dark:border-border/40 text-[10px] font-mono"
-                                  >
-                                    {sale.attributionType === "direct_kol"
-                                      ? "direct"
-                                      : "2nd degree"}
-                                  </Badge>
-                                  {sale.attributionType === "second_degree_kol" ? (
-                                    <CopyableWallet
-                                      wallet={sale.directReferrerWallet}
-                                      className="text-[10px]"
-                                    />
-                                  ) : null}
-                                </div>
-                              </TableCell>
-                              <TableCell className="py-3">
-                                <CopyableWallet wallet={sale.buyer} className="text-xs" />
-                              </TableCell>
-                              <TableCell className="py-3">
-                                <div className="text-sm font-medium">
-                                  {sale.farmName ?? "—"}
-                                </div>
-                                <div className="text-[10px] text-muted-foreground/50">
-                                  {sale.stepsPurchased} steps
-                                </div>
-                              </TableCell>
-                              <TableCell className="py-3 text-right font-medium tabular-nums">
-                                {formatUsdFromRawUsdc6(sale.amountRaw)}
-                              </TableCell>
-                              <TableCell className="py-3 text-right font-medium tabular-nums text-emerald-500">
-                                {formatUsdFromRawUsdc6(sale.paybackRaw)}
-                              </TableCell>
-                              <TableCell className="py-3">
-                                <Badge
-                                  variant="outline"
-                                  className={
-                                    sale.referralStatus === "active"
-                                      ? "border-emerald-500/30 text-emerald-500 text-[10px] font-mono"
-                                      : "border-yellow-500/30 text-yellow-500 text-[10px] font-mono"
-                                  }
-                                >
-                                  {sale.referralStatus}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="py-3">
-                                <div className="text-sm">{formatDateTime(sale.saleAt)}</div>
-                                <div className="text-[10px] text-muted-foreground/50">
-                                  Linked {formatDateTime(sale.referralLinkedAt)}
-                                </div>
-                                {sale.kolReferralLinkedAt ? (
-                                  <div className="text-[10px] text-muted-foreground/50">
-                                    KoL linked {formatDateTime(sale.kolReferralLinkedAt)}
-                                  </div>
-                                ) : null}
-                              </TableCell>
+                  {/* Expandable week-by-week for this KoL */}
+                  {kol.weeks.length > 0 && (
+                    <details className="group border-t border-border/10 dark:border-border/20">
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-2.5 text-xs font-medium text-muted-foreground/60 transition-colors marker:content-none hover:text-muted-foreground">
+                        <span>
+                          Week-by-week breakdown ({kol.weeks.length}{" "}
+                          {kol.weeks.length === 1 ? "week" : "weeks"})
+                        </span>
+                        <span className="transition group-open:rotate-180">
+                          ▼
+                        </span>
+                      </summary>
+                      <div className="overflow-x-auto border-t border-border/10 dark:border-border/20">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-muted/30 hover:bg-muted/30">
+                              <TableHead className="px-4">Week</TableHead>
+                              <TableHead className="text-right">Sales</TableHead>
+                              <TableHead className="text-right">Volume</TableHead>
+                              <TableHead className="text-right">Payback</TableHead>
+                              <TableHead className="text-right">
+                                Delegated GLW
+                              </TableHead>
+                              <TableHead className="text-right">
+                                Rolling GLW
+                              </TableHead>
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
+                          </TableHeader>
+                          <TableBody>
+                            {kol.weeks
+                              .slice()
+                              .sort((a, b) => b.weekNumber - a.weekNumber)
+                              .map((week) => {
+                                const weekDelegated =
+                                  BigInt(
+                                    week.delegationBreakdown.direct
+                                      .totalDelegatedGlwRaw
+                                  ) +
+                                  BigInt(
+                                    week.delegationBreakdown.secondDegree
+                                      .totalDelegatedGlwRaw
+                                  );
+                                return (
+                                  <TableRow key={week.weekNumber}>
+                                    <TableCell className="px-4 py-2.5">
+                                      <div className="font-medium">
+                                        W{week.weekNumber}
+                                      </div>
+                                      <div className="text-[10px] text-muted-foreground/50">
+                                        {formatDate(week.startAt)} -{" "}
+                                        {formatDate(week.endAt)}
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="py-2.5 text-right tabular-nums">
+                                      {week.saleCount}
+                                    </TableCell>
+                                    <TableCell className="py-2.5 text-right tabular-nums">
+                                      {formatUsdFromRawUsdc6(
+                                        week.totalMinerSalesRaw
+                                      )}
+                                    </TableCell>
+                                    <TableCell className="py-2.5 text-right tabular-nums text-emerald-500">
+                                      {formatUsdFromRawUsdc6(
+                                        week.totalPaybackRaw
+                                      )}
+                                    </TableCell>
+                                    <TableCell className="py-2.5 text-right tabular-nums">
+                                      {formatGlwAmount(weekDelegated, {
+                                        raw: true,
+                                      })}
+                                    </TableCell>
+                                    <TableCell className="py-2.5 text-right tabular-nums">
+                                      {formatGlwAmount(
+                                        week.rolling30DayDelegation
+                                          .totalDelegatedGlwRaw,
+                                        { raw: true }
+                                      )}
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </details>
                   )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
-          <div className="text-xs text-muted-foreground/50">
-            {data.program.eligibilityRule}
-            {" "}
-            Rolling delegation bonus uses {data.program.ecosystemBonusFormula}.
-            {isFetching ? " Refreshing…" : ""}
+          {/* ---- Weekly Trends Chart ---- */}
+          {chartData.length > 1 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2.5">
+                <div className="h-4 w-1 rounded-full bg-emerald-500/70" />
+                <span className="text-xs font-semibold uppercase tracking-wide">
+                  Weekly Trends
+                </span>
+              </div>
+              <div className="rounded-2xl border border-border/20 bg-background/60 p-4 dark:border-border/40">
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart
+                    data={chartData}
+                    barGap={2}
+                    margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                      stroke="hsl(var(--border)/0.2)"
+                    />
+                    <XAxis
+                      dataKey="name"
+                      tick={{
+                        fontSize: 11,
+                        fill: "hsl(var(--muted-foreground)/0.5)",
+                      }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      tick={{
+                        fontSize: 11,
+                        fill: "hsl(var(--muted-foreground)/0.5)",
+                      }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(v: number) =>
+                        `$${v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`
+                      }
+                    />
+                    <Tooltip content={<KolChartTooltip />} />
+                    <Bar
+                      dataKey="volume"
+                      name="Volume"
+                      fill="#d4d4d8"
+                      radius={[4, 4, 0, 0]}
+                      maxBarSize={32}
+                    />
+                    <Bar
+                      dataKey="payback"
+                      name="Payback"
+                      fill="#10b981"
+                      radius={[4, 4, 0, 0]}
+                      maxBarSize={32}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+                <div className="mt-3 flex items-center justify-center gap-6 text-xs text-muted-foreground/60">
+                  <span className="flex items-center gap-2">
+                    <span className="h-3 w-3 rounded-[4px] bg-[#d4d4d8]" />
+                    Volume
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="h-3 w-3 rounded-[4px] bg-[#10b981]" />
+                    Payback
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ---- Weekly Breakdown Table ---- */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2.5">
+              <div className="h-4 w-1 rounded-full bg-foreground/70" />
+              <span className="text-xs font-semibold uppercase tracking-wide">
+                Weekly Breakdown
+              </span>
+            </div>
+            <div className="overflow-hidden rounded-2xl border border-border/20 dark:border-border/40">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/30 hover:bg-muted/30">
+                    <TableHead className="px-4">Week</TableHead>
+                    <TableHead className="text-right">Sales</TableHead>
+                    <TableHead className="text-right">Volume</TableHead>
+                    <TableHead className="text-right">Payback</TableHead>
+                    <TableHead className="text-right">Delegated GLW</TableHead>
+                    <TableHead className="text-right pr-4">Delegators</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {weeks.map((week) => (
+                    <React.Fragment key={week.weekNumber}>
+                      {/* Week aggregate row */}
+                      <TableRow className="hover:bg-muted/20">
+                        <TableCell className="px-4 py-3">
+                          <div className="font-semibold">
+                            Week {week.weekNumber}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground/50">
+                            {formatDate(week.startAt)} -{" "}
+                            {formatDate(week.endAt)}
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-3 text-right font-medium tabular-nums">
+                          {week.saleCount}
+                        </TableCell>
+                        <TableCell className="py-3 text-right font-medium tabular-nums">
+                          {formatUsdFromRawUsdc6(week.totalMinerSalesRaw)}
+                        </TableCell>
+                        <TableCell className="py-3 text-right font-medium tabular-nums text-emerald-500">
+                          {formatUsdFromRawUsdc6(week.totalPaybackRaw)}
+                        </TableCell>
+                        <TableCell className="py-3 text-right tabular-nums">
+                          {formatGlwAmount(week.totalDelegatedGlwRaw, {
+                            raw: true,
+                          })}
+                        </TableCell>
+                        <TableCell className="py-3 text-right pr-4 tabular-nums">
+                          {week.uniqueDelegators}
+                        </TableCell>
+                      </TableRow>
+
+                      {/* Per-KoL sub-rows */}
+                      {week.kols.map((kol) => {
+                        const kolDelegated =
+                          BigInt(
+                            kol.delegationBreakdown.direct.totalDelegatedGlwRaw
+                          ) +
+                          BigInt(
+                            kol.delegationBreakdown.secondDegree
+                              .totalDelegatedGlwRaw
+                          );
+                        return (
+                          <TableRow
+                            key={`${week.weekNumber}-${kol.kolWallet}`}
+                            className="bg-muted/5 hover:bg-muted/15 dark:bg-muted/10"
+                          >
+                            <TableCell className="py-2 pl-8 pr-4">
+                              <CopyableWallet
+                                wallet={kol.kolWallet}
+                                className="text-xs text-muted-foreground/70"
+                              />
+                            </TableCell>
+                            <TableCell className="py-2 text-right text-xs tabular-nums">
+                              {kol.saleCount}
+                            </TableCell>
+                            <TableCell className="py-2 text-right text-xs tabular-nums">
+                              {formatUsdFromRawUsdc6(kol.totalMinerSalesRaw)}
+                            </TableCell>
+                            <TableCell className="py-2 text-right text-xs tabular-nums text-emerald-500">
+                              {formatUsdFromRawUsdc6(kol.totalPaybackRaw)}
+                            </TableCell>
+                            <TableCell className="py-2 text-right text-xs tabular-nums">
+                              {formatGlwAmount(kolDelegated, { raw: true })}
+                            </TableCell>
+                            <TableCell className="py-2 pr-4" />
+                          </TableRow>
+                        );
+                      })}
+
+                      {/* Expandable sale rows */}
+                      {week.sales.length > 0 && (
+                        <TableRow className="hover:bg-transparent">
+                          <TableCell colSpan={6} className="p-0">
+                            <details className="group">
+                              <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-2 text-xs font-medium text-muted-foreground/50 transition-colors marker:content-none hover:text-muted-foreground/70">
+                                <span className="transition group-open:rotate-90">
+                                  ▶
+                                </span>
+                                {week.sales.length} sale{" "}
+                                {week.sales.length === 1 ? "row" : "rows"}
+                              </summary>
+                              <div className="border-t border-border/10 dark:border-border/20">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow className="bg-muted/20 hover:bg-muted/20">
+                                      <TableHead className="px-4 text-[10px]">
+                                        KoL
+                                      </TableHead>
+                                      <TableHead className="text-[10px]">
+                                        Type
+                                      </TableHead>
+                                      <TableHead className="text-[10px]">
+                                        Buyer
+                                      </TableHead>
+                                      <TableHead className="text-[10px]">
+                                        Farm
+                                      </TableHead>
+                                      <TableHead className="text-right text-[10px]">
+                                        Amount
+                                      </TableHead>
+                                      <TableHead className="text-right text-[10px]">
+                                        Payback
+                                      </TableHead>
+                                      <TableHead className="text-[10px]">
+                                        Status
+                                      </TableHead>
+                                      <TableHead className="text-[10px] pr-4">
+                                        Date
+                                      </TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {week.sales.map((sale) => (
+                                      <TableRow
+                                        key={sale.transactionHash}
+                                        className="text-xs"
+                                      >
+                                        <TableCell className="px-4 py-2">
+                                          <CopyableWallet
+                                            wallet={sale.kolWallet}
+                                            className="text-[10px]"
+                                          />
+                                        </TableCell>
+                                        <TableCell className="py-2">
+                                          <Badge
+                                            variant="outline"
+                                            className="border-border/20 text-[10px] font-mono dark:border-border/40"
+                                          >
+                                            {sale.attributionType ===
+                                            "direct_kol"
+                                              ? "direct"
+                                              : "2nd deg"}
+                                          </Badge>
+                                        </TableCell>
+                                        <TableCell className="py-2">
+                                          <CopyableWallet
+                                            wallet={sale.buyer}
+                                            className="text-[10px]"
+                                          />
+                                        </TableCell>
+                                        <TableCell className="py-2">
+                                          <div className="font-medium">
+                                            {sale.farmName ?? "\u2014"}
+                                          </div>
+                                          <div className="text-[10px] text-muted-foreground/50">
+                                            {sale.stepsPurchased} steps
+                                          </div>
+                                        </TableCell>
+                                        <TableCell className="py-2 text-right font-medium tabular-nums">
+                                          {formatUsdFromRawUsdc6(sale.amountRaw)}
+                                        </TableCell>
+                                        <TableCell className="py-2 text-right font-medium tabular-nums text-emerald-500">
+                                          {formatUsdFromRawUsdc6(
+                                            sale.paybackRaw
+                                          )}
+                                        </TableCell>
+                                        <TableCell className="py-2">
+                                          <Badge
+                                            variant="outline"
+                                            className={
+                                              sale.referralStatus === "active"
+                                                ? "border-emerald-500/30 text-emerald-500 text-[10px] font-mono"
+                                                : "border-yellow-500/30 text-yellow-500 text-[10px] font-mono"
+                                            }
+                                          >
+                                            {sale.referralStatus}
+                                          </Badge>
+                                        </TableCell>
+                                        <TableCell className="py-2 pr-4">
+                                          {formatDateTime(sale.saleAt)}
+                                        </TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            </details>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </React.Fragment>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="text-xs leading-5 text-muted-foreground/50">
+            {data.program.eligibilityRule} Rolling delegation bonus uses{" "}
+            {data.program.ecosystemBonusFormula}.
+            {isFetching ? " Refreshing\u2026" : ""}
           </div>
         </>
       )}
@@ -1345,16 +1647,16 @@ function KolPaybackExport({
 }
 
 export function ReferralDashboard() {
-  const [kolRangePreset, setKolRangePreset] =
-    React.useState<ReferralDashboardKolPaybackRangePreset>("all_time");
-  const [isKolRangePending, startKolRangeTransition] = React.useTransition();
+  const [kolFilter, setKolFilter] =
+    React.useState<KolPaybackFilter>({ kind: "all_time" });
+  const [isKolFilterPending, startKolFilterTransition] = React.useTransition();
 
   const overviewQuery = useReferralDashboardOverview();
   const topReferrersQuery = useReferralDashboardTopReferrers();
   const recentReferralsQuery = useReferralDashboardRecentReferrals();
   const weeklyStatsQuery = useReferralDashboardWeeklyStats();
   const newRefereesQuery = useReferralDashboardNewReferees();
-  const kolPaybackQuery = useReferralDashboardKolPayback(kolRangePreset);
+  const kolPaybackQuery = useReferralDashboardKolPayback(kolFilter);
 
   const currentWeek =
     overviewQuery.data?.currentWeek ?? weeklyStatsQuery.data?.currentWeek;
@@ -1641,11 +1943,11 @@ export function ReferralDashboard() {
           isLoading={kolPaybackQuery.isLoading}
           isError={kolPaybackQuery.isError}
           isFetching={kolPaybackQuery.isFetching}
-          rangePreset={kolRangePreset}
-          isRangePending={isKolRangePending}
-          onRangePresetChange={(preset) => {
-            startKolRangeTransition(() => {
-              setKolRangePreset(preset);
+          filter={kolFilter}
+          isFilterPending={isKolFilterPending}
+          onFilterChange={(f) => {
+            startKolFilterTransition(() => {
+              setKolFilter(f);
             });
           }}
           onRetry={() => kolPaybackQuery.refetch()}

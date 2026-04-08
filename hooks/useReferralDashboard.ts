@@ -149,6 +149,10 @@ export type ReferralDashboardKolPaybackRangePreset =
   | "year_to_date"
   | "all_time";
 
+export type KolPaybackFilter =
+  | { kind: "all_time" }
+  | { kind: "month"; startWeek: number; endWeek: number; label: string };
+
 export interface ReferralDashboardKolPaybackResponse {
   range: {
     preset: string;
@@ -383,12 +387,17 @@ export function useReferralDashboardNewReferees() {
 }
 
 export function useReferralDashboardKolPayback(
-  rangePreset: ReferralDashboardKolPaybackRangePreset
+  filter: KolPaybackFilter
 ) {
+  const searchParams =
+    filter.kind === "all_time"
+      ? "rangePreset=all_time"
+      : `startWeek=${filter.startWeek}&endWeek=${filter.endWeek}`;
+
   return useQuery<ReferralDashboardKolPaybackResponse>({
-    queryKey: ["referral-dashboard", "kol-payback-export", rangePreset],
+    queryKey: ["referral-dashboard", "kol-payback-export", searchParams],
     queryFn: fetchSection(
-      `/api/referral-dashboard/kol-payback-export?rangePreset=${rangePreset}`
+      `/api/referral-dashboard/kol-payback-export?${searchParams}`
     ),
     staleTime: 2 * 60 * 1000,
     refetchOnWindowFocus: false,
