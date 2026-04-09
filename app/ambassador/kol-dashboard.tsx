@@ -680,111 +680,112 @@ function KolContent({
         </div>
       </div>
 
-      {/* Miner Sales Chart */}
+      {/* Charts Row */}
       {chartData.length > 1 && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2.5">
-            <div className="h-4 w-1 rounded-full bg-zinc-500/70" />
-            <span className="text-xs font-semibold uppercase tracking-wide">
-              Miner Sales
-            </span>
-          </div>
-          <div className="rounded-2xl border border-border/20 dark:border-border/40 bg-card p-4">
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart
-                data={chartData}
-                margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  vertical={false}
-                  stroke="hsl(var(--border)/0.2)"
-                />
-                <XAxis
-                  dataKey="name"
-                  tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground)/0.5)" }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground)/0.5)" }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v: number) =>
-                    `$${v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`
-                  }
-                />
-                <Tooltip content={<ChartTooltip />} />
-                <Line
-                  type="monotone"
-                  dataKey="volume"
-                  name="Miner Sales"
-                  stroke="#71717a"
-                  strokeWidth={2}
-                  dot={{ r: 4, fill: "#71717a" }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-            <div className="mt-3 flex items-center justify-center text-xs text-muted-foreground/60">
-              <span className="flex items-center gap-2">
-                <span className="h-0.5 w-4 rounded-full bg-[#71717a]" />
-                Miner Sales ($)
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* Miner Sales Chart */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2.5">
+              <div className="h-4 w-1 rounded-full bg-zinc-500/70" />
+              <span className="text-xs font-semibold uppercase tracking-wide">
+                Miner Sales
               </span>
             </div>
+            <div className="rounded-2xl border border-border/20 dark:border-border/40 bg-card p-4">
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart
+                  data={chartData}
+                  margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="hsl(var(--border)/0.2)"
+                  />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground)/0.5)" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground)/0.5)" }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(v: number) =>
+                      `$${v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`
+                    }
+                  />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Line
+                    type="monotone"
+                    dataKey="volume"
+                    name="Miner Sales"
+                    stroke="#71717a"
+                    strokeWidth={2}
+                    dot={{ r: 4, fill: "#71717a" }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+              <div className="mt-3 flex items-center justify-center text-xs text-muted-foreground/60">
+                <span className="flex items-center gap-2">
+                  <span className="h-0.5 w-4 rounded-full bg-[#71717a]" />
+                  Miner Sales ($)
+                </span>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
 
-      {/* Delegated GLW Chart */}
-      {chartData.length > 1 && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2.5">
-            <div className="h-4 w-1 rounded-full bg-emerald-500/70" />
-            <span className="text-xs font-semibold uppercase tracking-wide">
-              Delegated GLW
-            </span>
-          </div>
-          <div className="rounded-2xl border border-border/20 dark:border-border/40 bg-card p-4">
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart
-                data={chartData}
-                margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  vertical={false}
-                  stroke="hsl(var(--border)/0.2)"
-                />
-                <XAxis
-                  dataKey="name"
-                  tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground)/0.5)" }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground)/0.5)" }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v: number) =>
-                    v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`
-                  }
-                />
-                <Tooltip content={<ChartTooltip />} />
-                <Line
-                  type="monotone"
-                  dataKey="delegatedGlw"
-                  name="Delegated GLW"
-                  stroke="#10b981"
-                  strokeWidth={2}
-                  dot={{ r: 4, fill: "#10b981" }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-            <div className="mt-3 flex items-center justify-center text-xs text-muted-foreground/60">
-              <span className="flex items-center gap-2">
-                <span className="h-0.5 w-4 rounded-full bg-[#10b981]" />
+          {/* Delegated GLW Chart */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2.5">
+              <div className="h-4 w-1 rounded-full bg-emerald-500/70" />
+              <span className="text-xs font-semibold uppercase tracking-wide">
                 Delegated GLW
               </span>
+            </div>
+            <div className="rounded-2xl border border-border/20 dark:border-border/40 bg-card p-4">
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart
+                  data={chartData}
+                  margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="hsl(var(--border)/0.2)"
+                  />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground)/0.5)" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground)/0.5)" }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(v: number) =>
+                      v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`
+                    }
+                  />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Line
+                    type="monotone"
+                    dataKey="delegatedGlw"
+                    name="Delegated GLW"
+                    stroke="#10b981"
+                    strokeWidth={2}
+                    dot={{ r: 4, fill: "#10b981" }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+              <div className="mt-3 flex items-center justify-center text-xs text-muted-foreground/60">
+                <span className="flex items-center gap-2">
+                  <span className="h-0.5 w-4 rounded-full bg-[#10b981]" />
+                  Delegated GLW
+                </span>
+              </div>
             </div>
           </div>
         </div>
