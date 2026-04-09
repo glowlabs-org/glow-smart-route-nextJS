@@ -3,8 +3,8 @@ import { Header } from "@/components/header";
 import { KolDashboard } from "./kol-dashboard";
 
 export const metadata: Metadata = {
-  title: "KoL Dashboard | Glow Mining",
-  description: "Commission tracking and performance metrics for Glow KoLs",
+  title: "Ambassador Dashboard | Glow Mining",
+  description: "Commission tracking and performance metrics for Glow Ambassadors",
   robots: { index: false, follow: false },
 };
 

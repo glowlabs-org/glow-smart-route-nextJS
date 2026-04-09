@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
 
     if (!isKolWallet(normalized)) {
       return NextResponse.json(
-        { error: "Wallet is not an approved KoL" },
+        { error: "Wallet is not an approved ambassador" },
         { status: 403 }
       );
     }

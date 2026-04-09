@@ -405,7 +405,7 @@ export function Header({
                         Real-time protocol metrics and market data
                       </ListItem>
                       {showKolLink && (
-                        <ListItem href="/kol" title="KoL Dashboard">
+                        <ListItem href="/kol" title="Ambassador Dashboard">
                           Commission tracking and performance
                         </ListItem>
                       )}
@@ -657,7 +657,7 @@ export function Header({
                                   }}
                                   className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                                 >
-                                  KoL Dashboard
+                                  Ambassador Dashboard
                                 </Link>
                               </DrawerClose>
                             )}

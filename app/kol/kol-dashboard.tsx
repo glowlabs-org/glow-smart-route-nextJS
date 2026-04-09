@@ -290,7 +290,7 @@ function AuthGate({
     setIsSigning(true);
     setError(null);
     try {
-      const message = `Authenticate as KoL for Glow Dashboard\n\nWallet: ${address}\nTimestamp: ${Date.now()}`;
+      const message = `Authenticate as Ambassador for Glow Dashboard\n\nWallet: ${address}\nTimestamp: ${Date.now()}`;
       const signature = await signer.signMessage(message);
       onAuthenticated({ walletAddress: address, signature, message });
     } catch (err) {
@@ -389,9 +389,9 @@ function AuthGate({
           onSubmit={handleAdminWalletSelect}
           className="w-full max-w-sm space-y-4"
         >
-          <h1 className="text-2xl font-bold tracking-tight">Select KoL</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Select Ambassador</h1>
           <p className="text-sm text-muted-foreground/60 dark:text-muted-foreground/80">
-            Choose a KoL wallet to view their dashboard.
+            Choose an ambassador wallet to view their dashboard.
           </p>
           <select
             value={adminWallet}
@@ -420,9 +420,9 @@ function AuthGate({
       <div className="flex min-h-[60vh] flex-col items-center justify-between py-16">
         <div />
         <div className="max-w-md space-y-3 text-center">
-          <h1 className="text-3xl font-bold tracking-tight">KoL Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Ambassador Dashboard</h1>
           <p className="text-sm text-muted-foreground/60 dark:text-muted-foreground/80">
-            Connect your KoL wallet to access your commission tracking
+            Connect your ambassador wallet to access your commission tracking
             and performance metrics.
           </p>
         </div>
@@ -446,7 +446,7 @@ function AuthGate({
           <p className="text-sm text-muted-foreground/60 dark:text-muted-foreground/80">
             The connected wallet{" "}
             <span className="font-mono text-sm">{formatWallet(address!)}</span>{" "}
-            is not registered as a KoL. Please connect with your approved wallet.
+            is not registered as an ambassador. Please connect with your approved wallet.
           </p>
         </div>
         <button
@@ -463,7 +463,7 @@ function AuthGate({
   return (
     <div className="flex min-h-[50vh] items-center justify-center">
       <div className="max-w-md space-y-6 text-center">
-        <h1 className="text-2xl font-bold tracking-tight">KoL Dashboard</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Ambassador Dashboard</h1>
         <p className="text-muted-foreground">
           Sign a message to verify ownership of{" "}
           <span className="font-mono text-sm">{formatWallet(address!)}</span>{" "}
@@ -484,7 +484,7 @@ function AuthGate({
   );
 }
 
-// ---- Single-KoL Dashboard View ----
+// ---- Single-Ambassador Dashboard View ----
 
 type KolData = NonNullable<KolDashboardResponse["kol"]>;
 
@@ -507,7 +507,7 @@ function KolDashboardView({ auth }: { auth: KolAuth }) {
       {/* Page header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">KoL Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Ambassador Dashboard</h1>
           <p className="mt-1 text-sm text-muted-foreground/60">
             Commission tracking for{" "}
             <CopyableWallet wallet={auth.walletAddress} className="text-sm" />
