@@ -405,7 +405,7 @@ export function Header({
                         Real-time protocol metrics and market data
                       </ListItem>
                       {showKolLink && (
-                        <ListItem href="/kol" title="Ambassador Dashboard">
+                        <ListItem href="/ambassador" title="Ambassador Dashboard">
                           Commission tracking and performance
                         </ListItem>
                       )}
@@ -646,7 +646,7 @@ export function Header({
                             {showKolLink && (
                               <DrawerClose asChild>
                                 <Link
-                                  href="/kol"
+                                  href="/ambassador"
                                   onClick={() => {
                                     setTimeout(() => {
                                       window.scrollTo({
