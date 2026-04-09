@@ -422,8 +422,7 @@ function AuthGate({
         <div className="max-w-md space-y-3 text-center">
           <h1 className="text-3xl font-bold tracking-tight">Ambassador Dashboard</h1>
           <p className="text-sm text-muted-foreground/60 dark:text-muted-foreground/80">
-            Connect your ambassador wallet to access your commission tracking
-            and performance metrics.
+            Connect your ambassador wallet to see your dashboard.
           </p>
         </div>
         <button
