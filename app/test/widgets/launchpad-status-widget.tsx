@@ -1811,12 +1811,12 @@ export default function LaunchpadStatusWidget({
 
                 <div className="flex-1 space-y-1 py-0.5">
                   <p className="text-base font-semibold text-foreground">
-                    Have your GLW ready to delegate on Tuesday.
+                    Be ready for Tuesday launchpad windows.
                   </p>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Every Tuesday at 1:00 PM ET, Glow opens new launchpad
-                    delegations. Keep GLW ready so you can participate as soon
-                    as the next listing goes live.
+                    Launchpad listings open in sGCTL at Tuesday 1:00 AM ET,
+                    then shift to GLW at Tuesday 1:00 PM ET. Listings created
+                    after 1:00 AM ET join at the 1:00 PM ET GLW release.
                   </p>
                 </div>
               </div>

@@ -162,7 +162,13 @@ export function getNextMiningCenterBatchAtET(
 export function getNextLaunchpadDelegationBatchAtET(
   fromDate: Date = new Date(),
 ): Date {
-  return getNextTuesdayAt1pmET(fromDate);
+  const etNow = getETParts(fromDate);
+
+  if (etNow.weekday === TUESDAY && etNow.hour >= 1 && etNow.hour < 13) {
+    return getNextTuesdayAt1pmET(fromDate);
+  }
+
+  return getNextTuesdayAt1amET(fromDate);
 }
 
 export function getNextSponsorListingsBatchAtET(

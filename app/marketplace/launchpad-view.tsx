@@ -97,7 +97,7 @@ import { HowItWorks } from "@/components/how-it-works";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useER20Balances } from "@/hooks/useERC20Balances";
 import { LaunchCountdown } from "@/components/launch-countdown";
-import { getNextTuesdayAt1pmET } from "@/utils/nextTuesdayET";
+import { getNextLaunchpadDelegationBatchAtET } from "@/utils/nextTuesdayET";
 import { getListingVisibleStartAtMs } from "@/utils/launchpad";
 import { LaunchpadStatsDialog } from "./launchpad-stats-dialog";
 import { MiningStatsDialog } from "./mining-stats-dialog";
@@ -826,7 +826,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
         ) : applications.length === 0 ? (
           <>
             <LaunchCountdown
-              target={getNextTuesdayAt1pmET()}
+              target={getNextLaunchpadDelegationBatchAtET()}
               title="Launchpad"
               subtitle="The next batch of farms will be available soon"
               onComplete={handleCountdownComplete}
@@ -2567,7 +2567,7 @@ function LaunchpadMarketplaceWidget({
         </div>
       ) : rows.length === 0 ? (
         <LaunchCountdown
-          target={getNextTuesdayAt1pmET()}
+          target={getNextLaunchpadDelegationBatchAtET()}
           title="Launchpad"
           subtitle="The next batch of farms will be available soon"
         />
@@ -4173,7 +4173,7 @@ function LaunchpadMarketplaceDialogContent({
           </div>
         ) : rows.length === 0 ? (
           <LaunchCountdown
-            target={getNextTuesdayAt1pmET()}
+            target={getNextLaunchpadDelegationBatchAtET()}
             title="Launchpad"
             subtitle="The next batch of farms will be available soon"
           />
