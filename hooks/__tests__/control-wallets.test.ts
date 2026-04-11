@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { calculateImpactEligibleStakedGctl } from "../control-wallets";
+import {
+  calculateImpactEligibleStakedGctl,
+  getRewardCurrencyDecimals,
+} from "../control-wallets";
 
 describe("calculateImpactEligibleStakedGctl", () => {
   it("counts total staked, delegated, and protocol deposit SGCTL toward impact", () => {
@@ -32,5 +35,11 @@ describe("calculateImpactEligibleStakedGctl", () => {
         totalStakedAndNotUsedInProtocolFees: "100",
       }),
     ).toBe(100n);
+  });
+});
+
+describe("getRewardCurrencyDecimals", () => {
+  it("maps SGCTL to the staked GCTL decimal precision", () => {
+    expect(getRewardCurrencyDecimals("SGCTL")).toBe(6);
   });
 });

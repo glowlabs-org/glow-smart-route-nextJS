@@ -27,10 +27,17 @@ import { formatUnits } from "viem";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import type { SwapActivity } from "@/hooks/useRecentActivityFeed";
 import { useWalletRewardClaims } from "@/hooks/useWalletRewardClaims";
-import type { WalletRewardClaimRow } from "@/lib/api/wallet-reward-claims-index";
+import { useWalletSgctlClaimSettlements } from "@/hooks/useWalletSgctlClaimSettlements";
 import { SDKAddresses } from "@/web3/constants/addresses";
 import { nonceToWeek } from "@/hooks/useMerkleProofs";
 import { resolveDelegationCurrencyFromSplitActivity } from "@/utils/launchpad-rewards";
+import {
+  buildSgctlClaimActivityEntries,
+  groupClaimActivityEntries,
+  normalizeClaimActivityKey,
+  type ClaimActivityEntry,
+  type ClaimActivityGroup,
+} from "@/app/wallet/activity-feed-claim-utils";
 
 type ActivityKind =
   | "mint"
@@ -129,32 +136,24 @@ function getTokenSymbol(tokenAddress: `0x${string}`) {
   return shortHex(tokenAddress);
 }
 
-function buildClaimActivity(rows: WalletRewardClaimRow[]): ActivityItem | null {
-  const first = rows[0];
-  if (!first) return null;
+function getRewardTokenDecimals(symbol: string) {
+  if (symbol === "SGCTL") return DECIMALS_BY_TOKEN.GCTL;
+  return DECIMALS_BY_TOKEN[symbol as keyof typeof DECIMALS_BY_TOKEN] ?? 18;
+}
 
-  const timestampMs = normalizeTimestampMs(first.timestamp);
-  if (!timestampMs) return null;
+function getRewardTokenLabel(symbol: string) {
+  return symbol === "SGCTL" ? "sGCTL" : symbol;
+}
 
-  const tokenTotals = new Map<string, number>();
-  for (const row of rows) {
-    const symbol = getTokenSymbol(row.token);
-    const decimals =
-      DECIMALS_BY_TOKEN[symbol as keyof typeof DECIMALS_BY_TOKEN] ?? 18;
-    const amount = safeFormatUnits(row.amount, decimals);
-    if (!Number.isFinite(amount) || amount <= 0) continue;
-    tokenTotals.set(symbol, (tokenTotals.get(symbol) ?? 0) + amount);
-  }
+function buildClaimActivity(group: ClaimActivityGroup): ActivityItem | null {
+  if (!group.tokenEntries.length) return null;
 
-  const tokenEntries = Array.from(tokenTotals.entries()).sort(
-    (a, b) => b[1] - a[1]
-  );
-  const primary = tokenEntries[0] ?? null;
+  const primary = group.tokenEntries[0] ?? null;
 
-  const isProtocol = first.source === "rewardsKernel";
+  const isProtocol = group.source === "rewardsKernel";
   const weekLabel = (() => {
     if (!isProtocol) return null;
-    const nonceStr = first.nonce;
+    const nonceStr = group.nonce;
     if (!nonceStr) return null;
     try {
       return `Week ${nonceToWeek(BigInt(nonceStr))}`;
@@ -164,18 +163,21 @@ function buildClaimActivity(rows: WalletRewardClaimRow[]): ActivityItem | null {
   })();
 
   const title =
-    primary && tokenEntries.length === 1
-      ? `Claimed ${formatCompactNumber(primary[1], 2)} ${primary[0]}`
+    primary && group.tokenEntries.length === 1
+      ? `Claimed ${formatCompactNumber(primary[1], 2)} ${getRewardTokenLabel(
+          primary[0]
+        )}`
       : "Claimed rewards";
 
   const subtitleParts: string[] = [];
   if (weekLabel) subtitleParts.push(weekLabel);
-  if (tokenEntries.length > 1) {
+  if (group.tokenEntries.length > 1) {
     subtitleParts.push(
-      tokenEntries
+      group.tokenEntries
         .slice(0, 3)
         .map(
-          ([symbol, amount]) => `${formatCompactNumber(amount, 2)} ${symbol}`
+          ([symbol, amount]) =>
+            `${formatCompactNumber(amount, 2)} ${getRewardTokenLabel(symbol)}`
         )
         .join(" · ")
     );
@@ -183,10 +185,10 @@ function buildClaimActivity(rows: WalletRewardClaimRow[]): ActivityItem | null {
   const subtitle = subtitleParts.length ? subtitleParts.join(" — ") : undefined;
 
   return {
-    id: `claim-${first.txHash}-${first.logIndex}`,
+    id: group.id,
     kind: "claim",
-    timestampMs,
-    txHash: first.txHash,
+    timestampMs: group.timestampMs,
+    txHash: group.txHash,
     title,
     subtitle,
     pill: isProtocol ? "PD" : "Emissions",
@@ -402,6 +404,51 @@ export function RecentActivity({
     }
   );
 
+  const {
+    settlements: sgctlClaimSettlements,
+    isLoading: isSgctlClaimSettlementsLoading,
+  } = useWalletSgctlClaimSettlements(walletAddress, {
+    enabled: Boolean(walletAddress),
+    limit: 200,
+  });
+
+  const claimActivityGroups = React.useMemo(() => {
+    const claimEntryCandidates: Array<ClaimActivityEntry | null> = claims.map(
+      (row) => {
+        const timestampMs = normalizeTimestampMs(row.timestamp);
+        if (!timestampMs) return null;
+
+        const symbol = getTokenSymbol(row.token);
+        const decimals = getRewardTokenDecimals(symbol);
+        const amount = safeFormatUnits(row.amount, decimals);
+        if (!Number.isFinite(amount) || amount <= 0) return null;
+
+        return {
+          groupKey: normalizeClaimActivityKey(row.txHash, row.logIndex),
+          txHash: row.txHash,
+          logIndex: row.logIndex,
+          timestampMs,
+          source: row.source,
+          nonce: row.nonce,
+          subIndex: row.subIndex,
+          tokenSymbol: symbol,
+          amount,
+        } satisfies ClaimActivityEntry;
+      }
+    );
+
+    const claimEntries = claimEntryCandidates.filter(
+      (entry): entry is ClaimActivityEntry => entry !== null
+    );
+
+    const sgctlEntries = buildSgctlClaimActivityEntries(
+      sgctlClaimSettlements,
+      (rawAmount) => safeFormatUnits(rawAmount, DECIMALS_BY_TOKEN.GCTL)
+    );
+
+    return groupClaimActivityEntries([...claimEntries, ...sgctlEntries]);
+  }, [claims, sgctlClaimSettlements]);
+
   // Calculate KPIs from activities
   const kpis = React.useMemo(() => {
     let totalTransactions = 0;
@@ -418,18 +465,16 @@ export function RecentActivity({
       }
     });
 
-    claims.forEach((claim) => {
-      const decimals =
-        DECIMALS_BY_TOKEN[
-          getTokenSymbol(claim.token) as keyof typeof DECIMALS_BY_TOKEN
-        ] ?? 18;
-      totalClaimed += safeFormatUnits(claim.amount, decimals);
+    claimActivityGroups.forEach((group) => {
+      group.tokenEntries.forEach(([, amount]) => {
+        totalClaimed += amount;
+      });
     });
 
     totalTransactions += mintedEvents.length;
     totalTransactions += stakeEvents.length;
     totalTransactions += swapsActivity.length;
-    totalTransactions += claims.length > 0 ? 1 : 0; // Claims grouped by tx
+    totalTransactions += claimActivityGroups.length;
 
     return {
       totalTransactions,
@@ -437,7 +482,7 @@ export function RecentActivity({
       minersCount,
       totalClaimed,
     };
-  }, [claims, mintedEvents, stakeEvents, splitsActivity, swapsActivity]);
+  }, [claimActivityGroups, mintedEvents, stakeEvents, splitsActivity, swapsActivity]);
 
   // Combine and format all activities
   const activities = React.useMemo(() => {
@@ -463,19 +508,10 @@ export function RecentActivity({
       if (item) all.push(item);
     });
 
-    const claimsByTx = new Map<string, WalletRewardClaimRow[]>();
-    claims.forEach((row) => {
-      const txHash = row.txHash;
-      const existing = claimsByTx.get(txHash) ?? [];
-      existing.push(row);
-      claimsByTx.set(txHash, existing);
-    });
-
-    for (const rows of claimsByTx.values()) {
-      rows.sort((a, b) => a.subIndex - b.subIndex);
-      const item = buildClaimActivity(rows);
+    claimActivityGroups.forEach((group) => {
+      const item = buildClaimActivity(group);
       if (item) all.push(item);
-    }
+    });
 
     return all.sort((a, b) => {
       const timeDiff = b.timestampMs - a.timestampMs;
@@ -488,7 +524,7 @@ export function RecentActivity({
 
       return 0;
     });
-  }, [claims, mintedEvents, stakeEvents, splitsActivity, swapsActivity]);
+  }, [claimActivityGroups, mintedEvents, stakeEvents, splitsActivity, swapsActivity]);
 
   const isLoading =
     isMintedEventsLoading ||
@@ -496,6 +532,7 @@ export function RecentActivity({
     isSplitsActivityLoading ||
     isSwapsActivityLoading ||
     isClaimsLoading ||
+    isSgctlClaimSettlementsLoading ||
     isWalletConnecting;
 
   const handleViewTransaction = React.useCallback((activity: ActivityItem) => {

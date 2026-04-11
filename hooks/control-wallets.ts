@@ -44,6 +44,11 @@ export interface WalletRegionAvailableStake {
   availableStakedGctl?: string;
 }
 
+export function getRewardCurrencyDecimals(currency: string): number {
+  if (currency === "SGCTL") return DECIMALS_BY_TOKEN.GCTL;
+  return DECIMALS_BY_TOKEN[currency as keyof typeof DECIMALS_BY_TOKEN] ?? 18;
+}
+
 function parseAvailableStakeRaw(value?: string): bigint {
   try {
     return BigInt(value ?? "0");
@@ -390,8 +395,7 @@ export function useWalletV2Claims(
       const raw = reward.protocolDepositRewardsReceived;
       if (raw && raw !== "0") {
         const currency = reward.paymentCurrency || "GLW";
-        const decimals =
-          DECIMALS_BY_TOKEN[currency as keyof typeof DECIMALS_BY_TOKEN] ?? 18;
+        const decimals = getRewardCurrencyDecimals(currency);
         const amount = Number(formatUnits(BigInt(raw), decimals));
         if (Number.isFinite(amount) && amount > 0) {
           protocolTotals[currency] = new Decimal(protocolTotals[currency] || 0)
@@ -580,8 +584,7 @@ export function useClaimableRewards(
         reward.protocolDepositRewardsReceived !== "0"
       ) {
         const currency = reward.paymentCurrency;
-        const decimals =
-          DECIMALS_BY_TOKEN[currency as keyof typeof DECIMALS_BY_TOKEN] || 18;
+        const decimals = getRewardCurrencyDecimals(currency);
         const pdAmount = formatUnits(
           BigInt(reward.protocolDepositRewardsReceived),
           decimals

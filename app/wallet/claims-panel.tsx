@@ -81,6 +81,12 @@ const CURRENCY_CONFIG = {
     bgColor: "bg-muted/50",
     label: "USDG",
   },
+  SGCTL: {
+    icon: <Shield className="w-4 h-4" />,
+    color: "text-amber-500",
+    bgColor: "bg-muted/50",
+    label: "sGCTL",
+  },
 } as const;
 
 type CurrencyKey = keyof typeof CURRENCY_CONFIG;
@@ -814,6 +820,8 @@ function WeekRewardsContent({
           : !protocolClaimed && isWeekFullyUnlocked;
         const rewardLabel = isInflation
           ? "Emission Rewards"
+          : reward.currency === "SGCTL"
+          ? "Protocol Deposit · credited to staked balance"
           : "Protocol Deposit";
 
         return (
@@ -1806,9 +1814,16 @@ export function ClaimsPanel({
       details.push({
         label: "Protocol Deposits",
         value: Array.from(totals.entries())
-          .map(([currency, amount]) => `${amount.toFixed(4)} ${currency}`)
+          .map(([currency, amount]) => `${amount.toFixed(4)} ${currency === "SGCTL" ? "sGCTL" : currency}`)
           .join(", "),
       });
+
+      if (protocolRewards.some((reward) => reward.currency === "SGCTL")) {
+        details.push({
+          label: "sGCTL Settlement",
+          value: "Credited to your staked balance after the claim confirms",
+        });
+      }
     }
 
     return details;
@@ -1841,7 +1856,7 @@ export function ClaimsPanel({
     const protocolAmount =
       protocolTotals.size > 0
         ? Array.from(protocolTotals.entries())
-            .map(([currency, amount]) => `${amount.toFixed(4)} ${currency}`)
+            .map(([currency, amount]) => `${amount.toFixed(4)} ${currency === "SGCTL" ? "sGCTL" : currency}`)
             .join(", ")
         : null;
 
