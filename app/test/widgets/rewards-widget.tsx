@@ -28,16 +28,12 @@ import { GENESIS_TIMESTAMP, getCurrentEpoch } from "@/utils/getCurrentEpoch";
 import { cn } from "@/lib/utils";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { QUERY_CONFIG } from "@/hooks/query-config";
+import {
+  formatNextClaimLabel,
+  getClaimableBreakdown,
+} from "@/app/test/widgets/rewards-widget-utils";
 
 const DEFAULT_INITIAL_DURATION_MS = (4 * 60 * 60 + 12 * 60 + 33) * 1000;
-
-function formatUsdWhole(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(value);
-}
 
 function safeGetCurrentEpoch() {
   try {
@@ -45,59 +41,6 @@ function safeGetCurrentEpoch() {
   } catch {
     return undefined;
   }
-}
-
-function formatTokenAmount(
-  value: number,
-  params?: { maximumFractionDigits?: number },
-) {
-  return new Intl.NumberFormat("en-US", {
-    maximumFractionDigits: params?.maximumFractionDigits ?? 0,
-  }).format(value);
-}
-
-function getClaimableBreakdown(params: {
-  claimableTotalsByCurrency: Record<string, number> | undefined;
-}) {
-  const { claimableTotalsByCurrency } = params;
-  const totals = claimableTotalsByCurrency ?? {};
-
-  const glw = totals.GLW ?? 0;
-  const usdg = totals.USDG ?? 0;
-  const sgctl = totals.SGCTL ?? 0;
-
-  const entries = [
-    {
-      currency: "GLW",
-      value: glw,
-      label: `${formatTokenAmount(glw, { maximumFractionDigits: 0 })} GLW`,
-      isPrimary: true,
-    },
-    {
-      currency: "USDG",
-      value: usdg,
-      label: formatUsdWhole(usdg),
-      subLabel: "USDG",
-      isPrimary: false,
-    },
-    {
-      currency: "SGCTL",
-      value: sgctl,
-      label: `${formatTokenAmount(sgctl, { maximumFractionDigits: 0 })} SGCTL`,
-      isPrimary: false,
-    },
-  ].filter((entry) => Number.isFinite(entry.value) && entry.value > 0);
-
-  if (entries.length > 0) return entries;
-
-  return [
-    {
-      currency: "GLW",
-      value: 0,
-      label: "0 GLW",
-      isPrimary: true,
-    },
-  ];
 }
 
 function RewardsCountdown(props: { initialDurationMs: number }) {
@@ -300,16 +243,7 @@ export default function RewardsWidget({
   }, [weeklyBreakdown]);
 
   const nextClaimLabel = React.useMemo(() => {
-    const entries: string[] = [];
-    const glw = nonFinalizedTotals.GLW ?? 0;
-    const usdg = nonFinalizedTotals.USDG ?? 0;
-    if (glw > 0) {
-      entries.push(`${formatTokenAmount(glw)} GLW`);
-    }
-    if (usdg > 0) {
-      entries.push(`${formatUsdWhole(usdg)} USDG`);
-    }
-    return entries.length > 0 ? entries.join(" + ") : null;
+    return formatNextClaimLabel(nonFinalizedTotals);
   }, [nonFinalizedTotals]);
 
   const hasPending = React.useMemo(() => {

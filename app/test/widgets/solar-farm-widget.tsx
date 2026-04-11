@@ -67,6 +67,11 @@ import { QUERY_KEYS } from "@/hooks/query-keys";
 import { trackEvent } from "@/lib/telemetry";
 import { GENESIS_TIMESTAMP, getCurrentEpoch } from "@/utils/getCurrentEpoch";
 import { isPendingStartStatus } from "@/utils/pending-start-cards";
+import {
+  formatProtocolDepositAsset,
+  normalizeDashboardAsset,
+  parseProtocolDepositTokenAmount,
+} from "@/app/test/widgets/rewards-widget-utils";
 
 interface AssetHistoryPoint {
   weekNumber: number;
@@ -77,7 +82,6 @@ interface AssetHistoryPoint {
 
 const FIRST_V2_WEEK = 97;
 const WEEK_SECONDS = 7 * 86_400;
-const SIX_DECIMAL_ASSETS = new Set(["USDG", "USDC", "GCTL"]);
 
 // Static placeholder data hoisted to module scope to avoid recreation on every render.
 const PLACEHOLDER_ASSET_HISTORY: AssetHistoryPoint[] = [
@@ -200,24 +204,6 @@ function parseGlwFromWei(value: string) {
   const num = Number(value);
   if (!Number.isFinite(num)) return 0;
   return num / 1e18;
-}
-
-function parseAssetFromBaseUnits(value: string, asset: string) {
-  const num = Number(value);
-  if (!Number.isFinite(num)) return 0;
-  const symbol = asset.toUpperCase();
-  return num / (SIX_DECIMAL_ASSETS.has(symbol) ? 1e6 : 1e18);
-}
-
-function formatProtocolDepositAsset(asset: string | null | undefined): string {
-  if (!asset) return "GLW";
-  const normalized = asset.toUpperCase();
-  if (normalized === "GCTL") return "SGCTL";
-  return normalized;
-}
-
-function parseProtocolDepositTokenAmount(value: string, asset: string) {
-  return parseAssetFromBaseUnits(value, formatProtocolDepositAsset(asset));
 }
 
 function getAssetBarColor(asset: string) {
@@ -945,13 +931,17 @@ export default function SolarFarmWidget({
     const amountsByAsset = new Map<string, Map<number, number>>();
     const currentWeek = Math.max(FIRST_V2_WEEK, getCurrentEpoch() - 1);
 
-    const addAmount = (assetInput: string | null | undefined, week: number, amount: number) => {
+    const addAmount = (
+      assetInput: string | null | undefined,
+      week: number,
+      amount: number,
+    ) => {
       if (!Number.isFinite(amount) || amount <= 0) return;
       if (!Number.isFinite(week) || week < FIRST_V2_WEEK || week > currentWeek) {
         return;
       }
 
-      const asset = (assetInput ?? "GLW").toUpperCase();
+      const asset = normalizeDashboardAsset(assetInput);
       const byWeek = amountsByAsset.get(asset) ?? new Map<number, number>();
       byWeek.set(week, (byWeek.get(week) ?? 0) + amount);
       amountsByAsset.set(asset, byWeek);
@@ -965,13 +955,13 @@ export default function SolarFarmWidget({
       }
 
       for (const farm of data.otherFarmsWithRewards?.farms ?? []) {
-        const pdAsset = farm.asset ?? "GLW";
+        const pdAsset = normalizeDashboardAsset(farm.asset);
         for (const week of farm.weeklyBreakdown) {
           addAmount("GLW", week.weekNumber, parseGlwFromWei(week.inflationRewards));
           addAmount(
             pdAsset,
             week.weekNumber,
-            parseAssetFromBaseUnits(week.protocolDepositRewards, pdAsset)
+            parseProtocolDepositTokenAmount(week.protocolDepositRewards, pdAsset)
           );
         }
       }
