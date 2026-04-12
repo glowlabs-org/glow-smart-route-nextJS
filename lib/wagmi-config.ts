@@ -395,6 +395,12 @@ function initializeAppKit() {
     projectId: WALLET_CONNECT_PROJECT_ID,
     metadata: APPKIT_METADATA,
     enableWallets: true,
+    // Keep AppKit from layering its own Coinbase/Injected/WC connectors on top
+    // of the explicit wagmi connectors above. That duplicate connector set causes
+    // unstable wallet selection in multi-wallet browser profiles.
+    enableCoinbase: false,
+    enableInjected: false,
+    enableWalletConnect: false,
     features: {
       email: false,
       socials: false,
