@@ -21,7 +21,6 @@ const SUPPORTED_RECENT_CONNECTOR_IDS = new Set([
   "phantom",
   "io.metamask",
   "com.coinbase.wallet",
-  "app.phantom",
   "com.trustwallet.app",
   "io.rabby",
   "com.ledger.live",
@@ -31,8 +30,6 @@ const SUPPORTED_RECENT_CONNECTOR_IDS = new Set([
 
 function normalizeRecentConnectorId(value: string) {
   if (value === "metaMask") return "io.metamask";
-  if (value === "coinbaseWallet") return "com.coinbase.wallet";
-  if (value === "phantom") return "app.phantom";
   return value;
 }
 

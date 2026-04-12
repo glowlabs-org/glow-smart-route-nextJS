@@ -338,10 +338,7 @@ const wagmiAdapter = new WagmiAdapter({
           injected({
             ...INJECTED_CONNECTOR_OPTIONS,
             target: {
-              // Reown 1.7.x resolves browser-wallet selections by connector rdns.
-              // Keep the connector id aligned with Coinbase's announced rdns so the
-              // modal routes directly to this connector instead of generic injected.
-              id: "com.coinbase.wallet",
+              id: "coinbaseWallet",
               name: "Coinbase Wallet",
               provider: (window) =>
                 ((window as any)?.coinbaseWalletExtension as any) ??
@@ -357,7 +354,7 @@ const wagmiAdapter = new WagmiAdapter({
           injected({
             ...INJECTED_CONNECTOR_OPTIONS,
             target: {
-              id: "app.phantom",
+              id: "phantom",
               name: "Phantom",
               icon: "/images/icons/phantom.svg",
               provider: (window) =>
