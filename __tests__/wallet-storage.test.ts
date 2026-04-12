@@ -193,4 +193,16 @@ describe("wallet storage", () => {
     expect(window.localStorage.getItem("wc@2:client:0.3//session")).toBeNull();
     expect(window.localStorage.getItem("wc@2:core:0.3//keychain")).toBeNull();
   });
+
+  it("normalizes legacy Coinbase and Phantom recent connector ids", () => {
+    const storage = createPersistentWalletStorage();
+
+    window.localStorage.setItem("wagmi.recentConnectorId", "coinbaseWallet");
+    expect(storage.getItem("wagmi.recentConnectorId")).toBe(
+      "com.coinbase.wallet"
+    );
+
+    window.localStorage.setItem("wagmi.recentConnectorId", "phantom");
+    expect(storage.getItem("wagmi.recentConnectorId")).toBe("app.phantom");
+  });
 });
