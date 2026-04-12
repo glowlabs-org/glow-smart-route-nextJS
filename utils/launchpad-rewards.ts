@@ -7,7 +7,7 @@ export type DelegationCurrency = "GLW" | "SGCTL";
 
 type DelegationApplicationLike = Pick<
   AuctionApplication,
-  "paymentCurrency" | "activeFraction" | "applicationPriceQuotes"
+  "paymentCurrency" | "activeFraction" | "applicationPriceQuotes" | "finalProtocolFee"
 >;
 
 export interface LaunchpadRewardLike {
@@ -53,6 +53,23 @@ function looksLikeSixDecimalDelegation(
   } catch {
     return false;
   }
+}
+
+function parseBigIntSafe(
+  value: string | number | bigint | null | undefined
+): bigint | null {
+  try {
+    if (value == null) return null;
+    return BigInt(value);
+  } catch {
+    return null;
+  }
+}
+
+function safeNumber(value: bigint): number {
+  if (value <= 0n) return 0;
+  const max = BigInt(Number.MAX_SAFE_INTEGER);
+  return Number(value > max ? max : value);
 }
 
 export function resolveDelegationCurrencyFromSplitActivity(params: {
@@ -134,6 +151,22 @@ export function parseDelegationAmountFromBaseUnits(
 export function getDelegationStepAtomic(
   application?: DelegationApplicationLike | null
 ): bigint | null {
+  const delegationCurrency = resolveDelegationCurrency(application);
+  if (delegationCurrency === "SGCTL") {
+    const lockedSgctlStepAtomic = (() => {
+      try {
+        return application?.activeFraction?.sgctlStepAtomic != null
+          ? BigInt(application.activeFraction.sgctlStepAtomic)
+          : null;
+      } catch {
+        return null;
+      }
+    })();
+    if (lockedSgctlStepAtomic != null && lockedSgctlStepAtomic > 0n) {
+      return lockedSgctlStepAtomic;
+    }
+  }
+
   const rawStep = application?.activeFraction?.step;
   if (!rawStep) return null;
 
@@ -141,7 +174,6 @@ export function getDelegationStepAtomic(
     const glwStepAtomic = BigInt(rawStep);
     if (glwStepAtomic <= 0n) return null;
 
-    const delegationCurrency = resolveDelegationCurrency(application);
     if (delegationCurrency === "GLW") return glwStepAtomic;
 
     const totalSteps = BigInt(
@@ -181,6 +213,36 @@ export function getDelegationStepAtomic(
   } catch {
     return null;
   }
+}
+
+export function resolveLaunchpadDelegationShareCount(
+  application?: DelegationApplicationLike | null
+): number {
+  const baseTotalSteps = Math.max(
+    0,
+    Math.floor(application?.activeFraction?.totalSteps ?? 0)
+  );
+  if (!application?.activeFraction) return 0;
+
+  if (resolveDelegationCurrency(application) !== "SGCTL") {
+    return baseTotalSteps;
+  }
+
+  const finalProtocolFeeUsd6 = parseBigIntSafe(application.finalProtocolFee);
+  const currentStepUsd6 = parseBigIntSafe(
+    application.activeFraction.currentStepUsd6
+  );
+
+  if (
+    finalProtocolFeeUsd6 != null &&
+    finalProtocolFeeUsd6 > 0n &&
+    currentStepUsd6 != null &&
+    currentStepUsd6 > 0n
+  ) {
+    return safeNumber(finalProtocolFeeUsd6 / currentStepUsd6);
+  }
+
+  return baseTotalSteps;
 }
 
 export function parseDelegationStepAmount(

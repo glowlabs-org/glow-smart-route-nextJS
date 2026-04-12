@@ -92,6 +92,7 @@ export interface ActiveFraction {
   splitsSold: number;
   stepPrice: string;
   step: string;
+  sgctlStepAtomic?: string | null;
   token: string;
   owner: string;
   txHash: string | null;
@@ -101,6 +102,8 @@ export interface ActiveFraction {
   glwDelegationVisibleAt?: string | null;
   progressPercent: number;
   remainingSteps: number | null;
+  remainingUsd6?: string | null;
+  currentStepUsd6?: string | null;
   amountRaised: string | null;
   totalAmountNeeded: string | null;
   rewardScore: number | null;

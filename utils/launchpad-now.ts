@@ -10,8 +10,18 @@ const launchpadTimeOverrideMs = (() => {
   return parsedMs;
 })();
 
+const launchpadTimeOverrideBaseRealMs =
+  launchpadTimeOverrideMs === null ? null : Date.now();
+
 export function getLaunchpadNowMs(nowMs: number = Date.now()): number {
-  return launchpadTimeOverrideMs ?? nowMs;
+  if (
+    launchpadTimeOverrideMs === null ||
+    launchpadTimeOverrideBaseRealMs === null
+  ) {
+    return nowMs;
+  }
+
+  return launchpadTimeOverrideMs + (nowMs - launchpadTimeOverrideBaseRealMs);
 }
 
 export function isMarketplaceVisibleAt(

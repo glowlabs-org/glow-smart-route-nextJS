@@ -26,6 +26,7 @@ export interface RewardScoreBatchParams {
   sponsorSplitPercent: number;
   protocolDepositAmount: string;
   protocolDepositUsd6: string;
+  paymentCurrencyPriceUsd6?: string;
   paymentCurrency: PaymentCurrency;
   expectedWeeklyCarbonCredits: number;
   regionId: number;
@@ -192,6 +193,11 @@ export function buildRewardScoreBatchInputs(params: {
           sponsorSplitPercent: application.sponsorSplitPercent,
           protocolDepositAmount: protocolDepositAmountBigInt.toString(),
           protocolDepositUsd6: application.finalProtocolFee,
+          paymentCurrencyPriceUsd6:
+            getAssetPriceQuote(
+              application.applicationPriceQuotes,
+              resolvedPaymentCurrency
+            ) || undefined,
           paymentCurrency: resolvedPaymentCurrency,
           expectedWeeklyCarbonCredits:
             application.auditFields.netCarbonCreditEarningWeekly,

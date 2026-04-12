@@ -14,6 +14,7 @@ export interface ActiveFraction {
   id: string;
   owner: string;
   step: string; // wei string (18 decimals for GLW)
+  sgctlStepAtomic?: string | null; // atomic string (6 decimals for SGCTL/GCTL)
   stepPrice: string; // wei string (6 decimals for USDC)
   totalSteps: number;
   remainingSteps: number | null;
@@ -699,6 +700,21 @@ export function resolveDelegationStepAtomic(params: {
 }): bigint | null {
   const { activeFraction, selectedCurrency, applicationPriceQuotes } = params;
   if (!activeFraction || selectedCurrency === "USDC") return null;
+
+  if (selectedCurrency === "SGCTL") {
+    const lockedSgctlStepAtomic = (() => {
+      try {
+        return activeFraction.sgctlStepAtomic != null
+          ? BigInt(activeFraction.sgctlStepAtomic)
+          : null;
+      } catch {
+        return null;
+      }
+    })();
+    if (lockedSgctlStepAtomic != null && lockedSgctlStepAtomic > 0n) {
+      return lockedSgctlStepAtomic;
+    }
+  }
 
   const glwStepAtomic = (() => {
     try {

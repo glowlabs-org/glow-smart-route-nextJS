@@ -70,6 +70,7 @@ import {
   getDelegationCurrencyDecimals,
   parseDelegationStepAmount,
   resolveDelegationCurrency,
+  resolveLaunchpadDelegationShareCount,
 } from "@/utils/launchpad-rewards";
 
 import { Skeleton } from "@/components/ui/skeleton";
@@ -1307,7 +1308,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                             }
                                           );
                                         if (delegationCurrency === "SGCTL") {
-                                          return `${emissionGlwLabel} GLW + ${pdLabel} SGCTL`;
+                                          return `${pdLabel} SGCTL + ${emissionGlwLabel} GLW`;
                                         }
                                         return `${perShareRewards.totalGlwPerShare.toLocaleString(
                                           undefined,
@@ -1473,21 +1474,6 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                         <div className="space-y-1">
                                           <div className="flex justify-between gap-4 text-xs">
                                             <span className="text-background/70">
-                                              Emissions
-                                            </span>
-                                            <span className="font-mono font-medium">
-                                              +
-                                              {glwPerShare.toLocaleString(
-                                                undefined,
-                                                {
-                                                  maximumFractionDigits: 1,
-                                                }
-                                              )}{" "}
-                                              GLW
-                                            </span>
-                                          </div>
-                                          <div className="flex justify-between gap-4 text-xs">
-                                            <span className="text-background/70">
                                               PD Recovery
                                             </span>
                                             <span className="font-mono font-medium">
@@ -1499,6 +1485,21 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                                 }
                                               )}{" "}
                                               {delegationCurrency}
+                                            </span>
+                                          </div>
+                                          <div className="flex justify-between gap-4 text-xs">
+                                            <span className="text-background/70">
+                                              Emissions
+                                            </span>
+                                            <span className="font-mono font-medium">
+                                              +
+                                              {glwPerShare.toLocaleString(
+                                                undefined,
+                                                {
+                                                  maximumFractionDigits: 1,
+                                                }
+                                              )}{" "}
+                                              GLW
                                             </span>
                                           </div>
                                         </div>
@@ -1652,7 +1653,7 @@ function getActiveFractionAvailability(application: AuctionApplication) {
       progressFilledPct: 0,
     };
   }
-  const total = fraction.totalSteps ?? 0;
+  const total = resolveLaunchpadDelegationShareCount(application);
   const remaining = fraction.remainingSteps ?? 0;
   const isSoldOut = !isFractionOpenForMarketplace(fraction);
   const sold = Math.max(0, total - Math.max(0, remaining));
@@ -1843,7 +1844,10 @@ function LaunchpadMarketplaceWidget({
         application._type === "delegations"
           ? resolveDelegationCurrency(application)
           : null;
-      const totalShares = application.activeFraction?.totalSteps || 0;
+      const totalShares =
+        application._type === "delegations"
+          ? resolveLaunchpadDelegationShareCount(application)
+          : application.activeFraction?.totalSteps || 0;
       const delegationPerShareRewards =
         application._type === "delegations"
           ? calculateLaunchpadPerShareRewards({
@@ -2191,10 +2195,10 @@ function LaunchpadMarketplaceWidget({
 
     const rewardsBreakdown = (() => {
       if (isMiner) return null;
-      if (!application.activeFraction?.totalSteps) return null;
       if (!scoreData || !("userWeeklyGlwRewards" in scoreData)) return null;
       try {
-        const totalShares = application.activeFraction.totalSteps || 0;
+        const totalShares = resolveLaunchpadDelegationShareCount(application);
+        if (!totalShares) return null;
         const perShareRewards = calculateLaunchpadPerShareRewards({
           reward: scoreData,
           totalShares,
@@ -2788,13 +2792,13 @@ function LaunchpadWidgetAssetCard({
 
   const delegationRewardsBreakdown = React.useMemo(() => {
     if (!isDelegation) return null;
-    if (!application.activeFraction?.totalSteps) return null;
     if (!scoreData) return null;
     if (!("userWeeklyGlwRewards" in scoreData)) return null;
     if (!("userWeeklyPdRewards" in scoreData)) return null;
 
     try {
-      const totalShares = application.activeFraction.totalSteps;
+      const totalShares = resolveLaunchpadDelegationShareCount(application);
+      if (!totalShares) return null;
       const perShareRewards = calculateLaunchpadPerShareRewards({
         reward: scoreData,
         totalShares,
@@ -2811,7 +2815,7 @@ function LaunchpadWidgetAssetCard({
       return null;
     }
   }, [
-    application.activeFraction?.totalSteps,
+    application,
     delegationCurrency,
     glwSpotPrice,
     isDelegation,
@@ -3202,12 +3206,13 @@ function LaunchpadWidgetHeroCarouselCard({
 
   const delegationRewardsBreakdown = React.useMemo(() => {
     if (!isDelegation) return null;
-    if (!application.activeFraction?.totalSteps) return null;
     if (!scoreData || !("userWeeklyGlwRewards" in scoreData)) return null;
     try {
+      const totalShares = resolveLaunchpadDelegationShareCount(application);
+      if (!totalShares) return null;
       const perShareRewards = calculateLaunchpadPerShareRewards({
         reward: scoreData,
-        totalShares: application.activeFraction.totalSteps,
+        totalShares,
         delegationCurrency,
         glwSpotPrice,
       });
@@ -3219,7 +3224,7 @@ function LaunchpadWidgetHeroCarouselCard({
       return null;
     }
   }, [
-    application.activeFraction?.totalSteps,
+    application,
     delegationCurrency,
     glwSpotPrice,
     isDelegation,
@@ -3233,10 +3238,10 @@ function LaunchpadWidgetHeroCarouselCard({
         delegationCurrency === "SGCTL" &&
         delegationRewardsBreakdown
       ? `+${formatSignedCompactNumber(
-          delegationRewardsBreakdown.emissionGlwPerShare
-        )} GLW + ${formatSignedCompactNumber(
           delegationRewardsBreakdown.pdPerShare
-        )} SGCTL / wk`
+        ).replace(/^\+/, '')} SGCTL + ${formatSignedCompactNumber(
+          delegationRewardsBreakdown.emissionGlwPerShare
+        )} GLW / wk`
       : `+${formatSignedCompactNumber(weeklyYield)} GLW / wk`;
   const rewardsSub =
     isDelegation && delegationCurrency === "SGCTL"

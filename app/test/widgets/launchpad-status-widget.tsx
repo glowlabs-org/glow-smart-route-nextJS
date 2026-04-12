@@ -52,6 +52,7 @@ import { getLaunchpadNowMs } from "@/utils/launchpad-now";
 import {
   calculateLaunchpadPerShareRewards,
   parseDelegationStepAmount,
+  resolveLaunchpadDelegationShareCount,
 } from "@/utils/launchpad-rewards";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
@@ -108,10 +109,10 @@ function getActiveFractionAvailability(application: AuctionApplication) {
   if (!fraction) {
     return { remaining: 0, total: 0, isSoldOut: true, percentFilled: 100 };
   }
-  const total = fraction.totalSteps ?? 0;
+  const total = resolveLaunchpadDelegationShareCount(application);
   const remaining = fraction.remainingSteps ?? 0;
   const isSoldOut = !isFractionOpenForMarketplace(fraction);
-  const filled = total - remaining;
+  const filled = Math.max(0, total - Math.max(0, remaining));
   const percentFilled = total > 0 ? Math.round((filled / total) * 100) : 0;
   return { remaining, total, isSoldOut, percentFilled };
 }
@@ -145,6 +146,11 @@ function formatNumber(value: number, decimals: number = 2): string {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   });
+}
+
+function formatRewardAmount(value: number): string {
+  const decimals = Math.abs(value) < 1 ? 2 : 1;
+  return formatNumber(value, decimals);
 }
 
 // Helper: Format time to sell out
@@ -396,7 +402,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
               ),
             );
           }
-          const totalShares = application.activeFraction?.totalSteps || 0;
+          const totalShares = resolveLaunchpadDelegationShareCount(application);
           if (!reward || !totalShares) return 0;
           return calculateLaunchpadPerShareRewards({
             reward,
@@ -411,7 +417,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
       const weeklyPdYield = (() => {
         try {
           if (application._type === "miners") return 0;
-          const totalShares = application.activeFraction?.totalSteps || 0;
+          const totalShares = resolveLaunchpadDelegationShareCount(application);
           if (!reward || !totalShares) return 0;
           const pdRewards = parseFloat(
             formatUnits(
@@ -428,7 +434,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
       const totalAmountNeeded = (() => {
         if (!application.activeFraction) return 0;
         if (application._type === "delegations") {
-          const totalSteps = application.activeFraction.totalSteps ?? 0;
+          const totalSteps = resolveLaunchpadDelegationShareCount(application);
           if (!Number.isFinite(cost) || cost <= 0 || totalSteps <= 0) return 0;
           return cost * totalSteps;
         }
@@ -446,7 +452,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
         if (application._type === "miners") {
           return weeklyYield * (glwSpotPrice || 0);
         }
-        const totalShares = application.activeFraction?.totalSteps || 0;
+        const totalShares = resolveLaunchpadDelegationShareCount(application);
         if (!reward || totalShares <= 0) {
           return weeklyYield * (glwSpotPrice || 0);
         }
@@ -706,11 +712,13 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
           <div
             className={cn(
               "grid gap-1.5 sm:gap-2 mt-auto",
-              isMiner ? "grid-cols-2" : "grid-cols-3",
+              isMiner
+                ? "grid-cols-2"
+                : "grid-cols-3 sm:grid-cols-[minmax(0,0.95fr)_minmax(0,1.35fr)_minmax(0,0.65fr)]",
             )}
           >
             {/* Column 1: Price/Amount */}
-            <div className="flex flex-col p-2 sm:p-3 rounded-lg bg-muted/30 dark:bg-muted/50">
+            <div className="flex min-w-0 flex-col p-2 sm:p-3 rounded-lg bg-muted/30 dark:bg-muted/50">
               <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5 sm:mb-1">
                 {availability.isSoldOut
                   ? isMiner
@@ -749,7 +757,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
 
             {/* Column 2: Weekly Rewards or Time to Sell */}
             {availability.isSoldOut ? (
-              <div className="flex flex-col p-2 sm:p-3 rounded-lg bg-muted/30 dark:bg-muted/50">
+              <div className="flex min-w-0 flex-col p-2 sm:p-3 rounded-lg bg-muted/30 dark:bg-muted/50">
                 <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5 sm:mb-1">
                   Sold In
                 </span>
@@ -764,7 +772,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                 </span>
               </div>
             ) : isRowScoreLoading ? (
-              <div className="flex flex-col p-2 sm:p-3 rounded-lg bg-muted/30 dark:bg-muted/50">
+              <div className="flex min-w-0 flex-col p-2 sm:p-3 rounded-lg bg-muted/30 dark:bg-muted/50">
                 <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5 sm:mb-1">
                   Est. Weekly
                 </span>
@@ -777,7 +785,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                 weeklyPdYield > 0) ? (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="flex flex-col p-2 sm:p-3 rounded-lg bg-muted/30 dark:bg-muted/50 cursor-help">
+                  <div className="flex min-w-0 flex-col p-2 sm:p-3 rounded-lg bg-muted/30 dark:bg-muted/50 cursor-help">
                     <div className="flex items-center gap-0.5 sm:gap-1 mb-0.5 sm:mb-1">
                       <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
                         Est. Weekly
@@ -788,7 +796,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                       {isMiner || delegationCurrency !== "SGCTL" ? (
                         <>
                           <span className="text-base sm:text-lg font-bold text-foreground font-mono tabular-nums leading-tight">
-                            +{formatNumber(weeklyYield, 1)}
+                            +{formatRewardAmount(weeklyYield)}
                           </span>
                           <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">
                             GLW
@@ -797,9 +805,9 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                           </span>
                         </>
                       ) : (
-                        <span className="text-base font-bold text-foreground font-mono tabular-nums leading-tight">
-                          +{formatNumber(weeklyYield, 1)} GLW +{" "}
-                          {formatNumber(weeklyPdYield, 1)} SGCTL
+                        <span className="text-sm sm:text-base font-bold text-foreground font-mono tabular-nums leading-tight whitespace-nowrap">
+                          {formatRewardAmount(weeklyPdYield)} SGCTL +{" "}
+                          {formatRewardAmount(weeklyYield)} GLW
                         </span>
                       )}
                     </div>
@@ -828,10 +836,10 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                       </p>
                       {row.scoreData &&
                       "userWeeklyGlwRewards" in row.scoreData &&
-                      application.activeFraction?.totalSteps
+                      resolveLaunchpadDelegationShareCount(application) > 0
                         ? (() => {
                             const totalShares =
-                              application.activeFraction?.totalSteps || 0;
+                              resolveLaunchpadDelegationShareCount(application);
                             const glwRewards = parseFloat(
                               formatUnits(
                                 BigInt(
@@ -857,26 +865,32 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                               <div className="space-y-1.5 pt-2 border-t border-border/20 dark:border-border/40">
                                 <div className="flex justify-between gap-4 text-xs">
                                   <span className="text-muted-foreground">
-                                    Emissions
-                                  </span>
-                                  <span className="font-mono font-medium">
-                                    +
-                                    {glwPerShare.toLocaleString(undefined, {
-                                      maximumFractionDigits: 1,
-                                    })}{" "}
-                                    GLW
-                                  </span>
-                                </div>
-                                <div className="flex justify-between gap-4 text-xs">
-                                  <span className="text-muted-foreground">
                                     PD Recovery
                                   </span>
                                   <span className="font-mono font-medium">
                                     +
                                     {pdPerShare.toLocaleString(undefined, {
-                                      maximumFractionDigits: 1,
+                                      minimumFractionDigits:
+                                        Math.abs(pdPerShare) < 1 ? 2 : 1,
+                                      maximumFractionDigits:
+                                        Math.abs(pdPerShare) < 1 ? 2 : 1,
                                     })}{" "}
                                     {delegationCurrency}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between gap-4 text-xs">
+                                  <span className="text-muted-foreground">
+                                    Emissions
+                                  </span>
+                                  <span className="font-mono font-medium">
+                                    +
+                                    {glwPerShare.toLocaleString(undefined, {
+                                      minimumFractionDigits:
+                                        Math.abs(glwPerShare) < 1 ? 2 : 1,
+                                      maximumFractionDigits:
+                                        Math.abs(glwPerShare) < 1 ? 2 : 1,
+                                    })}{" "}
+                                    GLW
                                   </span>
                                 </div>
                               </div>
@@ -888,7 +902,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                 </TooltipContent>
               </Tooltip>
             ) : (
-              <div className="flex flex-col p-2 sm:p-3 rounded-lg bg-muted/30 dark:bg-muted/50">
+              <div className="flex min-w-0 flex-col p-2 sm:p-3 rounded-lg bg-muted/30 dark:bg-muted/50">
                 <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5 sm:mb-1">
                   Est. Weekly
                 </span>
@@ -904,7 +918,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
             {/* Column 3: Reward Score (delegations only) */}
             {!isMiner &&
               (isRowScoreLoading ? (
-                <div className="flex flex-col p-2 sm:p-3 rounded-lg bg-muted/30 dark:bg-muted/50">
+                <div className="flex min-w-0 flex-col p-2 sm:p-2.5 rounded-lg bg-muted/30 dark:bg-muted/50">
                   <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5 sm:mb-1">
                     Score
                   </span>
@@ -914,14 +928,14 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
               ) : rewardScore !== null ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <div className="flex flex-col p-2 sm:p-3 rounded-lg bg-muted/30 dark:bg-muted/50 cursor-help">
+                    <div className="flex min-w-0 flex-col p-2 sm:p-2.5 rounded-lg bg-muted/30 dark:bg-muted/50 cursor-help">
                       <div className="flex items-center gap-0.5 sm:gap-1 mb-0.5 sm:mb-1">
                         <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
                           Score
                         </span>
                         <Info className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-muted-foreground/60" />
                       </div>
-                      <span className="text-base sm:text-lg font-bold text-foreground font-mono tabular-nums leading-tight">
+                      <span className="text-sm sm:text-base font-bold text-foreground font-mono tabular-nums leading-tight">
                         {Math.round(rewardScore)}
                       </span>
                       <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">

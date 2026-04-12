@@ -126,6 +126,31 @@ describe("calculateSgctlStepAtomicFromGlwStep", () => {
 });
 
 describe("resolveDelegationStepAtomic", () => {
+  it("prefers the locked SGCTL step from the backend when present", () => {
+    const activeFraction = createFraction({
+      delegationAsset: "SGCTL",
+      sgctlStepAtomic: "40000000",
+      totalSteps: 1000,
+      totalAmountNeeded: "28152200000",
+      step: "1800000000000000000000",
+    });
+
+    const resolved = resolveDelegationStepAtomic({
+      activeFraction,
+      selectedCurrency: "SGCTL",
+      applicationPriceQuotes: [
+        {
+          prices: {
+            GLW: "1250000",
+            GCTL: "500000",
+          },
+        },
+      ],
+    });
+
+    expect(resolved).toBe(40000000n);
+  });
+
   it("prefers exact SGCTL totals from the backend over quote-derived rounding", () => {
     const activeFraction = createFraction({
       delegationAsset: "SGCTL",

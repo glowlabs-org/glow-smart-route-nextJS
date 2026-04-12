@@ -236,9 +236,9 @@ export function LaunchpadStatsDialog({
           delegationCurrency === "SGCTL"
             ? weeklyGlwFromInflation > 0 || weeklyPdFromDeposit > 0
               ? `${formatNumber(
-                  weeklyGlwFromInflation,
+                  weeklyPdFromDeposit,
                   2,
-                )} GLW + ${formatNumber(weeklyPdFromDeposit, 2)} SGCTL`
+                )} SGCTL + ${formatNumber(weeklyGlwFromInflation, 2)} GLW`
               : "N/A"
             : totalWeeklyGlw > 0
               ? formatNumber(totalWeeklyGlw, 2)

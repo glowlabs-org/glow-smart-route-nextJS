@@ -1,3 +1,5 @@
+import { getLaunchpadNowMs } from "@/utils/launchpad-now";
+
 const ET_TIME_ZONE = "America/New_York";
 const TUESDAY = 2;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -99,9 +101,11 @@ function buildDateForETWallTime(params: {
 
 export function getNextTuesdayAtETHour(
   hour: number,
-  fromDate: Date = new Date(),
+  fromDate?: Date,
 ): Date {
-  const now = new Date(fromDate.getTime());
+  const baseDate =
+    fromDate ?? new Date(getLaunchpadNowMs());
+  const now = new Date(baseDate.getTime());
   const etNow = getETParts(now);
   let addDays = (TUESDAY - etNow.weekday + 7) % 7;
 
@@ -143,40 +147,43 @@ export function getLocalMinerLaunchOverrideVisibleAtIso(): string | null {
 }
 
 export function getNextMiningCenterBatchAtET(
-  fromDate: Date = new Date(),
+  fromDate?: Date,
 ): Date {
+  const baseDate = fromDate ?? new Date(getLaunchpadNowMs());
   const localOverrideVisibleAtIso = getLocalMinerLaunchOverrideVisibleAtIso();
   if (localOverrideVisibleAtIso) {
     const localOverrideVisibleAtMs = Date.parse(localOverrideVisibleAtIso);
     if (
       Number.isFinite(localOverrideVisibleAtMs) &&
-      fromDate.getTime() < localOverrideVisibleAtMs
+      baseDate.getTime() < localOverrideVisibleAtMs
     ) {
       return new Date(localOverrideVisibleAtMs);
     }
   }
 
-  return getNextTuesdayAt1amET(fromDate);
+  return getNextTuesdayAt1amET(baseDate);
 }
 
 export function getNextLaunchpadDelegationBatchAtET(
-  fromDate: Date = new Date(),
+  fromDate?: Date,
 ): Date {
-  const etNow = getETParts(fromDate);
+  const baseDate = fromDate ?? new Date(getLaunchpadNowMs());
+  const etNow = getETParts(baseDate);
 
   if (etNow.weekday === TUESDAY && etNow.hour >= 1 && etNow.hour < 13) {
-    return getNextTuesdayAt1pmET(fromDate);
+    return getNextTuesdayAt1pmET(baseDate);
   }
 
-  return getNextTuesdayAt1amET(fromDate);
+  return getNextTuesdayAt1amET(baseDate);
 }
 
 export function getNextSponsorListingsBatchAtET(
-  fromDate: Date = new Date(),
+  fromDate?: Date,
 ): Date {
-  const nextMiningCenterBatchAt = getNextMiningCenterBatchAtET(fromDate);
+  const baseDate = fromDate ?? new Date(getLaunchpadNowMs());
+  const nextMiningCenterBatchAt = getNextMiningCenterBatchAtET(baseDate);
   const nextLaunchpadDelegationBatchAt =
-    getNextLaunchpadDelegationBatchAtET(fromDate);
+    getNextLaunchpadDelegationBatchAtET(baseDate);
 
   return nextMiningCenterBatchAt.getTime() <=
     nextLaunchpadDelegationBatchAt.getTime()
