@@ -41,6 +41,7 @@ const EIP6963_PROVIDERS_KEY = "__glowEip6963Providers";
 const EIP6963_LISTENER_READY_KEY = "__glowEip6963ListenerReady";
 const CONNECTOR_DEBUG_CACHE_KEY = "__glowWalletConnectorDebugCache";
 const CONNECTOR_DEBUG_REPORT_WINDOW_MS = 60_000;
+const INITIAL_CONNECTOR_SYNC_READY_KEY = "__glowReownInitialConnectorSyncReady";
 
 type Eip6963ProviderInfo = {
   rdns?: string;
@@ -414,6 +415,35 @@ function initializeAppKit() {
       history: true,
     },
   });
+
+  const adapter = wagmiAdapter as any;
+  const syncInitialConnectors = async () => {
+    if (win[INITIAL_CONNECTOR_SYNC_READY_KEY]) return;
+    win[INITIAL_CONNECTOR_SYNC_READY_KEY] = true;
+
+    const connectors = adapter?.wagmiConfig?.connectors;
+    const addWagmiConnector = adapter?.addWagmiConnector?.bind(adapter);
+    if (!Array.isArray(connectors) || typeof addWagmiConnector !== "function") {
+      return;
+    }
+
+    try {
+      await Promise.all(
+        connectors.map((connector: any) => addWagmiConnector(connector, {}))
+      );
+    } catch (error) {
+      win[INITIAL_CONNECTOR_SYNC_READY_KEY] = false;
+      const normalizedError =
+        error instanceof Error ? error : new Error(String(error));
+      Sentry.captureException(normalizedError, {
+        tags: {
+          walletStage: "appkit_init",
+          walletError: "initial_connector_sync_failed",
+        },
+      });
+    }
+  };
+  void syncInitialConnectors();
 
   win.__glowReownAppKitInitialized = true;
   win.__glowReownAppKitClient = appKitClient;
