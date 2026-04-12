@@ -10,7 +10,11 @@ import {
   detectWalletFromProvider,
 } from "@/lib/wallet-detection";
 
-export function WalletOptions() {
+export function WalletOptions({
+  onConnectorSelected,
+}: {
+  onConnectorSelected?: (connector: Connector) => void;
+}) {
   const { connectors, connect, isPending, error, reset } = useConnect();
 
   const uniqueConnectors = React.useMemo(() => {
@@ -147,6 +151,7 @@ export function WalletOptions() {
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
+      onConnectorSelected?.(connector);
       connect({ connector });
     } catch (err) {
       console.error("Connection error:", err);

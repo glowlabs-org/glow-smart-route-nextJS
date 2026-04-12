@@ -6,6 +6,8 @@ import * as React from "react";
 import { useEffect, useRef } from "react";
 import * as Sentry from "@sentry/nextjs";
 import { getAppKitClient } from "@/lib/wagmi-config";
+import { Dialog, DialogContent } from "./ui/dialog";
+import { WalletOptions } from "./wallet-options";
 
 const CONNECT_PENDING_SENTRY_TIMEOUT_MS = 12_000;
 const CONNECT_SHOW_WATCHDOG_TIMEOUT_MS = 15_000;
@@ -64,11 +66,13 @@ export const ConnectButton = ({
   const pendingReportKeyRef = useRef<string | null>(null);
   const isConnectedRef = useRef(isConnected);
   const isPendingRef = useRef(isPending);
+  const isWalletDialogOpenRef = useRef(false);
   const connectShowWatchdogRef = useRef<number | null>(null);
   const pendingConnectorIdRef = useRef(pendingConnectorId);
   const pendingConnectorNameRef = useRef(pendingConnectorName);
   const lastConnectAttemptAtRef = useRef(0);
   const proposalExpiredLastReportedAtRef = useRef(0);
+  const [isWalletDialogOpen, setIsWalletDialogOpen] = React.useState(false);
 
   const clearConnectShowWatchdog = React.useCallback(() => {
     if (connectShowWatchdogRef.current !== null) {
@@ -82,7 +86,9 @@ export const ConnectButton = ({
     connectShowWatchdogRef.current = window.setTimeout(() => {
       if (isConnectedRef.current) return;
       const appKitClient = getAppKitClient();
-      if (!appKitClient?.isOpen?.()) return;
+      const isAppKitOpen = Boolean(appKitClient?.isOpen?.());
+      const isConnectSurfaceOpen = isWalletDialogOpenRef.current || isAppKitOpen;
+      if (!isConnectSurfaceOpen) return;
 
       const connectorId = pendingConnectorIdRef.current;
       const connectorName = pendingConnectorNameRef.current;
@@ -120,8 +126,10 @@ export const ConnectButton = ({
           }))
         );
         scope.setExtra("isPending", isPendingRef.current);
+        scope.setExtra("isWalletDialogOpen", isWalletDialogOpenRef.current);
+        scope.setExtra("isAppKitOpen", isAppKitOpen);
         Sentry.captureMessage(
-          "AppKit modal open with unresolved pending connection"
+          "Wallet connect surface open with unresolved pending connection"
         );
       });
     }, CONNECT_SHOW_WATCHDOG_TIMEOUT_MS);
@@ -136,6 +144,10 @@ export const ConnectButton = ({
   }, [isPending]);
 
   useEffect(() => {
+    isWalletDialogOpenRef.current = isWalletDialogOpen;
+  }, [isWalletDialogOpen]);
+
+  useEffect(() => {
     pendingConnectorIdRef.current = pendingConnectorId;
     pendingConnectorNameRef.current = pendingConnectorName;
   }, [pendingConnectorId, pendingConnectorName]);
@@ -144,10 +156,15 @@ export const ConnectButton = ({
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
       const reason = event.reason as unknown;
       const appKitClient = getAppKitClient();
-      const isModalOpen = Boolean(appKitClient?.isOpen?.());
+      const isConnectSurfaceOpen =
+        Boolean(appKitClient?.isOpen?.()) || isWalletDialogOpenRef.current;
       const hasRecentConnectAttempt =
         Date.now() - lastConnectAttemptAtRef.current <= CONNECT_ATTEMPT_WINDOW_MS;
-      if (!isModalOpen && !isPendingRef.current && !hasRecentConnectAttempt) {
+      if (
+        !isConnectSurfaceOpen &&
+        !isPendingRef.current &&
+        !hasRecentConnectAttempt
+      ) {
         return;
       }
 
@@ -184,7 +201,7 @@ export const ConnectButton = ({
         },
         extra: {
           isPending: isPendingRef.current,
-          isModalOpen,
+          isConnectSurfaceOpen,
           hasRecentConnectAttempt,
         },
       });
@@ -208,10 +225,27 @@ export const ConnectButton = ({
   useEffect(() => {
     isConnectedRef.current = isConnected;
     if (!isConnected) return;
+    setIsWalletDialogOpen(false);
     clearConnectShowWatchdog();
     lastConnectAttemptAtRef.current = 0;
     onConnectRef.current?.();
   }, [clearConnectShowWatchdog, isConnected]);
+
+  const handleWalletDialogOpenChange = React.useCallback(
+    (open: boolean) => {
+      setIsWalletDialogOpen(open);
+      if (!open && !isPendingRef.current) {
+        clearConnectShowWatchdog();
+        lastConnectAttemptAtRef.current = 0;
+      }
+    },
+    [clearConnectShowWatchdog]
+  );
+
+  const handleConnectorSelected = React.useCallback(() => {
+    lastConnectAttemptAtRef.current = Date.now();
+    scheduleConnectShowWatchdog();
+  }, [scheduleConnectShowWatchdog]);
 
   useEffect(() => {
     if (!connectError) return;
@@ -267,30 +301,20 @@ export const ConnectButton = ({
 
   return (
     <>
+      <Dialog
+        open={isWalletDialogOpen}
+        onOpenChange={handleWalletDialogOpenChange}
+      >
+        <DialogContent className="max-w-xl p-0" showCloseButton={true}>
+          <WalletOptions onConnectorSelected={handleConnectorSelected} />
+        </DialogContent>
+      </Dialog>
       <div className={clsx("flex justify-center", className)}>
         {!isConnected ? (
           <Button
             variant={variant}
-            onClick={async () => {
-              lastConnectAttemptAtRef.current = Date.now();
-              scheduleConnectShowWatchdog();
-              try {
-                const appKitClient = getAppKitClient();
-                if (!appKitClient) {
-                  throw new Error("AppKit client is not initialized");
-                }
-                await appKitClient.open({ view: "Connect", namespace: "eip155" });
-              } catch (error) {
-                lastConnectAttemptAtRef.current = 0;
-                clearConnectShowWatchdog();
-                const normalizedError =
-                  error instanceof Error ? error : new Error(String(error));
-                Sentry.captureException(normalizedError, {
-                  tags: {
-                    walletStage: "connect_show",
-                  },
-                });
-              }
+            onClick={() => {
+              handleWalletDialogOpenChange(true);
             }}
             type="button"
             className={clsx(
