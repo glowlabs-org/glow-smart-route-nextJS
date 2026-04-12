@@ -388,7 +388,6 @@ function initializeAppKit() {
   const win = window as Window & {
     __glowReownAppKitInitialized?: boolean;
     __glowReownAppKitClient?: ReturnType<typeof createAppKit>;
-    __glowReownInitialConnectorSyncReady?: boolean;
   };
   if (win.__glowReownAppKitInitialized && win.__glowReownAppKitClient) {
     return win.__glowReownAppKitClient;
