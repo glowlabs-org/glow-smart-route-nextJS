@@ -146,6 +146,25 @@ export interface ControlTransferStatusLike {
   errorDetails?: string | null;
 }
 
+function resolveLaunchpadRewardShareCountForDialog(
+  activeFraction: ActiveFraction | null
+): number {
+  if (!activeFraction) return 0;
+
+  const baseTotalSteps = Number.isFinite(activeFraction.totalSteps)
+    ? Math.max(0, Math.floor(activeFraction.totalSteps))
+    : 0;
+  const remainingSteps = Number.isFinite(activeFraction.remainingSteps ?? null)
+    ? Math.max(0, Math.floor(activeFraction.remainingSteps ?? 0))
+    : 0;
+
+  if (activeFraction.delegationAsset === "SGCTL") {
+    return remainingSteps > 0 ? remainingSteps : baseTotalSteps;
+  }
+
+  return baseTotalSteps;
+}
+
 // ============================================================================
 // Contract Error Messages
 // ============================================================================
@@ -1128,7 +1147,8 @@ export function calculateEstimatedRewardsBreakdown(
   let weeklyGlw = 0;
   let weeklyPd = 0;
   let pdSymbol: "GLW" | "SGCTL" | null = null;
-  const totalShares = activeFraction.totalSteps || 1; // avoid div 0
+  const totalShares =
+    resolveLaunchpadRewardShareCountForDialog(activeFraction) || 1; // avoid div 0
 
   if ("userWeeklyGlwRewards" in rewardScore) {
     // Launchpad
@@ -1175,7 +1195,8 @@ export function calculateImpactPointsBreakdown(
   }
 
   const includeVaultBonus = options?.includeVaultBonus ?? true;
-  const totalShares = activeFraction.totalSteps || 1;
+  const totalShares =
+    resolveLaunchpadRewardShareCountForDialog(activeFraction) || 1;
 
   if ("userWeeklyGlwRewards" in rewardScore) {
     // Launchpad (delegation) - earns both emission points and vault bonus

@@ -34,6 +34,7 @@ import {
   parseDelegationStepAmount,
   parseUsd6Amount,
   resolveDelegationCurrency,
+  resolveLaunchpadDelegationShareCount,
 } from "@/utils/launchpad-rewards";
 
 const regionRouter = RegionRouter(
@@ -124,7 +125,7 @@ export function LaunchpadStatsDialog({
     }
   }, [application?.finalProtocolFee, weeklyCC]);
 
-  const totalFractionSteps = application?.activeFraction?.totalSteps ?? 0;
+  const totalFractionSteps = resolveLaunchpadDelegationShareCount(application);
   const stepsForMath = totalFractionSteps > 0 ? totalFractionSteps : 1;
   const perShareRewards = calculateLaunchpadPerShareRewards({
     reward: rewardScore,

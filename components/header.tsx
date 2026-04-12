@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils";
 import { isKolWallet } from "@/lib/kol";
 
 import { GlowLockup } from "./glow-lockup";
+import { SwapDialog } from "./dialogs/swap-dialog";
 import { TosDialog } from "./tos-dialog";
 import { ThemeToggle } from "./ui/theme-toggle";
 import { WalletStatus } from "./wallet-status";
@@ -62,6 +63,34 @@ const ListItem = React.forwardRef<
   );
 });
 ListItem.displayName = "ListItem";
+
+function ActionListItem({
+  title,
+  description,
+  onClick,
+}: {
+  title: string;
+  description: string;
+  onClick: () => void;
+}) {
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onClick}
+        className={cn(
+          "block w-full select-none space-y-1 rounded-xl p-3 text-left leading-none no-underline outline-none transition-all duration-200",
+          "hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 focus:bg-foreground focus:text-background dark:focus:bg-accent/10 dark:focus:text-zinc-100",
+        )}
+      >
+        <div className="text-sm font-medium leading-none">{title}</div>
+        <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
+          {description}
+        </p>
+      </button>
+    </li>
+  );
+}
 
 export interface HeaderHamburgerMenuProps {
   triggerClassName?: string;
@@ -372,6 +401,7 @@ export function Header({
 }) {
   const { address } = useAccount();
   const showKolLink = isKolWallet(address);
+  const [isSwapDialogOpen, setIsSwapDialogOpen] = React.useState(false);
 
   const headerClassName = cn(
     "relative isolate z-50 h-[72px] w-full border-b border-border/40 bg-card/95 backdrop-blur-sm supports-[backdrop-filter]:bg-card/90",
@@ -398,6 +428,11 @@ export function Header({
                       <ListItem href="/" title="Home">
                         Back to the dashboard
                       </ListItem>
+                      <ActionListItem
+                        title="Swap"
+                        description="Buy or swap tokens without leaving the app"
+                        onClick={() => setIsSwapDialogOpen(true)}
+                      />
                       <ListItem href="/stats/rewards" title="Glow Leaderboard">
                         View top wallets and rewards leaderboard
                       </ListItem>
@@ -610,6 +645,19 @@ export function Header({
                               >
                                 Home
                               </Link>
+                            </DrawerClose>
+                            <DrawerClose asChild>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setTimeout(() => {
+                                    setIsSwapDialogOpen(true);
+                                  }, 0);
+                                }}
+                                className="block w-full px-4 py-3 text-left text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                              >
+                                Swap
+                              </button>
                             </DrawerClose>
                             <DrawerClose asChild>
                               <Link
@@ -874,6 +922,10 @@ export function Header({
         </div>
       </header>
 
+      <SwapDialog
+        open={isSwapDialogOpen}
+        onOpenChange={setIsSwapDialogOpen}
+      />
       <TosDialog />
     </>
   );

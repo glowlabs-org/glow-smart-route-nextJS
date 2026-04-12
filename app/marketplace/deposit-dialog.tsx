@@ -210,11 +210,12 @@ export function DepositDialog({
     walletAddress: address ?? undefined,
     enabled: open && runtimeSelectedCurrency === "SGCTL" && Boolean(address),
   });
-  const { availableStake, refetchAvailableStake } = useWalletRegionAvailableStake({
-    walletAddress: address ?? undefined,
-    regionId,
-    enabled: open && runtimeSelectedCurrency === "SGCTL" && Boolean(address),
-  });
+  const { availableStake, refetchAvailableStake } =
+    useWalletRegionAvailableStake({
+      walletAddress: address ?? undefined,
+      regionId,
+      enabled: open && runtimeSelectedCurrency === "SGCTL" && Boolean(address),
+    });
   const {
     gctlPriceNumber,
     gctlBalance,
@@ -911,7 +912,7 @@ export function DepositDialog({
         throw new Error(SPLIT_CONFIRMATION_DELAYED_MESSAGE);
       }
     },
-    [refetchSplits, splitsSummary?.totalStepsPurchased]
+    [refetchSplits, splitsSummary?.totalStepsPurchased],
   );
 
   const fetchFreshAvailableStake = React.useCallback(async () => {
@@ -2232,7 +2233,11 @@ export function DepositDialog({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
             >
-              <Button variant="outline" onClick={handleClose} className="w-full">
+              <Button
+                variant="outline"
+                onClick={handleClose}
+                className="w-full"
+              >
                 Close
               </Button>
             </motion.div>
@@ -2325,28 +2330,9 @@ export function DepositDialog({
                   Est. Weekly Rewards
                 </div>
                 <div className="flex items-baseline gap-1.5 flex-wrap">
-                  <AnimatePresence mode="popLayout">
-                    <motion.span
-                      key={`${estimatedRewardsBreakdown.glw}-${estimatedRewardsBreakdown.pd}`}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="text-lg md:text-2xl font-bold font-mono text-green-600 dark:text-[#D1FF4D]" // Glow Green-ish
-                    >
-                      {(isMultiAssetEstimatedRewards
-                        ? estimatedRewardsBreakdown.glw
-                        : estimatedRewards
-                      ).toLocaleString(undefined, {
-                        maximumFractionDigits: 2,
-                      })}
-                    </motion.span>
-                  </AnimatePresence>
-                  <span className="text-sm text-green-600/70 dark:text-[#D1FF4D]/70 font-medium">
-                    {isMultiAssetEstimatedRewards ? "GLW +" : "GLW"}
-                  </span>
                   {isMultiAssetEstimatedRewards ? (
                     <>
-                      <span className="text-lg md:text-xl font-bold font-mono text-green-600 dark:text-[#D1FF4D]">
+                      <span className="text-lg md:text-2xl font-bold font-mono text-green-600 dark:text-[#D1FF4D]">
                         {estimatedRewardsBreakdown.pd.toLocaleString(
                           undefined,
                           {
@@ -2357,8 +2343,52 @@ export function DepositDialog({
                       <span className="text-sm text-green-600/70 dark:text-[#D1FF4D]/70 font-medium">
                         SGCTL
                       </span>
+                      <span className="text-sm text-green-600/70 dark:text-[#D1FF4D]/70 font-medium">
+                        +
+                      </span>
+                      <AnimatePresence mode="popLayout">
+                        <motion.span
+                          key={`${estimatedRewardsBreakdown.glw}-${estimatedRewardsBreakdown.pd}`}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          className="text-lg md:text-2xl font-bold font-mono text-green-600 dark:text-[#D1FF4D]"
+                        >
+                          {estimatedRewardsBreakdown.glw.toLocaleString(
+                            undefined,
+                            {
+                              maximumFractionDigits: 2,
+                            },
+                          )}
+                        </motion.span>
+                      </AnimatePresence>
+                      <span className="text-sm text-green-600/70 dark:text-[#D1FF4D]/70 font-medium">
+                        GLW
+                      </span>
                     </>
-                  ) : null}
+                  ) : (
+                    <>
+                      <AnimatePresence mode="popLayout">
+                        <motion.span
+                          key={`${estimatedRewardsBreakdown.glw}-${estimatedRewardsBreakdown.pd}`}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          className="text-lg md:text-2xl font-bold font-mono text-green-600 dark:text-[#D1FF4D]"
+                        >
+                          {estimatedRewards.toLocaleString(undefined, {
+                            maximumFractionDigits: 2,
+                          })}
+                        </motion.span>
+                      </AnimatePresence>
+                      <span className="text-sm text-green-600/70 dark:text-[#D1FF4D]/70 font-medium">
+                        GLW
+                      </span>
+                    </>
+                  )}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground/80">
+                  weekly for 100 weeks.
                 </div>
               </div>
               <div className="text-right">
