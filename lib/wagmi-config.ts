@@ -1,7 +1,7 @@
 "use client";
 
 import { createStorage } from "wagmi";
-import { coinbaseWallet, injected } from "wagmi/connectors";
+import { injected } from "wagmi/connectors";
 import { createAppKit } from "@reown/appkit/react";
 import { mainnet, sepolia } from "@reown/appkit/networks";
 import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
@@ -38,21 +38,6 @@ function getAppKitMetadata() {
     url,
     icons: [`${APPKIT_PRODUCTION_URL}/icon.png`],
   };
-}
-
-// Coinbase SDK v4 detects the extension via the legacy `window.coinbaseWalletExtension`
-// property, but modern Coinbase Wallet injects via `window.ethereum` with
-// `isCoinbaseWallet: true`. Bridge the gap so the SDK finds the extension.
-if (typeof window !== "undefined" && !(window as any).coinbaseWalletExtension) {
-  const eth = (window as any).ethereum;
-  const cbProvider = Array.isArray(eth?.providers)
-    ? eth.providers.find((p: any) => p.isCoinbaseWallet === true)
-    : eth?.isCoinbaseWallet
-      ? eth
-      : undefined;
-  if (cbProvider) {
-    (window as any).coinbaseWalletExtension = cbProvider;
-  }
 }
 
 const INJECTED_CONNECTOR_OPTIONS = {
@@ -399,8 +384,21 @@ const wagmiAdapter = new WagmiAdapter({
                 ),
             },
           }),
-          coinbaseWallet({
-            appName: "Glow",
+          injected({
+            ...INJECTED_CONNECTOR_OPTIONS,
+            target: {
+              id: "coinbaseWallet",
+              name: "Coinbase Wallet",
+              provider: (window) =>
+                ((window as any)?.coinbaseWalletExtension as any) ??
+                pickInjectedProvider(
+                  window,
+                  (provider) => provider.isCoinbaseWallet === true,
+                  (provider, info) =>
+                    info?.rdns === "com.coinbase.wallet" ||
+                    provider.isCoinbaseWallet === true,
+                ),
+            },
           }),
         ],
   storage: createStorage({
@@ -425,15 +423,9 @@ function initializeAppKit() {
     projectId: WALLET_CONNECT_PROJECT_ID,
     metadata: getAppKitMetadata(),
     enableWallets: true,
-    // Feature Coinbase Wallet prominently in the modal. AppKit hides the
-    // coinbaseWalletSDK connector from the EXTERNAL widget by design;
-    // featuring it by explorer ID makes it appear in the main wallet list.
-    featuredWalletIds: [
-      "fd20dc426fb37566d803205b19bbc1d4096b248ac04548e3cfb6b3a38bd033aa", // Coinbase Wallet
-    ],
-    // Keep AppKit from layering its own generic injected connector. The
-    // coinbaseWallet() connector is added directly in the wagmi adapter;
-    // AppKit's duplicate check (id === 'coinbaseWalletSDK') prevents doubles.
+    // Keep AppKit from layering its own Coinbase/Injected connectors on top
+    // of the explicit wagmi connectors above.
+    enableCoinbase: false,
     enableInjected: false,
     features: {
       email: false,
