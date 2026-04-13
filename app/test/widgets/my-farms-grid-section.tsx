@@ -86,6 +86,7 @@ import {
 } from "@/utils/launchpad-rewards";
 import { filterPublicLaunchpadApplications } from "@/utils/launchpad";
 import {
+  isSplitActivityStillActive,
   resolveLaunchpadActivityFarmId,
   resolveLaunchpadSplitCurrency,
   type DelegationAmountsByAsset,
@@ -1921,11 +1922,12 @@ export default function MyFarmsGridSection({
     for (const evt of splitsActivity) {
       const applicationId = evt.applicationId;
       const fractionType = evt.fractionType;
-      const status = (evt.fractionStatus ?? "").toLowerCase();
-      if (!applicationId || !fractionType || status !== "committed") continue;
+      if (!applicationId || !fractionType) continue;
       try {
-        const amount = BigInt(evt.amount);
         const listing = sponsorListingById.get(applicationId);
+        if (!isSplitActivityStillActive({ split: evt, listing })) continue;
+
+        const amount = BigInt(evt.amount);
         const delegationCurrency =
           fractionType === "launchpad"
             ? resolveLaunchpadSplitCurrency({

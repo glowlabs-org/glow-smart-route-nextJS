@@ -10,6 +10,7 @@ import {
   resolveDelegationCurrency,
   type DelegationCurrency,
 } from "@/utils/launchpad-rewards";
+import { isSplitActivityStillActive } from "@/utils/wallet-launchpad";
 
 export interface SponsorshipInProgress {
   applicationId: string;
@@ -71,18 +72,10 @@ function deriveInProgress(params: {
   for (const evt of splitsActivity) {
     if (evt.fractionType !== fractionType) continue;
 
-    const status = (evt.fractionStatus ?? "").toLowerCase();
-    if (status !== "committed") continue;
-
     const app = sponsorListings.find((a) => a.id === evt.applicationId) ?? null;
+    if (!isSplitActivityStillActive({ split: evt, listing: app })) continue;
     const progress =
       app?.activeFraction?.progressPercent ?? evt.progressPercent ?? 0;
-    const isFilled =
-      Boolean(app?.activeFraction?.isFilled) ||
-      Boolean(evt.isFilled) ||
-      Boolean(evt.fractionStatus === "filled") ||
-      progress >= 100;
-    if (isFilled) continue;
 
     const delegationCurrency =
       fractionType === "launchpad"

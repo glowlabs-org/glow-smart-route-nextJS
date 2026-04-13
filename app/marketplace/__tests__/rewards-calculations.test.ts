@@ -119,6 +119,7 @@ describe("calculateEstimatedRewards", () => {
     it("keeps SGCTL PD rewards out of GLW totals", () => {
       const fraction = createFraction({
         totalSteps: 10,
+        remainingSteps: 10,
         delegationAsset: "SGCTL",
       });
       const score = createLaunchpadScore({
@@ -133,6 +134,7 @@ describe("calculateEstimatedRewards", () => {
     it("returns SGCTL PD amount in rewards breakdown for multi-asset listings", () => {
       const fraction = createFraction({
         totalSteps: 10,
+        remainingSteps: 10,
         delegationAsset: "SGCTL",
       });
       const score = createLaunchpadScore({
@@ -145,6 +147,29 @@ describe("calculateEstimatedRewards", () => {
       expect(breakdown.pd).toBe(5);
       expect(breakdown.pdSymbol).toBe("SGCTL");
       expect(breakdown.totalGlwEquivalent).toBe(10);
+    });
+
+    it("uses the selected currency override when the fraction delegation asset is stale", () => {
+      const fraction = createFraction({
+        totalSteps: 4604,
+        remainingSteps: 4602,
+        delegationAsset: "SGCTL",
+      });
+      const score = createLaunchpadScore({
+        userWeeklyGlwRewards: parseUnits("36824", 18).toString(),
+        userWeeklyPdRewards: parseUnits("18412", 18).toString(),
+      });
+
+      const breakdown = calculateEstimatedRewardsBreakdown(
+        6,
+        fraction,
+        score,
+        "GLW"
+      );
+
+      expect(breakdown.pdSymbol).toBe("GLW");
+      expect(breakdown.glw).toBeCloseTo(47.989574283231974, 6);
+      expect(breakdown.pd).toBeCloseTo(23.994787141615987, 6);
     });
 
     it("avoids division by zero with totalSteps=0", () => {

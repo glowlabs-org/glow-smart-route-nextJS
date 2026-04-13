@@ -29,12 +29,10 @@ export function shouldIncludePendingStartCard(params: {
     status,
     farmTypeKey,
     rewardedFarmTypeKeys,
-    hasCurrentOwnership,
     purchaseDate,
   } = params;
 
   if (!fractionType) return false;
-  if (!hasCurrentOwnership) return false;
 
   if (rewardedFarmTypeKeys.has(farmTypeKey)) {
     if (fractionType !== "mining-center") {

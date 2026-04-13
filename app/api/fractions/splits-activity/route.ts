@@ -1,11 +1,8 @@
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
-
-const CACHE_HEADERS = {
-  "Cache-Control":
-    "public, max-age=0, s-maxage=30, stale-while-revalidate=120",
-};
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
 
 function getHubUrl(): string {
   const value = process.env.NEXT_PUBLIC_HUB_URL;
@@ -28,19 +25,21 @@ export async function GET(req: Request) {
     }
 
     const response = await fetch(forward.toString(), {
-      next: { revalidate: 30 },
+      cache: "no-store",
     });
 
     if (!response.ok) {
       const text = await response.text();
       return NextResponse.json(
         { error: text || `Hub error ${response.status}` },
-        { status: response.status, headers: CACHE_HEADERS }
+        { status: response.status, headers: { "Cache-Control": "no-store" } }
       );
     }
 
     const payload = await response.json();
-    return NextResponse.json(payload, { headers: CACHE_HEADERS });
+    return NextResponse.json(payload, {
+      headers: { "Cache-Control": "no-store" },
+    });
   } catch (error) {
     return NextResponse.json(
       {

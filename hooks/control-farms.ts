@@ -71,8 +71,10 @@ export function useWalletFarms(params: {
   const query = useQuery({
     queryKey: QUERY_KEYS.wallets.farms(walletAddress),
     enabled: enabled && isConfigured && Boolean(walletAddress),
-    staleTime: QUERY_CONFIG.DEFAULT.staleTime,
-    refetchOnWindowFocus: QUERY_CONFIG.DEFAULT.refetchOnWindowFocus,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchOnMount: true,
     queryFn: async (): Promise<FarmWithRewards[]> => {
       if (!walletAddress) return [];
       try {

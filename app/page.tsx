@@ -7,7 +7,7 @@ import { HydrationWrapper } from "./components/hydration-wrapper";
 import { Header } from "@/components/header";
 import GlowSoftDashboard from "./test/bento";
 
-export const revalidate = 30;
+export const dynamic = "force-dynamic";
 
 function PageContent() {
   return (

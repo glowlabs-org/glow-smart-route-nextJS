@@ -25,6 +25,7 @@ import {
   buildDelegateSgctlMessage,
   delegateSgctlEIP712Types,
   stakeControlEIP712Domain,
+  type FarmWithRewards,
 } from "@glowlabs-org/utils/browser";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWalletClient } from "wagmi";
@@ -105,6 +106,9 @@ import {
 } from "./deposit-dialog-utils";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { useIsMobile } from "@/hooks/use-mobile";
+import type { SplitActivity, SplitsActivityResponse } from "@/hooks/hub-listings";
+import { hubGet } from "@/lib/api/hub-client";
+import type { RewardsBreakdownResponse } from "@/hooks/hub-fractions";
 
 export type LaunchpadRewardScore = {
   userWeeklyGlwRewards: string;
@@ -117,6 +121,203 @@ export type MiningCenterScore = {
   weeklyGlwRewardsUsd?: string;
   weeksOfMinerLifeRemaining?: number;
 };
+
+function updateApplicationAfterSuccessfulPurchase(
+  application: AuctionApplication,
+  quantity: number,
+): AuctionApplication {
+  const fraction = application.activeFraction;
+  if (!fraction) return application;
+
+  const totalSteps = Math.max(0, Math.floor(fraction.totalSteps ?? 0));
+  const prevRemaining = Math.max(0, Math.floor(fraction.remainingSteps ?? 0));
+  const nextRemaining = Math.max(0, prevRemaining - Math.max(0, quantity));
+  const nextSplitsSold = Math.max(
+    0,
+    Math.floor(fraction.splitsSold ?? 0) + Math.max(0, quantity),
+  );
+  const filled = Math.max(0, totalSteps - nextRemaining);
+  const progressPercent =
+    totalSteps > 0 ? Number(((filled / totalSteps) * 100).toFixed(2)) : 0;
+
+  return {
+    ...application,
+    activeFraction: {
+      ...fraction,
+      remainingSteps: nextRemaining,
+      splitsSold: nextSplitsSold,
+      progressPercent,
+      isFilled: nextRemaining <= 0,
+    },
+  };
+}
+
+function prependSuccessfulSplitActivity(
+  previous: SplitsActivityResponse | undefined,
+  params: {
+    txHash: string;
+    walletAddress: string;
+    application: AuctionApplication;
+    quantity: number;
+    amount: bigint;
+    currency: DepositSelectedCurrency;
+  },
+): SplitsActivityResponse | undefined {
+  if (!previous) return previous;
+
+  const currency =
+    params.currency === "USDC" ? "USDC" : params.currency === "SGCTL" ? "SGCTL" : "GLW";
+  const fraction = params.application.activeFraction;
+  if (!fraction) return previous;
+
+  const alreadyPresent = previous.activity.some(
+    (item) => item.transactionHash === params.txHash,
+  );
+  if (alreadyPresent) return previous;
+
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const updatedApplication = updateApplicationAfterSuccessfulPurchase(
+    params.application,
+    params.quantity,
+  );
+  const fractionType: SplitActivity["fractionType"] =
+    params.application.paymentCurrency === "USDC"
+      ? "mining-center"
+      : "launchpad";
+
+  const optimisticEntry: SplitActivity = {
+    transactionHash: params.txHash,
+    blockNumber: 0,
+    buyer: params.walletAddress,
+    creator: fraction.owner,
+    stepsPurchased: params.quantity,
+    amount: params.amount.toString(),
+    step: fraction.step,
+    timestamp: nowSeconds,
+    purchaseDate: new Date(nowSeconds * 1000).toISOString(),
+    fractionId: fraction.id,
+    applicationId: params.application.id,
+    farmId: params.application.farmId ?? null,
+    farmName: params.application.farmName ?? "",
+    fractionType,
+    fractionStatus: fraction.status,
+    currency,
+    currencyDecimals: DECIMALS_BY_TOKEN[currency],
+    isFilled: updatedApplication.activeFraction?.isFilled ?? false,
+    progressPercent: updatedApplication.activeFraction?.progressPercent ?? 0,
+    rewardScore: updatedApplication.activeFraction?.rewardScore ?? null,
+    stepPrice: fraction.stepPrice,
+    totalValue: params.amount.toString(),
+  };
+
+  return {
+    ...previous,
+    activity: [optimisticEntry, ...previous.activity],
+    summary: {
+      ...previous.summary,
+      totalTransactions: previous.summary.totalTransactions + 1,
+      totalStepsPurchased:
+        previous.summary.totalStepsPurchased + Math.max(0, params.quantity),
+      totalAmountSpent: previous.summary.totalAmountSpent,
+    },
+  };
+}
+
+function replaceApplicationInSponsorListings(
+  old: unknown,
+  application: AuctionApplication,
+) {
+  if (!Array.isArray(old)) return old;
+  return old.map((item) => {
+    if (
+      !item ||
+      typeof item !== "object" ||
+      (item as AuctionApplication).id !== application.id
+    ) {
+      return item;
+    }
+    return application;
+  });
+}
+
+async function fetchFreshSplitsActivityResponse(params: {
+  walletAddress: string;
+  limit: number;
+  fractionType?: "launchpad" | "mining-center";
+}): Promise<SplitsActivityResponse> {
+  const search = new URLSearchParams();
+  search.set("limit", String(params.limit));
+  search.set("walletAddress", params.walletAddress);
+  if (params.fractionType) {
+    search.set("fractionType", params.fractionType);
+  }
+
+  const endpoint = params.fractionType
+    ? "/api/fractions/splits-activity-by-type"
+    : "/api/fractions/splits-activity";
+  const response = await fetch(`${endpoint}?${search.toString()}`, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch fresh splits activity: ${response.status}`,
+    );
+  }
+
+  return (await response.json()) as SplitsActivityResponse;
+}
+
+async function fetchFreshWalletFarmsResponse(
+  walletAddress: string,
+): Promise<FarmWithRewards[]> {
+  const baseUrl = process.env.NEXT_PUBLIC_CONTROL_API_URL;
+  if (!baseUrl) {
+    throw new Error("Environment variable NEXT_PUBLIC_CONTROL_API_URL is not set");
+  }
+
+  const response = await fetch(
+    `${baseUrl}/farms/wallet/${encodeURIComponent(
+      walletAddress,
+    )}/farms-with-rewards?_=${Date.now()}`,
+    {
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch fresh wallet farms: ${response.status}`);
+  }
+
+  const body = (await response.json()) as
+    | { farms?: FarmWithRewards[] }
+    | FarmWithRewards[];
+
+  return Array.isArray(body) ? body : body.farms ?? [];
+}
+
+async function fetchFreshRewardsBreakdownResponse(params: {
+  walletAddress?: string | null;
+  farmId?: string | null;
+  startWeek?: number;
+  endWeek?: number;
+}): Promise<RewardsBreakdownResponse | null> {
+  return await hubGet<RewardsBreakdownResponse | null>(
+    "/fractions/rewards-breakdown",
+    {
+      params: {
+        walletAddress: params.walletAddress ?? undefined,
+        farmId: params.farmId ?? undefined,
+        startWeek: params.startWeek,
+        endWeek: params.endWeek,
+      },
+      notFound: null,
+      init: {
+        cache: "no-store",
+      },
+    },
+  );
+}
 
 function isInsufficientAvailableStakedError(error: unknown): boolean {
   const message = getErrorMessage(error);
@@ -257,6 +458,7 @@ export function DepositDialog({
     React.useState(false);
   const [successMetrics, setSuccessMetrics] =
     React.useState<SuccessMetrics | null>(null);
+  const postSuccessRefreshTimeoutsRef = React.useRef<number[]>([]);
 
   const fetchLatestApplication = React.useCallback(async () => {
     if (!application?.id) return application;
@@ -709,7 +911,11 @@ export function DepositDialog({
     return "mint_usdc";
   }, [runtimeSelectedCurrency, selectedPaymentMethod, sgctlShortfall]);
   const isPreparingWalletAuthorization = React.useMemo(() => {
-    if (!isConnected || runtimeSelectedCurrency !== "SGCTL") return false;
+    if (!isConnected) return false;
+
+    if (runtimeSelectedCurrency !== "SGCTL") {
+      return isWalletClientLoading || !walletClient;
+    }
 
     if (sgctlSourceMode === "staked") {
       return (
@@ -742,10 +948,16 @@ export function DepositDialog({
     () =>
       calculateEstimatedRewardsBreakdown(
         quantity,
-        application?.activeFraction ?? null,
+        effectiveApplication?.activeFraction ?? null,
         rewardScore ?? null,
+        runtimeSelectedCurrency,
       ),
-    [quantity, application?.activeFraction, rewardScore],
+    [
+      effectiveApplication?.activeFraction,
+      quantity,
+      rewardScore,
+      runtimeSelectedCurrency,
+    ],
   );
   const estimatedRewards = estimatedRewardsBreakdown.totalGlwEquivalent;
   const isMultiAssetEstimatedRewards =
@@ -770,7 +982,10 @@ export function DepositDialog({
         effectiveApplication?.activeFraction ?? null,
         rewardScore ?? null,
         costInGLW,
-        { includeVaultBonus: runtimeSelectedCurrency === "GLW" },
+        {
+          includeVaultBonus: runtimeSelectedCurrency === "GLW",
+          selectedCurrency: runtimeSelectedCurrency,
+        },
       ),
     [
       quantity,
@@ -932,8 +1147,14 @@ export function DepositDialog({
         return;
       }
 
-      const maxAttempts = 45;
-      const delayMs = 2000;
+      // The first 30s are usually spent waiting on block confirmation, so
+      // front-loading 1s polling just burns requests. Use a staged schedule:
+      // 0-30s: every 10s, 30-60s: every 5s, 60-90s: every 2s.
+      const pollDelaysMs = [
+        ...Array(3).fill(10_000),
+        ...Array(6).fill(5_000),
+        ...Array(15).fill(2_000),
+      ];
       let hasFreshStakeRead = false;
       let lastRetriableError: unknown = null;
       let lastAvailableStake = 0n;
@@ -946,7 +1167,7 @@ export function DepositDialog({
         queryKey: QUERY_KEYS.wallets.availableStake(address, regionId),
       });
 
-      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      for (let attempt = 0; attempt <= pollDelaysMs.length; attempt += 1) {
         const [freshRegionStakeResult] = await Promise.allSettled([
           fetchFreshAvailableStake(),
           refetchAvailableStake().catch(() => null),
@@ -969,8 +1190,10 @@ export function DepositDialog({
           throw freshRegionStakeResult.reason;
         }
 
-        if (attempt < maxAttempts - 1) {
-          await new Promise((resolve) => setTimeout(resolve, delayMs));
+        if (attempt < pollDelaysMs.length) {
+          await new Promise((resolve) =>
+            setTimeout(resolve, pollDelaysMs[attempt]),
+          );
         }
       }
 
@@ -981,7 +1204,7 @@ export function DepositDialog({
       }
 
       throw new Error(
-        `Your recent stake is still indexing in Control. Required: ${requiredAmount.toString()}. Available: ${lastAvailableStake.toString()}.`,
+        "Your new balance is still updating. Please wait a moment and try again.",
       );
     },
     [
@@ -1045,35 +1268,89 @@ export function DepositDialog({
 
   const invalidatePostSuccessQueries = React.useCallback(
     async (fractionId: string) => {
+      const normalizedAddress = address?.toLowerCase() ?? null;
+
       await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: QUERY_KEYS.fractions.rewardsBreakdown({
-            walletAddress: address,
-          }),
+        queryClient.refetchQueries({
+          queryKey: ["sponsor-listings"],
+          exact: false,
+          type: "all",
         }),
-        queryClient.invalidateQueries({
-          queryKey: QUERY_KEYS.wallets.farms(address),
+        queryClient.refetchQueries({
+          queryKey: ["sponsor-listings-live-soon"],
+          type: "all",
         }),
-        queryClient.invalidateQueries({
+        queryClient.refetchQueries({
+          queryKey: ["reward-scores"],
+          exact: false,
+          type: "all",
+        }),
+        queryClient.refetchQueries({
+          queryKey: ["mining-scores"],
+          exact: false,
+          type: "all",
+        }),
+        queryClient.refetchQueries({
+          queryKey: ["splits-activity"],
+          exact: false,
+          type: "all",
+        }),
+        queryClient.refetchQueries({
+          queryKey: ["rewards-breakdown"],
+          exact: false,
+          type: "all",
+        }),
+        queryClient.refetchQueries({
+          queryKey: ["wallet-farms"],
+          exact: false,
+          type: "all",
+        }),
+        queryClient.refetchQueries({
           queryKey: QUERY_KEYS.fractions.splits(address, fractionId),
+          type: "all",
         }),
-        queryClient.invalidateQueries({
-          queryKey: QUERY_KEYS.wallets.rewards(address),
+        queryClient.refetchQueries({
+          queryKey: ["wallet-rewards"],
+          exact: false,
+          type: "all",
         }),
-        queryClient.invalidateQueries({
+        queryClient.refetchQueries({
           queryKey: QUERY_KEYS.impact.score(address),
+          type: "all",
         }),
-        queryClient.invalidateQueries({
+        queryClient.refetchQueries({
           queryKey: QUERY_KEYS.impact.glowWorth(address),
+          type: "all",
         }),
-        queryClient.invalidateQueries({
+        queryClient.refetchQueries({
           queryKey: QUERY_KEYS.impact.scoreBreakdown(address),
+          type: "all",
         }),
-        queryClient.invalidateQueries({
+        queryClient.refetchQueries({
           queryKey: QUERY_KEYS.impact.leaderboard(),
+          type: "all",
         }),
-        queryClient.invalidateQueries({
+        queryClient.refetchQueries({
           queryKey: QUERY_KEYS.balances.tokens(chainId, address),
+          type: "all",
+        }),
+        queryClient.refetchQueries({
+          queryKey: QUERY_KEYS.fractions.splits(normalizedAddress, fractionId),
+          type: "all",
+        }),
+        queryClient.refetchQueries({
+          queryKey: QUERY_KEYS.wallets.farms(normalizedAddress ?? undefined),
+          type: "all",
+        }),
+        queryClient.refetchQueries({
+          queryKey: QUERY_KEYS.wallets.rewards(normalizedAddress ?? undefined),
+          type: "all",
+        }),
+        queryClient.refetchQueries({
+          queryKey: QUERY_KEYS.fractions.rewardsBreakdown({
+            walletAddress: normalizedAddress,
+          }),
+          type: "all",
         }),
       ]);
 
@@ -1090,10 +1367,221 @@ export function DepositDialog({
     ],
   );
 
+  const syncFreshPostSuccessCaches = React.useCallback(async () => {
+    const normalizedAddress = address?.toLowerCase();
+    if (!normalizedAddress) return;
+
+    const sponsorQueryCache = queryClient.getQueryCache().findAll({
+      queryKey: ["sponsor-listings"],
+    });
+    const sponsorResults = new Map<string, AuctionApplication[]>();
+
+    for (const query of sponsorQueryCache) {
+      const [, rawFilters] = query.queryKey as [string, Record<string, any>?];
+      const filters = rawFilters ?? {};
+      const cacheKey = JSON.stringify(filters);
+      let fresh = sponsorResults.get(cacheKey);
+      if (!fresh) {
+        fresh = await fetchSponsorListings(filters);
+        sponsorResults.set(cacheKey, fresh);
+      }
+      queryClient.setQueryData(query.queryKey, fresh);
+    }
+
+    const splitQueryCache = queryClient.getQueryCache().findAll({
+      queryKey: ["splits-activity"],
+    });
+    const splitResults = new Map<string, SplitsActivityResponse>();
+
+    for (const query of splitQueryCache) {
+      const [, rawLimit, rawWalletAddress, rawFractionType] = query.queryKey as [
+        string,
+        number | undefined,
+        string | undefined,
+        "launchpad" | "mining-center" | undefined,
+      ];
+
+      const queryWallet = rawWalletAddress?.toLowerCase();
+      if (queryWallet && queryWallet !== normalizedAddress) continue;
+
+      const limit =
+        typeof rawLimit === "number" && Number.isFinite(rawLimit)
+          ? rawLimit
+          : 50;
+      const fractionType =
+        rawFractionType === "launchpad" || rawFractionType === "mining-center"
+          ? rawFractionType
+          : undefined;
+      const cacheKey = `${limit}:${fractionType ?? "all"}`;
+
+      let fresh = splitResults.get(cacheKey);
+      if (!fresh) {
+        fresh = await fetchFreshSplitsActivityResponse({
+          walletAddress: normalizedAddress,
+          limit,
+          fractionType,
+        });
+        splitResults.set(cacheKey, fresh);
+      }
+      queryClient.setQueryData(query.queryKey, fresh);
+    }
+
+    const walletFarmQueryCache = queryClient.getQueryCache().findAll({
+      queryKey: ["wallet-farms"],
+    });
+    if (walletFarmQueryCache.length > 0) {
+      const freshWalletFarms =
+        await fetchFreshWalletFarmsResponse(normalizedAddress);
+
+      for (const query of walletFarmQueryCache) {
+        const [, rawWalletAddress] = query.queryKey as [
+          string,
+          string | undefined,
+        ];
+        const queryWallet = rawWalletAddress?.toLowerCase();
+        if (queryWallet && queryWallet !== normalizedAddress) continue;
+        queryClient.setQueryData(query.queryKey, freshWalletFarms);
+      }
+    }
+
+    const rewardsBreakdownQueryCache = queryClient.getQueryCache().findAll({
+      queryKey: ["rewards-breakdown"],
+    });
+    const rewardsBreakdownResults = new Map<string, RewardsBreakdownResponse | null>();
+
+    for (const query of rewardsBreakdownQueryCache) {
+      const [
+        ,
+        rawWalletAddress,
+        rawFarmId,
+        rawStartWeek,
+        rawEndWeek,
+      ] = query.queryKey as [
+        string,
+        string | null | undefined,
+        string | null | undefined,
+        number | undefined,
+        number | undefined,
+      ];
+
+      const queryWallet = rawWalletAddress?.toLowerCase() ?? null;
+      if (queryWallet && queryWallet !== normalizedAddress) continue;
+
+      const cacheKey = JSON.stringify([
+        queryWallet,
+        rawFarmId ?? null,
+        rawStartWeek ?? null,
+        rawEndWeek ?? null,
+      ]);
+
+      let fresh = rewardsBreakdownResults.get(cacheKey);
+      if (fresh === undefined) {
+        fresh = await fetchFreshRewardsBreakdownResponse({
+          walletAddress: rawWalletAddress ?? undefined,
+          farmId: rawFarmId ?? undefined,
+          startWeek: rawStartWeek,
+          endWeek: rawEndWeek,
+        });
+        rewardsBreakdownResults.set(cacheKey, fresh);
+      }
+
+      queryClient.setQueryData(query.queryKey, fresh);
+    }
+  }, [address, queryClient]);
+
+  const clearScheduledPostSuccessRefreshes = React.useCallback(() => {
+    for (const timeoutId of postSuccessRefreshTimeoutsRef.current) {
+      window.clearTimeout(timeoutId);
+    }
+    postSuccessRefreshTimeoutsRef.current = [];
+  }, []);
+
+  const schedulePostSuccessRefreshes = React.useCallback(
+    (fractionId: string) => {
+      clearScheduledPostSuccessRefreshes();
+
+      const refreshDelaysMs = [2_000, 5_000, 10_000];
+
+      for (const delayMs of refreshDelaysMs) {
+        const timeoutId = window.setTimeout(() => {
+          void (async () => {
+            try {
+              await invalidatePostSuccessQueries(fractionId);
+              await syncFreshPostSuccessCaches();
+            } catch {
+              // Best effort only. Late projection passes should never surface
+              // an additional error once the transaction is already successful.
+            }
+          })();
+        }, delayMs);
+
+        postSuccessRefreshTimeoutsRef.current.push(timeoutId);
+      }
+    },
+    [
+      clearScheduledPostSuccessRefreshes,
+      invalidatePostSuccessQueries,
+      syncFreshPostSuccessCaches,
+    ],
+  );
+
+  React.useEffect(() => {
+    if (open) return;
+    clearScheduledPostSuccessRefreshes();
+  }, [clearScheduledPostSuccessRefreshes, open]);
+
+  React.useEffect(() => {
+    return () => {
+      clearScheduledPostSuccessRefreshes();
+    };
+  }, [clearScheduledPostSuccessRefreshes]);
+
+  const applyOptimisticPostSuccessUpdates = React.useCallback(
+    (params: {
+      txHash: string;
+      application: AuctionApplication;
+      fallbackApplication?: AuctionApplication | null;
+      quantity: number;
+      amount: bigint;
+      currency: DepositSelectedCurrency;
+    }) => {
+      const normalizedAddress = address?.toLowerCase();
+      if (!normalizedAddress) return;
+
+      queryClient.setQueriesData(
+        { queryKey: ["sponsor-listings"], exact: false },
+        (old: unknown) =>
+          replaceApplicationInSponsorListings(old, params.application),
+      );
+
+      queryClient.setQueriesData(
+        { queryKey: ["splits-activity"], exact: false },
+        (old: unknown) =>
+          prependSuccessfulSplitActivity(
+            old as SplitsActivityResponse | undefined,
+            {
+              txHash: params.txHash,
+              walletAddress: normalizedAddress,
+              application:
+                params.fallbackApplication ?? params.application,
+              quantity: params.quantity,
+              amount: params.amount,
+              currency: params.currency,
+            },
+          ),
+      );
+    },
+    [address, queryClient],
+  );
+
   const handleConfirm = async () => {
     if (!isConnected || !effectiveApplication?.activeFraction) return;
     if (isPreparingWalletAuthorization) {
-      toast.message("Preparing wallet signer...");
+      toast.message(
+        runtimeSelectedCurrency === "SGCTL"
+          ? "Preparing wallet signer..."
+          : "Preparing wallet connection...",
+      );
       return;
     }
 
@@ -1292,14 +1780,34 @@ export function DepositDialog({
         updateStepStatus("CONFIRM_TX", "confirming");
 
         await confirmPurchaseInSplits(quantity);
-        setSuccessMetrics(calculateSuccessMetrics(activeFraction, quantity));
+        const confirmedApplication =
+          (await fetchLatestApplication()) ?? currentApplication;
+        setLiveApplication(confirmedApplication);
+        setSuccessMetrics(
+          calculateSuccessMetrics(
+            activeFraction,
+            quantity,
+            runtimeSelectedCurrency,
+          ),
+        );
 
         await sponsorMutation.mutateAsync({
           applicationId: currentApplication.id,
           amount: currentSgctlRequiredAmount,
           currency: runtimeSelectedCurrency,
           txHash: delegationResult.delegationId,
-          onSuccess: () => {
+          onSuccess: async () => {
+            applyOptimisticPostSuccessUpdates({
+              txHash: delegationResult.delegationId,
+              application: confirmedApplication,
+              fallbackApplication: currentApplication,
+              quantity,
+              amount: currentSgctlRequiredAmount,
+              currency: runtimeSelectedCurrency,
+            });
+            await invalidatePostSuccessQueries(activeFraction.id);
+            await syncFreshPostSuccessCaches();
+            schedulePostSuccessRefreshes(activeFraction.id);
             updateStepStatus("CONFIRM_TX", "completed");
             setPhase("success");
             setTxHash(null);
@@ -1319,7 +1827,6 @@ export function DepositDialog({
             });
 
             toast.success("Delegation successful!");
-            void invalidatePostSuccessQueries(activeFraction.id);
             onSuccess?.();
           },
         });
@@ -1457,8 +1964,17 @@ export function DepositDialog({
       setTxHash(txHash);
 
       await confirmPurchaseInSplits(quantity);
+      const confirmedApplication =
+        (await fetchLatestApplication()) ?? currentApplication;
+      setLiveApplication(confirmedApplication);
 
-      setSuccessMetrics(calculateSuccessMetrics(activeFraction, quantity));
+      setSuccessMetrics(
+        calculateSuccessMetrics(
+          activeFraction,
+          quantity,
+          runtimeSelectedCurrency,
+        ),
+      );
 
       const costBigInt =
         runtimeSelectedCurrency === "USDC"
@@ -1470,7 +1986,18 @@ export function DepositDialog({
         amount: costBigInt,
         currency: runtimeSelectedCurrency,
         txHash: txHash,
-        onSuccess: () => {
+        onSuccess: async () => {
+          applyOptimisticPostSuccessUpdates({
+            txHash,
+            application: confirmedApplication,
+            fallbackApplication: currentApplication,
+            quantity,
+            amount: costBigInt,
+            currency: runtimeSelectedCurrency,
+          });
+          await invalidatePostSuccessQueries(activeFraction.id);
+          await syncFreshPostSuccessCaches();
+          schedulePostSuccessRefreshes(activeFraction.id);
           updateStepStatus("CONFIRM_TX", "completed", { txHash });
           setPhase("success");
 
@@ -1492,8 +2019,6 @@ export function DepositDialog({
               ? "Miners purchased!"
               : "Delegation successful!",
           );
-
-          void invalidatePostSuccessQueries(activeFraction.id);
           onSuccess?.();
         },
       });
@@ -1857,7 +2382,7 @@ export function DepositDialog({
             </div>
           </div>
 
-          {application?.activeFraction && successMetrics ? (
+          {effectiveApplication?.activeFraction && successMetrics ? (
             <div className="flex flex-col items-center">
               <SegmentedCircleProgress
                 totalSteps={successMetrics.totalSteps}
@@ -1917,7 +2442,7 @@ export function DepositDialog({
           ) : null}
 
           {hasAnyEstimatedRewards ? (
-            <div className="w-full rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 overflow-hidden">
+            <div className="w-full rounded-xl bg-card border border-border/20 dark:border-border/40 overflow-hidden">
               {/* Projected Weekly Rewards */}
               <div className="px-5 py-4">
                 <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest mb-2">
@@ -1927,17 +2452,6 @@ export function DepositDialog({
                   <div className="flex items-baseline gap-1.5 flex-wrap">
                     {isMultiAssetEstimatedRewards ? (
                       <>
-                        <span className="text-2xl font-mono font-semibold text-foreground leading-none">
-                          {estimatedRewardsBreakdown.glw.toLocaleString(
-                            undefined,
-                            {
-                              maximumFractionDigits: 2,
-                            },
-                          )}
-                        </span>
-                        <span className="text-sm font-mono text-muted-foreground">
-                          GLW +
-                        </span>
                         <span className="text-xl font-mono font-semibold text-foreground leading-none">
                           {estimatedRewardsBreakdown.pd.toLocaleString(
                             undefined,
@@ -1947,7 +2461,21 @@ export function DepositDialog({
                           )}
                         </span>
                         <span className="text-sm font-mono text-muted-foreground">
-                          SGCTL
+                          {estimatedRewardsBreakdown.pdSymbol}
+                        </span>
+                        <span className="text-sm font-mono text-muted-foreground">
+                          +
+                        </span>
+                        <span className="text-2xl font-mono font-semibold text-foreground leading-none">
+                          {estimatedRewardsBreakdown.glw.toLocaleString(
+                            undefined,
+                            {
+                              maximumFractionDigits: 2,
+                            },
+                          )}
+                        </span>
+                        <span className="text-sm font-mono text-muted-foreground">
+                          GLW
                         </span>
                       </>
                     ) : (

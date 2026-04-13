@@ -193,6 +193,7 @@ export default function GlowSoftDashboard({
   const [selectedRewardScore, setSelectedRewardScore] = React.useState<
     LaunchpadRewardScore | MiningCenterScore | null
   >(null);
+  const [dashboardRefreshNonce, setDashboardRefreshNonce] = React.useState(0);
   const refundToastIdRef = React.useRef<string | number | null>(null);
   const migrationToastIdRef = React.useRef<string | number | null>(null);
   const prevHasMigrationClaimRef = React.useRef<boolean | null>(null);
@@ -201,6 +202,10 @@ export default function GlowSoftDashboard({
   const queryClient = useQueryClient();
   const { spotPriceUsd: glwSpotPrice } = useGlowSpotPriceSummary();
   const { isLive: isReferralLive } = useReferralLaunch();
+
+  const refreshDashboardWidgets = React.useCallback(() => {
+    setDashboardRefreshNonce((value) => value + 1);
+  }, []);
 
   const hasAnyDialogOpen =
     isRefundDialogOpen ||
@@ -540,6 +545,7 @@ export default function GlowSoftDashboard({
                     >
                       <WidgetErrorBoundary>
                         <SolarFarmWidget
+                          key={`solar-farm-${walletAddress ?? "anon"}-${dashboardRefreshNonce}`}
                           walletAddress={walletAddress ?? undefined}
                           variant="minimal"
                         />
@@ -570,6 +576,7 @@ export default function GlowSoftDashboard({
                     >
                       <WidgetErrorBoundary>
                         <LaunchpadStatusWidget
+                          key={`launchpad-status-${walletAddress ?? "anon"}-${dashboardRefreshNonce}`}
                           variant="minimal"
                           onPayDeposit={readOnly ? undefined : handlePayDeposit}
                           isApproaching={isApproachingLaunchpad}
@@ -642,6 +649,7 @@ export default function GlowSoftDashboard({
                     <div className="pt-8 lg:pt-0 lg:pl-10 flex lg:col-span-5">
                       <WidgetErrorBoundary>
                         <RecentActivityWidget
+                          key={`recent-activity-${walletAddress ?? "anon"}-${dashboardRefreshNonce}`}
                           walletAddress={walletAddress}
                           hideIfEmpty={false}
                           variant="minimal"
@@ -665,7 +673,10 @@ export default function GlowSoftDashboard({
                 <SectionHeader title="My Farms" />
                 <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
                   <WidgetErrorBoundary>
-                    <MyFarmsGridSection walletAddress={walletAddress} />
+                    <MyFarmsGridSection
+                      key={`my-farms-${walletAddress ?? "anon"}-${dashboardRefreshNonce}`}
+                      walletAddress={walletAddress}
+                    />
                   </WidgetErrorBoundary>
                 </div>
               </section>
@@ -724,6 +735,7 @@ export default function GlowSoftDashboard({
                     <div className="pt-8 lg:pt-0 lg:pl-10 flex min-h-[340px]">
                       <WidgetErrorBoundary>
                         <LaunchpadStatusWidget
+                          key={`launchpad-status-disconnected-${dashboardRefreshNonce}`}
                           className="w-full h-full"
                           variant="minimal"
                           onPayDeposit={handlePayDeposit}
@@ -880,6 +892,7 @@ export default function GlowSoftDashboard({
               application={selectedApplicationForDeposit}
               selectedCurrency="USDC"
               rewardScore={selectedRewardScore as MiningCenterScore | null}
+              onSuccess={refreshDashboardWidgets}
             />
           ) : (
             <DepositDialog
@@ -888,6 +901,7 @@ export default function GlowSoftDashboard({
               application={selectedApplicationForDeposit}
               selectedCurrency="GLW"
               rewardScore={selectedRewardScore as LaunchpadRewardScore | null}
+              onSuccess={refreshDashboardWidgets}
             />
           )}
 

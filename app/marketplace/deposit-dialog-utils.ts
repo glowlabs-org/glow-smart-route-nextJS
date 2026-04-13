@@ -147,7 +147,8 @@ export interface ControlTransferStatusLike {
 }
 
 function resolveLaunchpadRewardShareCountForDialog(
-  activeFraction: ActiveFraction | null
+  activeFraction: ActiveFraction | null,
+  selectedCurrency?: DepositSelectedCurrency | null
 ): number {
   if (!activeFraction) return 0;
 
@@ -158,7 +159,14 @@ function resolveLaunchpadRewardShareCountForDialog(
     ? Math.max(0, Math.floor(activeFraction.remainingSteps ?? 0))
     : 0;
 
-  if (activeFraction.delegationAsset === "SGCTL") {
+  if (selectedCurrency === "SGCTL") {
+    return remainingSteps > 0 ? remainingSteps : baseTotalSteps;
+  }
+
+  if (
+    selectedCurrency == null &&
+    activeFraction.delegationAsset === "SGCTL"
+  ) {
     return remainingSteps > 0 ? remainingSteps : baseTotalSteps;
   }
 
@@ -988,8 +996,8 @@ export function initializeTransactionSteps(
     if (sgctlSource === "mint_usdc" || sgctlSource === "mint_eth") {
       steps.push({
         id: "MINT_AND_STAKE_GCTL",
-        title: "Mint & Stake GCTL",
-        description: "Minting GCTL and staking it to the selected region",
+        title: "Buy and stake GCTL",
+        description: "Turning your funds into staked GCTL for this region",
         tokenFrom: "USDC",
         tokenTo: undefined,
         status: "idle",
@@ -999,8 +1007,8 @@ export function initializeTransactionSteps(
     if (sgctlSource === "wallet_gctl") {
       steps.push({
         id: "STAKE_GCTL",
-        title: "Stake GCTL",
-        description: "Staking existing GCTL to the selected region",
+        title: "Stake your GCTL",
+        description: "Moving your GCTL into the selected region",
         status: "idle",
       });
     }
@@ -1008,23 +1016,23 @@ export function initializeTransactionSteps(
     if (sgctlSource !== "staked") {
       steps.push({
         id: "INDEX_STAKE",
-        title: "Index Stake",
-        description: "Waiting for Control to index your regional stake",
-        statusLabel: "Indexing in Control...",
+        title: "Update balance",
+        description: "Checking that your newly staked balance is ready to use",
+        statusLabel: "Updating your balance...",
         status: "idle",
       });
     }
 
     steps.push({
       id: "DELEGATE_SGCTL",
-      title: "Delegate SGCTL",
-      description: "Submitting the offchain SGCTL delegation",
+      title: "Reserve your delegation",
+      description: "Submitting your SGCTL delegation for this farm",
       status: "idle",
     });
     steps.push({
       id: "CONFIRM_TX",
-      title: "Confirm Delegation",
-      description: "Waiting for delegation confirmation",
+      title: "Finish up",
+      description: "Confirming your delegation",
       status: "idle",
     });
 
@@ -1070,8 +1078,8 @@ export function initializeTransactionSteps(
 
   steps.push({
     id: "CONFIRM_TX",
-    title: "Confirm Transaction",
-    description: "Waiting for blockchain confirmation",
+    title: "Finish up",
+    description: "Confirming your transaction",
     status: "idle",
   });
 
@@ -1139,7 +1147,8 @@ export function calculateEstimatedRewards(
 export function calculateEstimatedRewardsBreakdown(
   quantity: number,
   activeFraction: ActiveFraction | null,
-  rewardScore: RewardScore | null
+  rewardScore: RewardScore | null,
+  selectedCurrency?: DepositSelectedCurrency | null
 ): EstimatedRewardsBreakdown {
   if (!activeFraction || !rewardScore) {
     return { glw: 0, pd: 0, pdSymbol: null, totalGlwEquivalent: 0 };
@@ -1148,20 +1157,24 @@ export function calculateEstimatedRewardsBreakdown(
   let weeklyPd = 0;
   let pdSymbol: "GLW" | "SGCTL" | null = null;
   const totalShares =
-    resolveLaunchpadRewardShareCountForDialog(activeFraction) || 1; // avoid div 0
+    resolveLaunchpadRewardShareCountForDialog(activeFraction, selectedCurrency) ||
+    1; // avoid div 0
 
   if ("userWeeklyGlwRewards" in rewardScore) {
     // Launchpad
     const glw = parseFloat(
       formatUnits(BigInt(rewardScore.userWeeklyGlwRewards), 18)
     );
-    const pdDecimals = activeFraction?.delegationAsset === "SGCTL" ? 6 : 18;
+    const pdIsSgctl =
+      selectedCurrency === "SGCTL" ||
+      (selectedCurrency == null && activeFraction?.delegationAsset === "SGCTL");
+    const pdDecimals = pdIsSgctl ? 6 : 18;
     const pd = parseFloat(
       formatUnits(BigInt(rewardScore.userWeeklyPdRewards), pdDecimals)
     );
     weeklyGlw = glw / totalShares;
     weeklyPd = pd / totalShares;
-    pdSymbol = activeFraction?.delegationAsset === "SGCTL" ? "SGCTL" : "GLW";
+    pdSymbol = pdIsSgctl ? "SGCTL" : "GLW";
   } else if ("miningScore" in rewardScore) {
     // Mining
     if (rewardScore.weeklyGlwRewards) {
@@ -1188,7 +1201,10 @@ export function calculateImpactPointsBreakdown(
   activeFraction: ActiveFraction | null,
   rewardScore: RewardScore | null,
   calculateCostInGLWFn: (qty: number) => number,
-  options?: { includeVaultBonus?: boolean }
+  options?: {
+    includeVaultBonus?: boolean;
+    selectedCurrency?: DepositSelectedCurrency | null;
+  }
 ): ImpactPointsBreakdown {
   if (!activeFraction || !rewardScore) {
     return { emissionPoints: 0, vaultBonusPoints: 0, total: 0 };
@@ -1196,7 +1212,10 @@ export function calculateImpactPointsBreakdown(
 
   const includeVaultBonus = options?.includeVaultBonus ?? true;
   const totalShares =
-    resolveLaunchpadRewardShareCountForDialog(activeFraction) || 1;
+    resolveLaunchpadRewardShareCountForDialog(
+      activeFraction,
+      options?.selectedCurrency
+    ) || 1;
 
   if ("userWeeklyGlwRewards" in rewardScore) {
     // Launchpad (delegation) - earns both emission points and vault bonus
@@ -1310,12 +1329,13 @@ export interface SuccessMetrics {
 
 export function calculateSuccessMetrics(
   activeFraction: ActiveFraction,
-  quantity: number
+  quantity: number,
+  selectedCurrency?: DepositSelectedCurrency | null
 ): SuccessMetrics | null {
   try {
-    const totalSteps = Math.max(
-      0,
-      Math.floor(activeFraction.totalSteps || 0)
+    const totalSteps = resolveLaunchpadRewardShareCountForDialog(
+      activeFraction,
+      selectedCurrency
     );
     let filledBeforeSteps = 0;
 

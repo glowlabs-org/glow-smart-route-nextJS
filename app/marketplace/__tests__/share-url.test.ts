@@ -70,7 +70,7 @@ describe("generateShareUrl", () => {
 
     it("uses actual miner life remaining when provided", () => {
       const url = generateShareUrl("USDC", 1, "Farm", true, 80);
-      expect(url).toContain(encodeURIComponent("80 weeks"));
+      expect(url).toContain(encodeURIComponent("81 weeks"));
       expect(url).not.toContain(encodeURIComponent("99 weeks"));
     });
 
@@ -335,6 +335,22 @@ describe("calculateSuccessMetrics", () => {
       totalSteps: 100,
       filledBeforeSteps: 0,
       userSteps: 10,
+    });
+  });
+
+  it("uses the selected currency override when the fraction delegation asset is stale", () => {
+    const fraction = createFraction({
+      totalSteps: 4604,
+      remainingSteps: 4602,
+      delegationAsset: "SGCTL",
+    });
+
+    const result = calculateSuccessMetrics(fraction, 6, "GLW");
+
+    expect(result).toEqual({
+      totalSteps: 4604,
+      filledBeforeSteps: 2,
+      userSteps: 6,
     });
   });
 });

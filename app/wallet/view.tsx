@@ -73,7 +73,10 @@ import {
   resolveDelegationCurrency,
 } from "@/utils/launchpad-rewards";
 import { useWalletLaunchpadInProgress } from "@/hooks/use-wallet-launchpad-in-progress";
-import { resolveLaunchpadSplitCurrency } from "@/utils/wallet-launchpad";
+import {
+  isSplitActivityStillActive,
+  resolveLaunchpadSplitCurrency,
+} from "@/utils/wallet-launchpad";
 
 // Lazy-load RecentActivity to defer its network work off the critical path
 const RecentActivity = dynamic(
@@ -253,17 +256,9 @@ export default function View() {
 
     for (const evt of splitsActivity) {
       if (evt.fractionType !== "launchpad") continue;
-      if ((evt.fractionStatus ?? "").toLowerCase() !== "committed") continue;
 
       const app = sponsorListingById.get(evt.applicationId);
-      const progress =
-        app?.activeFraction?.progressPercent ?? evt.progressPercent ?? 0;
-      const isFilled =
-        Boolean(app?.activeFraction?.isFilled) ||
-        Boolean(evt.isFilled) ||
-        Boolean(evt.fractionStatus === "filled") ||
-        progress >= 100;
-      if (isFilled) continue;
+      if (!isSplitActivityStillActive({ split: evt, listing: app })) continue;
 
       const currency = resolveLaunchpadSplitCurrency({
         currency: evt.currency,

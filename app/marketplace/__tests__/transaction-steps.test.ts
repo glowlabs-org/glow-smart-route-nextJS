@@ -201,10 +201,8 @@ describe("ETH to GLW delegation steps", () => {
     const steps = initializeTransactionSteps("GLW", "ETH");
 
     expect(steps[steps.length - 1].id).toBe("CONFIRM_TX");
-    expect(steps[steps.length - 1].title).toBe("Confirm Transaction");
-    expect(steps[steps.length - 1].description).toBe(
-      "Waiting for blockchain confirmation"
-    );
+    expect(steps[steps.length - 1].title).toBe("Finish up");
+    expect(steps[steps.length - 1].description).toBe("Confirming your transaction");
   });
 });
 
@@ -279,11 +277,11 @@ describe("SGCTL delegation steps", () => {
     });
 
     const step = steps.find((item) => item.id === "INDEX_STAKE");
-    expect(step?.title).toBe("Index Stake");
+    expect(step?.title).toBe("Update balance");
     expect(step?.description).toBe(
-      "Waiting for Control to index your regional stake"
+      "Checking that your newly staked balance is ready to use"
     );
-    expect(step?.statusLabel).toBe("Indexing in Control...");
+    expect(step?.statusLabel).toBe("Updating your balance...");
   });
 
   it("keeps funding steps on on-chain confirmation copy before indexing starts", () => {

@@ -26,6 +26,7 @@ import {
   type FilterValue,
 } from "./farms-performance-dialog";
 import { normalizeDelegationCurrency, parseDelegationAmountFromBaseUnits } from "@/utils/launchpad-rewards";
+import { isSplitActivityStillActive } from "@/utils/wallet-launchpad";
 
 interface PortfolioSummaryWidgetProps {
   walletAddress?: string | null;
@@ -125,8 +126,7 @@ export default function PortfolioSummaryWidget({
 
     splitsActivity.forEach((split) => {
       if (split.fractionType !== "launchpad") return;
-      if ((split.fractionStatus ?? "").toLowerCase() !== "committed") return;
-      if (split.isFilled) return;
+      if (!isSplitActivityStillActive({ split })) return;
 
       const asset = normalizeDelegationCurrency(split.currency);
       const amount = parseDelegationAmountFromBaseUnits(split.amount, asset);
@@ -138,16 +138,35 @@ export default function PortfolioSummaryWidget({
   }, [splitsActivity, walletFarms]);
 
   const stats = React.useMemo(() => {
-    const activeMiners = rewardsData
-      ? rewardsData.farmStatistics.minerOnlyFarms +
-        rewardsData.farmStatistics.bothTypesFarms
-      : 0;
-    const activeDelegations = rewardsData
-      ? rewardsData.farmStatistics.delegatorOnlyFarms +
-        rewardsData.farmStatistics.bothTypesFarms
-      : 0;
+    const rewardedDelegationFarmIds = new Set<string>();
+    const rewardedMinerFarmIds = new Set<string>();
+
+    rewardsData?.farmDetails.forEach((farm) => {
+      if (farm.type === "launchpad") {
+        rewardedDelegationFarmIds.add(farm.farmId);
+      } else {
+        rewardedMinerFarmIds.add(farm.farmId);
+      }
+    });
+
+    splitsActivity.forEach((split) => {
+      if (!isSplitActivityStillActive({ split })) return;
+
+      const farmId = split.farmId ?? split.applicationId;
+      if (!farmId) return;
+
+      if (split.fractionType === "launchpad") {
+        rewardedDelegationFarmIds.add(farmId);
+      } else if (split.fractionType === "mining-center") {
+        rewardedMinerFarmIds.add(farmId);
+      }
+    });
+
+    const activeDelegations = rewardedDelegationFarmIds.size;
+    const activeMiners = rewardedMinerFarmIds.size;
+
     return { activeMiners, activeDelegations };
-  }, [rewardsData]);
+  }, [rewardsData, splitsActivity]);
 
   const isLoading = hasWallet && (isPortfolioLoading || isRewardsLoading);
 

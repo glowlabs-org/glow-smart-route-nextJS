@@ -9,6 +9,33 @@ import {
 
 export type DelegationAmountsByAsset = Partial<Record<"GLW" | "SGCTL", number>>;
 
+const TERMINAL_SPLIT_STATUSES = new Set([
+  "filled",
+  "expired",
+  "cancelled",
+  "closed",
+]);
+
+export function isSplitActivityStillActive(params: {
+  split: Pick<
+    SplitActivity,
+    "fractionStatus" | "isFilled" | "progressPercent"
+  >;
+  listing?: Pick<AuctionApplication, "activeFraction"> | null;
+}) {
+  const { split, listing } = params;
+  const status = (split.fractionStatus ?? "").toLowerCase();
+  const progress =
+    listing?.activeFraction?.progressPercent ?? split.progressPercent ?? 0;
+  const isFilled =
+    Boolean(listing?.activeFraction?.isFilled) ||
+    Boolean(split.isFilled) ||
+    TERMINAL_SPLIT_STATUSES.has(status) ||
+    progress >= 100;
+
+  return !isFilled;
+}
+
 export function resolveLaunchpadSplitCurrency(params: {
   currency?: string | null;
   listingCurrency?: string | null;

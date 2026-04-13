@@ -238,8 +238,10 @@ export function useSponsorListings(params: UseSponsorListingsParams = {}) {
   const query = useQuery({
     queryKey: QUERY_KEYS.listings.sponsor(filters),
     enabled,
-    staleTime: QUERY_CONFIG.DEFAULT.staleTime,
-    refetchOnWindowFocus: QUERY_CONFIG.DEFAULT.refetchOnWindowFocus,
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     refetchInterval: queryOptions?.refetchInterval,
     refetchIntervalInBackground: queryOptions?.refetchIntervalInBackground,
     queryFn: async (): Promise<AuctionApplication[]> =>
@@ -429,8 +431,9 @@ export function useSplitsActivity(params: UseSplitsActivityParams = {}) {
   const query = useQuery({
     queryKey: QUERY_KEYS.activity.splits(limit, walletAddress, fractionType),
     enabled,
-    staleTime: QUERY_CONFIG.DEFAULT.staleTime * 2,
+    staleTime: 0,
     refetchOnWindowFocus: true,
+    refetchOnMount: true,
     refetchInterval: 10_000,
     queryFn: async (): Promise<SplitsActivityResponse> => {
       const endpoint = fractionType
@@ -442,7 +445,9 @@ export function useSplitsActivity(params: UseSplitsActivityParams = {}) {
       if (walletAddress) search.set("walletAddress", walletAddress);
       if (fractionType) search.set("fractionType", fractionType);
 
-      const response = await fetch(`${endpoint}?${search.toString()}`);
+      const response = await fetch(`${endpoint}?${search.toString()}`, {
+        cache: "no-store",
+      });
       if (!response.ok) {
         throw new Error(`Failed to fetch splits activity: ${response.status}`);
       }

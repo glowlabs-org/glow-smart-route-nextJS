@@ -26,4 +26,16 @@ describe("shouldIncludePendingStartCard", () => {
       })
     ).toBe(false);
   });
+
+  it("shows pending-start for a brand-new filled farm before ownership projections catch up", () => {
+    expect(
+      shouldIncludePendingStartCard({
+        fractionType: "launchpad",
+        status: "filled",
+        farmTypeKey: "farm-2:launchpad",
+        rewardedFarmTypeKeys: new Set(),
+        hasCurrentOwnership: false,
+      })
+    ).toBe(true);
+  });
 });

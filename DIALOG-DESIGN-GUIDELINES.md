@@ -188,6 +188,24 @@ Info containers inside dialogs use a subtle muted background with proper dark mo
 - Always pair light/dark mode opacity values (30% light → 50% dark)
 - Borders follow the same pattern: `border-border/20 dark:border-border/40`
 
+### Success & Confirmation Summary Panels
+
+Sparse success or confirmation summaries should stay on the dialog surface instead of using a muted fill.
+
+```tsx
+<div className="rounded-xl bg-card border border-border/20 dark:border-border/40">
+```
+
+Use `bg-card` for:
+- projected reward summaries in success dialogs
+- confirmation receipts
+- compact post-action result panels
+
+Why:
+- muted fills can make a success panel look dirty or recessed against an already-clean dialog
+- `bg-card` keeps the panel visually integrated with the dialog while the border and dividers still define structure
+- in dark mode, `bg-card` automatically follows the theme surface instead of forcing an arbitrary gray block
+
 **IMPORTANT:** Never reverse the opacity values. Light mode needs LOWER opacity (30%) because the background is already light. Dark mode needs HIGHER opacity (50%) to create visible contrast against the dark background.
 
 ### Nested Containers (Contrast Layering)
