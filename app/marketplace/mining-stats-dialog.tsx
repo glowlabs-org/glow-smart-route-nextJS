@@ -4,8 +4,6 @@ import React from "react";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { type AuctionApplication } from "@/hooks";
@@ -15,6 +13,7 @@ import { formatNumber } from "./utils";
 import { useActiveRegionsSummary, useRegions } from "@/hooks";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Tooltip,
   TooltipContent,
@@ -206,68 +205,71 @@ export function MiningStatsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle
-            className="text-2xl font-light"
-            style={{ fontFamily: "Duplicate Slab, serif" }}
-          >
-            Mining Advanced Stats
-          </DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
-            Fractional mining position for {zoneName ?? "this"} solar farm
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-8 py-4">
-          <section className="space-y-3">
-            <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Opportunity snapshot
-              </h3>
-              <p className="text-sm text-muted-foreground/80">
-                Key metrics for this pre-packaged mining position earning GLW
-                from an active solar farm.
-              </p>
+      <DialogContent className="sm:max-w-[600px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40">
+        {/* Header */}
+        <div className="border-b border-border/40 pb-6 pt-8 px-6">
+          <div className="flex flex-col items-center text-center space-y-2">
+            <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+              Mining Advanced Stats
+            </DialogTitle>
+            <div className="text-[10px] font-mono text-muted-foreground/50 dark:text-muted-foreground/70 uppercase tracking-wider mt-2">
+              Fractional mining position for {zoneName ?? "this"} solar farm
             </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {snapshotCards.map(({ id, ...card }) => (
-                <StatCard key={id} {...card} />
-              ))}
-            </div>
-          </section>
-
-          <section className="space-y-3">
-            <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Region context
-              </h3>
-              <p className="text-sm text-muted-foreground/80">
-                Regional GLW allocation and network activity supporting this
-                farm's token emissions.
-              </p>
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {regionCards.map(({ id, ...card }) => (
-                <StatCard key={id} {...card} loading={isLoading} />
-              ))}
-            </div>
-          </section>
-
-          <section>
-            <div className="rounded-xl border border-border/60 bg-muted/20 p-4 text-xs text-muted-foreground">
-              <strong>Pre-packaged mining positions:</strong> Each mining
-              position represents fractional claims to GLW token emissions from
-              active solar farms. Returns are based on current network
-              conditions including regional GLW allocations, farm deposit size,
-              and predetermined reward splits. Actual returns may vary as new
-              farms join the region and dilute per-farm token allocations. GLW
-              price appreciation is not guaranteed. Mining positions earn token
-              streams over {weeksRemaining} weeks from live solar
-              infrastructure.
-            </div>
-          </section>
+          </div>
         </div>
+
+        {/* Scrollable Content */}
+        <ScrollArea className="max-h-[65vh]">
+          <div className="p-5 space-y-8">
+            <section className="space-y-3">
+              <div>
+                <h3 className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
+                  Opportunity snapshot
+                </h3>
+                <p className="text-sm text-muted-foreground/80 mt-1">
+                  Key metrics for this pre-packaged mining position earning GLW
+                  from an active solar farm.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {snapshotCards.map(({ id, ...card }) => (
+                  <StatCard key={id} {...card} />
+                ))}
+              </div>
+            </section>
+
+            <section className="space-y-3">
+              <div>
+                <h3 className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
+                  Region context
+                </h3>
+                <p className="text-sm text-muted-foreground/80 mt-1">
+                  Regional GLW allocation and network activity supporting this
+                  farm's token emissions.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {regionCards.map(({ id, ...card }) => (
+                  <StatCard key={id} {...card} loading={isLoading} />
+                ))}
+              </div>
+            </section>
+
+            <section>
+              <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4 text-xs text-muted-foreground">
+                <strong>Pre-packaged mining positions:</strong> Each mining
+                position represents fractional claims to GLW token emissions from
+                active solar farms. Returns are based on current network
+                conditions including regional GLW allocations, farm deposit size,
+                and predetermined reward splits. Actual returns may vary as new
+                farms join the region and dilute per-farm token allocations. GLW
+                price appreciation is not guaranteed. Mining positions earn token
+                streams over {weeksRemaining} weeks from live solar
+                infrastructure.
+              </div>
+            </section>
+          </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );
@@ -293,10 +295,10 @@ function StatCard({
         "rounded-xl border p-4 transition-colors",
         highlight
           ? "border-accent/40 bg-accent/10"
-          : "border-border/60 bg-muted/30"
+          : "border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50"
       )}
     >
-      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <div className="flex items-center gap-2 text-xs font-mono font-medium uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
         <span>{label}</span>
         {tooltip ? (
           <Tooltip>
@@ -312,11 +314,11 @@ function StatCard({
         ) : null}
       </div>
       {loading ? (
-        <Skeleton className="mt-3 h-8 w-24" />
+        <Skeleton className="mt-3 h-8 w-24 bg-muted/50" />
       ) : (
         <div
           className={cn(
-            "mt-2 font-semibold text-foreground",
+            "mt-2 font-mono font-semibold text-foreground",
             isRegionName ? "text-2xl" : "text-3xl"
           )}
         >

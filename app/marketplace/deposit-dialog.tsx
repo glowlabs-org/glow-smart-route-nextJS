@@ -2846,26 +2846,25 @@ export function DepositDialog({
     // Default Review Phase
     return (
       <>
-        <div className="p-6 pb-4">
-          <div className="flex items-center justify-between mb-1">
-            <DialogTitle className="text-xl font-semibold">
-              {runtimeSelectedCurrency === "USDC"
-                ? "Buy Miners"
-                : runtimeSelectedCurrency === "SGCTL"
-                  ? "Delegate SGCTL"
-                  : "Delegate GLW"}
-            </DialogTitle>
-          </div>
-          <div className="text-sm text-muted-foreground">
+        <div className="px-6 pt-6 pb-3">
+          <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+            {runtimeSelectedCurrency === "USDC"
+              ? "Buy Miners"
+              : runtimeSelectedCurrency === "SGCTL"
+                ? "Delegate SGCTL"
+                : "Delegate GLW"}
+          </DialogTitle>
+          <div className="text-sm text-muted-foreground mt-1">
             {application?.farmName} • {application?.zone?.name}
           </div>
         </div>
 
-        <div className="px-6 space-y-6">
+        <div className="px-5 pb-5">
+          <div className="space-y-5">
           {/* Quantity Section */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-foreground/80">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Quantity
               </label>
               <div className="flex items-center gap-2">
@@ -2884,7 +2883,7 @@ export function DepositDialog({
                 </button>
               </div>
             </div>
-            <div className="flex items-center gap-3 p-1 rounded-xl bg-muted/50 border border-border/50">
+            <div className="flex items-center gap-3 p-1 rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40">
               <Button
                 variant="ghost"
                 size="icon"
@@ -2924,7 +2923,7 @@ export function DepositDialog({
           </div>
 
           {/* Estimated Rewards - Animated */}
-          <div className="bg-muted/30 rounded-2xl p-4 border border-border/50 relative overflow-hidden group">
+          <div className="bg-muted/30 dark:bg-muted/50 rounded-2xl p-4 border border-border/20 dark:border-border/40 relative overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-foreground/5 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
             <div className="relative flex justify-between items-end">
               <div>
@@ -3009,7 +3008,7 @@ export function DepositDialog({
 
           {/* Payment Method */}
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-foreground/80">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               {runtimeSelectedCurrency === "USDC"
                 ? "Select Currency"
                 : "Delegation Source"}
@@ -3138,17 +3137,18 @@ export function DepositDialog({
               />
             </div>
             {sgctlFundingBreakdown ? (
-              <div className="rounded-xl border border-border/20 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+              <div className="rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
                 {sgctlFundingBreakdown}
               </div>
             ) : null}
           </div>
+          </div>
         </div>
 
-        <div className="p-6 bg-muted/20 border-t border-border mt-6">
+        <div className="px-5 pb-5 pt-4 border-t border-border/20 dark:border-border/40">
           {runtimeSelectedCurrency !== "USDC" && (
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              <span className="text-xs font-mono font-medium uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
                 {runtimeSelectedCurrency === "SGCTL"
                   ? "You Delegate"
                   : "Delegation Amount"}
@@ -3158,8 +3158,8 @@ export function DepositDialog({
               </div>
             </div>
           )}
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-lg font-semibold">
+          <div className="flex items-center justify-between mb-5">
+            <span className="text-sm font-mono font-medium uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
               {runtimeSelectedCurrency === "SGCTL"
                 ? "Source Cost"
                 : runtimeSelectedCurrency === "GLW" &&
@@ -3195,7 +3195,7 @@ export function DepositDialog({
               <ConnectButton size="medium" variant="default" />
             ) : (
               <Button
-                className="w-full"
+                className="w-full h-12"
                 onClick={handleConfirm}
                 disabled={
                   isSubmitting ||
@@ -3220,7 +3220,7 @@ export function DepositDialog({
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent
-        className="md:max-w-md p-0 gap-0 bg-background border border-border/20 text-foreground max-h-[90vh] overflow-y-auto overflow-x-hidden sm:rounded-3xl"
+        className="sm:max-w-md p-0 gap-0 overflow-hidden bg-card border border-border/40 text-foreground max-h-[90vh] overflow-y-auto overflow-x-hidden rounded-[24px]"
         onInteractOutside={(e) => e.preventDefault()}
       >
         {renderContent()}
@@ -3260,14 +3260,14 @@ function PaymentOption({
     <div
       onClick={onSelect}
       className={cn(
-        "flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all duration-200",
+        "flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-colors",
         selected
-          ? "bg-glow-orange/5 border-glow-orange/40"
-          : "bg-transparent border-border/20 hover:bg-glow-orange/5 hover:border-glow-orange/40",
+          ? "bg-muted/30 dark:bg-muted/50 border-border/40 dark:border-border/60"
+          : "bg-transparent border-border/20 dark:border-border/40 hover:bg-muted/20 dark:hover:bg-muted/30 hover:border-border/40 dark:hover:border-border/60",
       )}
     >
       <div className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center border border-border/20">
+        <div className="h-10 w-10 rounded-full bg-muted/30 dark:bg-muted/50 flex items-center justify-center border border-border/20 dark:border-border/40">
           {icon}
         </div>
         <div>
@@ -3284,15 +3284,15 @@ function PaymentOption({
       </div>
       <div className="text-right">
         {previewLabel ? (
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground/70">
+          <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60 dark:text-muted-foreground/80">
             {previewLabel}
           </div>
         ) : null}
-        <div className="text-sm font-medium text-foreground">
+        <div className="text-sm font-mono font-medium text-foreground">
           {pricePreview}
         </div>
         {selected && (
-          <div className="h-2 w-2 rounded-full bg-primary ml-auto mt-1" />
+          <div className="h-2 w-2 rounded-full bg-[color:var(--color-glow-orange)] ml-auto mt-1" />
         )}
       </div>
     </div>

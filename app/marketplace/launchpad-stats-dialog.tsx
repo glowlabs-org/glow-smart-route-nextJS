@@ -4,8 +4,6 @@ import React from "react";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
@@ -20,6 +18,7 @@ import { formatNumber } from "./utils";
 import { useActiveRegionsSummary, useRegions } from "@/hooks";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Tooltip,
   TooltipContent,
@@ -408,73 +407,76 @@ export function LaunchpadStatsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle
-            className="text-2xl font-light"
-            style={{ fontFamily: "Duplicate Slab, serif" }}
-          >
-            Delegation Advanced Stats
-          </DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
-            Evaluate expected performance and regional competitiveness for{" "}
-            {zoneName ?? "this delegation"}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-8 py-4">
-          <section className="space-y-3">
-            <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Opportunity snapshot
-              </h3>
-              <p className="text-sm text-muted-foreground/80">
-                Expected returns per fraction based on audited farm performance
-                and current market conditions.
-              </p>
+      <DialogContent className="sm:max-w-[600px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40">
+        {/* Header */}
+        <div className="border-b border-border/40 pb-6 pt-8 px-6">
+          <div className="flex flex-col items-center text-center space-y-2">
+            <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+              Delegation Advanced Stats
+            </DialogTitle>
+            <div className="text-[10px] font-mono text-muted-foreground/50 dark:text-muted-foreground/70 uppercase tracking-wider mt-2">
+              Evaluate expected performance for{" "}
+              {zoneName ?? "this delegation"}
             </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
-              {opportunityCards.slice(0, 4).map(({ id, ...card }) => (
-                <StatCard key={id} {...card} />
-              ))}
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 mt-3">
-              {opportunityCards.slice(4).map(({ id, ...card }) => (
-                <StatCard key={id} {...card} />
-              ))}
-            </div>
-          </section>
-
-          <section className="space-y-3">
-            <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Region context
-              </h3>
-              <p className="text-sm text-muted-foreground/80">
-                Regional competitive landscape and network activity. Farms
-                compete only within their region.
-              </p>
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {regionCards.map(({ id, ...card }) => (
-                <StatCard key={id} {...card} loading={isLoading} />
-              ))}
-            </div>
-          </section>
-
-          <section>
-            <div className="rounded-xl border border-border/60 bg-muted/20 p-4 text-xs text-muted-foreground">
-              <strong>Expectation-based rewards:</strong> Returns are calculated
-              based on expected lifetime carbon displacement audited at farm
-              construction, not actual weekly performance. This protects
-              delegators from weather volatility and operational risk while
-              focusing competition on maximum climate impact. Actual returns
-              depend on regional competitiveness, market conditions, and network
-              growth. Deposit recovery and GLW emissions continue based on
-              original projections regardless of realized farm output.
-            </div>
-          </section>
+          </div>
         </div>
+
+        {/* Scrollable Content */}
+        <ScrollArea className="max-h-[65vh]">
+          <div className="p-5 space-y-8">
+            <section className="space-y-3">
+              <div>
+                <h3 className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
+                  Opportunity snapshot
+                </h3>
+                <p className="text-sm text-muted-foreground/80 mt-1">
+                  Expected returns per fraction based on audited farm performance
+                  and current market conditions.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {opportunityCards.slice(0, 4).map(({ id, ...card }) => (
+                  <StatCard key={id} {...card} />
+                ))}
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 mt-3">
+                {opportunityCards.slice(4).map(({ id, ...card }) => (
+                  <StatCard key={id} {...card} />
+                ))}
+              </div>
+            </section>
+
+            <section className="space-y-3">
+              <div>
+                <h3 className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
+                  Region context
+                </h3>
+                <p className="text-sm text-muted-foreground/80 mt-1">
+                  Regional competitive landscape and network activity. Farms
+                  compete only within their region.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {regionCards.map(({ id, ...card }) => (
+                  <StatCard key={id} {...card} loading={isLoading} />
+                ))}
+              </div>
+            </section>
+
+            <section>
+              <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4 text-xs text-muted-foreground">
+                <strong>Expectation-based rewards:</strong> Returns are calculated
+                based on expected lifetime carbon displacement audited at farm
+                construction, not actual weekly performance. This protects
+                delegators from weather volatility and operational risk while
+                focusing competition on maximum climate impact. Actual returns
+                depend on regional competitiveness, market conditions, and network
+                growth. Deposit recovery and GLW emissions continue based on
+                original projections regardless of realized farm output.
+              </div>
+            </section>
+          </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );
@@ -494,14 +496,14 @@ function StatCard({
   loading,
 }: StatCardProps) {
   const isRegionName = label === "Region";
-  const isFarmEfficiency = label === "Farm Efficiency";
+  const isFarmEfficiency = label === "Efficiency Score";
 
   // Determine the border/background color for farm efficiency
   const efficiencyStyle = React.useMemo(() => {
     if (!isFarmEfficiency || !secondary?.includes("Region:")) {
       return highlight
         ? "border-accent/40 bg-accent/10"
-        : "border-border/60 bg-muted/30";
+        : "border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50";
     }
 
     // Extract numbers from farm efficiency value and region efficiency secondary text
@@ -510,7 +512,7 @@ function StatCard({
     const regionValue = regionMatch ? parseFloat(regionMatch[1]) : null;
 
     if (regionValue === null || farmValue === regionValue) {
-      return "border-border/60 bg-muted/30";
+      return "border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50";
     }
 
     return farmValue > regionValue
@@ -522,7 +524,7 @@ function StatCard({
     <div
       className={cn("rounded-xl border p-4 transition-colors", efficiencyStyle)}
     >
-      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <div className="flex items-center gap-2 text-xs font-mono font-medium uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
         <span>{label}</span>
         {tooltip ? (
           <Tooltip>
@@ -540,11 +542,11 @@ function StatCard({
         ) : null}
       </div>
       {loading ? (
-        <Skeleton className="mt-3 h-8 w-24" />
+        <Skeleton className="mt-3 h-8 w-24 bg-muted/50" />
       ) : (
         <div
           className={cn(
-            "mt-2 font-semibold text-foreground",
+            "mt-2 font-mono font-semibold text-foreground",
             isRegionName
               ? "text-2xl"
               : compactValue
