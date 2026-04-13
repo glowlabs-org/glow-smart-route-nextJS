@@ -34,6 +34,7 @@ import { useEthPrice } from "@/hooks/useEthPrice";
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import {
   fetchSponsorListings,
+  useRewardsBreakdown,
   useSponsorApplication,
   type AuctionApplication,
 } from "@/hooks";
@@ -87,9 +88,11 @@ import {
   hasConfirmedSplitPurchase,
   isDelayedSplitConfirmationErrorMessage,
   getSwapVolatilityErrorMessage,
+  getInitialPositionValueGuard,
   initializeTransactionSteps,
   isInternalRpcError,
   isRetriableStakeSyncRefreshError,
+  MIN_INITIAL_POSITION_USD,
   parseAvailableStakeSnapshot,
   parseQuantityInput,
   requiresSmartAccountCheck,
@@ -411,6 +414,11 @@ export function DepositDialog({
     walletAddress: address ?? undefined,
     enabled: open && runtimeSelectedCurrency === "SGCTL" && Boolean(address),
   });
+  const { data: walletRewardsBreakdown, isLoading: isWalletRewardsBreakdownLoading } =
+    useRewardsBreakdown({
+      walletAddress: address ?? null,
+      enabled: open && Boolean(address),
+    });
   const { availableStake, refetchAvailableStake } =
     useWalletRegionAvailableStake({
       walletAddress: address ?? undefined,
@@ -832,11 +840,41 @@ export function DepositDialog({
   ]);
 
   const selectedShortfall = shortfallByMethod[selectedPaymentMethod];
+  const hasExistingMinerOrDelegation = React.useMemo(() => {
+    const farmStats = walletRewardsBreakdown?.farmStatistics;
+    const rewardedFarmCount = farmStats
+      ? Math.max(
+          0,
+          (farmStats.totalFarms ?? 0) +
+            (walletRewardsBreakdown?.otherFarmsWithRewards?.count ?? 0),
+        )
+      : 0;
+    const recentPurchasesCount =
+      walletRewardsBreakdown?.recentPurchasesWithoutRewards?.length ?? 0;
+
+    return rewardedFarmCount > 0 || recentPurchasesCount > 0;
+  }, [walletRewardsBreakdown]);
+  const estimatedPurchaseValueUsd = costInUSDC(quantity);
+  const needsInitialPositionEligibilityCheck =
+    isConnected &&
+    estimatedPurchaseValueUsd < MIN_INITIAL_POSITION_USD;
+  const isCheckingInitialPositionEligibility =
+    needsInitialPositionEligibilityCheck &&
+    isWalletRewardsBreakdownLoading;
+  const initialPositionValueGuard = React.useMemo(
+    () =>
+      getInitialPositionValueGuard({
+        purchaseValueUsd: estimatedPurchaseValueUsd,
+        hasExistingPositions: hasExistingMinerOrDelegation,
+      }),
+    [estimatedPurchaseValueUsd, hasExistingMinerOrDelegation],
+  );
   const shortfallDecimals =
     selectedPaymentMethod === "ETH" || selectedPaymentMethod === "GLW" ? 18 : 6;
   const showShortfallInCta =
     isConnected &&
     !isSubmitting &&
+    !initialPositionValueGuard.isBlocked &&
     !affordability.canSubmit &&
     selectedShortfall > 0n;
   const disabledCtaLabel = `Need +${formatTokenAmount(
@@ -849,6 +887,9 @@ export function DepositDialog({
       ? " (swap buffer)"
       : ""
   }`;
+  const initialPositionMinimumMessage =
+    initialPositionValueGuard.message ??
+    `Your first miner or delegation should total at least $${MIN_INITIAL_POSITION_USD.toLocaleString()} so weekly reward claims stay worth the gas.`;
 
   const sgctlRequiredAmount = affordability.requiredByMethod.SGCTL ?? 0n;
   const sgctlShortfall =
@@ -943,6 +984,26 @@ export function DepositDialog({
       setSelectedPaymentMethod("GCTL");
     }
   }, [runtimeSelectedCurrency, selectedPaymentMethod, showStakedSgctlOption]);
+
+  const ctaLabel = !isSubmitting && isPreparingWalletAuthorization
+    ? "Preparing Wallet..."
+    : isCheckingInitialPositionEligibility
+      ? "Checking Eligibility..."
+      : initialPositionValueGuard.isBlocked
+        ? `Minimum $${initialPositionValueGuard.minimumUsd.toLocaleString()} To Start`
+        : showShortfallInCta
+          ? disabledCtaLabel
+          : runtimeSelectedCurrency === "SGCTL"
+            ? sgctlSourceMode === "staked"
+              ? "Confirm Delegation"
+              : sgctlSourceMode === "wallet_gctl"
+                ? "Stake & Delegate"
+                : "Mint, Stake & Delegate"
+            : runtimeSelectedCurrency === "GLW"
+              ? selectedPaymentMethod !== "GLW"
+                ? "Swap & Delegate"
+                : "Confirm Delegation"
+              : "Confirm Purchase";
 
   const estimatedRewardsBreakdown = React.useMemo(
     () =>
@@ -1576,6 +1637,14 @@ export function DepositDialog({
 
   const handleConfirm = async () => {
     if (!isConnected || !effectiveApplication?.activeFraction) return;
+    if (isCheckingInitialPositionEligibility) {
+      toast.message("Checking wallet eligibility...");
+      return;
+    }
+    if (initialPositionValueGuard.isBlocked) {
+      toast.error(initialPositionMinimumMessage);
+      return;
+    }
     if (isPreparingWalletAuthorization) {
       toast.message(
         runtimeSelectedCurrency === "SGCTL"
@@ -2847,6 +2916,11 @@ export function DepositDialog({
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
+            {initialPositionValueGuard.isBlocked ? (
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-muted-foreground">
+                {initialPositionMinimumMessage}
+              </div>
+            ) : null}
           </div>
 
           {/* Estimated Rewards - Animated */}
@@ -3126,27 +3200,15 @@ export function DepositDialog({
                 disabled={
                   isSubmitting ||
                   isPreparingWalletAuthorization ||
+                  isCheckingInitialPositionEligibility ||
+                  initialPositionValueGuard.isBlocked ||
                   !affordability.canSubmit
                 }
               >
                 {isSubmitting && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
-                {!isSubmitting && isPreparingWalletAuthorization
-                  ? "Preparing Wallet..."
-                  : showShortfallInCta
-                    ? disabledCtaLabel
-                    : runtimeSelectedCurrency === "SGCTL"
-                      ? sgctlSourceMode === "staked"
-                        ? "Confirm Delegation"
-                        : sgctlSourceMode === "wallet_gctl"
-                          ? "Stake & Delegate"
-                          : "Mint, Stake & Delegate"
-                      : runtimeSelectedCurrency === "GLW"
-                        ? selectedPaymentMethod !== "GLW"
-                          ? "Swap & Delegate"
-                          : "Confirm Delegation"
-                        : "Confirm Purchase"}
+                {ctaLabel}
               </Button>
             )}
           </div>

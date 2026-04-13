@@ -1,11 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { AuctionApplication } from "@/hooks/hub-listings";
-import {
-  applyLocalSponsorListingOverrides,
-  isLocalMinerLaunchpadDuplicate,
-  isSponsorListingVisibleAndOpen,
-} from "@/utils/sponsor-listings-overrides";
-import { isLocalMinerLaunchOverrideEnabled } from "@/utils/nextTuesdayET";
 
 export const runtime = "nodejs";
 
@@ -49,30 +43,12 @@ function buildForwardHeaders(request: NextRequest): Headers {
 export async function GET(request: NextRequest) {
   try {
     const inboundUrl = new URL(request.url);
-    const requestedType = inboundUrl.searchParams.get("type");
-    const includeFilledRequested =
-      inboundUrl.searchParams.get("includeFilled") === "true";
-    const isLaunchpadRequest =
-      requestedType === null || requestedType === "launchpad";
-    const shouldUseMiningCenterLocalOverride =
-      requestedType === "mining-center" && isLocalMinerLaunchOverrideEnabled();
     const forwardUrl = new URL(
       `${getHubUrl()}/applications/sponsor-listings-applications`,
     );
 
     for (const [key, value] of inboundUrl.searchParams.entries()) {
-      if (
-        shouldUseMiningCenterLocalOverride &&
-        key === "includeFilled" &&
-        value !== "true"
-      ) {
-        continue;
-      }
       forwardUrl.searchParams.append(key, value);
-    }
-
-    if (shouldUseMiningCenterLocalOverride && !includeFilledRequested) {
-      forwardUrl.searchParams.set("includeFilled", "true");
     }
 
     const response = await fetch(forwardUrl.toString(), {
@@ -94,22 +70,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    let applications =
-      applyLocalSponsorListingOverrides(
-        (await response.json()) as AuctionApplication[],
-      );
-
-    if (isLaunchpadRequest && isLocalMinerLaunchOverrideEnabled()) {
-      applications = applications.filter(
-        (application) => !isLocalMinerLaunchpadDuplicate(application),
-      );
-    }
-
-    if (shouldUseMiningCenterLocalOverride && !includeFilledRequested) {
-      applications = applications.filter((application) =>
-        isSponsorListingVisibleAndOpen(application),
-      );
-    }
+    const applications = (await response.json()) as AuctionApplication[];
 
     return NextResponse.json(applications, {
       status: response.status,

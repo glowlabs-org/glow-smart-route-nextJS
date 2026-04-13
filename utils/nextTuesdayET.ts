@@ -3,13 +3,6 @@ import { getLaunchpadNowMs } from "@/utils/launchpad-now";
 const ET_TIME_ZONE = "America/New_York";
 const TUESDAY = 2;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
-const LOCAL_MINER_OVERRIDE_ENABLED_ENV =
-  "NEXT_PUBLIC_LOCAL_MINER_LAUNCH_OVERRIDE";
-
-export const LOCAL_MINER_OVERRIDE_APPLICATION_ID =
-  "54c1ce52-15d3-4dbd-85d0-eb06f6feed8a";
-export const LOCAL_MINER_OVERRIDE_VISIBLE_AT_ISO =
-  "2026-04-07T05:00:00.000Z";
 
 const etFormatter = new Intl.DateTimeFormat("en-US", {
   timeZone: ET_TIME_ZONE,
@@ -137,30 +130,10 @@ export function getNextTuesdayAt1pmET(fromDate: Date = new Date()): Date {
   return getNextTuesdayAtETHour(13, fromDate);
 }
 
-export function isLocalMinerLaunchOverrideEnabled(): boolean {
-  return process.env[LOCAL_MINER_OVERRIDE_ENABLED_ENV] === "1";
-}
-
-export function getLocalMinerLaunchOverrideVisibleAtIso(): string | null {
-  if (!isLocalMinerLaunchOverrideEnabled()) return null;
-  return LOCAL_MINER_OVERRIDE_VISIBLE_AT_ISO;
-}
-
 export function getNextMiningCenterBatchAtET(
   fromDate?: Date,
 ): Date {
   const baseDate = fromDate ?? new Date(getLaunchpadNowMs());
-  const localOverrideVisibleAtIso = getLocalMinerLaunchOverrideVisibleAtIso();
-  if (localOverrideVisibleAtIso) {
-    const localOverrideVisibleAtMs = Date.parse(localOverrideVisibleAtIso);
-    if (
-      Number.isFinite(localOverrideVisibleAtMs) &&
-      baseDate.getTime() < localOverrideVisibleAtMs
-    ) {
-      return new Date(localOverrideVisibleAtMs);
-    }
-  }
-
   return getNextTuesdayAt1amET(baseDate);
 }
 

@@ -72,6 +72,11 @@ function safeNumber(value: bigint): number {
   return Number(value > max ? max : value);
 }
 
+function ceilDiv(numerator: bigint, denominator: bigint): bigint {
+  if (numerator <= 0n || denominator <= 0n) return 0n;
+  return (numerator + denominator - 1n) / denominator;
+}
+
 export function resolveDelegationCurrencyFromSplitActivity(params: {
   currency?: string | null;
   amount?: string | number | bigint | null;
@@ -239,7 +244,7 @@ export function resolveLaunchpadDelegationShareCount(
     currentStepUsd6 != null &&
     currentStepUsd6 > 0n
   ) {
-    return safeNumber(finalProtocolFeeUsd6 / currentStepUsd6);
+    return safeNumber(ceilDiv(finalProtocolFeeUsd6, currentStepUsd6));
   }
 
   return baseTotalSteps;

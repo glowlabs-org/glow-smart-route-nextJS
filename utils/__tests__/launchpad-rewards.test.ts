@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { calculateLaunchpadPerShareRewards, parseUsd6Amount } from "../launchpad-rewards";
+import {
+  calculateLaunchpadPerShareRewards,
+  parseUsd6Amount,
+  resolveLaunchpadDelegationShareCount,
+} from "../launchpad-rewards";
 import { parseUnits } from "viem";
 
 describe("parseUsd6Amount", () => {
@@ -43,5 +47,22 @@ describe("calculateLaunchpadPerShareRewards", () => {
       18.29725419606591 * 0.41,
       6,
     );
+  });
+});
+
+describe("resolveLaunchpadDelegationShareCount", () => {
+  it("uses ceiling division for SGCTL share counts so remaining can never exceed total", () => {
+    const totalShares = resolveLaunchpadDelegationShareCount({
+      paymentCurrency: "SGCTL",
+      finalProtocolFee: "953554810000",
+      applicationPriceQuotes: [],
+      activeFraction: {
+        delegationAsset: "SGCTL",
+        totalSteps: 47677,
+        currentStepUsd6: "20000000",
+      },
+    } as any);
+
+    expect(totalShares).toBe(47678);
   });
 });
