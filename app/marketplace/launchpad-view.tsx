@@ -53,6 +53,7 @@ import {
   calculateProtocolDepositAmount,
   getAvailableCurrencies,
   isFractionOpenForMarketplace,
+  resolveFractionRemainingSteps,
   type PaymentCurrency,
   type SortBy,
   type SortOrder,
@@ -1654,7 +1655,7 @@ function getActiveFractionAvailability(application: AuctionApplication) {
     };
   }
   const total = resolveLaunchpadDelegationShareCount(application);
-  const remaining = fraction.remainingSteps ?? 0;
+  const remaining = resolveFractionRemainingSteps(fraction);
   const isSoldOut = !isFractionOpenForMarketplace(fraction);
   const sold = Math.max(0, total - Math.max(0, remaining));
   const progressFilledPct =

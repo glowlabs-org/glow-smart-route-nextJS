@@ -46,6 +46,7 @@ import {
   getRewardScoreForApplication,
   getMiningScoreForApplication,
   isFractionOpenForMarketplace,
+  resolveFractionRemainingSteps,
   type AuctionApplication,
 } from "@/hooks";
 import { getLaunchpadNowMs } from "@/utils/launchpad-now";
@@ -110,7 +111,7 @@ function getActiveFractionAvailability(application: AuctionApplication) {
     return { remaining: 0, total: 0, isSoldOut: true, percentFilled: 100 };
   }
   const total = resolveLaunchpadDelegationShareCount(application);
-  const remaining = fraction.remainingSteps ?? 0;
+  const remaining = resolveFractionRemainingSteps(fraction);
   const isSoldOut = !isFractionOpenForMarketplace(fraction);
   const filled = Math.max(0, total - Math.max(0, remaining));
   const percentFilled = total > 0 ? Math.round((filled / total) * 100) : 0;

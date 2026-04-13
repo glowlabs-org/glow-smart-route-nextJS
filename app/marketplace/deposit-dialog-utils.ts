@@ -5,6 +5,7 @@
 
 import { formatUnits, parseUnits } from "viem";
 import { normalizeMinerWeeksRemainingDisplay } from "@/lib/mining-score";
+import { getNextTuesdayAtETHour } from "@/utils/nextTuesdayET";
 
 // ============================================================================
 // Types
@@ -1329,6 +1330,7 @@ export interface SuccessMetrics {
 
 export const MIN_INITIAL_POSITION_USD = 200;
 export const INITIAL_POSITION_USD_GRACE = 10;
+export const SGCTL_PREPARATION_CUTOFF_HOUR_ET = 12;
 
 export interface InitialPositionValueGuardInput {
   purchaseValueUsd: number;
@@ -1343,6 +1345,31 @@ export interface InitialPositionValueGuardResult {
   purchaseValueUsd: number;
   shortfallUsd: number;
   message: string | null;
+}
+
+export interface SgctlPreparationCutoffGuardInput {
+  selectedCurrency: DepositSelectedCurrency;
+  sgctlSource: SgctlSourceMode | null;
+  fractionCreatedAt: string | Date | null | undefined;
+  nowMs?: number;
+}
+
+export interface SgctlPreparationCutoffGuardResult {
+  isBlocked: boolean;
+  cutoffAt: Date | null;
+  message: string | null;
+}
+
+function normalizeDateInput(
+  value: string | Date | null | undefined,
+): Date | null {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  if (typeof value !== "string") return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
 export function getInitialPositionValueGuard(
@@ -1369,6 +1396,49 @@ export function getInitialPositionValueGuard(
           minimumFractionDigits: 0,
           maximumFractionDigits: 2,
         })} more to this first position.`
+      : null,
+  };
+}
+
+export function getSgctlPreparationCutoffGuard(
+  params: SgctlPreparationCutoffGuardInput,
+): SgctlPreparationCutoffGuardResult {
+  if (
+    params.selectedCurrency !== "SGCTL" ||
+    params.sgctlSource == null ||
+    params.sgctlSource === "staked"
+  ) {
+    return {
+      isBlocked: false,
+      cutoffAt: null,
+      message: null,
+    };
+  }
+
+  const createdAt = normalizeDateInput(params.fractionCreatedAt);
+  if (!createdAt) {
+    return {
+      isBlocked: false,
+      cutoffAt: null,
+      message: null,
+    };
+  }
+
+  const cutoffAt = getNextTuesdayAtETHour(
+    SGCTL_PREPARATION_CUTOFF_HOUR_ET,
+    createdAt,
+  );
+  const nowMs =
+    typeof params.nowMs === "number" && Number.isFinite(params.nowMs)
+      ? params.nowMs
+      : Date.now();
+  const isBlocked = nowMs >= cutoffAt.getTime();
+
+  return {
+    isBlocked,
+    cutoffAt,
+    message: isBlocked
+      ? "Minting or staking SGCTL for this listing closed at 12:00 PM ET. Only already-staked SGCTL can still be delegated during the final grace period."
       : null,
   };
 }

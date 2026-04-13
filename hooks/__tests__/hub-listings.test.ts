@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isFractionOpenForMarketplace,
   isFractionPubliclyVisible,
+  resolveFractionRemainingSteps,
   type ActiveFraction,
 } from "../hub-listings";
 
@@ -50,6 +51,20 @@ describe("isFractionOpenForMarketplace", () => {
         })
       )
     ).toBe(true);
+  });
+
+  it("treats null remainingSteps as unsold totalSteps minus splitsSold", () => {
+    const fraction = createFraction({
+      status: "committed",
+      isCommittedOnChain: true,
+      totalSteps: 16,
+      splitsSold: 0,
+      remainingSteps: null,
+      isFilled: false,
+    });
+
+    expect(resolveFractionRemainingSteps(fraction)).toBe(16);
+    expect(isFractionOpenForMarketplace(fraction)).toBe(true);
   });
 });
 

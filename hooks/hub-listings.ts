@@ -113,7 +113,7 @@ export function isFractionOpenForMarketplace(
   fraction:
     | Pick<
         ActiveFraction,
-        "isFilled" | "remainingSteps" | "totalSteps"
+        "isFilled" | "remainingSteps" | "totalSteps" | "splitsSold"
       >
     | null
     | undefined
@@ -121,9 +121,33 @@ export function isFractionOpenForMarketplace(
   if (!fraction) return false;
 
   const totalSteps = fraction.totalSteps ?? 0;
-  const remainingSteps = fraction.remainingSteps ?? 0;
+  const remainingSteps = resolveFractionRemainingSteps(fraction);
 
   return !fraction.isFilled && remainingSteps > 0 && totalSteps > 0;
+}
+
+export function resolveFractionRemainingSteps(
+  fraction:
+    | Pick<ActiveFraction, "remainingSteps" | "totalSteps" | "splitsSold">
+    | null
+    | undefined,
+): number {
+  if (!fraction) return 0;
+
+  if (typeof fraction.remainingSteps === "number" && Number.isFinite(fraction.remainingSteps)) {
+    return Math.max(0, Math.floor(fraction.remainingSteps));
+  }
+
+  const totalSteps =
+    typeof fraction.totalSteps === "number" && Number.isFinite(fraction.totalSteps)
+      ? Math.max(0, Math.floor(fraction.totalSteps))
+      : 0;
+  const soldSteps =
+    typeof fraction.splitsSold === "number" && Number.isFinite(fraction.splitsSold)
+      ? Math.max(0, Math.floor(fraction.splitsSold))
+      : 0;
+
+  return Math.max(0, totalSteps - soldSteps);
 }
 
 export function isFractionPubliclyVisible(

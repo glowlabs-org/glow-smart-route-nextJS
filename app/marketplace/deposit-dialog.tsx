@@ -86,6 +86,7 @@ import {
   getErrorCode,
   getErrorMessage,
   hasConfirmedSplitPurchase,
+  getSgctlPreparationCutoffGuard,
   isDelayedSplitConfirmationErrorMessage,
   getSwapVolatilityErrorMessage,
   getInitialPositionValueGuard,
@@ -112,6 +113,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import type { SplitActivity, SplitsActivityResponse } from "@/hooks/hub-listings";
 import { hubGet } from "@/lib/api/hub-client";
 import type { RewardsBreakdownResponse } from "@/hooks/hub-fractions";
+import { getLaunchpadNowMs } from "@/utils/launchpad-now";
 
 export type LaunchpadRewardScore = {
   userWeeklyGlwRewards: string;
@@ -467,6 +469,22 @@ export function DepositDialog({
   const [successMetrics, setSuccessMetrics] =
     React.useState<SuccessMetrics | null>(null);
   const postSuccessRefreshTimeoutsRef = React.useRef<number[]>([]);
+  const [launchpadNowMs, setLaunchpadNowMs] = React.useState(() =>
+    getLaunchpadNowMs(),
+  );
+
+  React.useEffect(() => {
+    if (!open || runtimeSelectedCurrency !== "SGCTL") return;
+
+    setLaunchpadNowMs(getLaunchpadNowMs());
+    const intervalId = window.setInterval(() => {
+      setLaunchpadNowMs(getLaunchpadNowMs());
+    }, 5_000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [open, runtimeSelectedCurrency]);
 
   const fetchLatestApplication = React.useCallback(async () => {
     if (!application?.id) return application;
@@ -943,6 +961,8 @@ export function DepositDialog({
     runtimeSelectedCurrency === "SGCTL" &&
     sgctlRequiredAmount > 0n &&
     stakedGctlBalance >= sgctlRequiredAmount;
+  const showStakedSgctlBalanceOption =
+    runtimeSelectedCurrency === "SGCTL" && stakedGctlBalance > 0n;
   const sgctlSourceMode = React.useMemo<SgctlSourceMode | null>(() => {
     if (runtimeSelectedCurrency !== "SGCTL") return null;
     if (selectedPaymentMethod === "SGCTL") return "staked";
@@ -974,21 +994,68 @@ export function DepositDialog({
     signer,
     walletClient,
   ]);
+  const sgctlPreparationCutoffGuard = React.useMemo(
+    () =>
+      getSgctlPreparationCutoffGuard({
+        selectedCurrency: runtimeSelectedCurrency,
+        sgctlSource: sgctlSourceMode,
+        fractionCreatedAt: effectiveApplication?.activeFraction?.createdAt,
+        nowMs: launchpadNowMs,
+      }),
+    [
+      effectiveApplication?.activeFraction?.createdAt,
+      launchpadNowMs,
+      runtimeSelectedCurrency,
+      sgctlSourceMode,
+    ],
+  );
 
   React.useEffect(() => {
     if (runtimeSelectedCurrency !== "SGCTL") return;
+    if (sgctlPreparationCutoffGuard.isBlocked) {
+      if (showStakedSgctlBalanceOption && selectedPaymentMethod !== "SGCTL") {
+        setSelectedPaymentMethod("SGCTL");
+      }
+      return;
+    }
     if (showStakedSgctlOption && selectedPaymentMethod === "GCTL") {
       setSelectedPaymentMethod("SGCTL");
     }
     if (!showStakedSgctlOption && selectedPaymentMethod === "SGCTL") {
       setSelectedPaymentMethod("GCTL");
     }
-  }, [runtimeSelectedCurrency, selectedPaymentMethod, showStakedSgctlOption]);
+  }, [
+    runtimeSelectedCurrency,
+    selectedPaymentMethod,
+    sgctlPreparationCutoffGuard.isBlocked,
+    showStakedSgctlBalanceOption,
+    showStakedSgctlOption,
+  ]);
+
+  React.useEffect(() => {
+    if (
+      runtimeSelectedCurrency !== "SGCTL" ||
+      !sgctlPreparationCutoffGuard.isBlocked ||
+      !showStakedSgctlOption ||
+      selectedPaymentMethod === "SGCTL"
+    ) {
+      return;
+    }
+
+    setSelectedPaymentMethod("SGCTL");
+  }, [
+    runtimeSelectedCurrency,
+    selectedPaymentMethod,
+    sgctlPreparationCutoffGuard.isBlocked,
+    showStakedSgctlOption,
+  ]);
 
   const ctaLabel = !isSubmitting && isPreparingWalletAuthorization
     ? "Preparing Wallet..."
     : isCheckingInitialPositionEligibility
       ? "Checking Eligibility..."
+      : sgctlPreparationCutoffGuard.isBlocked
+        ? "Staked SGCTL Only"
       : initialPositionValueGuard.isBlocked
         ? `Minimum $${initialPositionValueGuard.minimumUsd.toLocaleString()} To Start`
         : showShortfallInCta
@@ -1643,6 +1710,10 @@ export function DepositDialog({
     }
     if (initialPositionValueGuard.isBlocked) {
       toast.error(initialPositionMinimumMessage);
+      return;
+    }
+    if (sgctlPreparationCutoffGuard.isBlocked) {
+      toast.error(sgctlPreparationCutoffGuard.message);
       return;
     }
     if (isPreparingWalletAuthorization) {
@@ -2920,6 +2991,11 @@ export function DepositDialog({
                 {initialPositionMinimumMessage}
               </div>
             ) : null}
+            {sgctlPreparationCutoffGuard.isBlocked ? (
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-muted-foreground">
+                {sgctlPreparationCutoffGuard.message}
+              </div>
+            ) : null}
           </div>
 
           {/* Estimated Rewards - Animated */}
@@ -3043,7 +3119,8 @@ export function DepositDialog({
                   }
                 />
               )}
-              {runtimeSelectedCurrency === "SGCTL" && showStakedSgctlOption && (
+              {runtimeSelectedCurrency === "SGCTL" &&
+                showStakedSgctlBalanceOption && (
                 <PaymentOption
                   label="Staked (SGCTL)"
                   balance={`${formatTokenAmount(
@@ -3065,6 +3142,7 @@ export function DepositDialog({
                 />
               )}
               {runtimeSelectedCurrency === "SGCTL" &&
+                !sgctlPreparationCutoffGuard.isBlocked &&
                 !showStakedSgctlOption && (
                   <PaymentOption
                     label="Control (GCTL)"
@@ -3081,60 +3159,66 @@ export function DepositDialog({
                     previewLabel="Source amount"
                   />
                 )}
-              {/* Option: USDC */}
-              <PaymentOption
-                label="USD Coin (USDC)"
-                balance={
-                  usdcBalance
-                    ? `${parseFloat(
-                        formatUnits(usdcBalance, 6),
-                      ).toLocaleString()} USDC`
-                    : "0 USDC"
-                }
-                icon={<TokenIcon symbol="USDC" />}
-                selected={selectedPaymentMethod === "USDC"}
-                onSelect={() => setSelectedPaymentMethod("USDC")}
-                isBalanceInsufficient={
-                  isConnected &&
-                  selectedPaymentMethod === "USDC" &&
-                  !affordability.canSubmit
-                }
-                pricePreview={requiredDisplayByMethod.USDC}
-                previewLabel={
-                  runtimeSelectedCurrency === "SGCTL"
-                    ? "Source cost"
-                    : runtimeSelectedCurrency === "GLW"
-                      ? "Swap cost"
-                      : undefined
-                }
-              />
-              {/* Option: ETH */}
-              <PaymentOption
-                label="Ethereum (ETH)"
-                balance={
-                  ethBalance
-                    ? `${parseFloat(formatUnits(ethBalance, 18)).toFixed(
-                        4,
-                      )} ETH`
-                    : "0 ETH"
-                }
-                icon={<TokenIcon symbol="ETH" />}
-                selected={selectedPaymentMethod === "ETH"}
-                onSelect={() => setSelectedPaymentMethod("ETH")}
-                isBalanceInsufficient={
-                  isConnected &&
-                  selectedPaymentMethod === "ETH" &&
-                  !affordability.canSubmit
-                }
-                pricePreview={requiredDisplayByMethod.ETH}
-                previewLabel={
-                  runtimeSelectedCurrency === "SGCTL"
-                    ? "Source cost"
-                    : runtimeSelectedCurrency === "GLW"
-                      ? "Swap cost"
-                      : undefined
-                }
-              />
+              {(runtimeSelectedCurrency !== "SGCTL" ||
+                (!showStakedSgctlOption &&
+                  !sgctlPreparationCutoffGuard.isBlocked)) && (
+                <>
+                  {/* Option: USDC */}
+                  <PaymentOption
+                    label="USD Coin (USDC)"
+                    balance={
+                      usdcBalance
+                        ? `${parseFloat(
+                            formatUnits(usdcBalance, 6),
+                          ).toLocaleString()} USDC`
+                        : "0 USDC"
+                    }
+                    icon={<TokenIcon symbol="USDC" />}
+                    selected={selectedPaymentMethod === "USDC"}
+                    onSelect={() => setSelectedPaymentMethod("USDC")}
+                    isBalanceInsufficient={
+                      isConnected &&
+                      selectedPaymentMethod === "USDC" &&
+                      !affordability.canSubmit
+                    }
+                    pricePreview={requiredDisplayByMethod.USDC}
+                    previewLabel={
+                      runtimeSelectedCurrency === "SGCTL"
+                        ? "Source cost"
+                        : runtimeSelectedCurrency === "GLW"
+                          ? "Swap cost"
+                          : undefined
+                    }
+                  />
+                  {/* Option: ETH */}
+                  <PaymentOption
+                    label="Ethereum (ETH)"
+                    balance={
+                      ethBalance
+                        ? `${parseFloat(formatUnits(ethBalance, 18)).toFixed(
+                            4,
+                          )} ETH`
+                        : "0 ETH"
+                    }
+                    icon={<TokenIcon symbol="ETH" />}
+                    selected={selectedPaymentMethod === "ETH"}
+                    onSelect={() => setSelectedPaymentMethod("ETH")}
+                    isBalanceInsufficient={
+                      isConnected &&
+                      selectedPaymentMethod === "ETH" &&
+                      !affordability.canSubmit
+                    }
+                    pricePreview={requiredDisplayByMethod.ETH}
+                    previewLabel={
+                      runtimeSelectedCurrency === "SGCTL"
+                        ? "Source cost"
+                        : runtimeSelectedCurrency === "GLW"
+                          ? "Swap cost"
+                          : undefined
+                    }
+                  />
+                </>
+              )}
             </div>
             {sgctlFundingBreakdown ? (
               <div className="rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
@@ -3201,6 +3285,7 @@ export function DepositDialog({
                   isSubmitting ||
                   isPreparingWalletAuthorization ||
                   isCheckingInitialPositionEligibility ||
+                  sgctlPreparationCutoffGuard.isBlocked ||
                   initialPositionValueGuard.isBlocked ||
                   !affordability.canSubmit
                 }
