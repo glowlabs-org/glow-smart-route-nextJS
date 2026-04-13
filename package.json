@@ -23,6 +23,7 @@
     "@auth/drizzle-adapter": "^0.6.3",
     "@aws-sdk/client-s3": "^3.515.0",
     "@aws-sdk/s3-request-presigner": "^3.515.0",
+    "@coinbase/wallet-sdk": "^4.3.7",
     "@glowlabs-org/guarded-launch-abis": "^0.0.2",
     "@glowlabs-org/utils": "^0.2.180",
     "@hookform/resolvers": "^3.3.4",

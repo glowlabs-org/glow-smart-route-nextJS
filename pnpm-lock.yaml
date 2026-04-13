@@ -24,6 +24,9 @@ importers:
       '@aws-sdk/s3-request-presigner':
         specifier: ^3.515.0
         version: 3.859.0
+      '@coinbase/wallet-sdk':
+        specifier: ^4.3.7
+        version: 4.3.7(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@6.0.5)(zod@3.25.76)
       '@glowlabs-org/guarded-launch-abis':
         specifier: ^0.0.2
         version: 0.0.2
@@ -98,7 +101,7 @@ importers:
         version: 1.7.8(@react-native-async-storage/async-storage@1.24.0(react-native@0.80.2(@babel/core@7.28.0)(@types/react@19.1.9)(bufferutil@4.0.9)(react@19.2.1)(utf-8-validate@6.0.5)))(@types/react@19.1.9)(bufferutil@4.0.9)(react@19.2.1)(typescript@5.9.2)(utf-8-validate@6.0.5)(zod@3.25.76)
       '@reown/appkit-adapter-wagmi':
         specifier: ^1.7.8
-        version: 1.7.8(057160d8733c224eee5a200077db8ba8)
+        version: 1.7.8(50b09ae3e6affa86f15ec2349969dc49)
       '@sentry/nextjs':
         specifier: ^10
         version: 10.17.0(@opentelemetry/context-async-hooks@2.1.0(@opentelemetry/api@1.9.0))(@opentelemetry/core@2.1.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@2.1.0(@opentelemetry/api@1.9.0))(next@15.4.8(@babel/core@7.28.0)(@opentelemetry/api@1.9.0)(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react@19.2.1)(webpack@5.102.0(esbuild@0.19.12))
@@ -641,6 +644,9 @@ packages:
 
   '@coinbase/wallet-sdk@4.3.6':
     resolution: {integrity: sha512-4q8BNG1ViL4mSAAvPAtpwlOs1gpC+67eQtgIwNvT3xyeyFFd+guwkc8bcX5rTmQhXpqnhzC4f0obACbP9CqMSA==}
+
+  '@coinbase/wallet-sdk@4.3.7':
+    resolution: {integrity: sha512-z6e5XDw6EF06RqkeyEa+qD0dZ2ZbLci99vx3zwDY//XO8X7166tqKJrR2XlQnzVmtcUuJtCd5fCvr9Cu6zzX7w==}
 
   '@ecies/ciphers@0.2.5':
     resolution: {integrity: sha512-GalEZH4JgOMHYYcYmVqnFirFsjZHeoGMDt9IxEnM9F7GRUUyUksJ7Ou53L83WHJq3RWKD3AcBpo0iQh0oMpf8A==}
@@ -9094,6 +9100,19 @@ snapshots:
       - utf-8-validate
       - zod
 
+  '@coinbase/wallet-sdk@4.3.7(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@6.0.5)(zod@3.25.76)':
+    dependencies:
+      '@noble/hashes': 1.8.0
+      clsx: 1.2.1
+      eventemitter3: 5.0.1
+      preact: 10.27.0
+      viem: 2.47.5(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@6.0.5)(zod@3.25.76)
+    transitivePeerDependencies:
+      - bufferutil
+      - typescript
+      - utf-8-validate
+      - zod
+
   '@ecies/ciphers@0.2.5(@noble/ciphers@1.3.0)':
     dependencies:
       '@noble/ciphers': 1.3.0
@@ -10919,7 +10938,7 @@ snapshots:
       '@types/react': 19.1.9
     optional: true
 
-  '@reown/appkit-adapter-wagmi@1.7.8(057160d8733c224eee5a200077db8ba8)':
+  '@reown/appkit-adapter-wagmi@1.7.8(50b09ae3e6affa86f15ec2349969dc49)':
     dependencies:
       '@reown/appkit': 1.7.8(@react-native-async-storage/async-storage@1.24.0(react-native@0.80.2(@babel/core@7.28.0)(@types/react@19.1.9)(bufferutil@4.0.9)(react@19.2.1)(utf-8-validate@6.0.5)))(@types/react@19.1.9)(bufferutil@4.0.9)(react@19.2.1)(typescript@5.9.2)(utf-8-validate@6.0.5)(zod@3.25.76)
       '@reown/appkit-common': 1.7.8(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@6.0.5)(zod@3.25.76)
@@ -10934,7 +10953,7 @@ snapshots:
       viem: 2.47.5(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@6.0.5)(zod@3.25.76)
       wagmi: 2.19.5(@react-native-async-storage/async-storage@1.24.0(react-native@0.80.2(@babel/core@7.28.0)(@types/react@19.1.9)(bufferutil@4.0.9)(react@19.2.1)(utf-8-validate@6.0.5)))(@tanstack/query-core@5.83.1)(@tanstack/react-query@5.84.1(react@19.2.1))(@types/react@19.1.9)(bufferutil@4.0.9)(react-native@0.80.2(@babel/core@7.28.0)(@types/react@19.1.9)(bufferutil@4.0.9)(react@19.2.1)(utf-8-validate@6.0.5))(react@19.2.1)(typescript@5.9.2)(utf-8-validate@6.0.5)(viem@2.47.5(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@6.0.5)(zod@3.25.76))(zod@3.25.76)
     optionalDependencies:
-      '@wagmi/connectors': 7.2.1(9a4f41e6d37baee0a866e13f4a31b2ef)
+      '@wagmi/connectors': 7.2.1(c529257248f6b5f617c25f9e55cabd3d)
     transitivePeerDependencies:
       - '@azure/app-configuration'
       - '@azure/cosmos'
@@ -12914,12 +12933,12 @@ snapshots:
       - wagmi
       - zod
 
-  '@wagmi/connectors@7.2.1(9a4f41e6d37baee0a866e13f4a31b2ef)':
+  '@wagmi/connectors@7.2.1(c529257248f6b5f617c25f9e55cabd3d)':
     dependencies:
       '@wagmi/core': 2.22.1(@tanstack/query-core@5.83.1)(@types/react@19.1.9)(react@19.2.1)(typescript@5.9.2)(use-sync-external-store@1.4.0(react@19.2.1))(viem@2.47.5(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@6.0.5)(zod@3.25.76))
       viem: 2.47.5(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@6.0.5)(zod@3.25.76)
     optionalDependencies:
-      '@coinbase/wallet-sdk': 4.3.6(@types/react@19.1.9)(bufferutil@4.0.9)(react@19.2.1)(typescript@5.9.2)(use-sync-external-store@1.4.0(react@19.2.1))(utf-8-validate@6.0.5)(zod@3.25.76)
+      '@coinbase/wallet-sdk': 4.3.7(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@6.0.5)(zod@3.25.76)
       '@metamask/sdk': 0.33.1(bufferutil@4.0.9)(utf-8-validate@6.0.5)
       '@safe-global/safe-apps-provider': 0.18.6(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@6.0.5)(zod@3.25.76)
       '@safe-global/safe-apps-sdk': 9.1.0(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@6.0.5)(zod@3.25.76)

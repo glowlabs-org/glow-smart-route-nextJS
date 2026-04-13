@@ -149,33 +149,15 @@ describe("wallet storage", () => {
     expect(getCookieValue("wagmi.recentConnectorId", document.cookie)).toBeNull();
   });
 
-  it("drops stale walletConnect recent connector id when no WC session exists", () => {
+  it("preserves walletConnect recent connector id without validating sessions", () => {
     const storage = createPersistentWalletStorage();
 
     window.localStorage.setItem("wagmi.recentConnectorId", "walletConnect");
-
-    expect(storage.getItem("wagmi.recentConnectorId")).toBeNull();
-    expect(window.localStorage.getItem("wagmi.recentConnectorId")).toBeNull();
-  });
-
-  it("keeps walletConnect recent connector id when a WC session exists", () => {
-    const storage = createPersistentWalletStorage();
-    const topic = "a".repeat(64);
-
-    window.localStorage.setItem("wagmi.recentConnectorId", "walletConnect");
-    window.localStorage.setItem(
-      "wc@2:client:0.3//session",
-      JSON.stringify({ [topic]: { topic } })
-    );
-    window.localStorage.setItem(
-      "wc@2:core:0.3//keychain",
-      JSON.stringify({ [topic]: "symKey" })
-    );
 
     expect(storage.getItem("wagmi.recentConnectorId")).toBe("walletConnect");
   });
 
-  it("purges stale walletConnect artifacts when non-WC connector is selected", () => {
+  it("does not purge walletConnect artifacts when reading a different connector", () => {
     const storage = createPersistentWalletStorage();
     const topic = "b".repeat(64);
 
@@ -190,7 +172,7 @@ describe("wallet storage", () => {
     );
 
     expect(storage.getItem("wagmi.recentConnectorId")).toBe("io.metamask");
-    expect(window.localStorage.getItem("wc@2:client:0.3//session")).toBeNull();
-    expect(window.localStorage.getItem("wc@2:core:0.3//keychain")).toBeNull();
+    expect(window.localStorage.getItem("wc@2:client:0.3//session")).not.toBeNull();
+    expect(window.localStorage.getItem("wc@2:core:0.3//keychain")).not.toBeNull();
   });
 });

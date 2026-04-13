@@ -1,7 +1,7 @@
 "use client";
 
 import { createStorage } from "wagmi";
-import { injected, walletConnect } from "wagmi/connectors";
+import { coinbaseWallet, injected } from "wagmi/connectors";
 import { createAppKit } from "@reown/appkit/react";
 import { mainnet, sepolia } from "@reown/appkit/networks";
 import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
@@ -25,12 +25,35 @@ const networks = [
   process.env.NEXT_PUBLIC_CHAIN_ID === "1" ? mainnet : sepolia,
 ] as const;
 
-const APPKIT_METADATA = {
-  name: "Glow",
-  description: "Glow app",
-  url: "https://app.glow.org",
-  icons: ["https://app.glow.org/icon.png"],
-};
+const APPKIT_PRODUCTION_URL = "https://app.glow.org";
+
+function getAppKitMetadata() {
+  const url =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : APPKIT_PRODUCTION_URL;
+  return {
+    name: "Glow",
+    description: "Glow app",
+    url,
+    icons: [`${APPKIT_PRODUCTION_URL}/icon.png`],
+  };
+}
+
+// Coinbase SDK v4 detects the extension via the legacy `window.coinbaseWalletExtension`
+// property, but modern Coinbase Wallet injects via `window.ethereum` with
+// `isCoinbaseWallet: true`. Bridge the gap so the SDK finds the extension.
+if (typeof window !== "undefined" && !(window as any).coinbaseWalletExtension) {
+  const eth = (window as any).ethereum;
+  const cbProvider = Array.isArray(eth?.providers)
+    ? eth.providers.find((p: any) => p.isCoinbaseWallet === true)
+    : eth?.isCoinbaseWallet
+      ? eth
+      : undefined;
+  if (cbProvider) {
+    (window as any).coinbaseWalletExtension = cbProvider;
+  }
+}
 
 const INJECTED_CONNECTOR_OPTIONS = {
   shimDisconnect: true,
@@ -218,12 +241,21 @@ function isMetaMaskProvider(provider: any) {
     provider?.isMetaMask === true &&
     provider?.isRabby !== true &&
     provider?.isCoinbaseWallet !== true &&
-    provider?.isPhantom !== true
+    provider?.isPhantom !== true &&
+    provider?.isTrust !== true &&
+    provider?.isTrustWallet !== true
   );
 }
 
 function isRabbyProvider(provider: any) {
   return provider?.isRabby === true;
+}
+
+function isTrustWalletProvider(provider: any) {
+  return (
+    (provider?.isTrust === true || provider?.isTrustWallet === true) &&
+    provider?.isMetaMask !== true
+  );
 }
 
 const wagmiAdapter = new WagmiAdapter({
@@ -338,22 +370,6 @@ const wagmiAdapter = new WagmiAdapter({
           injected({
             ...INJECTED_CONNECTOR_OPTIONS,
             target: {
-              id: "coinbaseWallet",
-              name: "Coinbase Wallet",
-              provider: (window) =>
-                ((window as any)?.coinbaseWalletExtension as any) ??
-                pickInjectedProvider(
-                  window,
-                  (provider) => provider.isCoinbaseWallet === true,
-                  (provider, info) =>
-                    info?.rdns === "com.coinbase.wallet" ||
-                    provider.isCoinbaseWallet === true,
-                ),
-            },
-          }),
-          injected({
-            ...INJECTED_CONNECTOR_OPTIONS,
-            target: {
               id: "phantom",
               name: "Phantom",
               icon: "/images/icons/phantom.svg",
@@ -367,10 +383,24 @@ const wagmiAdapter = new WagmiAdapter({
                 ),
             },
           }),
-          walletConnect({
-            projectId: WALLET_CONNECT_PROJECT_ID,
-            showQrModal: false,
-            metadata: APPKIT_METADATA,
+          injected({
+            ...INJECTED_CONNECTOR_OPTIONS,
+            target: {
+              id: "com.trustwallet.app",
+              name: "Trust Wallet",
+              provider: (window) =>
+                ((window as any)?.trustwallet as any) ??
+                pickInjectedProvider(
+                  window,
+                  isTrustWalletProvider,
+                  (provider, info) =>
+                    info?.rdns === "com.trustwallet.app" ||
+                    isTrustWalletProvider(provider),
+                ),
+            },
+          }),
+          coinbaseWallet({
+            appName: "Glow",
           }),
         ],
   storage: createStorage({
@@ -393,14 +423,18 @@ function initializeAppKit() {
     adapters: [wagmiAdapter],
     networks: [...networks],
     projectId: WALLET_CONNECT_PROJECT_ID,
-    metadata: APPKIT_METADATA,
+    metadata: getAppKitMetadata(),
     enableWallets: true,
-    // Keep AppKit from layering its own Coinbase/Injected/WC connectors on top
-    // of the explicit wagmi connectors above. That duplicate connector set causes
-    // unstable wallet selection in multi-wallet browser profiles.
-    enableCoinbase: false,
+    // Feature Coinbase Wallet prominently in the modal. AppKit hides the
+    // coinbaseWalletSDK connector from the EXTERNAL widget by design;
+    // featuring it by explorer ID makes it appear in the main wallet list.
+    featuredWalletIds: [
+      "fd20dc426fb37566d803205b19bbc1d4096b248ac04548e3cfb6b3a38bd033aa", // Coinbase Wallet
+    ],
+    // Keep AppKit from layering its own generic injected connector. The
+    // coinbaseWallet() connector is added directly in the wagmi adapter;
+    // AppKit's duplicate check (id === 'coinbaseWalletSDK') prevents doubles.
     enableInjected: false,
-    enableWalletConnect: false,
     features: {
       email: false,
       socials: false,
