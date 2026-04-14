@@ -447,18 +447,36 @@ export interface UseSplitsActivityParams {
   walletAddress?: string;
   fractionType?: "mining-center" | "launchpad";
   enabled?: boolean;
+  staleTimeMs?: number;
+  refetchOnWindowFocus?: boolean;
+  refetchOnMount?: boolean;
+  refetchIntervalMs?: number | false;
 }
 
 export function useSplitsActivity(params: UseSplitsActivityParams = {}) {
-  const { limit = 50, walletAddress, fractionType, enabled = true } = params;
+  const {
+    limit = 50,
+    walletAddress,
+    fractionType,
+    enabled = true,
+    staleTimeMs = 30_000,
+    refetchOnWindowFocus = false,
+    refetchOnMount = false,
+    refetchIntervalMs = false,
+  } = params;
+  const normalizedWalletAddress = walletAddress?.toLowerCase();
 
   const query = useQuery({
-    queryKey: QUERY_KEYS.activity.splits(limit, walletAddress, fractionType),
+    queryKey: QUERY_KEYS.activity.splits(
+      limit,
+      normalizedWalletAddress,
+      fractionType,
+    ),
     enabled,
-    staleTime: 0,
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
-    refetchInterval: 10_000,
+    staleTime: staleTimeMs,
+    refetchOnWindowFocus,
+    refetchOnMount,
+    refetchInterval: refetchIntervalMs,
     queryFn: async (): Promise<SplitsActivityResponse> => {
       const endpoint = fractionType
         ? "/api/fractions/splits-activity-by-type"
@@ -466,7 +484,9 @@ export function useSplitsActivity(params: UseSplitsActivityParams = {}) {
 
       const search = new URLSearchParams();
       search.set("limit", String(limit));
-      if (walletAddress) search.set("walletAddress", walletAddress);
+      if (normalizedWalletAddress) {
+        search.set("walletAddress", normalizedWalletAddress);
+      }
       if (fractionType) search.set("fractionType", fractionType);
 
       const response = await fetch(`${endpoint}?${search.toString()}`, {

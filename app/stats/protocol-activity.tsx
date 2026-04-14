@@ -440,20 +440,6 @@ export function ProtocolActivity({
 
   const { activity: allSplitsActivity, isLoading: allSplitsLoading } =
     useSplitsActivity({ enabled: shouldLoad, limit: 100 });
-  const {
-    activity: launchpadSplitsActivity,
-    isLoading: launchpadSplitsLoading,
-  } = useSplitsActivity({
-    enabled: shouldLoad,
-    limit: 10,
-    fractionType: "launchpad",
-  });
-  const { activity: miningSplitsActivity, isLoading: miningSplitsLoading } =
-    useSplitsActivity({
-      enabled: shouldLoad,
-      limit: 10,
-      fractionType: "mining-center",
-    });
 
   React.useEffect(() => {
     if (!shouldLoad) return;
@@ -605,12 +591,12 @@ export function ProtocolActivity({
     [allSplitsActivity],
   );
   const delegationPreviewEvents = React.useMemo(
-    () => formatDelegationEvents(launchpadSplitsActivity),
-    [launchpadSplitsActivity],
+    () => delegationEvents.slice(0, 10),
+    [delegationEvents],
   );
   const minerPreviewEvents = React.useMemo(
-    () => formatMinerEvents(miningSplitsActivity),
-    [miningSplitsActivity],
+    () => minerEvents.slice(0, 10),
+    [minerEvents],
   );
 
   const hasDelegationPreview = delegationPreviewEvents.length > 0;
@@ -635,17 +621,13 @@ export function ProtocolActivity({
     miningLoading ||
     isRewardScoresLoading ||
     isMiningScoresLoading ||
-    allSplitsLoading ||
-    launchpadSplitsLoading ||
-    miningSplitsLoading;
+    allSplitsLoading;
 
   const isInitialLoading =
     (summaryLoading && !summary) ||
     (launchpadLoading && launchpadApplications.length === 0) ||
     (miningLoading && miningApplications.length === 0) ||
-    (allSplitsLoading && allSplitsActivity.length === 0) ||
-    (launchpadSplitsLoading && launchpadSplitsActivity.length === 0) ||
-    (miningSplitsLoading && miningSplitsActivity.length === 0);
+    (allSplitsLoading && allSplitsActivity.length === 0);
 
   if (!shouldLoad) {
     return <ProtocolActivitySkeleton />;

@@ -255,15 +255,16 @@ export function useRewardsBreakdown(
   } = {}
 ) {
   const { walletAddress, farmId, startWeek, endWeek, enabled = true } = params;
+  const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
 
   const query = useQuery<RewardsBreakdownResponse | null>({
     queryKey: QUERY_KEYS.fractions.rewardsBreakdown({
-      walletAddress,
+      walletAddress: normalizedWalletAddress,
       farmId,
       startWeek,
       endWeek,
     }),
-    enabled: enabled && (Boolean(walletAddress) || Boolean(farmId)),
+    enabled: enabled && (Boolean(normalizedWalletAddress) || Boolean(farmId)),
     staleTime: QUERY_CONFIG.DEFAULT.staleTime * 2,
     refetchOnWindowFocus: QUERY_CONFIG.DEFAULT.refetchOnWindowFocus,
     queryFn: async () =>
@@ -271,7 +272,7 @@ export function useRewardsBreakdown(
         "/fractions/rewards-breakdown",
         {
           params: {
-            walletAddress: walletAddress ?? undefined,
+            walletAddress: normalizedWalletAddress ?? undefined,
             farmId: farmId ?? undefined,
             startWeek,
             endWeek,
@@ -673,24 +674,26 @@ export interface RefundableFractionsResponse {
 export function useRefundableFractions(params: {
   walletAddress: string | null;
   enabled?: boolean;
-  refetchInterval?: number;
+  refetchInterval?: number | false;
 }) {
-  const { walletAddress, enabled = true, refetchInterval = 60_000 } = params;
+  const { walletAddress, enabled = true, refetchInterval = false } = params;
+  const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
 
   const query = useQuery<RefundableFractionsResponse | null>({
-    queryKey: QUERY_KEYS.fractions.refundable(walletAddress),
-    enabled: enabled && Boolean(walletAddress),
+    queryKey: QUERY_KEYS.fractions.refundable(normalizedWalletAddress),
+    enabled: enabled && Boolean(normalizedWalletAddress),
     refetchInterval,
-    refetchOnWindowFocus: true,
-    staleTime: 10_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    staleTime: 30_000,
     queryFn: async () => {
-      if (!walletAddress) return null;
+      if (!normalizedWalletAddress) return null;
       return await hubGet<RefundableFractionsResponse | null>(
         "/fractions/refundable-by-wallet",
         {
-          params: { walletAddress },
+          params: { walletAddress: normalizedWalletAddress },
           notFound: {
-            walletAddress,
+            walletAddress: normalizedWalletAddress,
             refundableFractions: [],
             summary: {
               totalRefundableFractions: 0,

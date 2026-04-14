@@ -1406,86 +1406,86 @@ export function DepositDialog({
       const normalizedAddress = address?.toLowerCase() ?? null;
 
       await Promise.all([
-        queryClient.refetchQueries({
+        queryClient.invalidateQueries({
           queryKey: ["sponsor-listings"],
           exact: false,
-          type: "all",
+          refetchType: "none",
         }),
-        queryClient.refetchQueries({
+        queryClient.invalidateQueries({
           queryKey: ["sponsor-listings-live-soon"],
-          type: "all",
+          refetchType: "none",
         }),
-        queryClient.refetchQueries({
+        queryClient.invalidateQueries({
           queryKey: ["reward-scores"],
           exact: false,
-          type: "all",
+          refetchType: "none",
         }),
-        queryClient.refetchQueries({
+        queryClient.invalidateQueries({
           queryKey: ["mining-scores"],
           exact: false,
-          type: "all",
+          refetchType: "none",
         }),
-        queryClient.refetchQueries({
+        queryClient.invalidateQueries({
           queryKey: ["splits-activity"],
           exact: false,
-          type: "all",
+          refetchType: "none",
         }),
-        queryClient.refetchQueries({
+        queryClient.invalidateQueries({
           queryKey: ["rewards-breakdown"],
           exact: false,
-          type: "all",
+          refetchType: "none",
         }),
-        queryClient.refetchQueries({
+        queryClient.invalidateQueries({
           queryKey: ["wallet-farms"],
           exact: false,
-          type: "all",
+          refetchType: "none",
         }),
-        queryClient.refetchQueries({
+        queryClient.invalidateQueries({
           queryKey: QUERY_KEYS.fractions.splits(address, fractionId),
-          type: "all",
+          refetchType: "none",
         }),
-        queryClient.refetchQueries({
+        queryClient.invalidateQueries({
           queryKey: ["wallet-rewards"],
           exact: false,
-          type: "all",
+          refetchType: "none",
         }),
-        queryClient.refetchQueries({
+        queryClient.invalidateQueries({
           queryKey: QUERY_KEYS.impact.score(address),
-          type: "all",
+          refetchType: "none",
         }),
-        queryClient.refetchQueries({
+        queryClient.invalidateQueries({
           queryKey: QUERY_KEYS.impact.glowWorth(address),
-          type: "all",
+          refetchType: "none",
         }),
-        queryClient.refetchQueries({
+        queryClient.invalidateQueries({
           queryKey: QUERY_KEYS.impact.scoreBreakdown(address),
-          type: "all",
+          refetchType: "none",
         }),
-        queryClient.refetchQueries({
+        queryClient.invalidateQueries({
           queryKey: QUERY_KEYS.impact.leaderboard(),
-          type: "all",
+          refetchType: "none",
         }),
-        queryClient.refetchQueries({
+        queryClient.invalidateQueries({
           queryKey: QUERY_KEYS.balances.tokens(chainId, address),
-          type: "all",
+          refetchType: "none",
         }),
-        queryClient.refetchQueries({
+        queryClient.invalidateQueries({
           queryKey: QUERY_KEYS.fractions.splits(normalizedAddress, fractionId),
-          type: "all",
+          refetchType: "none",
         }),
-        queryClient.refetchQueries({
+        queryClient.invalidateQueries({
           queryKey: QUERY_KEYS.wallets.farms(normalizedAddress ?? undefined),
-          type: "all",
+          refetchType: "none",
         }),
-        queryClient.refetchQueries({
+        queryClient.invalidateQueries({
           queryKey: QUERY_KEYS.wallets.rewards(normalizedAddress ?? undefined),
-          type: "all",
+          refetchType: "none",
         }),
-        queryClient.refetchQueries({
+        queryClient.invalidateQueries({
           queryKey: QUERY_KEYS.fractions.rewardsBreakdown({
             walletAddress: normalizedAddress,
           }),
-          type: "all",
+          refetchType: "none",
         }),
       ]);
 
@@ -1631,34 +1631,22 @@ export function DepositDialog({
     postSuccessRefreshTimeoutsRef.current = [];
   }, []);
 
-  const schedulePostSuccessRefreshes = React.useCallback(
-    (fractionId: string) => {
-      clearScheduledPostSuccessRefreshes();
+  const schedulePostSuccessRefreshes = React.useCallback(() => {
+    clearScheduledPostSuccessRefreshes();
 
-      const refreshDelaysMs = [2_000, 5_000, 10_000];
+    const timeoutId = window.setTimeout(() => {
+      void (async () => {
+        try {
+          await syncFreshPostSuccessCaches();
+        } catch {
+          // Best effort only. Late projection passes should never surface
+          // an additional error once the transaction is already successful.
+        }
+      })();
+    }, 5_000);
 
-      for (const delayMs of refreshDelaysMs) {
-        const timeoutId = window.setTimeout(() => {
-          void (async () => {
-            try {
-              await invalidatePostSuccessQueries(fractionId);
-              await syncFreshPostSuccessCaches();
-            } catch {
-              // Best effort only. Late projection passes should never surface
-              // an additional error once the transaction is already successful.
-            }
-          })();
-        }, delayMs);
-
-        postSuccessRefreshTimeoutsRef.current.push(timeoutId);
-      }
-    },
-    [
-      clearScheduledPostSuccessRefreshes,
-      invalidatePostSuccessQueries,
-      syncFreshPostSuccessCaches,
-    ],
-  );
+    postSuccessRefreshTimeoutsRef.current.push(timeoutId);
+  }, [clearScheduledPostSuccessRefreshes, syncFreshPostSuccessCaches]);
 
   React.useEffect(() => {
     if (open) return;
@@ -1951,7 +1939,7 @@ export function DepositDialog({
             });
             await invalidatePostSuccessQueries(activeFraction.id);
             await syncFreshPostSuccessCaches();
-            schedulePostSuccessRefreshes(activeFraction.id);
+            schedulePostSuccessRefreshes();
             updateStepStatus("CONFIRM_TX", "completed");
             setPhase("success");
             setTxHash(null);
@@ -2141,7 +2129,7 @@ export function DepositDialog({
           });
           await invalidatePostSuccessQueries(activeFraction.id);
           await syncFreshPostSuccessCaches();
-          schedulePostSuccessRefreshes(activeFraction.id);
+          schedulePostSuccessRefreshes();
           updateStepStatus("CONFIRM_TX", "completed", { txHash });
           setPhase("success");
 
