@@ -118,6 +118,7 @@ import {
 import { hubGet } from "@/lib/api/hub-client";
 import type { RewardsBreakdownResponse } from "@/hooks/hub-fractions";
 import { getLaunchpadNowMs } from "@/utils/launchpad-now";
+import { normalizeMinerWeeksRemainingDisplay } from "@/lib/mining-score";
 
 export type LaunchpadRewardScore = {
   userWeeklyGlwRewards: string;
@@ -1104,6 +1105,20 @@ export function DepositDialog({
       (estimatedRewardsBreakdown.pdSymbol === "SGCTL"
         ? gctlPriceNumber || 0
         : glwSpotPrice || 0);
+
+  const rewardsWeeksLabel = React.useMemo(() => {
+    if (runtimeSelectedCurrency === "USDC") {
+      const normalized = normalizeMinerWeeksRemainingDisplay(
+        (rewardScore as MiningCenterScore | null | undefined)
+          ?.weeksOfMinerLifeRemaining,
+      );
+      if (typeof normalized === "number" && normalized > 0) {
+        return `weekly for ${Math.floor(normalized)} week${Math.floor(normalized) === 1 ? "" : "s"}.`;
+      }
+      return "weekly for 99 weeks.";
+    }
+    return "weekly for 100 weeks.";
+  }, [runtimeSelectedCurrency, rewardScore]);
 
   // Estimated weekly impact points based on GLOW-IMPACT-SCORE.md rules:
   // - Emissions: +1 point per GLW earned in emission rewards
@@ -3057,7 +3072,7 @@ export function DepositDialog({
                   )}
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground/80">
-                  weekly for 100 weeks.
+                  {rewardsWeeksLabel}
                 </div>
               </div>
               <div className="text-right">
