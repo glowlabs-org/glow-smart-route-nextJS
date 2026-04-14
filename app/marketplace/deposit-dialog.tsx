@@ -110,7 +110,11 @@ import {
 } from "./deposit-dialog-utils";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { useIsMobile } from "@/hooks/use-mobile";
-import type { SplitActivity, SplitsActivityResponse } from "@/hooks/hub-listings";
+import {
+  resolveFractionRemainingSteps,
+  type SplitActivity,
+  type SplitsActivityResponse,
+} from "@/hooks/hub-listings";
 import { hubGet } from "@/lib/api/hub-client";
 import type { RewardsBreakdownResponse } from "@/hooks/hub-fractions";
 import { getLaunchpadNowMs } from "@/utils/launchpad-now";
@@ -135,7 +139,7 @@ function updateApplicationAfterSuccessfulPurchase(
   if (!fraction) return application;
 
   const totalSteps = Math.max(0, Math.floor(fraction.totalSteps ?? 0));
-  const prevRemaining = Math.max(0, Math.floor(fraction.remainingSteps ?? 0));
+  const prevRemaining = resolveFractionRemainingSteps(fraction);
   const nextRemaining = Math.max(0, prevRemaining - Math.max(0, quantity));
   const nextSplitsSold = Math.max(
     0,
@@ -961,8 +965,6 @@ export function DepositDialog({
     runtimeSelectedCurrency === "SGCTL" &&
     sgctlRequiredAmount > 0n &&
     stakedGctlBalance >= sgctlRequiredAmount;
-  const showStakedSgctlBalanceOption =
-    runtimeSelectedCurrency === "SGCTL" && stakedGctlBalance > 0n;
   const sgctlSourceMode = React.useMemo<SgctlSourceMode | null>(() => {
     if (runtimeSelectedCurrency !== "SGCTL") return null;
     if (selectedPaymentMethod === "SGCTL") return "staked";
@@ -1013,7 +1015,7 @@ export function DepositDialog({
   React.useEffect(() => {
     if (runtimeSelectedCurrency !== "SGCTL") return;
     if (sgctlPreparationCutoffGuard.isBlocked) {
-      if (showStakedSgctlBalanceOption && selectedPaymentMethod !== "SGCTL") {
+      if (showStakedSgctlOption && selectedPaymentMethod !== "SGCTL") {
         setSelectedPaymentMethod("SGCTL");
       }
       return;
@@ -1028,7 +1030,6 @@ export function DepositDialog({
     runtimeSelectedCurrency,
     selectedPaymentMethod,
     sgctlPreparationCutoffGuard.isBlocked,
-    showStakedSgctlBalanceOption,
     showStakedSgctlOption,
   ]);
 
@@ -1124,7 +1125,9 @@ export function DepositDialog({
     ],
   );
 
-  const maxQuantity = effectiveApplication?.activeFraction?.remainingSteps ?? 0;
+  const maxQuantity = resolveFractionRemainingSteps(
+    effectiveApplication?.activeFraction,
+  );
 
   // Handlers
   const handleQuantityChange = (delta: number) => {
@@ -1742,10 +1745,7 @@ export function DepositDialog({
 
       setLiveApplication(currentApplication);
 
-      const availableSteps = Math.max(
-        0,
-        Math.floor(activeFraction.remainingSteps ?? 0),
-      );
+      const availableSteps = resolveFractionRemainingSteps(activeFraction);
       if (availableSteps <= 0) {
         toast.error("This listing is no longer available.");
         return;
@@ -3120,7 +3120,7 @@ export function DepositDialog({
                 />
               )}
               {runtimeSelectedCurrency === "SGCTL" &&
-                showStakedSgctlBalanceOption && (
+                showStakedSgctlOption && (
                 <PaymentOption
                   label="Staked (SGCTL)"
                   balance={`${formatTokenAmount(
