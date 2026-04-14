@@ -2110,11 +2110,17 @@ export function DepositDialog({
       updateStepStatus("CONFIRM_TX", "confirming");
       setTxHash(txHash);
 
-      await confirmPurchaseInSplits(quantity);
-      const confirmedApplication =
-        (await fetchLatestApplication()) ?? currentApplication;
-      setLiveApplication(confirmedApplication);
+      const costBigInt =
+        runtimeSelectedCurrency === "USDC"
+          ? BigInt(activeFraction.stepPrice) * BigInt(quantity)
+          : (currentDelegationStepAtomic ?? 0n) * BigInt(quantity);
 
+      const optimisticApplication = updateApplicationAfterSuccessfulPurchase(
+        currentApplication,
+        quantity,
+      );
+
+      setLiveApplication(optimisticApplication);
       setSuccessMetrics(
         calculateSuccessMetrics(
           activeFraction,
@@ -2122,53 +2128,86 @@ export function DepositDialog({
           runtimeSelectedCurrency,
         ),
       );
-
-      const costBigInt =
-        runtimeSelectedCurrency === "USDC"
-          ? BigInt(activeFraction.stepPrice) * BigInt(quantity)
-          : (currentDelegationStepAtomic ?? 0n) * BigInt(quantity);
-
-      await sponsorMutation.mutateAsync({
-        applicationId: currentApplication.id,
+      applyOptimisticPostSuccessUpdates({
+        txHash,
+        application: optimisticApplication,
+        fallbackApplication: currentApplication,
+        quantity,
         amount: costBigInt,
         currency: runtimeSelectedCurrency,
-        txHash: txHash,
-        onSuccess: async () => {
-          applyOptimisticPostSuccessUpdates({
-            txHash,
-            application: confirmedApplication,
-            fallbackApplication: currentApplication,
-            quantity,
+      });
+      updateStepStatus("CONFIRM_TX", "completed", { txHash });
+      setPhase("success");
+
+      trackEvent("marketplace_deposit_success", {
+        currency: runtimeSelectedCurrency,
+        payment_method: selectedPaymentMethod,
+        listing_type:
+          runtimeSelectedCurrency === "USDC" ? "miners" : "delegations",
+        application_id: currentApplication.id,
+        fraction_id: activeFraction.id,
+        quantity,
+        tx_hash: txHash,
+        farm_name: currentApplication.farmName ?? null,
+        zone_name: currentApplication.zone?.name ?? null,
+      });
+
+      toast.success(
+        runtimeSelectedCurrency === "USDC"
+          ? "Miners purchased!"
+          : "Delegation successful!",
+      );
+      onSuccess?.();
+
+      void (async () => {
+        try {
+          await confirmPurchaseInSplits(quantity);
+          const confirmedApplication =
+            (await fetchLatestApplication()) ?? optimisticApplication;
+          setLiveApplication(confirmedApplication);
+
+          await sponsorMutation.mutateAsync({
+            applicationId: currentApplication.id,
             amount: costBigInt,
             currency: runtimeSelectedCurrency,
+            txHash,
+            onSuccess: async () => {
+              await invalidatePostSuccessQueries(activeFraction.id);
+              await syncFreshPostSuccessCaches();
+              schedulePostSuccessRefreshes();
+            },
           });
-          await invalidatePostSuccessQueries(activeFraction.id);
-          await syncFreshPostSuccessCaches();
-          schedulePostSuccessRefreshes();
-          updateStepStatus("CONFIRM_TX", "completed", { txHash });
-          setPhase("success");
-
-          trackEvent("marketplace_deposit_success", {
-            currency: runtimeSelectedCurrency,
-            payment_method: selectedPaymentMethod,
-            listing_type:
-              runtimeSelectedCurrency === "USDC" ? "miners" : "delegations",
-            application_id: currentApplication.id,
-            fraction_id: activeFraction.id,
-            quantity,
-            tx_hash: txHash,
-            farm_name: currentApplication.farmName ?? null,
-            zone_name: currentApplication.zone?.name ?? null,
-          });
-
-          toast.success(
-            runtimeSelectedCurrency === "USDC"
-              ? "Miners purchased!"
-              : "Delegation successful!",
+        } catch (backgroundError) {
+          console.error(
+            "Post-success split confirmation sync failed:",
+            backgroundError,
           );
-          onSuccess?.();
-        },
-      });
+          Sentry.captureException(
+            backgroundError instanceof Error
+              ? backgroundError
+              : new Error(String(backgroundError)),
+            {
+              tags: {
+                marketplaceStage: "post_success_sync",
+                delegationAsset:
+                  application?.activeFraction?.delegationAsset ?? "none",
+                delegationPhase:
+                  application?.activeFraction?.delegationPhase ?? "none",
+              },
+              extra: {
+                currency: runtimeSelectedCurrency,
+                paymentMethod: selectedPaymentMethod,
+                applicationId: currentApplication.id,
+                fractionId: activeFraction.id,
+                quantity,
+                txHash,
+              },
+            },
+          );
+
+          schedulePostSuccessRefreshes();
+        }
+      })();
     } catch (e: any) {
       console.error(e);
       const rawMsg = getErrorMessage(e) || "Transaction failed";
