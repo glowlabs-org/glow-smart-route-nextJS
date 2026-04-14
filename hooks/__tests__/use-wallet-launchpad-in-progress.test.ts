@@ -342,4 +342,85 @@ describe("useWalletLaunchpadInProgress", () => {
       delegationCurrency: "SGCTL",
     });
   });
+
+  it("uses normalized SGCTL share counts for in-progress estimates", () => {
+    const sponsorListings = [
+      createApplication("app-sgctl", {
+        farmId: null,
+        paymentCurrency: "SGCTL",
+        finalProtocolFee: "953554810000",
+        applicationPriceQuotes: [],
+        activeFraction: {
+          totalSteps: 4607,
+          progressPercent: 0,
+          isFilled: false,
+          remainingSteps: 47677,
+          delegationAsset: "SGCTL",
+          currentStepUsd6: "19999999",
+        },
+      }),
+    ];
+
+    mockUseGlowLaunchpad.mockReturnValue({
+      applications: sponsorListings,
+      isLoading: false,
+      isError: false,
+    });
+
+    mockUseRewardScore.mockImplementation(
+      ({
+        paymentCurrency,
+      }: {
+        paymentCurrency: "GLW" | "SGCTL";
+      }) => ({
+        rewardScoreMap:
+          paymentCurrency === "SGCTL"
+            ? new Map<string, ApplicationRewardScore>([
+                [
+                  "app-sgctl",
+                  createRewardScore("app-sgctl", {
+                    userWeeklyGlwRewards: parseUnits("37373.886948", 18).toString(),
+                    userWeeklyPdRewards: "12712877048",
+                    userWeeklyGlwValueUsd: "19355140",
+                    userWeeklyPdRewardsUsd: "12712877048",
+                  }),
+                ],
+              ])
+            : new Map<string, ApplicationRewardScore>(),
+        isLoading: false,
+        isError: false,
+      })
+    );
+
+    const result = renderHook({
+      walletAddress: "0x5e230fed487c86b90f6508104149f087d9b1b0a7",
+      enabled: true,
+      splitsActivity: [
+        createSplitActivity({
+          applicationId: "app-sgctl",
+          farmId: null,
+          stepsPurchased: 1,
+          amount: "26666666",
+          step: "26666666",
+          stepPrice: "26666666",
+          currency: "SGCTL",
+          currencyDecimals: 6,
+          activityAssetKey: "app-sgctl:SGCTL",
+          progressPercent: 0,
+        }),
+      ],
+    });
+
+    expect(result.sponsorshipsInProgressWithEstimates).toHaveLength(1);
+    expect(result.sponsorshipsInProgressWithEstimates[0]).toMatchObject({
+      applicationId: "app-sgctl",
+      delegationCurrency: "SGCTL",
+    });
+    expect(
+      result.sponsorshipsInProgressWithEstimates[0]?.estimatedUserWeeklyGlw
+    ).toBeCloseTo(0.783881, 5);
+    expect(
+      result.sponsorshipsInProgressWithEstimates[0]?.estimatedUserWeeklyPd
+    ).toBeCloseTo(0.266638, 5);
+  });
 });

@@ -6,6 +6,7 @@ import {
   normalizeDelegationCurrency,
   parseTokenAmountFromBaseUnits,
   parseUsd6Amount,
+  resolveLaunchpadDelegationShareCount,
   resolveDelegationCurrencyFromSplitActivity,
   resolveDelegationCurrency,
   type DelegationCurrency,
@@ -125,7 +126,10 @@ export function attachEstimatedWeeklyLaunchpadRewards(params: {
   if (!sponsorshipsInProgress.length) return [];
 
   return sponsorshipsInProgress.map((item) => {
-    const totalSteps = item.application?.activeFraction?.totalSteps ?? null;
+    const totalSteps =
+      item.application != null
+        ? resolveLaunchpadDelegationShareCount(item.application)
+        : null;
     const currentCurrency = resolveDelegationCurrency(item.application);
     const delegationCurrency = item.delegationCurrency ?? currentCurrency;
     const preferredRewardScoreMap =
