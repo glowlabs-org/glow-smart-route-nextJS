@@ -61,9 +61,11 @@ import {
 import {
   normalizeDelegationCurrency,
   parseDelegationAmountFromBaseUnits,
+  resolveLaunchpadDelegationShareCount,
   resolveDelegationCurrency,
 } from "@/utils/launchpad-rewards";
 import { filterPublicLaunchpadApplications } from "@/utils/launchpad";
+import { resolveFractionRemainingSteps } from "@/hooks/hub-listings";
 import { GlowSymbol } from "@/components/glow-symbol";
 import { CashMinerIcon, DelegationIcon } from "@/components/impact-icons";
 import {
@@ -223,6 +225,33 @@ interface PerformanceRowData {
   estimatedUserWeeklyPdAsset?: string | null;
   delegatedAmountsByAsset?: DelegationAmountsByAsset;
   inProgressKind?: "launchpad" | "mining-center";
+}
+
+export function formatInProgressFilledLabel(params: {
+  application: AuctionApplication | null | undefined;
+  fractionType: "launchpad" | "mining-center";
+}): string | null {
+  const application = params.application;
+  if (!application?.activeFraction) return null;
+
+  if (params.fractionType === "launchpad") {
+    const totalShares = resolveLaunchpadDelegationShareCount(application);
+    const remainingShares = resolveFractionRemainingSteps(
+      application.activeFraction
+    );
+
+    if (totalShares <= 0 || remainingShares < 0) return null;
+    return `${Math.max(0, totalShares - remainingShares)} / ${totalShares} filled`;
+  }
+
+  const remainingSteps = application.activeFraction.remainingSteps ?? null;
+  const totalSteps = application.activeFraction.totalSteps ?? null;
+
+  if (typeof totalSteps !== "number" || typeof remainingSteps !== "number") {
+    return null;
+  }
+
+  return `${totalSteps - remainingSteps} / ${totalSteps} miners filled`;
 }
 
 function computeDerivedMetrics(data: PerformanceRowData) {
@@ -1814,14 +1843,10 @@ export function FarmsPerformanceDialogContent({
         item.fractionType === "launchpad"
           ? item.delegationCurrency ?? resolveDelegationCurrency(app)
           : "GLW";
-      const remainingSteps = app?.activeFraction?.remainingSteps ?? null;
-      const totalSteps = app?.activeFraction?.totalSteps ?? null;
-      const filledLabel =
-        typeof totalSteps === "number" && typeof remainingSteps === "number"
-          ? item.fractionType === "mining-center"
-            ? `${totalSteps - remainingSteps} / ${totalSteps} miners filled`
-            : `${totalSteps - remainingSteps} / ${totalSteps} filled`
-          : null;
+      const filledLabel = formatInProgressFilledLabel({
+        application: app,
+        fractionType: item.fractionType,
+      });
 
       const displayName =
         app?.farmName || `Farm ${item.applicationId.substring(0, 8)}`;
