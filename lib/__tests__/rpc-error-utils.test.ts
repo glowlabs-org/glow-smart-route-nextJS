@@ -7,6 +7,7 @@ import {
   isInsufficientGasError,
   isWalletInteractionTimeoutError,
   normalizeSwapFailureMessage,
+  SLIPPAGE_EXCEEDED_ERROR_MESSAGE,
   withInternalRpcRetry,
 } from "../rpc-error-utils";
 
@@ -68,6 +69,12 @@ describe("rpc-error-utils", () => {
     expect(
       normalizeSwapFailureMessage("Price feed heartbeat exceeded")
     ).toBe("Price feed heartbeat exceeded");
+  });
+
+  it("maps Uniswap output reverts to a slippage-specific message", () => {
+    expect(
+      normalizeSwapFailureMessage("UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT")
+    ).toBe(SLIPPAGE_EXCEEDED_ERROR_MESSAGE);
   });
 
   it("retries once on wallet interaction timeout", async () => {

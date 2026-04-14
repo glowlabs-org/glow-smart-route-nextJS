@@ -39,6 +39,9 @@ const UNISWAP_V2_FACTORY_ABI = parseAbi([
 const UNISWAP_V2_PAIR_ABI = parseAbi([
   "function getReserves() view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast)",
 ]);
+const UNISWAP_V2_ROUTER_ABI = parseAbi([
+  "function swapExactTokensForTokens(uint256 amountIn, uint256 amountOutMin, address[] path, address to, uint256 deadline) returns (uint256[] amounts)",
+]);
 const UNISWAP_V2_ROUTER_ADDRESS: `0x${string}` =
   "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D" as `0x${string}`;
 
@@ -273,9 +276,6 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
   }
 
   function makeUniswapRouter(address: `0x${string}`) {
-    const ROUTER_ABI = parseAbi([
-      "function swapExactTokensForTokens(uint256 amountIn, uint256 amountOutMin, address[] path, address to, uint256 deadline) returns (uint256[] amounts)",
-    ]);
     return {
       address,
       provider: { getGasPrice: async () => publicClient.getGasPrice() },
@@ -291,7 +291,7 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
           () =>
             walletClient.writeContract({
               address,
-              abi: ROUTER_ABI,
+              abi: UNISWAP_V2_ROUTER_ABI,
               functionName: "swapExactTokensForTokens",
               args: [amountIn, amountOutMin, path, to, BigInt(deadline)],
             }),
@@ -313,6 +313,28 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
         return makeTx(hash);
       },
     };
+  }
+
+  async function simulateSwapExactTokensForTokens({
+    amountIn,
+    amountOutMin,
+    path,
+    to,
+    deadline,
+  }: {
+    amountIn: bigint;
+    amountOutMin: bigint;
+    path: `0x${string}`[];
+    to: `0x${string}`;
+    deadline: bigint;
+  }) {
+    await publicClient.simulateContract({
+      address: UNISWAP_V2_ROUTER_ADDRESS,
+      abi: UNISWAP_V2_ROUTER_ABI,
+      functionName: "swapExactTokensForTokens",
+      args: [amountIn, amountOutMin, path, to, deadline],
+      account: walletClient?.account?.address ?? to,
+    });
   }
 
   async function writeApprovalWithRetry({
@@ -532,6 +554,13 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
 
     try {
       setUniswapPurchaseState("PURCHASING_TOKEN");
+      await simulateSwapExactTokensForTokens({
+        amountIn: amountBigInt,
+        amountOutMin,
+        path: path as `0x${string}`[],
+        to: signerAddress as `0x${string}`,
+        deadline,
+      });
 
       const tx = await uniswapRouter.swapExactTokensForTokens(
         amountBigInt,
@@ -759,6 +788,13 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
 
     try {
       setUniswapPurchaseState("PURCHASING_TOKEN");
+      await simulateSwapExactTokensForTokens({
+        amountIn: amountBigInt,
+        amountOutMin,
+        path: path as `0x${string}`[],
+        to: signerAddress as `0x${string}`,
+        deadline,
+      });
 
       const tx = await uniswapRouter.swapExactTokensForTokens(
         amountBigInt,

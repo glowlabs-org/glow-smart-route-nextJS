@@ -4,6 +4,8 @@ export const INSUFFICIENT_GAS_ERROR_MESSAGE =
   "Insufficient ETH for gas. Add more ETH to your wallet and try again.";
 export const GENERIC_SWAP_FAILURE_MESSAGE =
   "Transaction failed. This could be due to insufficient liquidity, slippage tolerance exceeded, or contract revert. Please try again with a smaller amount or adjust your slippage tolerance.";
+export const SLIPPAGE_EXCEEDED_ERROR_MESSAGE =
+  "Slippage tolerance exceeded. Refresh the quote and try again, or increase slippage tolerance.";
 
 export function getRpcErrorMessage(error: unknown): string {
   if (!error) return "Unknown error";
@@ -114,6 +116,13 @@ export function normalizeSwapFailureMessage(errorMessage: string): string {
 
   if (normalized.includes("insufficient liquidity")) {
     return "Insufficient liquidity for this swap. Try a smaller amount.";
+  }
+
+  if (
+    normalized.includes("insufficient_output_amount") ||
+    normalized.includes("excessive_input_amount")
+  ) {
+    return SLIPPAGE_EXCEEDED_ERROR_MESSAGE;
   }
 
   if (
