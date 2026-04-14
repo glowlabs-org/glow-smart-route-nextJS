@@ -1244,7 +1244,7 @@ function FarmDetailDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="sm:max-w-[760px] max-h-[90vh] p-0 gap-0 flex flex-col overflow-hidden rounded-[24px] bg-card border border-border/40"
+        className="sm:max-w-[760px] lg:max-w-[1060px] max-h-[90vh] p-0 gap-0 flex flex-col overflow-hidden rounded-[24px] bg-card border border-border/40"
       >
         <DialogHeader className="px-6 pt-6 pb-4 shrink-0 border-b border-border/40 bg-card z-20 relative">
           <Button
@@ -1311,11 +1311,13 @@ function FarmDetailDialog({
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto">
-          <div className="p-6 md:p-8 space-y-8 max-w-4xl mx-auto w-full">
+          <div className="p-6 md:p-8 space-y-8 w-full">
+            {/* Image Grid + KPI Cards: side-by-side on desktop */}
+            <div className="flex flex-col lg:flex-row gap-6">
             {/* Farm Image Grid */}
-            <div className="rounded-2xl overflow-hidden border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50">
+            <div className="rounded-2xl overflow-hidden border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 lg:flex-1 lg:min-w-0">
               {farm.imageUrls.length >= 3 ? (
-                <div className="grid grid-cols-3 grid-rows-2 gap-1 h-[360px]">
+                <div className="grid grid-cols-3 grid-rows-2 gap-1 h-[300px] lg:h-full lg:min-h-[300px]">
                   <div className="col-span-2 row-span-2 relative">
                     <FallbackImage
                       src={farm.imageUrls[0]}
@@ -1345,7 +1347,7 @@ function FarmDetailDialog({
                   </div>
                 </div>
               ) : farm.imageUrls.length === 2 ? (
-                <div className="grid grid-cols-2 gap-1 h-[300px]">
+                <div className="grid grid-cols-2 gap-1 h-[300px] lg:h-full lg:min-h-[300px]">
                   <div className="relative">
                     <FallbackImage
                       src={farm.imageUrls[0]}
@@ -1366,7 +1368,7 @@ function FarmDetailDialog({
                   </div>
                 </div>
               ) : (
-                <div className="relative aspect-video sm:h-[300px] w-full">
+                <div className="relative aspect-video sm:h-[300px] lg:h-full lg:min-h-[300px] w-full">
                   <FallbackImage
                     src={farm.imageUrls[0]}
                     widthForProxy={1200}
@@ -1379,7 +1381,7 @@ function FarmDetailDialog({
             </div>
 
             {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-1 gap-4 lg:w-[320px] lg:shrink-0">
               {/* Invested / Delegated */}
               {!isOther && (
                 <Card className="bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40">
@@ -1417,7 +1419,7 @@ function FarmDetailDialog({
                 className={cn(
                   "bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 relative overflow-hidden",
                   (isInProgress || isPendingStart || isOther) &&
-                    "md:col-span-2",
+                    "md:col-span-2 lg:col-span-1",
                 )}
               >
                 <CardContent className="p-6 flex flex-col h-full justify-between gap-4 relative z-10">
@@ -1551,6 +1553,7 @@ function FarmDetailDialog({
               {isPendingStart && pendingTimeline && (
                 <PendingTimelineModalPanel timeline={pendingTimeline} />
               )}
+            </div>
             </div>
 
             {/* Breakdown Section */}
