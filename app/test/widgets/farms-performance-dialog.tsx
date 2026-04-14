@@ -65,7 +65,10 @@ import {
   resolveDelegationCurrency,
 } from "@/utils/launchpad-rewards";
 import { filterPublicLaunchpadApplications } from "@/utils/launchpad";
-import { resolveFractionRemainingSteps } from "@/hooks/hub-listings";
+import {
+  resolveFractionRemainingSteps,
+  type AuctionApplication,
+} from "@/hooks/hub-listings";
 import { GlowSymbol } from "@/components/glow-symbol";
 import { CashMinerIcon, DelegationIcon } from "@/components/impact-icons";
 import {
