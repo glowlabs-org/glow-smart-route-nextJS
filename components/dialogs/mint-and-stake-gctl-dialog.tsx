@@ -1136,7 +1136,14 @@ export function MintAndStakeGctlDialog({
         msg?.includes("User rejected") || (error as any)?.code === 4001;
       if (!isUserRejected) {
         const normalizedError =
-          error instanceof Error ? error : new Error(String(msg));
+          error instanceof Error && error.message === msg
+            ? error
+            : new Error(String(msg), error instanceof Error ? { cause: error } : undefined);
+
+        if (!(error instanceof Error) && error !== undefined) {
+          (normalizedError as Error & { cause?: unknown }).cause = error;
+        }
+
         Sentry.captureException(normalizedError, {
           tags: { gctlStage: "stake_existing" },
           extra: { regionId: selectedRegionId, walletAddress: address },
@@ -1345,7 +1352,14 @@ export function MintAndStakeGctlDialog({
         msg?.includes("User rejected") || (error as any)?.code === 4001;
       if (!isUserRejected) {
         const normalizedError =
-          error instanceof Error ? error : new Error(String(msg));
+          error instanceof Error && error.message === msg
+            ? error
+            : new Error(String(msg), error instanceof Error ? { cause: error } : undefined);
+
+        if (!(error instanceof Error) && error !== undefined) {
+          (normalizedError as Error & { cause?: unknown }).cause = error;
+        }
+
         Sentry.captureException(normalizedError, {
           tags: { gctlStage: "mint_stake" },
           extra: {

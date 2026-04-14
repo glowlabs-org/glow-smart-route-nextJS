@@ -16,6 +16,7 @@ import { useGctlApi } from "@/hooks/control-gctl";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
 import { extractControlTransferTrackingId } from "@/app/marketplace/deposit-dialog-utils";
+import { withInternalRpcRetry } from "@/lib/rpc-error-utils";
 
 const DEFAULT_SLIPPAGE_BPS = 100n;
 const ETH_QUOTE_PROBE_WEI = 10n ** 17n; // 0.1 ETH
@@ -381,11 +382,29 @@ export function useGctlPreparationOrchestrator(options?: {
         params.stepIds?.mintAndStake,
         "confirming"
       );
-      const txHash = await mintGCTLAndStake(
-        amountAtomic,
-        address,
-        params.regionId,
-        mintCurrency
+      const txHash = await withInternalRpcRetry(
+        () =>
+          mintGCTLAndStake(
+            amountAtomic,
+            address,
+            params.regionId,
+            mintCurrency
+          ),
+        {
+          maxRetries: 1,
+          delayMs: 1500,
+          onRetry: (attempt) => {
+            addGctlPreparationBreadcrumb({
+              message: "mint_and_stake_retry",
+              data: {
+                attempt,
+                regionId: params.regionId,
+                mintCurrency,
+                amountAtomic: amountAtomic.toString(),
+              },
+            });
+          },
+        }
       );
       markStep(
         params.updateStepStatus,

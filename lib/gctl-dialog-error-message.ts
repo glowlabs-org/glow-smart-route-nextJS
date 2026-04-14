@@ -1,5 +1,9 @@
+import { isInternalRpcError } from "@/lib/rpc-error-utils";
+
 const RPC_RATE_LIMIT_MESSAGE =
   "Your wallet's RPC provider is being rate limited, so the app can't verify your balance or allowance right now. Switch to a different RPC endpoint in your wallet, or wait a moment and try again.";
+export const GCTL_RPC_INTERNAL_ERROR_MESSAGE =
+  "RPC/provider error. Please retry or switch RPC.";
 
 function collectErrorStrings(
   value: unknown,
@@ -88,13 +92,22 @@ export function getGctlDialogErrorMessage(error: unknown) {
 
   const message = extractPrimaryMessage(error);
   if (!message) return "Unknown error";
+  const normalizedMessage = message.toLowerCase();
 
   if (isInsufficientBalanceError(message)) {
     return "Insufficient token balance. Approval succeeded, but your balance is now below this amount. Reduce the amount and try again.";
   }
 
-  if (message.toLowerCase().includes("user rejected")) {
+  if (normalizedMessage.includes("user rejected")) {
     return "Transaction was rejected in your wallet.";
+  }
+
+  if (
+    isInternalRpcError(error) ||
+    normalizedMessage === "transactionexecutionerror" ||
+    normalizedMessage === "an internal error was received."
+  ) {
+    return GCTL_RPC_INTERNAL_ERROR_MESSAGE;
   }
 
   const detailsMatch = message.match(/details:\s*([^\n]+)/i);
