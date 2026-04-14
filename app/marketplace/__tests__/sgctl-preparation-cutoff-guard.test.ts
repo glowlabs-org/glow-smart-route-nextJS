@@ -27,6 +27,7 @@ describe("getSgctlPreparationCutoffGuard", () => {
 
     expect(result.isBlocked).toBe(true);
     expect(result.message).toContain("closed at 12:00 PM ET");
+    expect(result.message).toContain("12:05 PM ET");
   });
 
   it("also blocks wallet GCTL stake-and-delegate after noon", () => {

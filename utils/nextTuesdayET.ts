@@ -92,8 +92,9 @@ function buildDateForETWallTime(params: {
   );
 }
 
-export function getNextTuesdayAtETHour(
+export function getNextTuesdayAtETTime(
   hour: number,
+  minute = 0,
   fromDate?: Date,
 ): Date {
   const baseDate =
@@ -103,10 +104,13 @@ export function getNextTuesdayAtETHour(
   let addDays = (TUESDAY - etNow.weekday + 7) % 7;
 
   if (addDays === 0) {
-    const isPastTargetHour =
+    const isPastTargetTime =
       etNow.hour > hour ||
-      (etNow.hour === hour && (etNow.minute > 0 || etNow.second > 0));
-    if (isPastTargetHour) addDays = 7;
+      (etNow.hour === hour && etNow.minute > minute) ||
+      (etNow.hour === hour &&
+        etNow.minute === minute &&
+        etNow.second > 0);
+    if (isPastTargetTime) addDays = 7;
   }
 
   const candidate = new Date(now.getTime() + addDays * MS_PER_DAY);
@@ -117,7 +121,15 @@ export function getNextTuesdayAtETHour(
     month: etCandidate.month,
     day: etCandidate.day,
     hour,
+    minute,
   });
+}
+
+export function getNextTuesdayAtETHour(
+  hour: number,
+  fromDate?: Date,
+): Date {
+  return getNextTuesdayAtETTime(hour, 0, fromDate);
 }
 
 export function getNextTuesdayAt1amET(fromDate: Date = new Date()): Date {

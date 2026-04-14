@@ -1331,6 +1331,7 @@ export interface SuccessMetrics {
 export const MIN_INITIAL_POSITION_USD = 200;
 export const INITIAL_POSITION_USD_GRACE = 10;
 export const SGCTL_PREPARATION_CUTOFF_HOUR_ET = 12;
+export const SGCTL_STAKED_ONLY_GRACE_END_MINUTE_ET = 5;
 
 export interface InitialPositionValueGuardInput {
   purchaseValueUsd: number;
@@ -1438,7 +1439,7 @@ export function getSgctlPreparationCutoffGuard(
     isBlocked,
     cutoffAt,
     message: isBlocked
-      ? "Minting or staking SGCTL for this listing closed at 12:00 PM ET. Only already-staked SGCTL can still be delegated during the final grace period."
+      ? `Minting or staking SGCTL for this listing closed at 12:00 PM ET. Only already-staked SGCTL can still be delegated until 12:0${SGCTL_STAKED_ONLY_GRACE_END_MINUTE_ET} PM ET.`
       : null,
   };
 }
