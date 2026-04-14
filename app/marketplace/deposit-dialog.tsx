@@ -311,6 +311,10 @@ async function fetchFreshRewardsBreakdownResponse(params: {
   startWeek?: number;
   endWeek?: number;
 }): Promise<RewardsBreakdownResponse | null> {
+  if (!params.walletAddress && !params.farmId) {
+    return null;
+  }
+
   return await hubGet<RewardsBreakdownResponse | null>(
     "/fractions/rewards-breakdown",
     {
