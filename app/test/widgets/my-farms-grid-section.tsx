@@ -1381,7 +1381,7 @@ function FarmDetailDialog({
             </div>
 
             {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-1 gap-4 lg:w-[320px] lg:shrink-0">
+            <div className="grid grid-cols-1 gap-4 lg:w-[320px] lg:shrink-0">
               {/* Invested / Delegated */}
               {!isOther && (
                 <Card className="bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40">
@@ -1407,7 +1407,7 @@ function FarmDetailDialog({
                           : "Total Delegated"}
                       </div>
                     </div>
-                    <div className="text-3xl font-semibold font-mono tracking-tight text-foreground">
+                    <div className="text-2xl sm:text-3xl font-semibold font-mono tracking-tight leading-tight whitespace-normal break-words text-foreground">
                       {investedLabel}
                     </div>
                   </CardContent>
@@ -1418,8 +1418,6 @@ function FarmDetailDialog({
               <Card
                 className={cn(
                   "bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 relative overflow-hidden",
-                  (isInProgress || isPendingStart || isOther) &&
-                    "md:col-span-2 lg:col-span-1",
                 )}
               >
                 <CardContent className="p-6 flex flex-col h-full justify-between gap-4 relative z-10">
@@ -1460,7 +1458,7 @@ function FarmDetailDialog({
                   </div>
                   <div
                     className={cn(
-                      "text-3xl font-semibold font-mono tracking-tight",
+                      "text-2xl sm:text-3xl font-semibold font-mono tracking-tight leading-tight whitespace-normal break-words",
                       isMiner && "text-[color:var(--color-miner)]",
                       farm.type === "delegation" && "text-delegation-purple",
                       isOther &&
@@ -2212,9 +2210,9 @@ export default function MyFarmsGridSection({
         amount = BigInt(0);
       }
 
-      const pendingKey = launchpadCurrency
-        ? `${farmTypeKey}:${launchpadCurrency}`
-        : farmTypeKey;
+      // Launchpad positions can contain both SGCTL and GLW purchases for the same
+      // farm after the handoff. Show one pending-start card per farm, not per asset.
+      const pendingKey = farmTypeKey;
 
       const existing = pendingByFarm.get(pendingKey) ?? {
         farmId,
@@ -2226,7 +2224,9 @@ export default function MyFarmsGridSection({
         totalStepsPurchased: 0,
         latestPurchaseDate: evt.purchaseDate ?? null,
       };
-      existing.totalAmount += amount;
+      if (fractionType !== "launchpad") {
+        existing.totalAmount += amount;
+      }
       existing.totalStepsPurchased += evt.stepsPurchased ?? 0;
       if (
         evt.purchaseDate &&
@@ -2363,10 +2363,14 @@ export default function MyFarmsGridSection({
         const launchpadApp = sponsorListings?.find((a) => a.id === item.farmId);
         const launchpadCurrency =
           item.launchpadCurrency ?? resolveDelegationCurrency(launchpadApp);
-        const initialCost = parseDelegationAmountFromBaseUnits(
-          item.totalAmount.toString(),
-          launchpadCurrency
-        );
+        const delegatedAmounts =
+          launchpadDelegatedAmountsByFarmId.get(item.farmId) ?? undefined;
+        const initialCost =
+          delegatedAmounts?.[launchpadCurrency] ??
+          parseDelegationAmountFromBaseUnits(
+            item.totalAmount.toString(),
+            launchpadCurrency
+          );
         cards.push({
           farmKey: `${item.farmId}:delegation:${launchpadCurrency}:pending-start`,
           farmId: item.farmId,
@@ -2387,8 +2391,7 @@ export default function MyFarmsGridSection({
           estimatedUserWeeklyGlw,
           estimatedUserWeeklyPd,
           estimatedUserWeeklyPdAsset,
-          delegatedAmountsByAsset:
-            launchpadDelegatedAmountsByFarmId.get(item.farmId),
+          delegatedAmountsByAsset: delegatedAmounts,
           pendingPurchaseDate: item.latestPurchaseDate,
         });
       } else {
