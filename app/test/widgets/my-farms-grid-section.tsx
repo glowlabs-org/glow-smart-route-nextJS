@@ -1547,12 +1547,13 @@ function FarmDetailDialog({
                 </Card>
               )}
 
-              {/* Pending Start Status */}
-              {isPendingStart && pendingTimeline && (
-                <PendingTimelineModalPanel timeline={pendingTimeline} />
-              )}
             </div>
             </div>
+
+            {/* Pending Start Status - full width below image + KPI row */}
+            {isPendingStart && pendingTimeline && (
+              <PendingTimelineModalPanel timeline={pendingTimeline} />
+            )}
 
             {/* Breakdown Section */}
             {!isInProgress && !isPendingStart && (
