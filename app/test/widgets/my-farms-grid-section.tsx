@@ -590,7 +590,7 @@ function PendingTimelineModalPanel(props: {
   const { timeline } = props;
 
   return (
-    <Card className="bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 md:col-span-3">
+    <Card className="bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40">
       <CardContent className="p-6 md:p-7 space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="space-y-3 max-w-2xl">
