@@ -600,21 +600,6 @@ function ClaimButtonsWrapper({
     );
   }
 
-  // Epoch 121 rewards are delayed one week, claimable April 18 2026 at 9 AM ET.
-  if (weekData.week === 121 && !fullyClaimed) {
-    const epoch121ClaimableMs = Date.UTC(2026, 3, 18, 13, 0, 0); // 9 AM ET = 13:00 UTC
-    if (Date.now() < epoch121ClaimableMs) {
-      return (
-        <div className="w-full md:ml-4 md:w-44">
-          <Button size="default" className="w-full" disabled>
-            <Shield className="w-4 h-4 mr-2" />
-            Claimable Apr 18
-          </Button>
-        </div>
-      );
-    }
-  }
-
   if (!isGlwFinalized && !isPdFinalized) {
     const weekSeconds = 7 * 86_400;
     const pendingWeeksToWait = hasProtocolDeposits ? 4 : 3;
@@ -694,13 +679,12 @@ function WeekRewardsContent({
   );
   const isGlwFinalized = weekData.week <= currentEpoch - 3;
   const isPdFinalized = weekData.week <= currentEpoch - 4;
-  // Epoch 121 rewards are delayed one week, claimable April 18 2026 at 9 AM ET.
-  const isEpoch121Delayed =
+  // Epoch 121 protocol deposits are delayed one week, claimable April 18 2026 at 9 AM ET.
+  const isEpoch121PdDelayed =
     weekData.week === 121 && Date.now() < Date.UTC(2026, 3, 18, 13, 0, 0);
   const isWeekFullyUnlocked =
-    !isEpoch121Delayed &&
     (!hasInflationRewards || isGlwFinalized) &&
-    (!hasProtocolRewards || isPdFinalized);
+    (!hasProtocolRewards || (isPdFinalized && !isEpoch121PdDelayed));
   const protocolUnlockDateLabel = React.useMemo(() => {
     if (weekData.week === 121) return "Apr 18";
     const weekSeconds = 7 * 86_400;
@@ -836,8 +820,8 @@ function WeekRewardsContent({
 
         const isInflation = reward.type === "glowInflation";
         const canClaim = isInflation
-          ? !glwClaimed && isWeekFullyUnlocked
-          : !protocolClaimed && isWeekFullyUnlocked;
+          ? !glwClaimed && isGlwFinalized
+          : !protocolClaimed && isPdFinalized && !isEpoch121PdDelayed;
         const rewardLabel = isInflation
           ? "Emission Rewards"
           : reward.currency === "SGCTL"
