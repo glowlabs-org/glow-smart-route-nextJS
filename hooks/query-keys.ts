@@ -55,7 +55,7 @@ export const QUERY_KEYS = {
     rewardScores: (
       applicationIds: string[],
       currency?: string,
-      wallet?: string | null
+      wallet?: string | null,
     ) => ["reward-scores", applicationIds, currency, wallet] as const,
     miningScores: (applicationIds: string[], extraLiveKey?: string) =>
       ["mining-scores", applicationIds, extraLiveKey ?? null] as const,
@@ -72,13 +72,20 @@ export const QUERY_KEYS = {
     details: (wallet?: string) => ["wallet-details", wallet] as const,
     availableStake: (wallet?: string, regionId?: number | null) =>
       ["wallet-available-stake", wallet, regionId ?? null] as const,
+    availableStakeBatch: (wallet?: string, regionIds?: number[]) =>
+      [
+        "wallet-available-stake",
+        wallet,
+        "batch",
+        (regionIds ?? []).join(","),
+      ] as const,
     mintedEvents: (wallet?: string, page?: number, limit?: number) =>
       ["wallet-minted-events", wallet, page, limit] as const,
     stakeEvents: (
       wallet?: string,
       page?: number,
       limit?: number,
-      regionId?: number
+      regionId?: number,
     ) => ["wallet-stake-events", wallet, page, limit, regionId] as const,
     migrationAmount: (wallet?: string) => ["migration-amount", wallet] as const,
     all: () => ["all-wallets"] as const,
@@ -96,7 +103,7 @@ export const QUERY_KEYS = {
     claimableTotals: (
       wallet?: string,
       finalizedWeeksKey?: string,
-      refreshKey?: string | number
+      refreshKey?: string | number,
     ) =>
       [
         "wallet-claimable-totals",
@@ -148,7 +155,8 @@ export const QUERY_KEYS = {
     summary: () => ["pol-summary"] as const,
     liquiditySnapshot: (range?: string | null, wallets?: string[] | null) =>
       ["pol-liquidity-snapshot", range ?? null, wallets ?? null] as const,
-    liquidity: (range?: string | null) => ["pol-liquidity", range ?? null] as const,
+    liquidity: (range?: string | null) =>
+      ["pol-liquidity", range ?? null] as const,
   },
   unclaimed: {
     all: ["unclaimed-glw-rewards"] as const,

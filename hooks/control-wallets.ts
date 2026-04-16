@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import Decimal from "decimal.js";
 import { formatUnits } from "viem";
 import {
@@ -44,6 +44,11 @@ export interface WalletRegionAvailableStake {
   availableStakedGctl?: string;
 }
 
+interface WalletRegionAvailableStakeBatchResponse {
+  wallet: string;
+  results: WalletRegionAvailableStake[];
+}
+
 export function getRewardCurrencyDecimals(currency: string): number {
   if (currency === "SGCTL") return DECIMALS_BY_TOKEN.GCTL;
   return DECIMALS_BY_TOKEN[currency as keyof typeof DECIMALS_BY_TOKEN] ?? 18;
@@ -75,13 +80,13 @@ export async function fetchWalletRegionAvailableStake(
 ): Promise<WalletRegionAvailableStake> {
   const baseUrl = process.env.NEXT_PUBLIC_CONTROL_API_URL;
   if (!baseUrl) {
-    throw new Error("Environment variable NEXT_PUBLIC_CONTROL_API_URL is not set");
+    throw new Error(
+      "Environment variable NEXT_PUBLIC_CONTROL_API_URL is not set",
+    );
   }
 
   const response = await fetch(
-    `${baseUrl}/wallet/${encodeURIComponent(
-      walletAddress,
-    )}/region/${regionId}/available-stake?_=${Date.now()}`,
+    `${baseUrl}/wallet/${encodeURIComponent(walletAddress)}/region/${regionId}/available-stake`,
     {
       cache: "no-store",
     },
@@ -94,16 +99,69 @@ export async function fetchWalletRegionAvailableStake(
   return (await response.json()) as WalletRegionAvailableStake;
 }
 
+function normalizeBatchRegionIds(
+  regionIds?: Array<number | null | undefined>,
+): number[] {
+  return Array.from(
+    new Set(
+      (regionIds ?? []).filter((regionId): regionId is number =>
+        Number.isFinite(regionId),
+      ),
+    ),
+  ).sort((a, b) => a - b);
+}
+
+export async function fetchWalletRegionAvailableStakeBatch(
+  walletAddress: string,
+  regionIds: number[],
+): Promise<Map<number, WalletRegionAvailableStake>> {
+  const normalizedRegionIds = normalizeBatchRegionIds(regionIds);
+  if (normalizedRegionIds.length === 0) {
+    return new Map();
+  }
+
+  const baseUrl = process.env.NEXT_PUBLIC_CONTROL_API_URL;
+  if (!baseUrl) {
+    throw new Error(
+      "Environment variable NEXT_PUBLIC_CONTROL_API_URL is not set",
+    );
+  }
+
+  const response = await fetch(
+    `${baseUrl}/wallet/${encodeURIComponent(walletAddress)}/available-stake/batch`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      cache: "no-store",
+      body: JSON.stringify({ regionIds: normalizedRegionIds }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to refresh available staked GCTL state");
+  }
+
+  const data =
+    (await response.json()) as WalletRegionAvailableStakeBatchResponse;
+
+  return new Map(
+    (data.results ?? [])
+      .filter(
+        (result): result is WalletRegionAvailableStake & { regionId: number } =>
+          Number.isFinite(result.regionId),
+      )
+      .map((result) => [result.regionId, result] as const),
+  );
+}
+
 export function useWalletRegionAvailableStake(params: {
   walletAddress?: string;
   regionId?: number | null;
   enabled?: boolean;
 }) {
-  const {
-    walletAddress,
-    regionId,
-    enabled = true,
-  } = params;
+  const { walletAddress, regionId, enabled = true } = params;
   const isConfigured = Boolean(process.env.NEXT_PUBLIC_CONTROL_API_URL);
 
   const query = useQuery({
@@ -141,70 +199,69 @@ export function useWalletRegionAvailableStakeMap(params: {
   const isConfigured = Boolean(process.env.NEXT_PUBLIC_CONTROL_API_URL);
 
   const normalizedRegionIds = React.useMemo(
-    () =>
-      Array.from(
-        new Set(
-          (regionIds ?? []).filter(
-            (regionId): regionId is number => Number.isFinite(regionId),
-          ),
-        ),
-      ),
+    () => normalizeBatchRegionIds(regionIds),
     [regionIds],
   );
 
-  const queries = useQueries({
-    queries: normalizedRegionIds.map((regionId) => ({
-      queryKey: QUERY_KEYS.wallets.availableStake(walletAddress, regionId),
-      queryFn: () =>
-        fetchWalletRegionAvailableStake(walletAddress!, regionId),
-      enabled: enabled && isConfigured && Boolean(walletAddress),
-      staleTime: 0,
-      gcTime: 0,
-      refetchOnMount: true,
-      refetchOnWindowFocus: true,
-      refetchOnReconnect: true,
-      retry: 2,
-    })),
+  const batchQuery = useQuery({
+    queryKey: QUERY_KEYS.wallets.availableStakeBatch(
+      walletAddress,
+      normalizedRegionIds,
+    ),
+    queryFn: () =>
+      fetchWalletRegionAvailableStakeBatch(walletAddress!, normalizedRegionIds),
+    enabled:
+      enabled &&
+      isConfigured &&
+      Boolean(walletAddress) &&
+      normalizedRegionIds.length > 0,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    retry: 2,
   });
 
   const availableStakedGctlByRegion = React.useMemo(() => {
     const map = new Map<number, bigint>();
-    normalizedRegionIds.forEach((regionId, index) => {
+    normalizedRegionIds.forEach((regionId) => {
       map.set(
         regionId,
-        parseAvailableStakeRaw(queries[index]?.data?.availableStakedGctl),
+        parseAvailableStakeRaw(
+          batchQuery.data?.get(regionId)?.availableStakedGctl,
+        ),
       );
     });
     return map;
-  }, [normalizedRegionIds, queries]);
+  }, [batchQuery.data, normalizedRegionIds]);
 
   const impactEligibleStakedGctlByRegion = React.useMemo(() => {
     const map = new Map<number, bigint>();
-    normalizedRegionIds.forEach((regionId, index) => {
+    normalizedRegionIds.forEach((regionId) => {
       map.set(
         regionId,
-        calculateImpactEligibleStakedGctl(queries[index]?.data),
+        calculateImpactEligibleStakedGctl(batchQuery.data?.get(regionId)),
       );
     });
     return map;
-  }, [normalizedRegionIds, queries]);
+  }, [batchQuery.data, normalizedRegionIds]);
 
   const availableStakeByRegion = React.useMemo(() => {
     const map = new Map<number, WalletRegionAvailableStake | null>();
-    normalizedRegionIds.forEach((regionId, index) => {
-      map.set(regionId, queries[index]?.data ?? null);
+    normalizedRegionIds.forEach((regionId) => {
+      map.set(regionId, batchQuery.data?.get(regionId) ?? null);
     });
     return map;
-  }, [normalizedRegionIds, queries]);
+  }, [batchQuery.data, normalizedRegionIds]);
 
   return {
     availableStakedGctlByRegion,
     impactEligibleStakedGctlByRegion,
     availableStakeByRegion,
-    isAvailableStakeMapLoading: queries.some((query) => query.isLoading),
-    isAvailableStakeMapFetching: queries.some((query) => query.isFetching),
-    availableStakeMapError:
-      queries.find((query) => query.error)?.error ?? null,
+    isAvailableStakeMapLoading: batchQuery.isLoading,
+    isAvailableStakeMapFetching: batchQuery.isFetching,
+    availableStakeMapError: batchQuery.error ?? null,
   } as const;
 }
 
@@ -233,7 +290,7 @@ export function useWallets(params: UseWalletsParams = {}) {
       (getWalletsRouter() as any).fetchWalletMintedEvents(
         walletAddress!,
         page,
-        limit
+        limit,
       ),
     enabled: enabled && isConfigured && Boolean(walletAddress),
     staleTime: QUERY_CONFIG.DEFAULT.staleTime,
@@ -245,14 +302,14 @@ export function useWallets(params: UseWalletsParams = {}) {
       walletAddress,
       page,
       limit,
-      regionId
+      regionId,
     ),
     queryFn: () =>
       (getWalletsRouter() as any).fetchWalletStakeEvents(
         walletAddress!,
         page,
         limit,
-        regionId
+        regionId,
       ),
     enabled: enabled && isConfigured && Boolean(walletAddress),
     staleTime: QUERY_CONFIG.DEFAULT.staleTime,
@@ -346,7 +403,7 @@ function weekToTimestamp(week: number) {
 
 export function useWalletV2Claims(
   walletAddress: string | undefined,
-  options: UseWalletV2ClaimsOptions = {}
+  options: UseWalletV2ClaimsOptions = {},
 ): WalletV2ClaimsResult {
   const currentEpoch = getCurrentEpoch();
   const isConfigured = Boolean(process.env.NEXT_PUBLIC_CONTROL_API_URL);
@@ -371,7 +428,7 @@ export function useWalletV2Claims(
           {
             endWeek: currentEpoch - 1,
             limit: 150,
-          }
+          },
         );
       },
     });
@@ -414,7 +471,7 @@ export function useWalletV2Claims(
       const inflationRaw = reward.glowInflationTotal;
       if (inflationRaw && inflationRaw !== "0") {
         const glwAmount = Number(
-          formatUnits(BigInt(inflationRaw), DECIMALS_BY_TOKEN.GLW)
+          formatUnits(BigInt(inflationRaw), DECIMALS_BY_TOKEN.GLW),
         );
         if (Number.isFinite(glwAmount) && glwAmount > 0) {
           inflationTotalGlw = new Decimal(inflationTotalGlw)
@@ -495,7 +552,7 @@ export interface UseClaimableRewardsResult {
 
 export function useClaimableRewards(
   walletAddress?: string,
-  options: UseClaimableRewardsOptions = {}
+  options: UseClaimableRewardsOptions = {},
 ): UseClaimableRewardsResult {
   const currentEpoch = getCurrentEpoch();
   const glwFinalizedThresholdWeek = currentEpoch - 3;
@@ -528,7 +585,7 @@ export function useClaimableRewards(
         {
           endWeek,
           limit: 100,
-        }
+        },
       );
     },
   });
@@ -558,7 +615,7 @@ export function useClaimableRewards(
       if (reward.glowInflationTotal && reward.glowInflationTotal !== "0") {
         const glwAmount = formatUnits(
           BigInt(reward.glowInflationTotal),
-          DECIMALS_BY_TOKEN.GLW
+          DECIMALS_BY_TOKEN.GLW,
         );
 
         weekData.rewards.push({
@@ -587,7 +644,7 @@ export function useClaimableRewards(
         const decimals = getRewardCurrencyDecimals(currency);
         const pdAmount = formatUnits(
           BigInt(reward.protocolDepositRewardsReceived),
-          decimals
+          decimals,
         );
 
         weekData.rewards.push({
@@ -602,7 +659,7 @@ export function useClaimableRewards(
           weekData.totalProtocolDeposit.get(currency) || "0";
         weekData.totalProtocolDeposit.set(
           currency,
-          new Decimal(currentPdTotal).plus(pdAmount).toString()
+          new Decimal(currentPdTotal).plus(pdAmount).toString(),
         );
 
         if (isGlwFinalized && isPdFinalized) {
