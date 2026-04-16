@@ -282,6 +282,9 @@ const REGION_COLORS: Record<string, string> = {
   "Rising Utah": "#2081e2",
   "Shining Missouri": "#ffb472",
   "Clean Grid Project": "#4ade80",
+  "Steadfast Idaho": "#14b8a6",
+  "Noble Oklahoma": "#ec4899",
+  "Ratan Rajasthan": "#eab308",
 };
 const DEFAULT_REGION_COLOR = "#94a3b8";
 
