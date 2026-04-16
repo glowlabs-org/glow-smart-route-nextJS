@@ -4016,7 +4016,10 @@ export function PolDashboardView() {
 
     const zeroSupplyPrice =
       (polModelInputs.k / denominator) * ZERO_SUPPLY_PRICE_EPSILON;
-    return resolvePriceRangeMin(zeroSupplyPrice);
+    return Math.max(
+      PRICE_RANGE.min,
+      resolvePriceRangeMin(zeroSupplyPrice),
+    );
   }, [polModelInputs]);
 
   // ── Supply model slider ──
