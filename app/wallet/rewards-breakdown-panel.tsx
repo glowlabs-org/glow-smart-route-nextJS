@@ -21,6 +21,8 @@ import {
   useMiningScore,
 } from "@/hooks";
 import { useWalletFarms, useRegions } from "@/hooks";
+import type { RewardsBreakdownResponse } from "@/hooks/hub-fractions";
+import type { SplitActivity } from "@/hooks/hub-listings";
 import { FallbackImage } from "@/components/ui/fallback-image";
 import { useGlowSpotPrice } from "@/hooks/useGlowPrices";
 import { formatUnits } from "viem";
@@ -38,10 +40,18 @@ import { isPendingStartStatus } from "@/utils/pending-start-cards";
 
 interface RewardsBreakdownPanelProps {
   walletAddress: string | undefined;
+  rewardsBreakdownData?: RewardsBreakdownResponse | null;
+  isRewardsBreakdownLoading?: boolean;
+  isRewardsBreakdownError?: boolean;
+  splitsActivity?: SplitActivity[];
 }
 
 export function RewardsBreakdownPanel({
   walletAddress,
+  rewardsBreakdownData,
+  isRewardsBreakdownLoading,
+  isRewardsBreakdownError,
+  splitsActivity: preloadedSplitsActivity,
 }: RewardsBreakdownPanelProps) {
   const [selectedFarmForDetails, setSelectedFarmForDetails] = useState<{
     farmId: string;
@@ -49,20 +59,28 @@ export function RewardsBreakdownPanel({
     type: "launchpad" | "mining-center" | "other";
   } | null>(null);
 
-  const { data, isLoading, isError, refetch } = useRewardsBreakdown({
+  const rewardsBreakdownQuery = useRewardsBreakdown({
     walletAddress: walletAddress || null,
-    enabled: Boolean(walletAddress),
+    enabled: Boolean(walletAddress) && rewardsBreakdownData === undefined,
   });
+  const data = rewardsBreakdownData ?? rewardsBreakdownQuery.data;
+  const isLoading =
+    isRewardsBreakdownLoading ?? rewardsBreakdownQuery.isLoading;
+  const isError = isRewardsBreakdownError ?? rewardsBreakdownQuery.isError;
 
   const { farms: purchasedFarms } = useWalletFarms({
     walletAddress: walletAddress || undefined,
     enabled: Boolean(walletAddress),
   });
-  const { activity: splitsActivity = [] } = useSplitsActivity({
+  const splitsActivityQuery = useSplitsActivity({
     walletAddress: walletAddress || undefined,
-    enabled: Boolean(walletAddress),
+    enabled: Boolean(walletAddress) && preloadedSplitsActivity === undefined,
     limit: 200,
   });
+  const splitsActivity = React.useMemo(
+    () => preloadedSplitsActivity ?? splitsActivityQuery.activity ?? [],
+    [preloadedSplitsActivity, splitsActivityQuery.activity],
+  );
 
   const { regions } = useRegions();
 

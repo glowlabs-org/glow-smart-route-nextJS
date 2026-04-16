@@ -6,6 +6,7 @@ import { QUERY_CONFIG } from "@/hooks/query-config";
 import {
   DEFAULT_WALLET_CLAIMS_LIMIT,
   fetchWalletRewardClaims,
+  walletRewardClaimsQueryKey,
   type WalletRewardClaimRow,
 } from "@/lib/api/wallet-reward-claims-index";
 
@@ -51,7 +52,7 @@ export function useWalletRewardClaims(
     : null;
 
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ["wallet-reward-claims", walletLower, limit, refreshKey] as const,
+    queryKey: walletRewardClaimsQueryKey(walletLower, limit, refreshKey),
     enabled: enabled && Boolean(walletLower),
     staleTime: query?.staleTime ?? QUERY_CONFIG.DEFAULT.staleTime,
     gcTime: query?.gcTime ?? 10 * 60_000,
@@ -79,5 +80,4 @@ export function useWalletRewardClaims(
     refetch,
   };
 }
-
 

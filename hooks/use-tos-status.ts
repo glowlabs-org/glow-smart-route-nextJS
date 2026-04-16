@@ -8,19 +8,22 @@ interface TosStatusResponse {
 }
 
 export function useTosStatus(address?: string | null) {
+  const normalizedAddress = address?.toLowerCase() ?? null;
+
   const query = useQuery({
-    queryKey: ["tos-status", address],
+    queryKey: ["tos-status", normalizedAddress],
     queryFn: async () =>
       (await getWalletsRouter().fetchTosStatus(
-        address!
+        normalizedAddress!
       )) as TosStatusResponse,
-    enabled: Boolean(address),
+    enabled: Boolean(normalizedAddress),
     staleTime: 30_000,
     retry: 1,
   });
 
   const needsReAcceptance = Boolean(query.data?.needsReAcceptance);
-  const hasAcceptedTos = Boolean(address) && query.isSuccess && !needsReAcceptance;
+  const hasAcceptedTos =
+    Boolean(normalizedAddress) && query.isSuccess && !needsReAcceptance;
 
   return {
     ...query,

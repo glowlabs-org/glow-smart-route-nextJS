@@ -44,6 +44,19 @@ function asLowerHexAddress(value: `0x${string}`): `0x${string}` {
   return value.toLowerCase() as `0x${string}`;
 }
 
+export function walletRewardClaimsQueryKey(
+  walletAddress?: string | null,
+  limit: number = DEFAULT_WALLET_CLAIMS_LIMIT,
+  refreshKey?: string | number,
+) {
+  return [
+    "wallet-reward-claims",
+    walletAddress ? (walletAddress.toLowerCase() as `0x${string}`) : null,
+    limit,
+    refreshKey,
+  ] as const;
+}
+
 export async function fetchWalletRewardClaims(
   params: FetchWalletRewardClaimsIndexParams
 ) {
@@ -82,37 +95,10 @@ export async function fetchWalletRewardClaims(
   } satisfies WalletRewardClaimsResponse;
 }
 
-export async function fetchWalletRewardClaimsIndex(
-  params: FetchWalletRewardClaimsIndexParams
-): Promise<WalletRewardClaimsIndex> {
-  const { walletAddress, limit, baseUrl } = params;
-  const addressLower = asLowerHexAddress(walletAddress);
-  const resolvedBase = baseUrl || DEFAULT_POSITIONS_API_BASE;
-  const url = `${resolvedBase}/rewards/claims/${addressLower}?limit=${limit}`;
-
-  const res = await fetch(url, { cache: "no-store" });
-  const body = (await res.json().catch(() => null)) as
-    | WalletRewardClaimsResponse
-    | { error?: string; indexingComplete?: boolean }
-    | null;
-
-  if (!res.ok) {
-    const indexingComplete = (body as any)?.indexingComplete ?? true;
-    if (res.status === 503 && indexingComplete === false) {
-      return {
-        indexingComplete: false,
-        claimedV2Nonces: new Set(),
-        claimedV1Buckets: new Set(),
-        hasMinerPoolBucketIds: false,
-      };
-    }
-
-    const message =
-      (body as any)?.error || `Failed to fetch wallet reward claims`;
-    throw new Error(message);
-  }
-
-  const claims = (body as WalletRewardClaimsResponse | null)?.claims ?? [];
+export function buildWalletRewardClaimsIndex(
+  claimsResponse: WalletRewardClaimsResponse
+): WalletRewardClaimsIndex {
+  const claims = claimsResponse.claims ?? [];
 
   const claimedV2Nonces = new Set<string>();
   const claimedV1Buckets = new Set<string>();
@@ -131,9 +117,16 @@ export async function fetchWalletRewardClaimsIndex(
   }
 
   return {
-    indexingComplete: (body as WalletRewardClaimsResponse).indexingComplete,
+    indexingComplete: claimsResponse.indexingComplete,
     claimedV2Nonces,
     claimedV1Buckets,
     hasMinerPoolBucketIds,
   };
+}
+
+export async function fetchWalletRewardClaimsIndex(
+  params: FetchWalletRewardClaimsIndexParams
+): Promise<WalletRewardClaimsIndex> {
+  const claimsResponse = await fetchWalletRewardClaims(params);
+  return buildWalletRewardClaimsIndex(claimsResponse);
 }

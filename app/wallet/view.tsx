@@ -224,7 +224,7 @@ export default function View() {
     useSplitsActivity({
       walletAddress: address,
       enabled: Boolean(isConnected && address),
-      limit: 100,
+      limit: 200,
     });
 
   const { swaps, isLoading: isSwapsActivityLoading } = useWalletSwaps(address);
@@ -327,11 +327,14 @@ export default function View() {
     launchpadSponsorshipsInProgressWithEstimates,
   ]);
 
-  const { data: rewardsBreakdownData, isLoading: isRewardsBreakdownLoading } =
-    useRewardsBreakdown({
-      walletAddress: address || null,
-      enabled: Boolean(isConnected && address),
-    });
+  const {
+    data: rewardsBreakdownData,
+    isLoading: isRewardsBreakdownLoading,
+    isError: isRewardsBreakdownError,
+  } = useRewardsBreakdown({
+    walletAddress: address || null,
+    enabled: Boolean(isConnected && address),
+  });
 
   // Helper functions to format balances
   function formatBalance(
@@ -990,19 +993,21 @@ export default function View() {
         </div>
 
         {/* Buy Glow Dialog */}
-        <BuyGlowDialog
-          open={buyGlowDialogOpen}
-          onOpenChange={(open) => {
-            setBuyGlowDialogOpen(open);
-            if (!open) {
-              refreshBalances();
-            }
-          }}
-          usdcBalance={usdcBalance}
-          glowSpotPrice={glowSpotPrice || 0}
-          source="wallet_view"
-          onSuccess={refreshBalances}
-        />
+        {buyGlowDialogOpen ? (
+          <BuyGlowDialog
+            open={buyGlowDialogOpen}
+            onOpenChange={(open) => {
+              setBuyGlowDialogOpen(open);
+              if (!open) {
+                refreshBalances();
+              }
+            }}
+            usdcBalance={usdcBalance}
+            glowSpotPrice={glowSpotPrice || 0}
+            source="wallet_view"
+            onSuccess={refreshBalances}
+          />
+        ) : null}
       </div>
     );
   }
@@ -1475,7 +1480,13 @@ export default function View() {
           </Card>
         )}
 
-        <RewardsBreakdownPanel walletAddress={address} />
+        <RewardsBreakdownPanel
+          walletAddress={address}
+          rewardsBreakdownData={rewardsBreakdownData}
+          isRewardsBreakdownLoading={isRewardsBreakdownLoading}
+          isRewardsBreakdownError={isRewardsBreakdownError}
+          splitsActivity={splitsActivity || []}
+        />
 
         {/* D. Claims Panel */}
 
@@ -1699,20 +1710,22 @@ export default function View() {
       </Dialog>
 
       {/* Buy Glow Dialog */}
-      <BuyGlowDialog
-        open={buyGlowDialogOpen}
-        onOpenChange={(open) => {
-          setBuyGlowDialogOpen(open);
-          trackEvent("wallet_buy_glw_dialog", { open });
-          if (!open) {
-            refreshBalances();
-          }
-        }}
-        usdcBalance={usdcBalance}
-        glowSpotPrice={glowSpotPrice || 0}
-        source="wallet_view"
-        onSuccess={refreshBalances}
-      />
+      {buyGlowDialogOpen ? (
+        <BuyGlowDialog
+          open={buyGlowDialogOpen}
+          onOpenChange={(open) => {
+            setBuyGlowDialogOpen(open);
+            trackEvent("wallet_buy_glw_dialog", { open });
+            if (!open) {
+              refreshBalances();
+            }
+          }}
+          usdcBalance={usdcBalance}
+          glowSpotPrice={glowSpotPrice || 0}
+          source="wallet_view"
+          onSuccess={refreshBalances}
+        />
+      ) : null}
     </div>
   );
 }

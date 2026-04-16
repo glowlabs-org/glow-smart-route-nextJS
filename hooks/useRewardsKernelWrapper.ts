@@ -20,7 +20,9 @@ import * as Sentry from "@sentry/nextjs";
 import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
 import {
   DEFAULT_WALLET_CLAIMS_LIMIT,
-  fetchWalletRewardClaimsIndex,
+  buildWalletRewardClaimsIndex,
+  fetchWalletRewardClaims,
+  walletRewardClaimsQueryKey,
   type WalletRewardClaimsIndex,
 } from "@/lib/api/wallet-reward-claims-index";
 
@@ -206,21 +208,21 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
   const getWalletClaimIndex = useCallback(
     async (walletAddress: `0x${string}`) => {
       const addressLower = asLowerHexAddress(walletAddress);
-      const queryKey = [
-        "wallet-reward-claims-index",
-        CHAIN_ID,
+      const queryKey = walletRewardClaimsQueryKey(
         addressLower,
         DEFAULT_WALLET_CLAIMS_LIMIT,
-      ] as const;
+      );
 
       const cached =
-        queryClient.getQueryData<WalletRewardClaimsIndex>(queryKey);
-      if (cached) return cached;
+        queryClient.getQueryData<Awaited<ReturnType<typeof fetchWalletRewardClaims>>>(
+          queryKey,
+        );
+      if (cached) return buildWalletRewardClaimsIndex(cached);
 
-      return await queryClient.fetchQuery({
+      const claimsResponse = await queryClient.fetchQuery({
         queryKey,
         queryFn: () =>
-          fetchWalletRewardClaimsIndex({
+          fetchWalletRewardClaims({
             walletAddress: addressLower,
             limit: DEFAULT_WALLET_CLAIMS_LIMIT,
             baseUrl: POSITIONS_API_BASE,
@@ -229,6 +231,8 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         gcTime: 10 * 60_000,
         retry: 1,
       });
+
+      return buildWalletRewardClaimsIndex(claimsResponse);
     },
     [queryClient]
   );
