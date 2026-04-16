@@ -18,6 +18,12 @@ import {
 } from "@/lib/api/hub-client";
 import { installBrowserRateLimitFetchInterceptor } from "@/lib/api/browser-rate-limit-fetch";
 import { toast } from "sonner";
+import { useWalletSessionLogger } from "@/lib/wallet-session-logger";
+
+function WalletSessionLogger() {
+  useWalletSessionLogger();
+  return null;
+}
 
 type WagmiWrapperProps = {
   children: React.ReactNode;
@@ -89,6 +95,7 @@ export const WagmiWrapper = ({ children, cookies }: WagmiWrapperProps) => {
     >
       <QueryClientProvider client={queryClient}>
         <Toaster position="bottom-right" />
+        <WalletSessionLogger />
         {children}
       </QueryClientProvider>
     </WagmiProvider>
