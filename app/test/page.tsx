@@ -8,7 +8,11 @@ export const dynamic = "force-dynamic";
 export default async function TestPage() {
   const queryClient = new QueryClient();
 
-  await prefetchDashboardLaunchpadData(queryClient);
+  await prefetchDashboardLaunchpadData(queryClient, {
+    prefetchRewardScores: false,
+    prefetchMiningScores: false,
+    prefetchLiveSoon: false,
+  });
   const dehydratedState = dehydrate(queryClient);
 
   return (

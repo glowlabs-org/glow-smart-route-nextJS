@@ -3,6 +3,7 @@
 import React from "react";
 import dynamic from "next/dynamic";
 import { useQueryState } from "nuqs";
+import { useInView } from "motion/react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -35,7 +36,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { ClaimsPanel } from "@/app/wallet/claims-panel";
 import { useAccount, useConnect, useDisconnect } from "wagmi";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useER20Balances } from "@/hooks/useERC20Balances";
@@ -81,6 +81,11 @@ import {
 // Lazy-load RecentActivity to defer its network work off the critical path
 const RecentActivity = dynamic(
   () => import("./recent-activity").then((m) => m.RecentActivity),
+  { ssr: false },
+);
+
+const ClaimsPanel = dynamic(
+  () => import("./claims-panel").then((m) => m.ClaimsPanel),
   { ssr: false },
 );
 
@@ -174,6 +179,11 @@ export default function View() {
   const [isAlreadySubscribed, setIsAlreadySubscribed] = React.useState(false);
   const [isCheckingSubscription, setIsCheckingSubscription] =
     React.useState(false);
+  const claimsPanelRef = React.useRef<HTMLDivElement | null>(null);
+  const isClaimsPanelInView = useInView(claimsPanelRef, {
+    once: true,
+    margin: "300px 0px",
+  });
 
   const hasTrackedWalletViewRef = React.useRef(false);
   const hasTrackedGettingStartedViewRef = React.useRef(false);
@@ -217,6 +227,8 @@ export default function View() {
     useWallets({
       walletAddress: address,
       enabled: isConnected,
+      includeMintedEvents: false,
+      includeStakeEvents: false,
     });
 
   // User launchpad sponsorship activity (fractions) and sponsor listings
@@ -1490,7 +1502,27 @@ export default function View() {
 
         {/* D. Claims Panel */}
 
-        <ClaimsPanel variant="card" onClaimSuccess={refreshBalances} />
+        <div ref={claimsPanelRef}>
+          {isClaimsPanelInView ? (
+            <ClaimsPanel variant="card" onClaimSuccess={refreshBalances} />
+          ) : (
+            <Card className="mb-8">
+              <CardHeader>
+                <CardTitle className="text-2xl font-bold">Claims</CardTitle>
+                <CardDescription>
+                  Claimable rewards load when this section comes into view.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <Skeleton className="h-6 w-32" />
+                  <Skeleton className="h-20 w-full" />
+                  <Skeleton className="h-10 w-40" />
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
 
         {/* H. Recent Activity */}
         <RecentActivity

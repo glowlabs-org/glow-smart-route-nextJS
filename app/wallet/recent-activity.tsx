@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useInView } from "motion/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -378,6 +379,12 @@ export function RecentActivity({
   const { isConnecting, isReconnecting } = useAccount();
   const isWalletConnecting =
     (isConnecting || isReconnecting) && !Boolean(walletAddress);
+  const cardRef = React.useRef<HTMLDivElement | null>(null);
+  const isCardInView = useInView(cardRef, {
+    once: true,
+    margin: "200px 0px",
+  });
+  const shouldFetchWalletActivity = Boolean(walletAddress) && isCardInView;
 
   // Fetch wallet events data
   const {
@@ -387,14 +394,16 @@ export function RecentActivity({
     isStakeEventsLoading,
   } = useWallets({
     walletAddress,
-    enabled: Boolean(walletAddress),
+    enabled: shouldFetchWalletActivity,
     limit: 20, // Limit to recent 20 events
+    includeWalletDetails: false,
+    includeMigrationAmount: false,
   });
 
   const { claims, isLoading: isClaimsLoading } = useWalletRewardClaims(
     walletAddress,
     {
-      enabled: Boolean(walletAddress),
+      enabled: shouldFetchWalletActivity,
       // This endpoint returns per-token rows; keep a modest cap.
       limit: 400,
       query: {
@@ -408,7 +417,7 @@ export function RecentActivity({
     settlements: sgctlClaimSettlements,
     isLoading: isSgctlClaimSettlementsLoading,
   } = useWalletSgctlClaimSettlements(walletAddress, {
-    enabled: Boolean(walletAddress),
+    enabled: shouldFetchWalletActivity,
     limit: 200,
   });
 
@@ -527,6 +536,7 @@ export function RecentActivity({
   }, [claimActivityGroups, mintedEvents, stakeEvents, splitsActivity, swapsActivity]);
 
   const isLoading =
+    (Boolean(walletAddress) && !isCardInView) ||
     isMintedEventsLoading ||
     isStakeEventsLoading ||
     isSplitsActivityLoading ||
@@ -554,12 +564,13 @@ export function RecentActivity({
     : activities;
 
   return (
-    <Card
-      className={cn(
-        "h-full lg:max-h-[380px] overflow-hidden flex flex-col gap-4 pt-6 pb-0",
-        className
-      )}
-    >
+    <div ref={cardRef}>
+      <Card
+        className={cn(
+          "h-full lg:max-h-[380px] overflow-hidden flex flex-col gap-4 pt-6 pb-0",
+          className
+        )}
+      >
       {showHeader ? (
         <CardHeader className="py-0 px-6">
           <div className="flex items-center justify-between gap-3">
@@ -812,6 +823,7 @@ export function RecentActivity({
           </div>
         )}
       </CardContent>
-    </Card>
+      </Card>
+    </div>
   );
 }

@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
+import { buildForwardHeaders } from "@/app/api/_shared/forward-headers";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-export const fetchCache = "force-no-store";
 
 function getHubUrl(): string {
   const value = process.env.NEXT_PUBLIC_HUB_URL;
@@ -25,6 +24,7 @@ export async function GET(req: Request) {
     }
 
     const response = await fetch(forward.toString(), {
+      headers: buildForwardHeaders(req),
       cache: "no-store",
     });
 

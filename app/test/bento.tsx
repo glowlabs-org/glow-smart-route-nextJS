@@ -59,6 +59,7 @@ import { useReferralLaunch } from "@/hooks/use-referral-launch";
 import { useEnsNames } from "@/hooks/useEnsNames";
 import { shortAddress } from "@/utils/impact";
 import { GlowSymbolAnimated } from "@/components/glow-symbol-animated";
+import { cn } from "@/lib/utils";
 
 interface GlowSoftDashboardProps {
   walletAddressOverride?: string | null;
@@ -92,6 +93,83 @@ function SectionHeader({ title }: { title: string }) {
       {title}
     </h2>
   );
+}
+
+function hashString(value: string) {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+  return hash;
+}
+
+function getDeferredAnalyticsDelayMs(params: {
+  walletAddress: string | null;
+  salt: string;
+  baseMs: number;
+  spreadMs: number;
+}) {
+  const { walletAddress, salt, baseMs, spreadMs } = params;
+  const digest = hashString(`${walletAddress ?? "anon"}:${salt}`);
+  return baseMs + (spreadMs > 0 ? digest % spreadMs : 0);
+}
+
+function DeferredAnalyticsCard(props: {
+  title: string;
+  description: string;
+  className?: string;
+}) {
+  const { title, description, className } = props;
+
+  return (
+    <div
+      className={cn(
+        "w-full h-full rounded-2xl border border-border/10 bg-muted/20 dark:bg-muted/30 p-6 flex flex-col justify-between",
+        className,
+      )}
+    >
+      <div className="space-y-2">
+        <div className="text-sm md:text-lg font-semibold tracking-tight text-foreground">
+          {title}
+        </div>
+        <p className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 max-w-sm">
+          {description}
+        </p>
+      </div>
+      <div className="space-y-3">
+        <div className="h-10 rounded-xl bg-muted/70" />
+        <div className="h-20 rounded-xl bg-muted/50" />
+      </div>
+    </div>
+  );
+}
+
+function DeferredLaunchWindowAnalytics(props: {
+  enabled: boolean;
+  delayMs: number;
+  fallback: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  const { enabled, delayMs, fallback, children } = props;
+  const [isReady, setIsReady] = React.useState(!enabled);
+
+  React.useEffect(() => {
+    if (!enabled) {
+      setIsReady(true);
+      return;
+    }
+
+    setIsReady(false);
+    const timeoutId = window.setTimeout(() => {
+      setIsReady(true);
+    }, delayMs);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [delayMs, enabled]);
+
+  return isReady ? <>{children}</> : <>{fallback}</>;
 }
 
 function formatGlw(amount: string): string {
@@ -284,6 +362,8 @@ export default function GlowSoftDashboard({
 
   const shouldShowLaunchpadHeroRow =
     shouldShowLaunchpadLiveSection || isApproachingLaunchpad;
+  const shouldDeferHeavyAnalytics =
+    hasWallet && (isLaunchpadLive || isApproachingLaunchpad);
 
   const handleLaunchpadCountdownComplete = React.useCallback(() => {
     refreshLaunchpadNextBatchAtMs();
@@ -311,6 +391,9 @@ export default function GlowSoftDashboard({
   const { migrationData, isMigrationLoading, migrationError } = useWallets({
     walletAddress: walletAddress ?? undefined,
     enabled: hasWallet,
+    includeWalletDetails: false,
+    includeMintedEvents: false,
+    includeStakeEvents: false,
   });
 
   const hasPendingMigrationClaim = React.useMemo(() => {
@@ -485,23 +568,39 @@ export default function GlowSoftDashboard({
                 <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
                   <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 items-stretch">
                     <div className="lg:col-span-3 flex">
-                      <WidgetErrorBoundary>
-                        <RankWidget
-                          walletAddress={walletAddress}
-                          variant="hero"
-                          readOnly={readOnly}
-                          onMintAndStakeClick={
-                            readOnly
-                              ? undefined
-                              : (forceStep1) => {
-                                  setMintAndStakeForceStep1(
-                                    Boolean(forceStep1),
-                                  );
-                                  setIsMintAndStakeOpen(true);
-                                }
-                          }
-                        />
-                      </WidgetErrorBoundary>
+                      <DeferredLaunchWindowAnalytics
+                        enabled={shouldDeferHeavyAnalytics}
+                        delayMs={getDeferredAnalyticsDelayMs({
+                          walletAddress,
+                          salt: "rank-widget",
+                          baseMs: 4_000,
+                          spreadMs: 8_000,
+                        })}
+                        fallback={
+                          <DeferredAnalyticsCard
+                            title="Impact Score"
+                            description="Impact analytics load a few seconds after launch traffic settles."
+                          />
+                        }
+                      >
+                        <WidgetErrorBoundary>
+                          <RankWidget
+                            walletAddress={walletAddress}
+                            variant="hero"
+                            readOnly={readOnly}
+                            onMintAndStakeClick={
+                              readOnly
+                                ? undefined
+                                : (forceStep1) => {
+                                    setMintAndStakeForceStep1(
+                                      Boolean(forceStep1),
+                                    );
+                                    setIsMintAndStakeOpen(true);
+                                  }
+                            }
+                          />
+                        </WidgetErrorBoundary>
+                      </DeferredLaunchWindowAnalytics>
                     </div>
 
                     <div
@@ -509,15 +608,31 @@ export default function GlowSoftDashboard({
                         readOnly ? "lg:col-span-7 flex" : "lg:col-span-5 flex"
                       }
                     >
-                      <WidgetErrorBoundary>
-                        <NetWorthWidget
-                          walletAddress={walletAddress}
-                          variant="minimal"
-                          onBuyGlowClick={
-                            readOnly ? undefined : handleBuyGlowClick
-                          }
-                        />
-                      </WidgetErrorBoundary>
+                      <DeferredLaunchWindowAnalytics
+                        enabled={shouldDeferHeavyAnalytics}
+                        delayMs={getDeferredAnalyticsDelayMs({
+                          walletAddress,
+                          salt: "net-worth-widget",
+                          baseMs: 6_000,
+                          spreadMs: 10_000,
+                        })}
+                        fallback={
+                          <DeferredAnalyticsCard
+                            title="Glow Worth"
+                            description="Wallet worth and chart history load after the launchpad shell is stable."
+                          />
+                        }
+                      >
+                        <WidgetErrorBoundary>
+                          <NetWorthWidget
+                            walletAddress={walletAddress}
+                            variant="minimal"
+                            onBuyGlowClick={
+                              readOnly ? undefined : handleBuyGlowClick
+                            }
+                          />
+                        </WidgetErrorBoundary>
+                      </DeferredLaunchWindowAnalytics>
                     </div>
 
                     {!readOnly && (
@@ -552,14 +667,30 @@ export default function GlowSoftDashboard({
                       </WidgetErrorBoundary>
                     </div>
                     <div className="pt-8 lg:pt-0 lg:pl-10 flex">
-                      <WidgetErrorBoundary>
-                        <RewardsWidget
-                          walletAddress={walletAddress}
-                          hideIfEmpty={false}
-                          variant="minimal"
-                          readOnly={readOnly}
-                        />
-                      </WidgetErrorBoundary>
+                      <DeferredLaunchWindowAnalytics
+                        enabled={shouldDeferHeavyAnalytics}
+                        delayMs={getDeferredAnalyticsDelayMs({
+                          walletAddress,
+                          salt: "rewards-widget",
+                          baseMs: 8_000,
+                          spreadMs: 10_000,
+                        })}
+                        fallback={
+                          <DeferredAnalyticsCard
+                            title="Rewards"
+                            description="Claims and reward analytics are staggered during launch windows."
+                          />
+                        }
+                      >
+                        <WidgetErrorBoundary>
+                          <RewardsWidget
+                            walletAddress={walletAddress}
+                            hideIfEmpty={false}
+                            variant="minimal"
+                            readOnly={readOnly}
+                          />
+                        </WidgetErrorBoundary>
+                      </DeferredLaunchWindowAnalytics>
                     </div>
                   </div>
                 </div>
@@ -637,13 +768,29 @@ export default function GlowSoftDashboard({
                 <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/20 items-stretch">
                     <div className="pb-8 lg:pb-0 lg:pr-10 flex lg:col-span-4">
-                      <WidgetErrorBoundary>
-                        <WeeklyActivityWidget
-                          walletAddress={walletAddress}
-                          hideIfEmpty={false}
-                          variant="minimal"
-                        />
-                      </WidgetErrorBoundary>
+                      <DeferredLaunchWindowAnalytics
+                        enabled={shouldDeferHeavyAnalytics}
+                        delayMs={getDeferredAnalyticsDelayMs({
+                          walletAddress,
+                          salt: "weekly-activity-widget",
+                          baseMs: 10_000,
+                          spreadMs: 8_000,
+                        })}
+                        fallback={
+                          <DeferredAnalyticsCard
+                            title="Weekly Streak"
+                            description="Streak and multiplier analytics load after launch traffic subsides."
+                          />
+                        }
+                      >
+                        <WidgetErrorBoundary>
+                          <WeeklyActivityWidget
+                            walletAddress={walletAddress}
+                            hideIfEmpty={false}
+                            variant="minimal"
+                          />
+                        </WidgetErrorBoundary>
+                      </DeferredLaunchWindowAnalytics>
                     </div>
 
                     <div className="pt-8 lg:pt-0 lg:pl-10 flex lg:col-span-5">
@@ -657,12 +804,28 @@ export default function GlowSoftDashboard({
                       </WidgetErrorBoundary>
                     </div>
                     <div className="py-8 lg:py-0 lg:pl-10 flex lg:col-span-3">
-                      <WidgetErrorBoundary>
-                        <PortfolioSummaryWidget
-                          walletAddress={walletAddress}
-                          variant="minimal"
-                        />
-                      </WidgetErrorBoundary>
+                      <DeferredLaunchWindowAnalytics
+                        enabled={shouldDeferHeavyAnalytics}
+                        delayMs={getDeferredAnalyticsDelayMs({
+                          walletAddress,
+                          salt: "portfolio-summary-widget",
+                          baseMs: 12_000,
+                          spreadMs: 8_000,
+                        })}
+                        fallback={
+                          <DeferredAnalyticsCard
+                            title="Mining Summary"
+                            description="Portfolio rollups are queued behind launchpad traffic during live windows."
+                          />
+                        }
+                      >
+                        <WidgetErrorBoundary>
+                          <PortfolioSummaryWidget
+                            walletAddress={walletAddress}
+                            variant="minimal"
+                          />
+                        </WidgetErrorBoundary>
+                      </DeferredLaunchWindowAnalytics>
                     </div>
                   </div>
                 </div>

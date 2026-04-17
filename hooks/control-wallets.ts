@@ -31,6 +31,11 @@ export interface UseWalletsParams {
   page?: number;
   limit?: number;
   regionId?: number;
+  includeWalletDetails?: boolean;
+  includeMintedEvents?: boolean;
+  includeStakeEvents?: boolean;
+  includeMigrationAmount?: boolean;
+  includeAllWallets?: boolean;
 }
 
 export interface WalletRegionAvailableStake {
@@ -272,6 +277,11 @@ export function useWallets(params: UseWalletsParams = {}) {
     page = 1,
     limit = 20,
     regionId,
+    includeWalletDetails = true,
+    includeMintedEvents = true,
+    includeStakeEvents = true,
+    includeMigrationAmount = true,
+    includeAllWallets = false,
   } = params;
   const isConfigured = Boolean(process.env.NEXT_PUBLIC_CONTROL_API_URL);
 
@@ -279,7 +289,11 @@ export function useWallets(params: UseWalletsParams = {}) {
     queryKey: QUERY_KEYS.wallets.details(walletAddress),
     queryFn: () =>
       (getWalletsRouter() as any).fetchWalletByAddress(walletAddress!),
-    enabled: enabled && isConfigured && Boolean(walletAddress),
+    enabled:
+      enabled &&
+      includeWalletDetails &&
+      isConfigured &&
+      Boolean(walletAddress),
     staleTime: QUERY_CONFIG.DEFAULT.staleTime,
     retry: 2,
   });
@@ -292,7 +306,11 @@ export function useWallets(params: UseWalletsParams = {}) {
         page,
         limit,
       ),
-    enabled: enabled && isConfigured && Boolean(walletAddress),
+    enabled:
+      enabled &&
+      includeMintedEvents &&
+      isConfigured &&
+      Boolean(walletAddress),
     staleTime: QUERY_CONFIG.DEFAULT.staleTime,
     retry: 2,
   });
@@ -311,7 +329,11 @@ export function useWallets(params: UseWalletsParams = {}) {
         limit,
         regionId,
       ),
-    enabled: enabled && isConfigured && Boolean(walletAddress),
+    enabled:
+      enabled &&
+      includeStakeEvents &&
+      isConfigured &&
+      Boolean(walletAddress),
     staleTime: QUERY_CONFIG.DEFAULT.staleTime,
     retry: 2,
   });
@@ -320,7 +342,11 @@ export function useWallets(params: UseWalletsParams = {}) {
     queryKey: QUERY_KEYS.wallets.migrationAmount(walletAddress),
     queryFn: () =>
       (getControlRouter() as any).fetchMigrationAmount(walletAddress!),
-    enabled: enabled && isConfigured && Boolean(walletAddress),
+    enabled:
+      enabled &&
+      includeMigrationAmount &&
+      isConfigured &&
+      Boolean(walletAddress),
     staleTime: QUERY_CONFIG.DEFAULT.staleTime,
     retry: 2,
   });
@@ -328,7 +354,7 @@ export function useWallets(params: UseWalletsParams = {}) {
   const allWalletsQuery = useQuery({
     queryKey: QUERY_KEYS.wallets.all(),
     queryFn: () => (getWalletsRouter() as any).fetchAllWallets(),
-    enabled: false,
+    enabled: enabled && includeAllWallets,
     staleTime: QUERY_CONFIG.DEFAULT.staleTime,
     retry: 2,
   });

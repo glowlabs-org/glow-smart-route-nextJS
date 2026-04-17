@@ -53,7 +53,11 @@ export default async function TestWalletPage({ params }: TestWalletPageProps) {
   const walletAddress = getAddress(rawWallet);
   const queryClient = new QueryClient();
 
-  await prefetchDashboardLaunchpadData(queryClient);
+  await prefetchDashboardLaunchpadData(queryClient, {
+    prefetchRewardScores: false,
+    prefetchMiningScores: false,
+    prefetchLiveSoon: false,
+  });
   const dehydratedState = dehydrate(queryClient);
 
   return (

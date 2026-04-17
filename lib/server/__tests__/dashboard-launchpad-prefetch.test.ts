@@ -15,6 +15,8 @@ import {
 import { buildMiningScoreExtraLiveFarmsKey } from "../../mining-score";
 import { buildRewardScoreCurrencyKey } from "../../reward-score";
 
+vi.mock("server-only", () => ({}));
+
 function createActiveFraction(
   overrides: Partial<ActiveFraction> = {}
 ): ActiveFraction {

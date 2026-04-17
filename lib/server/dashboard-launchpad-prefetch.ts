@@ -68,6 +68,9 @@ export interface DashboardLaunchpadPrefetchDeps {
   fetchMiningScoresBatch?: FetchMiningScoresBatchFn;
   fetchLiveSoonFarms?: FetchLiveSoonFarmsFn;
   fetchRewardScoresBatch?: FetchRewardScoresBatchFn;
+  prefetchRewardScores?: boolean;
+  prefetchMiningScores?: boolean;
+  prefetchLiveSoon?: boolean;
 }
 
 async function withSignalTimeout<T>(
@@ -130,9 +133,11 @@ export async function prefetchDashboardLaunchpadData(
 
   const fetchListings = deps.fetchListings ?? defaultFetchListings;
   let fetchMiningScoresBatch = deps.fetchMiningScoresBatch;
-  const fetchLiveSoonFarms =
-    deps.fetchLiveSoonFarms ?? fetchLiveSoonMiningScoreFarms;
+  const fetchLiveSoonFarms = deps.fetchLiveSoonFarms ?? fetchLiveSoonMiningScoreFarms;
   let fetchRewardScoresBatch = deps.fetchRewardScoresBatch;
+  const prefetchRewardScores = deps.prefetchRewardScores ?? true;
+  const prefetchMiningScores = deps.prefetchMiningScores ?? true;
+  const prefetchLiveSoon = deps.prefetchLiveSoon ?? prefetchMiningScores;
 
   const [
     launchpadStatusListings,
@@ -151,7 +156,7 @@ export async function prefetchDashboardLaunchpadData(
         () => []
       ),
       fetchListings(DASHBOARD_SSR_LISTING_FILTERS.miningLive).catch(() => []),
-      fetchLiveSoonFarms().catch(() => []),
+      prefetchLiveSoon ? fetchLiveSoonFarms().catch(() => []) : Promise.resolve([]),
     ]);
 
   queryClient.setQueryData(
@@ -184,7 +189,7 @@ export async function prefetchDashboardLaunchpadData(
     activeRewardApplications,
     "GLW"
   );
-  if (activeRewardApplications.length > 0) {
+  if (prefetchRewardScores && activeRewardApplications.length > 0) {
     if (rewardBatchParams.length > 0) {
       try {
         if (!fetchRewardScoresBatch) {
@@ -230,7 +235,7 @@ export async function prefetchDashboardLaunchpadData(
     filterActiveMiningApplications(miningLiveListings);
   const miningExtraLiveKey =
     buildMiningScoreExtraLiveFarmsKey(launchpadLiveListings, liveSoonFarms);
-  if (!activeMiningApplications.length) return;
+  if (!prefetchMiningScores || !activeMiningApplications.length) return;
 
   const { farmParams, extraLiveFarms } = buildMiningScoreBatchInputs(
     activeMiningApplications,

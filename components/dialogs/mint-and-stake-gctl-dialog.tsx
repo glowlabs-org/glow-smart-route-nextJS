@@ -319,6 +319,9 @@ export function MintAndStakeGctlDialog({
   const { walletDetails } = useWallets({
     walletAddress: address ?? undefined,
     enabled: open && Boolean(address),
+    includeMintedEvents: false,
+    includeStakeEvents: false,
+    includeMigrationAmount: false,
   });
 
   const userStakedGctlByRegionId = React.useMemo(() => {

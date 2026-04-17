@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { buildForwardHeaders } from "@/app/api/_shared/forward-headers";
 
 export const runtime = "nodejs";
 
@@ -14,9 +15,10 @@ function getHubUrl(): string {
   return value;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const response = await fetch(`${getHubUrl()}/impact/wallet-stats`, {
+      headers: buildForwardHeaders(req),
       next: { revalidate: 60 },
     });
 

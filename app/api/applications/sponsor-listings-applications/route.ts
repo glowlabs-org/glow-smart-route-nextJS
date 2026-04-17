@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { AuctionApplication } from "@/hooks/hub-listings";
+import { buildForwardHeaders } from "@/app/api/_shared/forward-headers";
 
 export const runtime = "nodejs";
 
@@ -9,35 +10,6 @@ function getHubUrl(): string {
     throw new Error("NEXT_PUBLIC_HUB_URL is not set");
   }
   return value;
-}
-
-function copyHeader(
-  source: Headers,
-  target: Headers,
-  name: string,
-): void {
-  const value = source.get(name);
-  if (value) target.set(name, value);
-}
-
-function buildForwardHeaders(request: NextRequest): Headers {
-  const headers = new Headers();
-
-  copyHeader(request.headers, headers, "user-agent");
-  copyHeader(request.headers, headers, "referer");
-  copyHeader(request.headers, headers, "origin");
-  copyHeader(request.headers, headers, "cf-connecting-ip");
-  copyHeader(request.headers, headers, "x-forwarded-for");
-  copyHeader(request.headers, headers, "x-real-ip");
-  copyHeader(request.headers, headers, "x-vercel-ip-country");
-  copyHeader(request.headers, headers, "x-vercel-ip-country-code");
-  copyHeader(request.headers, headers, "x-vercel-ip-country-region");
-  copyHeader(request.headers, headers, "x-vercel-ip-country-region-code");
-  copyHeader(request.headers, headers, "x-vercel-ip-city");
-  copyHeader(request.headers, headers, "x-vercel-ip-latitude");
-  copyHeader(request.headers, headers, "x-vercel-ip-longitude");
-
-  return headers;
 }
 
 export async function GET(request: NextRequest) {
@@ -83,7 +55,7 @@ export async function GET(request: NextRequest) {
       {
         error: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500, headers: { "Cache-Control": "no-store" } },
+      { status: 500, headers: { "Cache-Control": "no-store" } }
     );
   }
 }

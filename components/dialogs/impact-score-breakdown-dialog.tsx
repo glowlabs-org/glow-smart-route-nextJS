@@ -380,6 +380,9 @@ export function ImpactScoreBreakdownDialogContent(
   const { walletDetails } = useWallets({
     walletAddress: address ?? undefined,
     enabled: Boolean(address),
+    includeMintedEvents: false,
+    includeStakeEvents: false,
+    includeMigrationAmount: false,
   });
   const regionIds = useMemo(
     () => (walletDetails?.regions ?? []).map((region) => region.regionId),

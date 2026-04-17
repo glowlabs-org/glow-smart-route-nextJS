@@ -187,6 +187,9 @@ export default function GctlControlWidget({
   const { walletDetails, isWalletDetailsLoading } = useWallets({
     walletAddress: walletAddress ?? undefined,
     enabled: isEnabled,
+    includeMintedEvents: false,
+    includeStakeEvents: false,
+    includeMigrationAmount: false,
   });
   const regionIds = useMemo(
     () => (walletDetails?.regions ?? []).map((region) => region.regionId),

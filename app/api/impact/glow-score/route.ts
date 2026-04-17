@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { buildForwardHeaders } from "@/app/api/_shared/forward-headers";
 
 export const runtime = "nodejs";
 
@@ -99,6 +100,7 @@ export async function GET(req: Request) {
       : 60;
 
     const response = await fetch(forward.toString(), {
+      headers: buildForwardHeaders(req),
       next: { revalidate: revalidateSeconds },
     });
 

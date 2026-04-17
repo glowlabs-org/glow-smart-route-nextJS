@@ -424,6 +424,9 @@ export function DepositDialog({
   const { refetchWalletDetails } = useWallets({
     walletAddress: address ?? undefined,
     enabled: open && runtimeSelectedCurrency === "SGCTL" && Boolean(address),
+    includeMintedEvents: false,
+    includeStakeEvents: false,
+    includeMigrationAmount: false,
   });
   const { data: walletRewardsBreakdown, isLoading: isWalletRewardsBreakdownLoading } =
     useRewardsBreakdown({
