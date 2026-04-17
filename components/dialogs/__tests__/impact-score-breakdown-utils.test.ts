@@ -15,7 +15,7 @@ describe("getImpactScoreDialogTotalPoints", () => {
     ).toBe("20565.686738");
   });
 
-  it("falls back to rollover plus continuous points", () => {
+  it("returns zero when totalPoints is missing", () => {
     expect(
       getImpactScoreDialogTotalPoints({
         totals: {
@@ -23,6 +23,6 @@ describe("getImpactScoreDialogTotalPoints", () => {
           continuousPoints: "20.597336",
         },
       } as never),
-    ).toBe("2180.384682");
+    ).toBe("0");
   });
 });
