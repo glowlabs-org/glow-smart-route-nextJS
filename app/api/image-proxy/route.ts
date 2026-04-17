@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import sharp from "sharp";
+import { isAllowedRemoteImageUrl } from "@/app/api/image-proxy/image-proxy-allowlist";
 
 export const runtime = "nodejs";
 export const revalidate = 604800; // Cache route for 1 week
@@ -7,17 +8,6 @@ export const revalidate = 604800; // Cache route for 1 week
 const CACHE_HEADERS = {
   "Cache-Control": "public, max-age=31536000, immutable",
 };
-
-function isAllowedRemoteUrl(raw: string): boolean {
-  try {
-    const parsed = new URL(raw);
-    // Keep this locked to our bucket to avoid an open proxy. If you want to
-    // support other hosts, whitelist explicitly by hostname suffix.
-    return parsed.hostname.endsWith("r2.dev");
-  } catch {
-    return false;
-  }
-}
 
 function isLikelyHeic(raw: string, contentType: string | null): boolean {
   const lower = raw.toLowerCase();
@@ -36,7 +26,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Validate URL is from your R2 bucket
-  if (!isAllowedRemoteUrl(url)) {
+  if (!isAllowedRemoteImageUrl(url)) {
     return new NextResponse("Invalid URL", { status: 403 });
   }
 
