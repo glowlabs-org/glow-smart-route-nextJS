@@ -14,6 +14,7 @@
     "test": "pnpm dlx vitest run",
     "test:watch": "pnpm dlx vitest",
     "metrics:miner-margin-pd": "pnpm dlx tsx scripts/miner-margin-per-pd.ts",
+    "prod:sweep": "node scripts/prod-sweep.mjs",
     "test:claim-v2": "node scripts/test-claim-v2-simple.js",
     "test:claim-v2-ts": "tsx scripts/test-claim-v2-rewards.ts",
     "prepare": "husky"
