@@ -272,6 +272,8 @@ export function RankWidget({
         url.searchParams.set("walletAddress", walletAddress);
         url.searchParams.set("endWeek", String(currentWeek));
         url.searchParams.set("includeWeekly", "0");
+        url.searchParams.set("includeProjection", "1");
+        url.searchParams.set("includeReferral", "1");
 
         const response = await fetch(url.toString(), {
           headers: { Accept: "application/json" },

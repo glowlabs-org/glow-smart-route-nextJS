@@ -54,6 +54,7 @@ import { useReferral } from "@/hooks/use-referral";
 import { useReferralLaunch } from "@/hooks/use-referral-launch";
 import { useMemo, useState } from "react";
 import { trackEvent } from "@/lib/telemetry";
+import { getImpactScoreDialogTotalPoints } from "@/components/dialogs/impact-score-breakdown-utils";
 
 // --- Types & Interfaces ---
 
@@ -625,10 +626,7 @@ export function ImpactScoreBreakdownDialogContent(
   }, [impactScore?.weekly]);
 
   const totalScore = formatPoints(
-    String(
-      safePointsNumber(impactScore?.totals?.rolloverPoints) +
-        safePointsNumber(impactScore?.totals?.continuousPoints),
-    ),
+    getImpactScoreDialogTotalPoints(impactScore),
     { maximumFractionDigits: 0 },
   );
 
