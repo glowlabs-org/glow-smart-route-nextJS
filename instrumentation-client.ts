@@ -92,14 +92,31 @@ if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
         .map((v) => `${v.type ?? ""}: ${v.value ?? ""}`)
         .join("\n");
 
-      // Filter browser extension errors (crypto wallets, etc.)
-      const isExtensionError = frames.some(
-        (frame) =>
-          frame.filename?.includes("inpage.js") ||
-          frame.filename?.startsWith("chrome-extension://") ||
-          frame.filename?.startsWith("moz-extension://")
-      );
+      // Filter browser extension errors (crypto wallets, etc.).
+      // Some wallets inject scripts into page context under paths that Sentry
+      // surfaces as `app:///...` (e.g. extensionPageScript.js, inpage-solana-early.js,
+      // in-page.js), so match those filenames explicitly in addition to the
+      // extension:// protocol prefixes.
+      const isExtensionError = frames.some((frame) => {
+        const filename = frame.filename || "";
+        return (
+          filename.includes("inpage.js") ||
+          filename.includes("inpage-solana-early") ||
+          filename.includes("extensionPageScript") ||
+          /\/in-page\.js(\?|$|:)/.test(filename) ||
+          filename.startsWith("chrome-extension://") ||
+          filename.startsWith("moz-extension://")
+        );
+      });
       if (isExtensionError) return null;
+
+      // viem walks the error cause chain with `'data' in err`, which throws
+      // TypeError when a wallet returns a non-object cause (e.g. the string
+      // "cancelled"). We cannot fix viem from here, and these only surface on
+      // non-conformant wallets during user-initiated actions; drop them.
+      const isViemInOperatorWalk =
+        /Cannot use 'in' operator to search for ['"]data['"] in/.test(message);
+      if (isViemInOperatorWalk) return null;
 
       // Filter transient chunk loading failures (network issues, Safari race conditions)
       const isChunkLoadError =

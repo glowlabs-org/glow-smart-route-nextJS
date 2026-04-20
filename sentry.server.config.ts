@@ -17,6 +17,25 @@ if (process.env.NODE_ENV === "production") {
 
     // Setting this option to true will print useful information to the console while you're setting up Sentry.
     debug: false,
+
+    // Drop events generated when running a production build locally
+    // (e.g. `pnpm start` on a developer machine). These hit Sentry because
+    // NODE_ENV is production but represent local traffic, not real users.
+    beforeSend(event) {
+      const requestUrl =
+        typeof event.request?.url === "string" ? event.request.url : "";
+      const isLocalhostRequest =
+        /^https?:\/\/(127\.0\.0\.1|localhost|0\.0\.0\.0)(:|\/|$)/.test(
+          requestUrl
+        );
+      if (isLocalhostRequest) return null;
+
+      const serverName =
+        typeof event.server_name === "string" ? event.server_name : "";
+      if (serverName.endsWith(".local")) return null;
+
+      return event;
+    },
   });
 
   configureSentry({
