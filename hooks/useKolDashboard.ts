@@ -15,8 +15,18 @@ export interface KolDashboardResponse {
     maxEcosystemBonusPercent: number;
     rollingDelegationWindowDays: number;
     ecosystemBonusFormula: string;
+    ecosystemBonusAssets: {
+      included: Array<"GLW" | "SGCTL">;
+      valuation: string;
+    } | null;
     startedAt: string;
     eligibilityRule: string;
+    masterReferrer: {
+      overridePercent: number;
+      startedAt: string;
+      startedAtWeek: number;
+      rule: string;
+    } | null;
   };
   kol: KolPaybackKol | null;
 }

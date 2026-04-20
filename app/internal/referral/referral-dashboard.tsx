@@ -869,6 +869,7 @@ type KolPaybackWeekRow = {
   saleCount: number;
   uniqueBuyers: number;
   totalDelegatedGlwRaw: string;
+  totalDelegatedUsdMicros: string;
   delegationCount: number;
   uniqueDelegators: number;
   sales: KolPaybackSale[];
@@ -907,6 +908,15 @@ function buildKolPaybackWeekRows(
             BigInt(week.delegationBreakdown.direct.totalDelegatedGlwRaw) +
             BigInt(week.delegationBreakdown.secondDegree.totalDelegatedGlwRaw)
           ).toString(),
+          totalDelegatedUsdMicros: (
+            BigInt(
+              week.delegationBreakdown.direct.totalDelegatedUsdMicros ?? "0"
+            ) +
+            BigInt(
+              week.delegationBreakdown.secondDegree.totalDelegatedUsdMicros ??
+                "0"
+            )
+          ).toString(),
           delegationCount:
             week.delegationBreakdown.direct.delegationCount +
             week.delegationBreakdown.secondDegree.delegationCount,
@@ -942,6 +952,15 @@ function buildKolPaybackWeekRows(
         BigInt(existing.totalDelegatedGlwRaw) +
         BigInt(week.delegationBreakdown.direct.totalDelegatedGlwRaw) +
         BigInt(week.delegationBreakdown.secondDegree.totalDelegatedGlwRaw)
+      ).toString();
+      existing.totalDelegatedUsdMicros = (
+        BigInt(existing.totalDelegatedUsdMicros) +
+        BigInt(
+          week.delegationBreakdown.direct.totalDelegatedUsdMicros ?? "0"
+        ) +
+        BigInt(
+          week.delegationBreakdown.secondDegree.totalDelegatedUsdMicros ?? "0"
+        )
       ).toString();
       existing.saleCount += week.saleCount;
       existing.delegationCount +=
@@ -1136,7 +1155,7 @@ function KolPaybackExport({
       ) : (
         <>
           {/* ---- Program-wide KPIs ---- */}
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <ExportMetric
               label="Total Volume"
               value={formatUsdFromRawUsdc6(data.summary.totalMinerSalesRaw)}
@@ -1145,16 +1164,37 @@ function KolPaybackExport({
             <ExportMetric
               label="Total Payback"
               value={formatUsdFromRawUsdc6(data.summary.totalPaybackRaw)}
-              hint={`${data.program.baseCommissionPercent}% base commission`}
+              hint={
+                data.summary.totalMasterReferrerOverrideRaw &&
+                BigInt(data.summary.totalMasterReferrerOverrideRaw) > 0n
+                  ? `incl ${formatUsdFromRawUsdc6(
+                      data.summary.totalMasterReferrerOverrideRaw
+                    )} master-referrer override`
+                  : `${data.program.baseCommissionPercent}% base commission`
+              }
               tone="success"
             />
             <ExportMetric
-              label="Rolling 30D GLW"
-              value={formatGlwAmount(
+              label="Rolling 30D Delegated"
+              value={formatUsdFromRawUsdc6(
+                data.summary.rolling30DayDelegation.totalDelegatedUsdMicros ??
+                  "0"
+              )}
+              hint={`${data.summary.rolling30DayDelegation.uniqueDelegators} delegators · ${formatGlwAmount(
                 data.summary.rolling30DayDelegation.totalDelegatedGlwRaw,
                 { raw: true }
+              )} GLW-equiv`}
+            />
+            <ExportMetric
+              label="Master-Ref Override"
+              value={formatUsdFromRawUsdc6(
+                data.summary.totalMasterReferrerOverrideRaw ?? "0"
               )}
-              hint={`${data.summary.rolling30DayDelegation.uniqueDelegators} unique delegators`}
+              hint={
+                data.program.masterReferrer
+                  ? `${data.program.masterReferrer.overridePercent}% of referees, since W${data.program.masterReferrer.startedAtWeek}`
+                  : "—"
+              }
             />
             <ExportMetric
               label="Weeks Covered"
@@ -1241,22 +1281,38 @@ function KolPaybackExport({
                         <div className="text-2xl font-bold text-emerald-500">
                           {formatUsdFromRawUsdc6(kol.totalPaybackRaw)}
                         </div>
+                        {kol.masterReferrerOverride &&
+                          BigInt(kol.masterReferrerOverride.overrideRaw) >
+                            0n && (
+                            <div className="text-[10px] text-amber-500/80">
+                              incl{" "}
+                              {formatUsdFromRawUsdc6(
+                                kol.masterReferrerOverride.overrideRaw
+                              )}{" "}
+                              override
+                            </div>
+                          )}
                       </div>
                       <div>
                         <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
-                          Rolling GLW
+                          Rolling 30D ($)
                         </div>
                         <div className="text-2xl font-bold">
-                          {formatGlwAmount(
-                            kol.rolling30DayDelegation.totalDelegatedGlwRaw,
-                            { raw: true }
+                          {formatUsdFromRawUsdc6(
+                            kol.rolling30DayDelegation
+                              .totalDelegatedUsdMicros ?? "0"
                           )}
                         </div>
                         <div className="text-[10px] text-muted-foreground/50">
                           {formatPercentValue(
                             kol.rolling30DayDelegation.ecosystemBonusPercent
                           )}{" "}
-                          bonus
+                          bonus ·{" "}
+                          {formatGlwAmount(
+                            kol.rolling30DayDelegation.totalDelegatedGlwRaw,
+                            { raw: true }
+                          )}{" "}
+                          GLW-eq
                         </div>
                       </div>
                     </div>
@@ -1283,10 +1339,10 @@ function KolPaybackExport({
                               <TableHead className="text-right">Volume</TableHead>
                               <TableHead className="text-right">Payback</TableHead>
                               <TableHead className="text-right">
-                                Delegated GLW
+                                Delegated ($)
                               </TableHead>
                               <TableHead className="text-right">
-                                Rolling GLW
+                                Rolling 30D ($)
                               </TableHead>
                             </TableRow>
                           </TableHeader>
@@ -1295,7 +1351,16 @@ function KolPaybackExport({
                               .slice()
                               .sort((a, b) => b.weekNumber - a.weekNumber)
                               .map((week) => {
-                                const weekDelegated =
+                                const weekDelegatedUsdMicros =
+                                  BigInt(
+                                    week.delegationBreakdown.direct
+                                      .totalDelegatedUsdMicros ?? "0"
+                                  ) +
+                                  BigInt(
+                                    week.delegationBreakdown.secondDegree
+                                      .totalDelegatedUsdMicros ?? "0"
+                                  );
+                                const weekDelegatedGlw =
                                   BigInt(
                                     week.delegationBreakdown.direct
                                       .totalDelegatedGlwRaw
@@ -1327,18 +1392,45 @@ function KolPaybackExport({
                                       {formatUsdFromRawUsdc6(
                                         week.totalPaybackRaw
                                       )}
+                                      {week.masterReferrerOverride &&
+                                        week.masterReferrerOverride.eligible &&
+                                        BigInt(
+                                          week.masterReferrerOverride.overrideRaw
+                                        ) > 0n && (
+                                          <div className="text-[10px] font-normal text-amber-500/80">
+                                            incl{" "}
+                                            {formatUsdFromRawUsdc6(
+                                              week.masterReferrerOverride
+                                                .overrideRaw
+                                            )}{" "}
+                                            override
+                                          </div>
+                                        )}
                                     </TableCell>
                                     <TableCell className="py-2.5 text-right tabular-nums">
-                                      {formatGlwAmount(weekDelegated, {
-                                        raw: true,
-                                      })}
-                                    </TableCell>
-                                    <TableCell className="py-2.5 text-right tabular-nums">
-                                      {formatGlwAmount(
-                                        week.rolling30DayDelegation
-                                          .totalDelegatedGlwRaw,
-                                        { raw: true }
+                                      {formatUsdFromRawUsdc6(
+                                        weekDelegatedUsdMicros.toString()
                                       )}
+                                      <div className="text-[10px] text-muted-foreground/40">
+                                        {formatGlwAmount(weekDelegatedGlw, {
+                                          raw: true,
+                                        })}{" "}
+                                        GLW-eq
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="py-2.5 text-right tabular-nums">
+                                      {formatUsdFromRawUsdc6(
+                                        week.rolling30DayDelegation
+                                          .totalDelegatedUsdMicros ?? "0"
+                                      )}
+                                      <div className="text-[10px] text-muted-foreground/40">
+                                        {formatGlwAmount(
+                                          week.rolling30DayDelegation
+                                            .totalDelegatedGlwRaw,
+                                          { raw: true }
+                                        )}{" "}
+                                        GLW-eq
+                                      </div>
                                     </TableCell>
                                   </TableRow>
                                 );
@@ -1441,7 +1533,7 @@ function KolPaybackExport({
                     <TableHead className="text-right">Sales</TableHead>
                     <TableHead className="text-right">Volume</TableHead>
                     <TableHead className="text-right">Payback</TableHead>
-                    <TableHead className="text-right">Delegated GLW</TableHead>
+                    <TableHead className="text-right">Delegated ($)</TableHead>
                     <TableHead className="text-right pr-4">Delegators</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1469,9 +1561,13 @@ function KolPaybackExport({
                           {formatUsdFromRawUsdc6(week.totalPaybackRaw)}
                         </TableCell>
                         <TableCell className="py-3 text-right tabular-nums">
-                          {formatGlwAmount(week.totalDelegatedGlwRaw, {
-                            raw: true,
-                          })}
+                          {formatUsdFromRawUsdc6(week.totalDelegatedUsdMicros)}
+                          <div className="text-[10px] text-muted-foreground/40">
+                            {formatGlwAmount(week.totalDelegatedGlwRaw, {
+                              raw: true,
+                            })}{" "}
+                            GLW-eq
+                          </div>
                         </TableCell>
                         <TableCell className="py-3 text-right pr-4 tabular-nums">
                           {week.uniqueDelegators}
@@ -1480,13 +1576,22 @@ function KolPaybackExport({
 
                       {/* Per-KoL sub-rows */}
                       {week.kols.map((kol) => {
-                        const kolDelegated =
+                        const kolDelegatedGlw =
                           BigInt(
                             kol.delegationBreakdown.direct.totalDelegatedGlwRaw
                           ) +
                           BigInt(
                             kol.delegationBreakdown.secondDegree
                               .totalDelegatedGlwRaw
+                          );
+                        const kolDelegatedUsdMicros =
+                          BigInt(
+                            kol.delegationBreakdown.direct
+                              .totalDelegatedUsdMicros ?? "0"
+                          ) +
+                          BigInt(
+                            kol.delegationBreakdown.secondDegree
+                              .totalDelegatedUsdMicros ?? "0"
                           );
                         return (
                           <TableRow
@@ -1509,7 +1614,13 @@ function KolPaybackExport({
                               {formatUsdFromRawUsdc6(kol.totalPaybackRaw)}
                             </TableCell>
                             <TableCell className="py-2 text-right text-xs tabular-nums">
-                              {formatGlwAmount(kolDelegated, { raw: true })}
+                              {formatUsdFromRawUsdc6(
+                                kolDelegatedUsdMicros.toString()
+                              )}
+                              <div className="text-[10px] text-muted-foreground/40">
+                                {formatGlwAmount(kolDelegatedGlw, { raw: true })}{" "}
+                                GLW-eq
+                              </div>
                             </TableCell>
                             <TableCell className="py-2 pr-4" />
                           </TableRow>

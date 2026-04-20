@@ -89,15 +89,27 @@ export async function POST(request: NextRequest) {
       (k: { kolWallet: string }) => k.kolWallet.toLowerCase() === normalized
     );
 
-    // Strip sensitive fields: don't expose other KoL wallets or aggregate totals
+    // Strip sensitive fields: don't expose other KoL wallets or aggregate totals.
+    // For the master-referrer program, surface only program-level parameters
+    // (percent, start date, rule). The `assignments` list is admin-only and
+    // omitted here since it names other KoL wallets.
     const safeProgram = {
       paybackPercent: data.program.paybackPercent,
       baseCommissionPercent: data.program.baseCommissionPercent,
       maxEcosystemBonusPercent: data.program.maxEcosystemBonusPercent,
       rollingDelegationWindowDays: data.program.rollingDelegationWindowDays,
       ecosystemBonusFormula: data.program.ecosystemBonusFormula,
+      ecosystemBonusAssets: data.program.ecosystemBonusAssets ?? null,
       startedAt: data.program.startedAt,
       eligibilityRule: data.program.eligibilityRule,
+      masterReferrer: data.program.masterReferrer
+        ? {
+            overridePercent: data.program.masterReferrer.overridePercent,
+            startedAt: data.program.masterReferrer.startedAt,
+            startedAtWeek: data.program.masterReferrer.startedAtWeek,
+            rule: data.program.masterReferrer.rule,
+          }
+        : null,
     };
 
     return NextResponse.json({

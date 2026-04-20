@@ -254,9 +254,7 @@ function ChartTooltip({
           />
           <span className="text-muted-foreground/60 dark:text-muted-foreground/80">{entry.name}</span>
           <span className="ml-auto font-mono font-medium tabular-nums">
-            {entry.dataKey === "delegatedGlw"
-              ? `${entry.value.toLocaleString()} GLW`
-              : `$${entry.value.toLocaleString()}`}
+            {`$${entry.value.toLocaleString()}`}
           </span>
         </div>
       ))}
@@ -631,8 +629,13 @@ function KolContent({
       volume: Math.round(
         Number(formatUnits(BigInt(w.totalMinerSalesRaw), 6))
       ),
-      delegatedGlw: Math.round(
-        Number(formatUnits(BigInt(w.rolling30DayDelegation.totalDelegatedGlwRaw), 18))
+      delegatedUsd: Math.round(
+        Number(
+          formatUnits(
+            BigInt(w.rolling30DayDelegation.totalDelegatedUsdMicros ?? "0"),
+            6
+          )
+        )
       ),
     }));
 
@@ -653,12 +656,19 @@ function KolContent({
           tone="success"
         />
         <MetricCard
-          label="Rolling 30D GLW"
-          value={formatGlwAmount(
+          label="Rolling 30D Delegated"
+          value={`$${Number(
+            formatUnits(
+              BigInt(
+                kol.rolling30DayDelegation.totalDelegatedUsdMicros ?? "0"
+              ),
+              6
+            )
+          ).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+          hint={`${kol.rolling30DayDelegation.uniqueDelegators} delegators · ${formatGlwAmount(
             kol.rolling30DayDelegation.totalDelegatedGlwRaw,
             { raw: true }
-          )}
-          hint={`${kol.rolling30DayDelegation.uniqueDelegators} delegators`}
+          )} GLW-equiv (GLW + sGCTL)`}
         />
         <div className="rounded-2xl border border-border/20 dark:border-border/40 bg-card px-5 py-4">
           <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
@@ -679,6 +689,64 @@ function KolContent({
           </div>
         </div>
       </div>
+
+      {/* Master-referrer override (only shown for KoLs who recruited other KoLs) */}
+      {kol.masterReferrerOverride && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2.5">
+            <div className="h-4 w-1 rounded-full bg-amber-500/70" />
+            <span className="text-xs font-semibold uppercase tracking-wide">
+              Master-Referrer Override
+            </span>
+          </div>
+          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 px-5 py-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="space-y-1">
+                <div className="text-sm font-semibold">
+                  +{kol.masterReferrerOverride.overridePercent}% of every KoL you recruited
+                </div>
+                <div className="text-xs text-muted-foreground/70">
+                  Effective from{" "}
+                  {formatDate(kol.masterReferrerOverride.startedAt)} (week{" "}
+                  {kol.masterReferrerOverride.startedAtWeek}). Paid on top of
+                  your own payback — your referees still keep their full payback.
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4 text-right md:gap-6">
+                <div>
+                  <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
+                    Your base
+                  </div>
+                  <div className="mt-1 text-lg font-bold tabular-nums">
+                    {formatUsdFromRawUsdc6(
+                      kol.masterReferrerOverride.basePaybackRaw
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px] font-mono uppercase tracking-widest text-amber-500">
+                    Override
+                  </div>
+                  <div className="mt-1 text-lg font-bold tabular-nums text-amber-500">
+                    +
+                    {formatUsdFromRawUsdc6(
+                      kol.masterReferrerOverride.overrideRaw
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
+                    Total
+                  </div>
+                  <div className="mt-1 text-lg font-bold tabular-nums text-emerald-500">
+                    {formatUsdFromRawUsdc6(kol.totalPaybackRaw)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Charts Row */}
       {chartData.length > 1 && (
@@ -736,12 +804,12 @@ function KolContent({
             </div>
           </div>
 
-          {/* Delegated GLW Chart */}
+          {/* Delegated USD Chart */}
           <div className="space-y-3">
             <div className="flex items-center gap-2.5">
               <div className="h-4 w-1 rounded-full bg-emerald-500/70" />
               <span className="text-xs font-semibold uppercase tracking-wide">
-                Delegated GLW
+                30D Delegated (USD)
               </span>
             </div>
             <div className="rounded-2xl border border-border/20 dark:border-border/40 bg-card p-4">
@@ -766,14 +834,14 @@ function KolContent({
                     axisLine={false}
                     tickLine={false}
                     tickFormatter={(v: number) =>
-                      v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`
+                      `$${v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`
                     }
                   />
                   <Tooltip content={<ChartTooltip />} />
                   <Line
                     type="monotone"
-                    dataKey="delegatedGlw"
-                    name="Delegated GLW"
+                    dataKey="delegatedUsd"
+                    name="30D Delegated ($)"
                     stroke="#10b981"
                     strokeWidth={2}
                     dot={{ r: 4, fill: "#10b981" }}
@@ -783,7 +851,7 @@ function KolContent({
               <div className="mt-3 flex items-center justify-center text-xs text-muted-foreground/60">
                 <span className="flex items-center gap-2">
                   <span className="h-0.5 w-4 rounded-full bg-[#10b981]" />
-                  Delegated GLW
+                  30D Delegated ($, GLW + sGCTL)
                 </span>
               </div>
             </div>
@@ -807,7 +875,7 @@ function KolContent({
                 <TableHead className="text-right">Sales</TableHead>
                 <TableHead className="text-right">Volume</TableHead>
                 <TableHead className="text-right">Payback</TableHead>
-                <TableHead className="text-right pr-4">30D Delegated GLW</TableHead>
+                <TableHead className="text-right pr-4">30D Delegated ($)</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -841,9 +909,22 @@ function KolContent({
                         </TableCell>
                         <TableCell className="py-3 text-right font-medium tabular-nums text-emerald-500">
                           {formatUsdFromRawUsdc6(week.totalPaybackRaw)}
+                          {week.masterReferrerOverride &&
+                            week.masterReferrerOverride.eligible &&
+                            BigInt(week.masterReferrerOverride.overrideRaw) > 0n && (
+                              <div className="text-[10px] font-normal text-amber-500/80">
+                                incl{" "}
+                                {formatUsdFromRawUsdc6(
+                                  week.masterReferrerOverride.overrideRaw
+                                )}{" "}
+                                override
+                              </div>
+                            )}
                         </TableCell>
                         <TableCell className="py-3 text-right pr-4 tabular-nums">
-                          {formatGlwAmount(week.rolling30DayDelegation.totalDelegatedGlwRaw, { raw: true })}
+                          {formatUsdFromRawUsdc6(
+                            week.rolling30DayDelegation.totalDelegatedUsdMicros ?? "0"
+                          )}
                         </TableCell>
                       </TableRow>
 
