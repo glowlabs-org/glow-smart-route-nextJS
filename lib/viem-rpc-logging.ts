@@ -1,11 +1,14 @@
 import * as Sentry from "@sentry/nextjs";
-import { http } from "viem";
+import { fallback, http } from "viem";
 
 type InstrumentedOptions = {
   source: string;
 };
 
 const MAX_SERIALIZED_LENGTH = 2000;
+const DEDUP_WINDOW_MS = 20_000;
+const DEDUP_MAX_ENTRIES = 200;
+const dedupCache = new Map<string, number>();
 
 const safeSerialize = (value: unknown) => {
   if (value == null) return null;
@@ -46,6 +49,36 @@ const maskRpcUrl = (url?: string) => {
   }
 };
 
+const shouldReportRpcError = (error: unknown): boolean => {
+  const errorAny = error as any;
+  const name = errorAny?.name ?? "";
+  const causeName = errorAny?.cause?.name ?? "";
+  const details = typeof errorAny?.details === "string" ? errorAny.details : "";
+
+  if (name === "AbortError" || causeName === "AbortError") return false;
+  if (details.includes("Fetch is aborted")) return false;
+
+  return true;
+};
+
+const shouldReportOnce = (method: string, errorName: string): boolean => {
+  const now = Date.now();
+  const key = `${method}:${errorName}`;
+  const lastReportedAt = dedupCache.get(key);
+  if (lastReportedAt && now - lastReportedAt < DEDUP_WINDOW_MS) {
+    return false;
+  }
+  dedupCache.set(key, now);
+  if (dedupCache.size > DEDUP_MAX_ENTRIES) {
+    for (const [cacheKey, timestamp] of dedupCache.entries()) {
+      if (now - timestamp > DEDUP_WINDOW_MS * 2) {
+        dedupCache.delete(cacheKey);
+      }
+    }
+  }
+  return true;
+};
+
 const captureRpcError = (error: unknown, context: {
   method: string;
   params?: unknown;
@@ -56,13 +89,18 @@ const captureRpcError = (error: unknown, context: {
   const errorObject = error instanceof Error ? error : new Error(String(error));
   const errorAny = error as any;
 
+  if (!shouldReportRpcError(error)) return;
+
+  const errorName = errorAny?.name ?? errorObject.name ?? "Error";
+  if (!shouldReportOnce(context.method, errorName)) return;
+
   const extra = {
     rpc_method: context.method,
     rpc_params: safeSerialize(context.params),
     rpc_chain_id: context.chainId ?? null,
     rpc_url: maskRpcUrl(context.url),
     rpc_source: context.source ?? null,
-    error_name: errorAny?.name ?? errorObject.name,
+    error_name: errorName,
     error_message: errorAny?.message ?? errorObject.message,
     error_code: errorAny?.code ?? null,
     error_status: errorAny?.status ?? null,
@@ -113,6 +151,47 @@ export const instrumentedHttp = (
           params: requestParams.params,
           chainId,
           url: typeof rpcUrl === "string" ? rpcUrl : undefined,
+          source: options?.source,
+        });
+        throw error;
+      }
+    };
+
+    return {
+      ...transport,
+      request,
+    };
+  };
+};
+
+export const instrumentedFallback = (
+  urls: string[],
+  config?: HttpConfig,
+  options?: InstrumentedOptions
+) => {
+  const validUrls = urls.filter(u => typeof u === "string" && u.length > 0);
+  if (validUrls.length === 0) {
+    throw new Error("instrumentedFallback requires at least one URL");
+  }
+
+  const base = fallback(validUrls.map(url => http(url, config)));
+
+  return (params: Parameters<typeof base>[0]) => {
+    const transport = base(params);
+    const chainId = params.chain?.id;
+
+    const request: typeof transport.request = async (
+      requestParams,
+      requestOptions
+    ) => {
+      try {
+        return await transport.request(requestParams, requestOptions);
+      } catch (error) {
+        captureRpcError(error, {
+          method: requestParams.method,
+          params: requestParams.params,
+          chainId,
+          url: validUrls[0],
           source: options?.source,
         });
         throw error;

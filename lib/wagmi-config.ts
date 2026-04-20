@@ -6,12 +6,20 @@ import { createAppKit } from "@reown/appkit/react";
 import { mainnet, sepolia } from "@reown/appkit/networks";
 import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
 import * as Sentry from "@sentry/nextjs";
-import { instrumentedHttp } from "@/lib/viem-rpc-logging";
+import { instrumentedFallback, instrumentedHttp } from "@/lib/viem-rpc-logging";
 import { createPersistentWalletStorage } from "@/lib/wallet-storage";
 
 const WALLET_CONNECT_PROJECT_ID =
   process.env.NEXT_PUBLIC_WALLET_CONNECT_ID ?? "";
 const MAINNET_RPC_URL = process.env.NEXT_PUBLIC_MAINNET_RPC_URL ?? "";
+const MAINNET_RPC_FALLBACK_URL =
+  process.env.NEXT_PUBLIC_MAINNET_RPC_FALLBACK_URL ?? "";
+const MAINNET_RPC_BACKUP_URLS = (
+  process.env.NEXT_PUBLIC_MAINNET_RPC_BACKUP_URLS ?? ""
+)
+  .split(",")
+  .map(s => s.trim())
+  .filter(Boolean);
 const SEPOLIA_RPC_URL = process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL ?? "";
 
 if (!WALLET_CONNECT_PROJECT_ID)
@@ -20,6 +28,12 @@ if (!MAINNET_RPC_URL)
   throw new Error("NEXT_PUBLIC_MAINNET_RPC_URL is not set");
 if (!SEPOLIA_RPC_URL)
   throw new Error("NEXT_PUBLIC_SEPOLIA_RPC_URL is not set");
+
+const MAINNET_RPC_URLS = [
+  MAINNET_RPC_URL,
+  MAINNET_RPC_FALLBACK_URL,
+  ...MAINNET_RPC_BACKUP_URLS,
+].filter(Boolean);
 
 const networks = [
   process.env.NEXT_PUBLIC_CHAIN_ID === "1" ? mainnet : sepolia,
@@ -249,8 +263,8 @@ const wagmiAdapter = new WagmiAdapter({
   ssr: true,
   multiInjectedProviderDiscovery: false,
   transports: {
-    [mainnet.id]: instrumentedHttp(
-      MAINNET_RPC_URL,
+    [mainnet.id]: instrumentedFallback(
+      MAINNET_RPC_URLS,
       undefined,
       { source: "wagmi" }
     ),
