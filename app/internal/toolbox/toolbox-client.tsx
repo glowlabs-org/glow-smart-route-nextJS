@@ -72,6 +72,7 @@ function formatWindow(iso: string | null | undefined): string {
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
+    timeZone: "America/New_York",
     timeZoneName: "short",
   });
 }
@@ -391,7 +392,6 @@ function MinerTab() {
       .sort((a, b) => (a.farmName ?? "").localeCompare(b.farmName ?? ""));
   }, [listings.data]);
 
-  const [selectedFarmId, setSelectedFarmId] = React.useState<string>("");
   const [farmName, setFarmName] = React.useState("");
   const [zoneName, setZoneName] = React.useState("");
   const [minersCount, setMinersCount] = React.useState("");
@@ -403,26 +403,45 @@ function MinerTab() {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  function handleFarmSelect(id: string) {
-    setSelectedFarmId(id);
-    if (!id) return;
-    const app = farmOptions.find((a) => a.id === id);
-    if (!app) return;
+  const [search, setSearch] = React.useState("");
+  const [searchOpen, setSearchOpen] = React.useState(false);
+  const searchContainerRef = React.useRef<HTMLDivElement>(null);
+
+  const filteredFarms = React.useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return farmOptions.slice(0, 25);
+    return farmOptions
+      .filter((app) => {
+        const haystack = [app.farmName, app.zone?.name]
+          .filter((s): s is string => typeof s === "string" && s.length > 0)
+          .join(" ")
+          .toLowerCase();
+        return haystack.includes(term);
+      })
+      .slice(0, 25);
+  }, [farmOptions, search]);
+
+  React.useEffect(() => {
+    function onClick(event: MouseEvent) {
+      if (!searchContainerRef.current) return;
+      if (!searchContainerRef.current.contains(event.target as Node)) {
+        setSearchOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
+
+  function handleFarmSelect(app: MarketingMinerApplication) {
     setFarmName(app.farmName ?? "");
     setZoneName(app.zone?.name ?? "");
     const firstPicture = app.afterInstallPictures?.[0]?.url ?? null;
     setRemoteImageUrl(firstPicture);
     setImageFile(null);
+    setSearch(app.farmName ?? "");
+    setSearchOpen(false);
   }
 
-  function minerFarmLabel(app: MarketingMinerApplication): string {
-    const farm = app.farmName?.trim() || app.id.slice(0, 8);
-    const zone = app.zone?.name?.trim() ? ` · ${app.zone.name}` : "";
-    const pct = app.foundationGlowSplitPercent
-      ? ` · ${app.foundationGlowSplitPercent}%`
-      : "";
-    return `${farm}${zone}${pct}`;
-  }
 
   React.useEffect(() => {
     return () => {
@@ -494,31 +513,59 @@ function MinerTab() {
         <div className="overflow-hidden rounded-3xl border border-border/20 bg-card dark:border-border/40">
           <div className="p-6">
             <label
-              htmlFor="miner-farm"
+              htmlFor="miner-farm-search"
               className="block text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/60"
             >
               Farm (autofill)
             </label>
-            <select
-              id="miner-farm"
-              value={selectedFarmId}
-              onChange={(event) => handleFarmSelect(event.target.value)}
-              disabled={listings.isLoading || farmOptions.length === 0}
-              className="mt-3 h-12 w-full rounded-2xl border border-border/30 bg-background px-4 text-sm font-medium outline-none transition-colors focus:border-foreground/40 disabled:opacity-50"
-            >
-              <option value="">
-                {listings.isLoading
-                  ? "Loading farms…"
-                  : farmOptions.length === 0
-                  ? "No farms available"
-                  : "Select a farm to autofill"}
-              </option>
-              {farmOptions.map((app) => (
-                <option key={app.id} value={app.id}>
-                  {minerFarmLabel(app)}
-                </option>
-              ))}
-            </select>
+            <div ref={searchContainerRef} className="relative mt-3">
+              <input
+                id="miner-farm-search"
+                type="text"
+                value={search}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setSearchOpen(true);
+                }}
+                onFocus={() => setSearchOpen(true)}
+                placeholder={
+                  listings.isLoading
+                    ? "Loading farms…"
+                    : farmOptions.length === 0
+                    ? "No farms available"
+                    : "Search by farm or zone…"
+                }
+                disabled={listings.isLoading || farmOptions.length === 0}
+                className="h-12 w-full rounded-2xl border border-border/30 bg-background px-4 text-sm font-medium outline-none transition-colors focus:border-foreground/40 disabled:opacity-50"
+                autoComplete="off"
+              />
+              {searchOpen && filteredFarms.length > 0 ? (
+                <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-10 max-h-64 overflow-y-auto rounded-2xl border border-border/25 bg-popover p-1 shadow-lg dark:border-border/40">
+                  {filteredFarms.map((app) => (
+                    <button
+                      key={app.id}
+                      type="button"
+                      onClick={() => handleFarmSelect(app)}
+                      className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm hover:bg-muted/40"
+                    >
+                      <span className="flex flex-col">
+                        <span className="font-medium">
+                          {app.farmName ?? "—"}
+                        </span>
+                        <span className="text-xs text-muted-foreground/70">
+                          {app.zone?.name ?? "—"}
+                        </span>
+                      </span>
+                      <span className="font-mono text-xs text-muted-foreground/60">
+                        {app.foundationGlowSplitPercent
+                          ? `${app.foundationGlowSplitPercent}%`
+                          : ""}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
             {remoteImageUrl ? (
               <div className="mt-3 flex items-center gap-3 rounded-2xl border border-border/20 bg-muted/20 p-3 dark:border-border/30 dark:bg-muted/10">
                 {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import Decimal from "decimal.js";
+import sharp from "sharp";
 import {
   REWARD_SCORE_FALLBACK_USER_ID,
   type ApplicationRewardScore,
@@ -256,23 +257,12 @@ async function loadFarmImageDataUrl(
     });
     if (!response.ok) return null;
     const buffer = Buffer.from(await response.arrayBuffer());
-    const maxBytes = 6_000_000;
-    if (buffer.byteLength > maxBytes) {
-      console.warn(
-        "[internal/toolbox/marketing-card] image too large, skipping",
-        { url, bytes: buffer.byteLength },
-      );
-      return null;
-    }
-    const contentType = (() => {
-      const header = response.headers.get("content-type");
-      if (header && header.startsWith("image/")) return header;
-      const lower = url.toLowerCase();
-      if (lower.endsWith(".png")) return "image/png";
-      if (lower.endsWith(".webp")) return "image/webp";
-      return "image/jpeg";
-    })();
-    return `data:${contentType};base64,${buffer.toString("base64")}`;
+    const resized = await sharp(buffer)
+      .rotate()
+      .resize({ width: 1400, withoutEnlargement: true })
+      .jpeg({ quality: 82 })
+      .toBuffer();
+    return `data:image/jpeg;base64,${resized.toString("base64")}`;
   } catch (error) {
     console.warn("[internal/toolbox/marketing-card] image fetch failed", error);
     return null;
