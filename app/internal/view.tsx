@@ -26,6 +26,13 @@ export default function InternalView() {
               Simulator
               <ArrowRight className="h-4 w-4" />
             </Link>
+            <Link
+              href="/internal/toolbox"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-card border border-border/20 dark:border-border/40 hover:border-border/40 dark:hover:border-border/60 transition-colors text-sm font-medium"
+            >
+              Toolbox
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
           <MiningStats />
         </div>
