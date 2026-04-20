@@ -128,7 +128,16 @@ function shouldReportRateLimit(method: HubMethod, path: string): boolean {
   return true;
 }
 
-function emitRateLimitEvent(
+function dispatchRateLimitEvent(detail: HubRateLimitEventDetail): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent<HubRateLimitEventDetail>(HUB_RATE_LIMIT_EVENT, {
+      detail,
+    })
+  );
+}
+
+function reportRateLimitToSentry(
   detail: HubRateLimitEventDetail,
   responseText: string
 ): void {
@@ -144,13 +153,6 @@ function emitRateLimitEvent(
     if (responseText) scope.setExtra("responseText", responseText.slice(0, 300));
     Sentry.captureMessage("Hub API request rate-limited");
   });
-
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(
-    new CustomEvent<HubRateLimitEventDetail>(HUB_RATE_LIMIT_EVENT, {
-      detail,
-    })
-  );
 }
 
 async function sleep(ms: number): Promise<void> {
@@ -210,15 +212,14 @@ export async function hubGet<T>(
       if (res.status === 429) {
         const responseText = await res.text();
         const retryAfterMs = resolveRetryAfterMs(res.headers);
-        emitRateLimitEvent(
-          {
-            path,
-            method: "GET",
-            retryAfterMs,
-            attempt,
-          },
-          responseText
-        );
+        const detail: HubRateLimitEventDetail = {
+          path,
+          method: "GET",
+          retryAfterMs,
+          attempt,
+        };
+
+        dispatchRateLimitEvent(detail);
 
         if (attempt < maxRateLimitRetries) {
           const jitterMs = Math.floor(Math.random() * 200);
@@ -226,6 +227,7 @@ export async function hubGet<T>(
           continue;
         }
 
+        reportRateLimitToSentry(detail, responseText);
         throw new HubRateLimitError({
           path,
           method: "GET",
@@ -272,15 +274,14 @@ export async function hubPost<T>(
     if (res.status === 429) {
       const responseText = await res.text();
       const retryAfterMs = resolveRetryAfterMs(res.headers);
-      emitRateLimitEvent(
-        {
-          path,
-          method: "POST",
-          retryAfterMs,
-          attempt: 0,
-        },
-        responseText
-      );
+      const detail: HubRateLimitEventDetail = {
+        path,
+        method: "POST",
+        retryAfterMs,
+        attempt: 0,
+      };
+      dispatchRateLimitEvent(detail);
+      reportRateLimitToSentry(detail, responseText);
       throw new HubRateLimitError({
         path,
         method: "POST",
@@ -326,15 +327,14 @@ export async function hubPut<T>(
     if (res.status === 429) {
       const responseText = await res.text();
       const retryAfterMs = resolveRetryAfterMs(res.headers);
-      emitRateLimitEvent(
-        {
-          path,
-          method: "PUT",
-          retryAfterMs,
-          attempt: 0,
-        },
-        responseText
-      );
+      const detail: HubRateLimitEventDetail = {
+        path,
+        method: "PUT",
+        retryAfterMs,
+        attempt: 0,
+      };
+      dispatchRateLimitEvent(detail);
+      reportRateLimitToSentry(detail, responseText);
       throw new HubRateLimitError({
         path,
         method: "PUT",

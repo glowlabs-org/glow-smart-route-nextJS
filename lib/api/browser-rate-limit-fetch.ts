@@ -137,7 +137,14 @@ function shouldReportRateLimit(method: string, path: string): boolean {
   return true;
 }
 
-function emitRateLimitEvent(detail: HubRateLimitEventDetail): void {
+function dispatchRateLimitEvent(detail: HubRateLimitEventDetail): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent<HubRateLimitEventDetail>(HUB_RATE_LIMIT_EVENT, { detail })
+  );
+}
+
+function reportRateLimitToSentry(detail: HubRateLimitEventDetail): void {
   if (!shouldReportRateLimit(detail.method, detail.path)) return;
 
   Sentry.withScope(scope => {
@@ -149,10 +156,6 @@ function emitRateLimitEvent(detail: HubRateLimitEventDetail): void {
     scope.setExtra("attempt", detail.attempt);
     Sentry.captureMessage("Frontend fetch request rate-limited");
   });
-
-  window.dispatchEvent(
-    new CustomEvent<HubRateLimitEventDetail>(HUB_RATE_LIMIT_EVENT, { detail })
-  );
 }
 
 async function sleep(ms: number): Promise<void> {
@@ -201,14 +204,17 @@ export function installBrowserRateLimitFetchInterceptor(options?: {
           return rawUrl;
         }
       })();
-      emitRateLimitEvent({
+      const detail: HubRateLimitEventDetail = {
         path,
         method: method as HubRateLimitEventDetail["method"],
         retryAfterMs,
         attempt,
-      });
+      };
+
+      dispatchRateLimitEvent(detail);
 
       if (!isIdempotentRead || attempt >= maxRetries) {
+        reportRateLimitToSentry(detail);
         return response;
       }
 
