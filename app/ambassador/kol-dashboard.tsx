@@ -620,9 +620,13 @@ function KolContent({
   // Only include weeks that have started (current + past)
   const activeWeeks = kol.weeks.filter((w) => w.weekNumber <= currentWeek);
 
-  // Chart data
+  // Chart data — exclude the in-progress current week so the miner-sales line
+  // doesn't dip to $0 just because the week hasn't finished. The weekly
+  // breakdown table below still shows the in-progress week with an
+  // "In progress" badge.
   const chartData = activeWeeks
     .slice()
+    .filter((w) => w.weekNumber < currentWeek)
     .sort((a, b) => a.weekNumber - b.weekNumber)
     .map((w) => ({
       name: `W${w.weekNumber}`,

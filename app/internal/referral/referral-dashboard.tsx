@@ -1071,7 +1071,13 @@ function KolPaybackExport({
   onRetry: () => void;
 }) {
   const weeks = data ? buildKolPaybackWeekRows(data) : [];
-  const chartData = data ? buildWeeklyChartData(weeks) : [];
+  // Exclude the in-progress current week from the chart so the volume/payback
+  // line doesn't dip toward zero just because the week hasn't finished. The
+  // weekly breakdown table below still shows the in-progress week.
+  const currentWeek = getProtocolWeekForDate(new Date());
+  const chartData = data
+    ? buildWeeklyChartData(weeks.filter((w) => w.weekNumber < currentWeek))
+    : [];
   const monthOptions = React.useMemo(() => generateKolMonthOptions(), []);
 
   return (
