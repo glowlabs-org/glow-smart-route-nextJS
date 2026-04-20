@@ -665,10 +665,7 @@ function KolContent({
               6
             )
           ).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
-          hint={`${kol.rolling30DayDelegation.uniqueDelegators} delegators · ${formatGlwAmount(
-            kol.rolling30DayDelegation.totalDelegatedGlwRaw,
-            { raw: true }
-          )} GLW-equiv (GLW + sGCTL)`}
+          hint={`${kol.rolling30DayDelegation.uniqueDelegators} delegators`}
         />
         <div className="rounded-2xl border border-border/20 dark:border-border/40 bg-card px-5 py-4">
           <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
