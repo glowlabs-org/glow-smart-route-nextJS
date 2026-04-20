@@ -77,6 +77,17 @@ function formatWindow(iso: string | null | undefined): string {
   });
 }
 
+function StepBadge({ n, label }: { n: number; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-border/25 bg-muted/20 px-2.5 py-1 dark:border-border/40">
+      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-foreground text-[9px] font-semibold text-background">
+        {n}
+      </span>
+      <span className="font-medium text-foreground/80">{label}</span>
+    </span>
+  );
+}
+
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-1">
@@ -179,32 +190,41 @@ export function ToolboxClient() {
             </div>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight">
               {tab === "delegation"
-                ? "Delegation marketing cards"
-                : "Miner marketing cards"}
+                ? "Launchpad promo images"
+                : "Miner promo images"}
             </h1>
             <p className="mt-2 text-sm text-muted-foreground/70 max-w-2xl">
               {tab === "delegation"
-                ? "Pick a launchpad fraction and export a branded marketing card for either the sGCTL presale phase or the GLW phase. Numbers are computed live from the control backend reward estimates."
-                : "Fill in farm details, upload a farm photo, and export a branded miner marketing card."}
+                ? "Promote an upcoming farm launch. Pick a farm, choose the sale window, and download a ready-to-share image."
+                : "Promote open miner positions. Pick a farm or fill in the details, then download a ready-to-share image."}
             </p>
           </div>
 
-          <div className="flex gap-2 rounded-2xl border border-border/25 bg-muted/25 p-1 w-fit dark:border-border/40 dark:bg-muted/20">
-            {(["delegation", "miners"] as const).map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setTab(value)}
-                className={cn(
-                  "h-10 rounded-xl px-5 text-sm font-semibold transition-all",
-                  tab === value
-                    ? "bg-foreground text-background shadow-sm"
-                    : "text-muted-foreground/80 hover:text-foreground",
-                )}
-              >
-                {value === "delegation" ? "Delegation" : "Miners"}
-              </button>
-            ))}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div className="flex gap-2 rounded-2xl border border-border/25 bg-muted/25 p-1 w-fit dark:border-border/40 dark:bg-muted/20">
+              {(["delegation", "miners"] as const).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setTab(value)}
+                  className={cn(
+                    "h-10 rounded-xl px-5 text-sm font-semibold transition-all",
+                    tab === value
+                      ? "bg-foreground text-background shadow-sm"
+                      : "text-muted-foreground/80 hover:text-foreground",
+                  )}
+                >
+                  {value === "delegation" ? "Launchpad" : "Miners"}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground/70">
+              <StepBadge n={1} label="Pick" />
+              <span className="text-muted-foreground/40">→</span>
+              <StepBadge n={2} label="Preview" />
+              <span className="text-muted-foreground/40">→</span>
+              <StepBadge n={3} label="Download" />
+            </div>
           </div>
 
           {tab === "miners" ? (
@@ -216,10 +236,13 @@ export function ToolboxClient() {
                   <div className="p-6">
                     <label
                       htmlFor="toolbox-fraction"
-                      className="block text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/60"
+                      className="block text-xs font-semibold text-foreground/90"
                     >
-                      Fraction
+                      1. Which farm are you promoting?
                     </label>
+                    <p className="mt-1 text-xs text-muted-foreground/70">
+                      Only farms with an upcoming launch are listed.
+                    </p>
                     <select
                       id="toolbox-fraction"
                       value={applicationId ?? ""}
@@ -230,9 +253,9 @@ export function ToolboxClient() {
                       className="mt-3 h-12 w-full rounded-2xl border border-border/30 bg-background px-4 text-sm font-medium outline-none transition-colors focus:border-foreground/40 disabled:opacity-50"
                     >
                       {listings.isLoading ? (
-                        <option>Loading launchpad listings…</option>
+                        <option>Loading farms…</option>
                       ) : selectable.length === 0 ? (
-                        <option>No eligible launchpad fractions</option>
+                        <option>No farms launching soon</option>
                       ) : (
                         selectable.map((app) => (
                           <option key={app.id} value={app.id}>
@@ -251,9 +274,12 @@ export function ToolboxClient() {
                   </div>
 
                   <div className="border-t border-border/15 p-6 dark:border-border/30">
-                    <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/60">
-                      Variant
+                    <div className="text-xs font-semibold text-foreground/90">
+                      2. Which sale window?
                     </div>
+                    <p className="mt-1 text-xs text-muted-foreground/70">
+                      Each window gets its own image with different numbers.
+                    </p>
                     <div className="mt-3 grid grid-cols-2 gap-2 rounded-2xl border border-border/25 bg-muted/25 p-1 dark:border-border/40 dark:bg-muted/20">
                       {(["sgctl", "glw"] as const).map((value) => (
                         <button
@@ -261,27 +287,44 @@ export function ToolboxClient() {
                           type="button"
                           onClick={() => setVariant(value)}
                           className={cn(
-                            "h-11 rounded-xl text-sm font-semibold transition-all",
+                            "flex h-14 flex-col items-center justify-center gap-0.5 rounded-xl px-2 text-sm font-semibold transition-all",
                             variant === value
                               ? "bg-foreground text-background shadow-sm"
                               : "text-muted-foreground/80 hover:text-foreground",
                           )}
                         >
-                          {value === "sgctl" ? "sGCTL units" : "GLW units"}
+                          <span>
+                            {value === "sgctl" ? "sGCTL presale" : "GLW launch"}
+                          </span>
+                          <span
+                            className={cn(
+                              "text-[10px] font-normal",
+                              variant === value
+                                ? "text-background/70"
+                                : "text-muted-foreground/60",
+                            )}
+                          >
+                            {value === "sgctl"
+                              ? "Tue 1 AM ET"
+                              : "Tue 1 PM ET"}
+                          </span>
                         </button>
                       ))}
                     </div>
                   </div>
 
                   <div className="border-t border-border/15 p-6 dark:border-border/30">
-                    <div className="flex flex-wrap gap-2">
+                    <div className="text-xs font-semibold text-foreground/90">
+                      3. Save the image
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
                       <Button
                         asChild
                         disabled={!imageSrc}
                         className="h-12 flex-1 rounded-2xl px-5 text-sm font-semibold"
                       >
                         <a href={imageSrc ?? "#"} download={downloadName}>
-                          Download PNG
+                          <Download className="mr-2 h-4 w-4" /> Download PNG
                         </a>
                       </Button>
                       <Button
@@ -290,21 +333,19 @@ export function ToolboxClient() {
                         className="h-12 rounded-2xl px-5"
                         onClick={() => setCacheBuster((n) => n + 1)}
                       >
-                        Refresh
+                        Regenerate
                       </Button>
                     </div>
+                    <p className="mt-2 text-xs text-muted-foreground/70">
+                      Numbers update live from the reward backend.
+                    </p>
                   </div>
                 </div>
 
                 {selectedApp ? (
                   <div className="rounded-3xl border border-border/20 bg-card p-6 dark:border-border/40">
-                    <div className="flex items-baseline justify-between">
-                      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/60">
-                        Selection
-                      </div>
-                      <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground/50">
-                        {selectedApp.activeFraction?.status ?? "—"}
-                      </div>
+                    <div className="text-xs font-semibold text-foreground/90">
+                      Farm details
                     </div>
                     <div className="mt-4">
                       <div className="text-xl font-semibold tracking-tight">
@@ -314,50 +355,55 @@ export function ToolboxClient() {
                         {selectedApp.zone?.name ?? "—"}
                       </div>
                     </div>
-                    <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-                      <Stat
-                        label="Sponsor split"
-                        value={`${selectedApp.sponsorSplitPercent}%`}
-                      />
-                      <Stat
-                        label="GLW units"
-                        value={String(
-                          selectedApp.activeFraction?.totalSteps ?? "—",
-                        )}
-                      />
-                      <Stat
-                        label="Protocol target"
-                        value={formatUsd(selectedApp.finalProtocolFee)}
-                      />
-                      <Stat
-                        label="sGCTL per unit"
-                        value={
-                          selectedApp.activeFraction?.sgctlStepAtomic
-                            ? `${formatAtomic(
-                                selectedApp.activeFraction.sgctlStepAtomic,
-                                6,
-                                0,
-                              )} sGCTL`
-                            : "—"
-                        }
-                      />
-                    </dl>
                     {selectedApp.activeFraction ? (
                       <div className="mt-5 space-y-2 rounded-2xl border border-border/20 bg-muted/20 p-4 text-xs dark:border-border/30 dark:bg-muted/10">
                         <WindowRow
-                          label="sGCTL opens"
+                          label="sGCTL presale opens"
                           iso={selectedApp.activeFraction.sgctlVisibleAt}
                         />
                         <WindowRow
-                          label="sGCTL ends"
+                          label="sGCTL presale ends"
                           iso={selectedApp.activeFraction.sgctlEndsAt}
                         />
                         <WindowRow
-                          label="GLW opens"
+                          label="GLW launch opens"
                           iso={selectedApp.activeFraction.glwVisibleAt}
                         />
                       </div>
                     ) : null}
+                    <details className="mt-4 text-sm">
+                      <summary className="cursor-pointer text-xs font-medium text-muted-foreground/70 hover:text-foreground">
+                        Show technical details
+                      </summary>
+                      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                        <Stat
+                          label="Sponsor bonus"
+                          value={`${selectedApp.sponsorSplitPercent}%`}
+                        />
+                        <Stat
+                          label="GLW slots"
+                          value={String(
+                            selectedApp.activeFraction?.totalSteps ?? "—",
+                          )}
+                        />
+                        <Stat
+                          label="Funding target"
+                          value={formatUsd(selectedApp.finalProtocolFee)}
+                        />
+                        <Stat
+                          label="sGCTL per slot"
+                          value={
+                            selectedApp.activeFraction?.sgctlStepAtomic
+                              ? `${formatAtomic(
+                                  selectedApp.activeFraction.sgctlStepAtomic,
+                                  6,
+                                  0,
+                                )} sGCTL`
+                              : "—"
+                          }
+                        />
+                      </dl>
+                    </details>
                   </div>
                 ) : null}
               </div>
@@ -366,8 +412,13 @@ export function ToolboxClient() {
                 {imageSrc ? (
                   <MarketingCardPreview key={imageSrc} src={imageSrc} />
                 ) : (
-                  <div className="text-sm text-muted-foreground/60">
-                    Select a fraction to preview the marketing card.
+                  <div className="flex flex-col items-center gap-2 text-center">
+                    <div className="text-sm font-medium">
+                      Pick a farm on the left
+                    </div>
+                    <div className="text-xs text-muted-foreground/60">
+                      The preview shows up here.
+                    </div>
                   </div>
                 )}
               </div>
@@ -514,10 +565,14 @@ function MinerTab() {
           <div className="p-6">
             <label
               htmlFor="miner-farm-search"
-              className="block text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/60"
+              className="block text-xs font-semibold text-foreground/90"
             >
-              Farm (autofill)
+              1. Start from an existing farm (optional)
             </label>
+            <p className="mt-1 text-xs text-muted-foreground/70">
+              Picks the farm name, zone, and photo for you. You can still edit
+              anything below.
+            </p>
             <div ref={searchContainerRef} className="relative mt-3">
               <input
                 id="miner-farm-search"
@@ -575,46 +630,57 @@ function MinerTab() {
                   className="h-14 w-14 rounded-xl object-cover"
                 />
                 <div className="flex flex-col text-xs">
-                  <span className="font-semibold">Farm image linked</span>
+                  <span className="font-semibold">Farm photo linked</span>
                   <span className="text-muted-foreground/70">
-                    Upload below to override
+                    Upload your own below to replace it.
                   </span>
                 </div>
               </div>
             ) : null}
           </div>
-          <div className="flex flex-col gap-4 border-t border-border/15 p-6 dark:border-border/30">
-            <FormField
-              label="Farm name"
-              value={farmName}
-              onChange={setFarmName}
-              placeholder="Zenithal Grange"
-            />
-            <FormField
-              label="Zone"
-              value={zoneName}
-              onChange={setZoneName}
-              placeholder="Idaho"
-            />
+          <div className="border-t border-border/15 p-6 dark:border-border/30">
+            <div className="text-xs font-semibold text-foreground/90">
+              2. Farm name &amp; location
+            </div>
+            <div className="mt-3 flex flex-col gap-4">
+              <FormField
+                label="Farm name"
+                value={farmName}
+                onChange={setFarmName}
+                placeholder="Zenithal Grange"
+              />
+              <FormField
+                label="Zone"
+                value={zoneName}
+                onChange={setZoneName}
+                placeholder="Idaho"
+              />
+            </div>
           </div>
           <div className="border-t border-border/15 p-6 dark:border-border/30">
-            <div className="flex flex-col gap-4">
+            <div className="text-xs font-semibold text-foreground/90">
+              3. Numbers to show on the image
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground/70">
+              Leave the first one blank to hide it.
+            </p>
+            <div className="mt-3 flex flex-col gap-4">
               <FormField
-                label="Miners (optional)"
+                label="How many miners are available? (optional)"
                 value={minersCount}
                 onChange={setMinersCount}
-                placeholder="58 — leave blank to hide"
+                placeholder="58"
                 inputMode="numeric"
               />
               <FormField
-                label="Per miner (USD)"
+                label="Price per miner (USD)"
                 value={perMinerUsd}
                 onChange={setPerMinerUsd}
                 placeholder="499"
                 inputMode="numeric"
               />
               <FormField
-                label="GLW per week"
+                label="GLW earned per week"
                 value={glwPerWeek}
                 onChange={setGlwPerWeek}
                 placeholder="42.9"
@@ -623,9 +689,12 @@ function MinerTab() {
             </div>
           </div>
           <div className="border-t border-border/15 p-6 dark:border-border/30">
-            <label className="block text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/60">
-              Farm image
+            <label className="block text-xs font-semibold text-foreground/90">
+              4. Farm photo (optional)
             </label>
+            <p className="mt-1 text-xs text-muted-foreground/70">
+              JPG or PNG. Large photos are resized automatically.
+            </p>
             <input
               type="file"
               accept="image/*"
@@ -642,7 +711,10 @@ function MinerTab() {
             ) : null}
           </div>
           <div className="border-t border-border/15 p-6 dark:border-border/30">
-            <div className="flex flex-wrap gap-2">
+            <div className="text-xs font-semibold text-foreground/90">
+              5. Save the image
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
               <Button
                 type="submit"
                 disabled={!canSubmit || loading}
@@ -650,10 +722,10 @@ function MinerTab() {
               >
                 {loading ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating…
                   </>
                 ) : (
-                  "Generate card"
+                  "Generate & download"
                 )}
               </Button>
               {previewUrl ? (
@@ -670,10 +742,15 @@ function MinerTab() {
                     anchor.remove();
                   }}
                 >
-                  <Download className="mr-2 h-4 w-4" /> Download
+                  <Download className="mr-2 h-4 w-4" /> Download again
                 </Button>
               ) : null}
             </div>
+            {!canSubmit ? (
+              <p className="mt-2 text-xs text-muted-foreground/70">
+                Fill in farm name, price per miner, and GLW per week to continue.
+              </p>
+            ) : null}
             {error ? (
               <div className="mt-3 text-xs text-destructive whitespace-pre-wrap break-all">
                 {error}
@@ -692,8 +769,11 @@ function MinerTab() {
             className="w-full max-w-[520px] rounded-2xl shadow-sm"
           />
         ) : (
-          <div className="text-sm text-muted-foreground/60">
-            Fill in the form and generate to preview the miner card.
+          <div className="flex flex-col items-center gap-2 text-center">
+            <div className="text-sm font-medium">Your image shows up here</div>
+            <div className="text-xs text-muted-foreground/60">
+              Fill in the form on the left and click Generate.
+            </div>
           </div>
         )}
       </div>
