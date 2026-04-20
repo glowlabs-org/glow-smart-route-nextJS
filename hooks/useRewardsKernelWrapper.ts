@@ -110,7 +110,7 @@ export interface UseRewardsKernelWrapperResult {
       assetAddress: `0x${string}`;
       amount: string;
     }>,
-    options?: ClaimWeekRewardsOptions
+    options?: ClaimWeekRewardsOptions,
   ) => Promise<string | null>;
   claimAllRewards: (
     weeklyData: Array<{
@@ -126,21 +126,21 @@ export interface UseRewardsKernelWrapperResult {
         assetAddress: `0x${string}`;
         amount: string;
       }>;
-    }>
+    }>,
   ) => Promise<string[]>;
   claimAllProtocolDepositsInOneTx: (
-    weeklyData: ProtocolDepositMulticallWeek[]
+    weeklyData: ProtocolDepositMulticallWeek[],
   ) => Promise<string | null>;
   isClaimingWeek: number | null;
   isClaimingAll: boolean;
   checkIfClaimed: (
     userAddress: `0x${string}`,
-    nonce: bigint
+    nonce: bigint,
   ) => Promise<boolean>;
   isFinalized: (nonce: bigint) => Promise<boolean>;
   checkIfGlwClaimed: (
     week: number,
-    userAddress: `0x${string}`
+    userAddress: `0x${string}`,
   ) => Promise<boolean>;
   checkSmartAccount: () => Promise<boolean>;
 }
@@ -154,7 +154,7 @@ function isUserRejectedMessage(message?: string | null): boolean {
   return (
     message.includes("User rejected") ||
     /denied transaction signature|request rejected|rejected the request|transaction cancelled/i.test(
-      message
+      message,
     )
   );
 }
@@ -169,7 +169,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
   const rewardsKernel = useRewardsKernel(
     walletClient || undefined,
     publicClient || undefined,
-    CHAIN_ID
+    CHAIN_ID,
   );
 
   // MinerPoolAndGCA contract (read-only; does not require a connected wallet)
@@ -214,9 +214,9 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
       );
 
       const cached =
-        queryClient.getQueryData<Awaited<ReturnType<typeof fetchWalletRewardClaims>>>(
-          queryKey,
-        );
+        queryClient.getQueryData<
+          Awaited<ReturnType<typeof fetchWalletRewardClaims>>
+        >(queryKey);
       if (cached) return buildWalletRewardClaimsIndex(cached);
 
       const claimsResponse = await queryClient.fetchQuery({
@@ -234,7 +234,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
 
       return buildWalletRewardClaimsIndex(claimsResponse);
     },
-    [queryClient]
+    [queryClient],
   );
 
   // Helper to build claim parameters from onchain assets earned
@@ -248,7 +248,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
       nonce: bigint,
       proof: `0x${string}`[],
       fromAddress: `0x${string}`,
-      toAddress: `0x${string}`
+      toAddress: `0x${string}`,
     ): Promise<ClaimPayoutParams> => {
       const tokensAndAmounts: TokenAndAmount[] = [];
       const isGuardedToken: boolean[] = [];
@@ -278,7 +278,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         toCounterfactual,
       };
     },
-    []
+    [],
   );
 
   // Claim GLW inflation rewards from MinerPoolAndGCA contract
@@ -287,7 +287,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
       week: number,
       glwWeight: string,
       v1Proof: `0x${string}`[],
-      userAddress: `0x${string}`
+      userAddress: `0x${string}`,
     ): Promise<ClaimAttemptResult> => {
       if (!minerPoolWriteContract) {
         toast.error("Contract not available");
@@ -298,7 +298,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
       const bucketId = BigInt(bucketWeek);
       const captureInflationError = (
         errorToCapture: unknown,
-        extra?: Record<string, unknown>
+        extra?: Record<string, unknown>,
       ) => {
         if (typeof window === "undefined") return;
         const normalizedError =
@@ -307,7 +307,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
             : new Error(
                 typeof errorToCapture === "string"
                   ? errorToCapture
-                  : "GLW emission rewards claim error"
+                  : "GLW emission rewards claim error",
               );
         Sentry.captureException(normalizedError, {
           tags: {
@@ -344,7 +344,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
 
         // Check if bucket is finalized
         const isFinalized = await minerPoolWriteContract.read.isBucketFinalized(
-          [bucketId]
+          [bucketId],
         );
         if (!isFinalized) {
           toast.error(`Week ${week} not yet finalized for GLW claims`);
@@ -367,7 +367,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
               true, // claimFromInflation
               "0x", // no delegation signature
             ],
-            { account: userAddress }
+            { account: userAddress },
           );
         } catch (simError: any) {
           const simMessage =
@@ -430,7 +430,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
             userAddress,
             true, // claimFromInflation
             "0x", // no delegation signature
-          ]
+          ],
         );
 
         return {
@@ -490,7 +490,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         };
       }
     },
-    [minerPoolWriteContract]
+    [minerPoolWriteContract],
   );
 
   // Claim protocol deposit rewards from RewardsKernel contract
@@ -505,7 +505,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
       nonce: bigint,
       v2Proof: `0x${string}`[],
       fromAddress: `0x${string}`,
-      toAddress: `0x${string}`
+      toAddress: `0x${string}`,
     ): Promise<ClaimAttemptResult> => {
       if (onchainAssetsEarned.length === 0) {
         return {
@@ -540,7 +540,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           nonce,
           v2Proof,
           fromAddress,
-          toAddress
+          toAddress,
         );
 
         // Execute claim
@@ -599,7 +599,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         };
       }
     },
-    [rewardsKernel, buildClaimParams]
+    [rewardsKernel, buildClaimParams],
   );
 
   // Claim rewards for a specific week (handles both GLW inflation and protocol deposits)
@@ -617,7 +617,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         assetAddress: `0x${string}`;
         amount: string;
       }>,
-      options?: ClaimWeekRewardsOptions
+      options?: ClaimWeekRewardsOptions,
     ): Promise<string | null> => {
       if (!walletClient?.account?.address) {
         toast.error("Please connect your wallet");
@@ -636,10 +636,10 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
 
         // Separate GLW inflation from protocol deposits
         const glwInflationRewards = rewards.filter(
-          (r) => r.type === "glowInflation"
+          (r) => r.type === "glowInflation",
         );
         const hasProtocolDepositRewards = rewards.some(
-          (r) => r.type === "protocolDeposit"
+          (r) => r.type === "protocolDeposit",
         );
 
         // Claim GLW inflation if present
@@ -661,7 +661,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
               week,
               glwWeight,
               v1Proof,
-              userAddress
+              userAddress,
             );
 
             if (glwResult.status === "success" && glwResult.txHash) {
@@ -692,7 +692,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
                 isUserRejectedMessage(glwResult.message)
               ) {
                 const rejectedError = new Error(
-                  glwResult.message || "Transaction cancelled"
+                  glwResult.message || "Transaction cancelled",
                 ) as Error & { code?: number; name: string };
                 rejectedError.code = 4001;
                 rejectedError.name = "UserRejectedRequestError";
@@ -734,7 +734,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
             nonce,
             v2Proof,
             fromAddress,
-            userAddress
+            userAddress,
           );
 
           if (pdResult.status === "success" && pdResult.txHash) {
@@ -765,7 +765,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
               isUserRejectedMessage(pdResult.message)
             ) {
               const rejectedError = new Error(
-                pdResult.message || "Transaction cancelled"
+                pdResult.message || "Transaction cancelled",
               ) as Error & { code?: number; name: string };
               rejectedError.code = 4001;
               rejectedError.name = "UserRejectedRequestError";
@@ -782,14 +782,14 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
               stage: "protocolDeposits",
               status: "skipped",
               message:
-                pdResult.message ?? "No protocol deposit rewards this week",
+                pdResult.message ?? "Protocol deposit rewards already claimed",
             });
           }
         } else {
           notifyProgress({
             stage: "protocolDeposits",
             status: "skipped",
-            message: "No protocol deposit rewards this week",
+            message: "Protocol deposit rewards already claimed",
           });
         }
 
@@ -836,7 +836,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         setIsClaimingWeek(null);
       }
     },
-    [walletClient, publicClient, claimGlwInflation, claimProtocolDeposits]
+    [walletClient, publicClient, claimGlwInflation, claimProtocolDeposits],
   );
 
   // Claim all available rewards
@@ -855,7 +855,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           assetAddress: `0x${string}`;
           amount: string;
         }>;
-      }>
+      }>,
     ): Promise<string[]> => {
       if (!walletClient?.account?.address) {
         toast.error("Please connect your wallet");
@@ -878,7 +878,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
               weekData.v2Proof,
               weekData.fromAddress,
               weekData.glwWeight,
-              weekData.onchainAssetsEarned
+              weekData.onchainAssetsEarned,
             );
 
             if (txHash) {
@@ -895,14 +895,14 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         // Show summary
         if (successfulClaims.length > 0 && failedWeeks.length === 0) {
           toast.success(
-            `Successfully claimed rewards from ${successfulClaims.length} weeks`
+            `Successfully claimed rewards from ${successfulClaims.length} weeks`,
           );
         } else if (successfulClaims.length > 0 && failedWeeks.length > 0) {
           toast.warning(
             `Claimed ${successfulClaims.length} weeks, ${failedWeeks.length} failed`,
             {
               description: `Failed weeks: ${failedWeeks.join(", ")}`,
-            }
+            },
           );
         } else {
           toast.error("Failed to claim any rewards");
@@ -913,11 +913,13 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         setIsClaimingAll(false);
       }
     },
-    [walletClient, claimWeekRewards]
+    [walletClient, claimWeekRewards],
   );
 
   const claimAllProtocolDepositsInOneTx = useCallback(
-    async (weeklyData: ProtocolDepositMulticallWeek[]): Promise<string | null> => {
+    async (
+      weeklyData: ProtocolDepositMulticallWeek[],
+    ): Promise<string | null> => {
       if (!walletClient?.account?.address) {
         toast.error("Please connect your wallet");
         return null;
@@ -943,7 +945,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
 
           const alreadyClaimed = await rewardsKernel.isClaimed(
             userAddress,
-            weekData.nonce
+            weekData.nonce,
           );
           if (alreadyClaimed) {
             skippedWeeks.push(weekData.week);
@@ -961,7 +963,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
             weekData.nonce,
             weekData.v2Proof,
             weekData.fromAddress,
-            userAddress
+            userAddress,
           );
           claims.push(claimParams);
         }
@@ -991,7 +993,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           `Claimed protocol deposits from ${claims.length} week(s) in one transaction`,
           {
             description: skippedDescription,
-          }
+          },
         );
 
         return txHash;
@@ -1017,7 +1019,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         setIsClaimingAll(false);
       }
     },
-    [walletClient, rewardsKernel, buildClaimParams, publicClient]
+    [walletClient, rewardsKernel, buildClaimParams, publicClient],
   );
 
   // Check if rewards have been claimed
@@ -1040,21 +1042,18 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         return false;
       }
     },
-    [getWalletClaimIndex]
+    [getWalletClaimIndex],
   );
 
   // Check if nonce is finalized
-  const isFinalized = useCallback(
-    async (nonce: bigint): Promise<boolean> => {
-      try {
-        return await rewardsKernelRef.current.isFinalized(nonce);
-      } catch (error) {
-        console.error("Error checking finalization:", error);
-        return false;
-      }
-    },
-    []
-  );
+  const isFinalized = useCallback(async (nonce: bigint): Promise<boolean> => {
+    try {
+      return await rewardsKernelRef.current.isFinalized(nonce);
+    } catch (error) {
+      console.error("Error checking finalization:", error);
+      return false;
+    }
+  }, []);
 
   // Check if GLW inflation is claimed for a specific week
   const checkIfGlwClaimed = useCallback(
@@ -1086,7 +1085,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         return false;
       }
     },
-    [getWalletClaimIndex]
+    [getWalletClaimIndex],
   );
 
   // Check if the connected wallet is a smart account
