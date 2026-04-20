@@ -102,6 +102,7 @@ const NetworkImpactSection = dynamic(
 );
 
 const PRICE_RANGE = { min: 0.001, max: 100 };
+const ZERO_SUPPLY_PRICE_EPSILON = 1.001;
 const SECONDS_PER_WEEK = 7 * 24 * 60 * 60;
 const LIQUIDITY_UNIT = "Ⱡ";
 const POL_LIQUIDITY_V2_START_WEEK = 97;
@@ -1551,16 +1552,34 @@ const RegionCompareCard = React.memo(function RegionCompareCard({
 
 RegionCompareCard.displayName = "RegionCompareCard";
 
-function logSliderToPrice(sliderValue: number) {
-  const logMin = Math.log10(PRICE_RANGE.min);
+function resolvePriceRangeMin(minPrice?: number) {
+  return Number.isFinite(minPrice) &&
+    minPrice !== undefined &&
+    minPrice > 0 &&
+    minPrice < PRICE_RANGE.max
+    ? minPrice
+    : PRICE_RANGE.min;
+}
+
+function formatSliderBoundaryPrice(price: number) {
+  if (price < 0.001) return price.toExponential(2);
+  if (price < 0.01) return price.toFixed(4);
+  if (price < 1) return price.toFixed(3);
+  return price.toFixed(2);
+}
+
+function logSliderToPrice(sliderValue: number, minPrice = PRICE_RANGE.min) {
+  const logMin = Math.log10(resolvePriceRangeMin(minPrice));
   const logMax = Math.log10(PRICE_RANGE.max);
   return Math.pow(10, logMin + (sliderValue / 100) * (logMax - logMin));
 }
 
-function priceToLogSlider(price: number) {
-  const logMin = Math.log10(PRICE_RANGE.min);
+function priceToLogSlider(price: number, minPrice = PRICE_RANGE.min) {
+  const rangeMin = resolvePriceRangeMin(minPrice);
+  const safePrice = Math.min(Math.max(price, rangeMin), PRICE_RANGE.max);
+  const logMin = Math.log10(rangeMin);
   const logMax = Math.log10(PRICE_RANGE.max);
-  return ((Math.log10(price) - logMin) / (logMax - logMin)) * 100;
+  return ((Math.log10(safePrice) - logMin) / (logMax - logMin)) * 100;
 }
 
 const PolLiquidityTooltip = React.memo(function PolLiquidityTooltip({
@@ -3962,25 +3981,74 @@ export function PolDashboardView() {
     return ticks;
   }, [delegationTrendLive]);
 
+  const polModelInputs = React.useMemo(() => {
+    if (!hasLiveSupply) return null;
+
+    const polUsdgMicroRaw = polSummary?.total?.breakdown?.usdg ?? null;
+    const polGlwWeiRaw = polSummary?.total?.breakdown?.glw ?? null;
+    if (polUsdgMicroRaw === null || polGlwWeiRaw === null) return null;
+
+    const polUsdg = Number(formatUnits(BigInt(polUsdgMicroRaw), 6));
+    const polGlw = Number(formatUnits(BigInt(polGlwWeiRaw), 18));
+    if (
+      !Number.isFinite(polUsdg) ||
+      !Number.isFinite(polGlw) ||
+      polUsdg <= 0 ||
+      polGlw <= 0
+    ) {
+      return null;
+    }
+
+    const k = polUsdg * polGlw;
+    if (!Number.isFinite(k) || k <= 0) return null;
+
+    return {
+      k,
+      polNow: Math.max(0, polWalletGlw ?? 0),
+      maxPolGlw: Math.max(0, currentCirculating + Math.max(0, polWalletGlw ?? 0)),
+    };
+  }, [currentCirculating, hasLiveSupply, polSummary, polWalletGlw]);
+
+  const supplyPriceRangeMin = React.useMemo(() => {
+    if (polModelInputs === null) return PRICE_RANGE.min;
+
+    const denominator = polModelInputs.maxPolGlw ** 2;
+    if (!Number.isFinite(denominator) || denominator <= 0) {
+      return PRICE_RANGE.min;
+    }
+
+    const zeroSupplyPrice =
+      (polModelInputs.k / denominator) * ZERO_SUPPLY_PRICE_EPSILON;
+    return Math.max(
+      PRICE_RANGE.min,
+      resolvePriceRangeMin(zeroSupplyPrice),
+    );
+  }, [polModelInputs]);
+
   // ── Supply model slider ──
   const [price, setPrice] = React.useState(displayPrice);
   const [hasAdjustedSlider, setHasAdjustedSlider] = React.useState(false);
   const [sliderValue, setSliderValue] = React.useState(() =>
-    priceToLogSlider(displayPrice),
+    priceToLogSlider(displayPrice, PRICE_RANGE.min),
   );
   const resetSupplyModel = React.useCallback(() => {
     if (!hasLivePrice || livePrice <= 0) return;
     setPrice(livePrice);
-    setSliderValue(priceToLogSlider(livePrice));
+    setSliderValue(priceToLogSlider(livePrice, supplyPriceRangeMin));
     setHasAdjustedSlider(false);
-  }, [hasLivePrice, livePrice]);
+  }, [hasLivePrice, livePrice, supplyPriceRangeMin]);
 
   React.useEffect(() => {
     if (!hasAdjustedSlider && livePrice > 0) {
       setPrice(livePrice);
-      setSliderValue(priceToLogSlider(livePrice));
+      setSliderValue(priceToLogSlider(livePrice, supplyPriceRangeMin));
     }
-  }, [hasAdjustedSlider, livePrice]);
+  }, [hasAdjustedSlider, livePrice, supplyPriceRangeMin]);
+
+  React.useEffect(() => {
+    if (!Number.isFinite(price) || price <= 0) return;
+    setSliderValue(priceToLogSlider(price, supplyPriceRangeMin));
+  }, [price, supplyPriceRangeMin]);
 
   const isAtLivePrice = React.useMemo(() => {
     if (!hasLivePrice || displayPrice <= 0 || !Number.isFinite(displayPrice))
@@ -4041,43 +4109,22 @@ export function PolDashboardView() {
 
     // Model protocol-owned reserves directly (endowment LP position + trading bot active),
     // per spec: k = Total_USDG_Reserves_current * Total_GLW_Reserves_current.
-    const polUsdgMicroRaw = polSummary?.total?.breakdown?.usdg ?? null;
-    const polGlwWeiRaw = polSummary?.total?.breakdown?.glw ?? null;
     const effectivePrice = Number.isFinite(price) && price > 0 ? price : null;
 
-    if (
-      polUsdgMicroRaw === null ||
-      polGlwWeiRaw === null ||
-      effectivePrice === null
-    ) {
+    if (polModelInputs === null || effectivePrice === null) {
       // Best-effort: fall back to current PoL GLW (so UI doesn't show nonsense).
       return polWalletGlw !== null && Number.isFinite(polWalletGlw)
         ? Math.max(0, polWalletGlw)
         : null;
     }
 
-    const polUsdg = Number(formatUnits(BigInt(polUsdgMicroRaw), 6));
-    const polGlw = Number(formatUnits(BigInt(polGlwWeiRaw), 18));
-    if (
-      !Number.isFinite(polUsdg) ||
-      !Number.isFinite(polGlw) ||
-      polUsdg <= 0 ||
-      polGlw <= 0
-    )
-      return null;
-
-    const k = polUsdg * polGlw;
-    if (!Number.isFinite(k) || k <= 0) return null;
-
     // At the live price (default), this equals `polGlw` by construction.
-    const raw = Math.sqrt(k / effectivePrice);
+    const raw = Math.sqrt(polModelInputs.k / effectivePrice);
     // PoL can only absorb from circulating (not from vaulted/other). Since
     // `currentCirculating` already excludes current PoL GLW, the max PoL GLW
     // is (current PoL GLW + current circulating).
-    const polNow = polWalletGlw ?? 0;
-    const max = Math.max(0, currentCirculating + polNow);
-    return Math.min(max, Math.max(0, raw));
-  }, [currentCirculating, hasLiveSupply, polSummary, polWalletGlw, price]);
+    return Math.min(polModelInputs.maxPolGlw, Math.max(0, raw));
+  }, [hasLiveSupply, polModelInputs, polWalletGlw, price]);
 
   const modeledPolUsdg = React.useMemo(() => {
     if (!hasLiveSupply) return null;
@@ -5136,13 +5183,13 @@ export function PolDashboardView() {
                 onValueChange={(value) => {
                   const sv = value[0] ?? sliderValue;
                   setSliderValue(sv);
-                  setPrice(logSliderToPrice(sv));
+                  setPrice(logSliderToPrice(sv, supplyPriceRangeMin));
                   setHasAdjustedSlider(true);
                 }}
                 className="[&_[role=slider]]:h-5 [&_[role=slider]]:w-5 [&_[role=slider]]:border-2"
               />
               <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                <span>${PRICE_RANGE.min}</span>
+                <span>${formatSliderBoundaryPrice(supplyPriceRangeMin)}</span>
                 <span>${PRICE_RANGE.max}</span>
               </div>
             </div>
