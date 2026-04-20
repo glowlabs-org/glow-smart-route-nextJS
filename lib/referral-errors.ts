@@ -5,12 +5,15 @@ export type ReferralErrorType =
   | "signature_expired"
   | "smart_wallet"
   | "network_error"
+  | "invalid_code"
+  | "self_referral"
   | "unknown";
 
 export interface ParsedReferralError {
   type: ReferralErrorType;
   message: string;
   isUserRejection: boolean;
+  isValidationError: boolean;
 }
 
 export function parseReferralError(error: unknown): ParsedReferralError {
@@ -28,6 +31,25 @@ export function parseReferralError(error: unknown): ParsedReferralError {
       type: "signature_rejected",
       message: "Signature request was rejected.",
       isUserRejection: true,
+      isValidationError: false,
+    };
+  }
+
+  if (lower.includes("invalid referral code")) {
+    return {
+      type: "invalid_code",
+      message,
+      isUserRejection: false,
+      isValidationError: true,
+    };
+  }
+
+  if (lower.includes("cannot refer yourself")) {
+    return {
+      type: "self_referral",
+      message,
+      isUserRejection: false,
+      isValidationError: true,
     };
   }
 
@@ -41,6 +63,7 @@ export function parseReferralError(error: unknown): ParsedReferralError {
       message:
         "Signature did not match the connected wallet. If you recently switched accounts, reconnect and try again.",
       isUserRejection: false,
+      isValidationError: false,
     };
   }
 
@@ -53,6 +76,7 @@ export function parseReferralError(error: unknown): ParsedReferralError {
       message:
         "Signature was produced on a different network. Please switch wallet network and try again.",
       isUserRejection: false,
+      isValidationError: false,
     };
   }
 
@@ -61,6 +85,7 @@ export function parseReferralError(error: unknown): ParsedReferralError {
       type: "signature_expired",
       message: "Signature request expired. Please try again.",
       isUserRejection: false,
+      isValidationError: false,
     };
   }
 
@@ -75,6 +100,7 @@ export function parseReferralError(error: unknown): ParsedReferralError {
       message:
         "Smart wallet signature verification failed. Please try again or reconnect your wallet.",
       isUserRejection: false,
+      isValidationError: false,
     };
   }
 
@@ -88,6 +114,7 @@ export function parseReferralError(error: unknown): ParsedReferralError {
       type: "network_error",
       message: "Network error while processing referral. Please try again.",
       isUserRejection: false,
+      isValidationError: false,
     };
   }
 
@@ -95,5 +122,6 @@ export function parseReferralError(error: unknown): ParsedReferralError {
     type: "unknown",
     message,
     isUserRejection: false,
+    isValidationError: false,
   };
 }

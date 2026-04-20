@@ -179,7 +179,8 @@ export function useReferral() {
         errorType: parsed.type,
       });
 
-      if (parsed.isUserRejection) {
+      if (parsed.isUserRejection || parsed.isValidationError) {
+        toast.error(parsed.message || "Failed to link referrer");
         return;
       }
       const normalizedError =
@@ -255,7 +256,8 @@ export function useReferral() {
         errorType: parsed.type,
       });
 
-      if (parsed.isUserRejection) {
+      if (parsed.isUserRejection || parsed.isValidationError) {
+        toast.error(parsed.message || "Failed to change referrer");
         return;
       }
       const normalizedError =

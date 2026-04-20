@@ -83,32 +83,62 @@ if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
       // Filter info-level events (performance observations, not errors)
       if (event.level === "info") return null;
 
+      const exceptionValues = event.exception?.values || [];
+      // Collect frames across all linked exceptions so a cause buried under
+      // a first-party wrapper still matches extension patterns.
+      const allFrames = exceptionValues.flatMap(
+        (v) => v.stacktrace?.frames || []
+      );
       const frames =
         event.exception?.values?.[0]?.stacktrace?.frames || [];
-      const exceptionValues = event.exception?.values || [];
       const message =
         event.exception?.values?.[0]?.value || event.message || "";
       const exceptionText = exceptionValues
         .map((v) => `${v.type ?? ""}: ${v.value ?? ""}`)
         .join("\n");
+      const exceptionTypes = exceptionValues.map((v) => v.type || "");
 
       // Filter browser extension errors (crypto wallets, etc.).
       // Some wallets inject scripts into page context under paths that Sentry
       // surfaces as `app:///...` (e.g. extensionPageScript.js, inpage-solana-early.js,
-      // in-page.js), so match those filenames explicitly in addition to the
-      // extension:// protocol prefixes.
-      const isExtensionError = frames.some((frame) => {
+      // in-page.js, chunk-inject.js), so match those filenames explicitly in
+      // addition to the extension:// protocol prefixes.
+      const isExtensionError = allFrames.some((frame) => {
         const filename = frame.filename || "";
         return (
           filename.includes("inpage.js") ||
           filename.includes("inpage-solana-early") ||
           filename.includes("extensionPageScript") ||
+          filename.includes("chunk-inject") ||
           /\/in-page\.js(\?|$|:)/.test(filename) ||
           filename.startsWith("chrome-extension://") ||
           filename.startsWith("moz-extension://")
         );
       });
       if (isExtensionError) return null;
+
+      // TronLink wallet injects a proxy that rejects `set` for the
+      // `tronlinkParams` property. Extension bug, not ours.
+      const isTronLinkProxyError =
+        /trap returned falsish for property ['"]tronlinkParams['"]/.test(
+          message
+        );
+      if (isTronLinkProxyError) return null;
+
+      // RainbowKit's wallet lookup throws "not found rainbowkit" as an
+      // unhandled rejection when a third-party wallet lookup misses. We
+      // don't use RainbowKit as a user-facing connector here; it surfaces
+      // via connector discovery and is not actionable.
+      const isRainbowKitNotFound = /not found rainbowkit/i.test(message);
+      if (isRainbowKitNotFound) return null;
+
+      // wagmi throws ProviderNotFoundError from the injected connector's
+      // onAccountsChanged handler when a user disconnects their wallet but
+      // the connector still fires a stale event. Benign; the UI re-syncs.
+      const isProviderNotFound = exceptionTypes.some(
+        (t) => t === "ProviderNotFoundError"
+      );
+      if (isProviderNotFound) return null;
 
       // viem walks the error cause chain with `'data' in err`, which throws
       // TypeError when a wallet returns a non-object cause (e.g. the string
@@ -140,6 +170,9 @@ if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
         /user rejected/i.test(exceptionText) ||
         /user denied/i.test(exceptionText) ||
         /transaction canceled/i.test(exceptionText) ||
+        /transaction was rejected/i.test(message) ||
+        /transaction was rejected/i.test(exceptionText) ||
+        /request was rejected/i.test(exceptionText) ||
         errorCode === 4001 ||
         errorCode === "ACTION_REJECTED" ||
         exceptionValues.some((v) => v.type === "UserRejectedRequestError");
@@ -154,19 +187,13 @@ if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
         /device disconnected/i.test(exceptionText);
       if (isWalletConnectivityIssue) return null;
 
-      // WalletConnect proposal expiry can bubble as an unhandled rejection.
-      // It is captured as a handled warning in the wallet connect flow.
-      const tags = (event.tags ?? {}) as Record<string, unknown>;
-      const handledTag =
-        typeof tags.handled === "string" ? tags.handled : "";
-      const mechanismTag =
-        typeof tags.mechanism === "string" ? tags.mechanism : "";
-      const isUnhandledRejection =
-        handledTag === "no" || mechanismTag.includes("onunhandledrejection");
+      // WalletConnect proposal expiry is a user-driven session timeout
+      // regardless of whether it surfaces as handled or unhandled. Always
+      // drop so it stops filling the errors dashboard.
       const isWalletConnectProposalExpired =
         /proposal expired/i.test(message) ||
         /proposal expired/i.test(exceptionText);
-      if (isUnhandledRejection && isWalletConnectProposalExpired) return null;
+      if (isWalletConnectProposalExpired) return null;
 
       // Filter a known noisy client-side error coming from Sentry Replay network scrapers
       // (e.g. `app:///scrapers/PrebidScraper.js`) attempting to JSON.parse an undefined

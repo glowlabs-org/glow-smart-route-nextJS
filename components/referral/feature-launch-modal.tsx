@@ -259,7 +259,7 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
       setStep("success");
     } catch (err) {
       const parsedError = parseReferralError(err);
-      if (!parsedError.isUserRejection) {
+      if (!parsedError.isUserRejection && !parsedError.isValidationError) {
         const normalizedError =
           err instanceof Error ? err : new Error(String(parsedError.message));
         Sentry.captureException(normalizedError, {

@@ -120,7 +120,11 @@ function reportConnectorDebug(
   if (!shouldReportConnectorDebug(windowRef, key)) return;
 
   Sentry.withScope((scope) => {
-    scope.setLevel(params.level ?? "warning");
+    // These are diagnostic breadcrumbs for MetaMask provider resolution, not
+    // real warnings. Default to info so the client beforeSend filter drops
+    // them out of the errors dashboard; callers can still override to warning
+    // if something genuinely warrants attention.
+    scope.setLevel(params.level ?? "info");
     scope.setTag("kind", "wallet_connector_debug");
     scope.setTag("connectorId", params.connectorId);
     scope.setTag("walletEvent", params.event);
