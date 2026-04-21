@@ -293,10 +293,13 @@ function buildSplitActivity(split: SplitActivity): ActivityItem | null {
     ? `${formatCompactNumber(amount, 0)} ${split.currency}`
     : undefined;
 
-  const pill =
-    typeof split.progressPercent === "number"
-      ? `${Math.round(split.progressPercent)}% filled`
-      : undefined;
+  const pill = (() => {
+    if (typeof split.progressPercent !== "number") return undefined;
+    // Launchpad fractions that mix SGCTL + GLW accounting can report
+    // splitsSold > totalSteps, producing nonsensical >100% values.
+    if (split.isFilled || split.progressPercent >= 100) return "Filled";
+    return `${Math.round(split.progressPercent)}% filled`;
+  })();
 
   return {
     id: split.transactionHash
