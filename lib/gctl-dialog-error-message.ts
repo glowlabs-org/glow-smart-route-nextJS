@@ -4,6 +4,8 @@ const RPC_RATE_LIMIT_MESSAGE =
   "Your wallet's RPC provider is being rate limited, so the app can't verify your balance or allowance right now. Switch to a different RPC endpoint in your wallet, or wait a moment and try again.";
 export const GCTL_RPC_INTERNAL_ERROR_MESSAGE =
   "RPC/provider error. Please retry or switch RPC.";
+export const GCTL_CONFIRMATION_DELAYED_MESSAGE =
+  "Your transaction was submitted, but confirmation is taking longer than usual. Refresh the page in a minute to verify — do not resubmit.";
 
 function collectErrorStrings(
   value: unknown,
@@ -100,6 +102,12 @@ export function getGctlDialogErrorMessage(error: unknown) {
 
   if (normalizedMessage.includes("user rejected")) {
     return "Transaction was rejected in your wallet.";
+  }
+
+  // Receipt polling timed out (utils package waits 60s by default). The tx
+  // is almost certainly on-chain — don't scare the user into resubmitting.
+  if (normalizedMessage.includes("transaction receipt not found within")) {
+    return GCTL_CONFIRMATION_DELAYED_MESSAGE;
   }
 
   if (

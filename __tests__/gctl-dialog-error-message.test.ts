@@ -1,5 +1,6 @@
 import {
   getGctlDialogErrorMessage,
+  GCTL_CONFIRMATION_DELAYED_MESSAGE,
   GCTL_RPC_INTERNAL_ERROR_MESSAGE,
   RPC_RATE_LIMIT_MESSAGE,
 } from "../lib/gctl-dialog-error-message";
@@ -57,5 +58,13 @@ describe("getGctlDialogErrorMessage", () => {
     expect(getGctlDialogErrorMessage(error)).toBe(
       GCTL_RPC_INTERNAL_ERROR_MESSAGE
     );
+  });
+
+  it("surfaces a non-scary message when receipt polling timed out but the tx is likely on-chain", () => {
+    expect(
+      getGctlDialogErrorMessage(
+        new Error("Transaction receipt not found within 60000ms")
+      )
+    ).toBe(GCTL_CONFIRMATION_DELAYED_MESSAGE);
   });
 });

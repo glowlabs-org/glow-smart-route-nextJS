@@ -2,9 +2,11 @@
 
 import * as React from "react";
 import * as Sentry from "@sentry/nextjs";
+import { erc20Abi } from "viem";
 import { useAccount, usePublicClient, useWalletClient } from "wagmi";
 import {
   buildStakeMessage,
+  getAddresses,
   stakeControlEIP712Domain,
   stakeEIP712Types,
   type Currency,
@@ -105,7 +107,6 @@ export function useGctlPreparationOrchestrator(options?: {
 
   const {
     checkTokenAllowance,
-    checkTokenBalance,
     approveToken,
     mintGCTLAndStake,
     isProcessing,
@@ -313,7 +314,27 @@ export function useGctlPreparationOrchestrator(options?: {
       }
 
       if (params.sourceCurrency !== "ETH") {
-        const tokenBalance = await checkTokenBalance(address, mintCurrency);
+        // Route the balance check through the app's viem publicClient rather
+        // than the utils package's ethers path. The ethers path uses the
+        // wallet's RPC, which frequently returns `CALL_EXCEPTION, missing
+        // revert data` on mobile/WalletConnect sessions even for plain reads.
+        // publicClient uses our configured RPC (Alchemy) with built-in retry.
+        const tokenAddress = (() => {
+          const addrs = getAddresses(chainId);
+          if (mintCurrency === "USDC") return addrs.USDC as `0x${string}`;
+          if (mintCurrency === "USDG") return addrs.USDG as `0x${string}`;
+          if (mintCurrency === "GLW") return addrs.GLW as `0x${string}`;
+          return null;
+        })();
+        if (!publicClient || !tokenAddress) {
+          throw new Error("Unable to verify wallet balance right now. Please refresh and try again.");
+        }
+        const tokenBalance = (await publicClient.readContract({
+          address: tokenAddress,
+          abi: erc20Abi,
+          functionName: "balanceOf",
+          args: [address as `0x${string}`],
+        })) as bigint;
         if (tokenBalance < amountAtomic) {
           throw new Error("Insufficient balance to complete this transaction.");
         }
@@ -424,11 +445,11 @@ export function useGctlPreparationOrchestrator(options?: {
       approveToken,
       chainId,
       checkTokenAllowance,
-      checkTokenBalance,
       estimateEthForUsdcTarget,
       invalidateAllQueries,
       isConnected,
       mintGCTLAndStake,
+      publicClient,
       signer,
       swapEthToUsdc,
     ]

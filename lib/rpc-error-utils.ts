@@ -140,12 +140,16 @@ export function normalizeSwapFailureMessage(errorMessage: string): string {
 export function isInternalRpcError(error: unknown): boolean {
   const message = getRpcErrorMessage(error).toLowerCase();
   const code = getRpcErrorCode(error);
+  const name = (error as { name?: string } | null)?.name?.toLowerCase() ?? "";
   return (
     code === -32603 ||
     message.includes("internal error") ||
     message.includes("internalrpcerror") ||
+    message.includes("an internal error was received") ||
+    message.includes("unknown rpc error") ||
     message.includes("could not coalesce") ||
     message.includes("missing or invalid parameters") ||
+    name === "transactionexecutionerror" ||
     isWalletInteractionTimeoutError(error)
   );
 }
