@@ -523,15 +523,20 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
 
     // Sort active rows
     if (activeTab === "all") {
-      // In "all" tab: delegations first, then miners, sorted by score within each group
+      // In "all" tab: delegations first (by score), then miners (by price desc)
       activeRows.sort((a, b) => {
         if (a.application._type !== b.application._type) {
           return a.application._type === "delegations" ? -1 : 1;
+        }
+        if (a.application._type === "miners") {
+          return (b.cost ?? 0) - (a.cost ?? 0);
         }
         return (b.score ?? 0) - (a.score ?? 0);
       });
     } else if (activeTab === "delegations") {
       activeRows.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+    } else if (activeTab === "miners") {
+      activeRows.sort((a, b) => (b.cost ?? 0) - (a.cost ?? 0));
     }
 
     // Combine: active first, then sold out to fill minimum of 2
