@@ -15,8 +15,15 @@ import { useSwap } from "@/hooks/useSwap";
 import { toFixedTruncate } from "@/utils/toFixedTruncate";
 
 import { useUSDGRedemption } from "@/hooks/useUSDGRedemption";
+import { useEthGasPreflight } from "@/hooks/useEthGasPreflight";
 import { addresses } from "@/web3/constants/addresses";
 import { formatUnits, parseUnits } from "viem";
+
+// Upper-bound gas units for the full swap flow (ERC20 approve + Uniswap V2
+// swapExactTokensForTokens). Used by the pre-flight gas check to warn users
+// with too little ETH BEFORE they sign, so they don't hit
+// `insufficient funds for gas * price + value` from the node.
+const GLOW_SWAP_GAS_UNITS = 310_000n;
 
 type PendingState = {
   code: string;
@@ -156,7 +163,29 @@ export const GlowToUsdcDialog: FC<{
 
   const { redeemUSDGForUSDC } = useUSDGRedemption();
 
+  // Pre-flight: make sure the user has enough ETH for gas BEFORE they sign.
+  // Fixes the recurring "Insufficient ETH for gas" surprise that users hit
+  // at the end of a swap.
+  const gasPreflight = useEthGasPreflight({
+    estimatedGasUnits: GLOW_SWAP_GAS_UNITS,
+    enabled: isOpen && !isPending && !isSuccess,
+  });
+  const hasInsufficientGas = gasPreflight.sufficient === false;
+  const gasShortfallEth =
+    gasPreflight.shortfallWei != null
+      ? formatUnits(gasPreflight.shortfallWei, 18)
+      : null;
+
   const handleSwapGlowToTarget = async () => {
+    if (hasInsufficientGas) {
+      const msg =
+        "Insufficient ETH for gas. Add more ETH to your wallet and try again.";
+      setCurrentState("ERROR");
+      setIsError(true);
+      setErrorMessage(msg);
+      toast.error(msg);
+      return;
+    }
     setIsPending(true);
     setIsError(false);
     setIsSuccess(false);
@@ -519,17 +548,31 @@ export const GlowToUsdcDialog: FC<{
       </Button>
     </div>
   ) : !isPending && !isTransactionSuccessful ? (
-    <div className="flex gap-3">
-      <Button
-        variant="outline"
-        onClick={() => onOpenChange(false)}
-        className="flex-1"
-      >
-        Cancel
-      </Button>
-      <Button onClick={handleSwapGlowToTarget} className="flex-1">
-        Approve and Swap
-      </Button>
+    <div className="flex flex-col gap-2">
+      {hasInsufficientGas && (
+        <div className="rounded-md bg-amber-50 border border-amber-200 text-amber-900 text-xs px-3 py-2">
+          Not enough ETH for gas. Add {gasShortfallEth
+            ? `~${Number(gasShortfallEth).toFixed(5)} ETH`
+            : "more ETH"}{" "}
+          to this wallet and try again.
+        </div>
+      )}
+      <div className="flex gap-3">
+        <Button
+          variant="outline"
+          onClick={() => onOpenChange(false)}
+          className="flex-1"
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={handleSwapGlowToTarget}
+          className="flex-1"
+          disabled={hasInsufficientGas || gasPreflight.isChecking}
+        >
+          {gasPreflight.isChecking ? "Checking gas…" : "Approve and Swap"}
+        </Button>
+      </div>
     </div>
   ) : undefined;
 
