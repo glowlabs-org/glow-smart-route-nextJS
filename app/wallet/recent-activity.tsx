@@ -294,10 +294,14 @@ function buildSplitActivity(split: SplitActivity): ActivityItem | null {
     : undefined;
 
   const pill = (() => {
+    if (split.isFilled) return "Filled";
     if (typeof split.progressPercent !== "number") return undefined;
     // Launchpad fractions that mix SGCTL + GLW accounting can report
-    // splitsSold > totalSteps, producing nonsensical >100% values.
-    if (split.isFilled || split.progressPercent >= 100) return "Filled";
+    // splitsSold > totalSteps, producing nonsensical >100% values. Trust
+    // isFilled as the source of truth; suppress the pill when the numbers
+    // disagree rather than invent a state.
+    if (split.progressPercent > 100 || split.progressPercent < 0)
+      return undefined;
     return `${Math.round(split.progressPercent)}% filled`;
   })();
 
