@@ -80,6 +80,11 @@ import { getListingVisibleStartAtMs } from "@/utils/launchpad";
 const DEFINED_POOL_ACTIVITY_URL =
   "https://www.defined.fi/eth/0x6fa09ffc45f1ddc95c1bc192956717042f142c5d";
 const ONE_HOUR_MS = 60 * 60 * 1000;
+// After the countdown hits 0, the server can take a few seconds to publish the
+// new batch of listings (cron lag, cache warm-up). Keep polling within this
+// window instead of immediately advancing the countdown to next week.
+const LAUNCHPAD_PUBLISHING_GRACE_MS = 5 * 60 * 1000;
+const LAUNCHPAD_PUBLISHING_POLL_MS = 10 * 1000;
 
 function formatUsdPrice(value: number) {
   if (!Number.isFinite(value) || value <= 0) return "$—";
@@ -1349,7 +1354,14 @@ export default function LaunchpadStatusWidget({
     if (isLive) return false;
     const now = getLaunchpadNowMs();
     const timeUntilLive = nextBatchAtMs - now;
-    return timeUntilLive > 0 && timeUntilLive <= ONE_HOUR_MS;
+    // Stay in the approaching state within 1h of launch AND through the
+    // publishing grace window so the UI keeps showing the countdown (at
+    // 00:00:00) instead of flashing educational explainers while we wait
+    // for the backend to publish the new batch.
+    return (
+      timeUntilLive <= ONE_HOUR_MS &&
+      timeUntilLive > -LAUNCHPAD_PUBLISHING_GRACE_MS
+    );
   }, [isLive, nextBatchAtMs]);
 
   const effectiveIsApproaching = isApproaching || internalIsApproaching;
@@ -1427,19 +1439,62 @@ export default function LaunchpadStatusWidget({
   const [buyGlowOpen, setBuyGlowOpen] = React.useState(false);
   const [activityDialogOpen, setActivityDialogOpen] = React.useState(false);
 
-  const handleCountdownComplete = React.useCallback(() => {
-    refreshNextBatchAtMs();
+  const invalidateSponsorListings = React.useCallback(() => {
     queryClient.invalidateQueries({
       predicate: (query) =>
         Array.isArray(query.queryKey) &&
         query.queryKey[0] === "sponsor-listings",
     });
-  }, [queryClient, refreshNextBatchAtMs]);
+  }, [queryClient]);
+
+  const handleCountdownComplete = React.useCallback(() => {
+    // Kick off the first refetch immediately. DO NOT advance nextBatchAtMs
+    // yet — the publishing-grace effect below rolls it forward only after
+    // listings actually appear (or after the grace window expires).
+    invalidateSponsorListings();
+  }, [invalidateSponsorListings]);
 
   const remainingMs = useCountdownTo({
     targetAtMs: nextBatchAtMs,
     onComplete: handleCountdownComplete,
   });
+
+  // Publishing-grace loop: after the countdown hits zero, poll every
+  // LAUNCHPAD_PUBLISHING_POLL_MS until listings appear or the grace window
+  // expires. Then advance the countdown to the following week. Fixes the
+  // "stops at 00:00:00, nothing happens until you reload" bug.
+  React.useEffect(() => {
+    const now = getLaunchpadNowMs();
+    const graceEndsAt = nextBatchAtMs + LAUNCHPAD_PUBLISHING_GRACE_MS;
+
+    if (now < nextBatchAtMs) return; // still before launch
+    if (isLive) {
+      refreshNextBatchAtMs();
+      return;
+    }
+    if (now >= graceEndsAt) {
+      refreshNextBatchAtMs();
+      return;
+    }
+
+    const pollId = window.setInterval(
+      invalidateSponsorListings,
+      LAUNCHPAD_PUBLISHING_POLL_MS,
+    );
+    const expireId = window.setTimeout(
+      refreshNextBatchAtMs,
+      graceEndsAt - now,
+    );
+    return () => {
+      window.clearInterval(pollId);
+      window.clearTimeout(expireId);
+    };
+  }, [
+    isLive,
+    nextBatchAtMs,
+    invalidateSponsorListings,
+    refreshNextBatchAtMs,
+  ]);
 
   const priceLabel = React.useMemo(
     () => formatUsdPrice(spotPriceUsd),
