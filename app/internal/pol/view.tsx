@@ -59,6 +59,10 @@ import {
   usePolRevenueFarms,
   usePolRevenueRegions,
 } from "@/hooks/usePolRevenue";
+import {
+  parseSystemWattageOutputKw,
+  useCompletedFarms,
+} from "@/hooks/useCompletedFarms";
 import { useGlwVestingSchedule } from "@/hooks/useGlwVestingSchedule";
 import { GENESIS_TIMESTAMP, getCurrentEpoch } from "@/utils/getCurrentEpoch";
 import type {
@@ -679,9 +683,10 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
     learnMore: ["minting-gctl", "glow-endowment"],
   },
   "solar-installations-basics": {
-    title: "Total Solar Installations",
+    title: "Monthly Solar Construction",
     paragraphs: [
       'Within the Glow ecosystem, the term "solar farm" refers to any solar installation of any size, ranging from 4kW residential rooftop systems to 16 MW utility-scale arrays. Each farm competes for GLW rewards based on its impact efficiency relative to all other farms in the same region.',
+      "Monthly Solar Construction measures how fast Glow adds new generation capacity. It is calculated by summing the nameplate capacity of every farm that became active on Glow within the trailing 13 weeks, averaging that total across a 4-week month, and reporting the result in kilowatts.",
       "Farms are active on the Glow protocol for exactly 100 weeks. During this window, they earn GLW tokens, compete with farms in their region, and recover delegator protocol deposits based on performance. After 100 weeks, the farm stops receiving GLW rewards and its protocol deposit has been fully distributed, but the solar installation itself continues producing clean energy and generating verified impact for decades beyond the initial reward window.",
     ],
     learnMore: ["farm-revenue-distribution"],
@@ -1723,7 +1728,7 @@ const OverviewSection = React.memo(function OverviewSection({
   priceDisplay,
   totalPolLq,
   totalPolBreakdown,
-  totalSolarInstallations,
+  monthlySolarConstructionKw,
   polTrailingPolGrowthDisplay,
   liquidityUnitValueDisplay,
   supplyGrowthAnnualDisplay,
@@ -1741,7 +1746,7 @@ const OverviewSection = React.memo(function OverviewSection({
   priceDisplay: string;
   totalPolLq: number | null;
   totalPolBreakdown: PolBreakdownSummary;
-  totalSolarInstallations: number | null;
+  monthlySolarConstructionKw: number | null;
   polTrailingPolGrowthDisplay: PolGrowthDisplay;
   liquidityUnitValueDisplay: string;
   supplyGrowthAnnualDisplay: string;
@@ -1885,7 +1890,7 @@ const OverviewSection = React.memo(function OverviewSection({
             )}
             role="button"
             tabIndex={0}
-            aria-label="Open growth cards modal on total solar installations"
+            aria-label="Open growth cards modal on monthly solar construction"
             onClick={() => openGrowthCardsDialog("installations")}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
@@ -1904,12 +1909,15 @@ const OverviewSection = React.memo(function OverviewSection({
             />
             <CardContent className="relative h-full flex flex-col px-5 py-5 pb-14 sm:px-8 sm:py-7 sm:pb-14">
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                Total Solar Installations
+                Monthly Solar Construction
               </div>
               <div className="mt-4 text-5xl sm:text-7xl font-semibold tracking-tight font-mono tabular-nums leading-none">
-                {totalSolarInstallations !== null
-                  ? formatNumber(totalSolarInstallations)
+                {monthlySolarConstructionKw !== null
+                  ? formatNumber(Math.round(monthlySolarConstructionKw))
                   : "—"}
+                <span className="ml-2 text-xl font-mono text-muted-foreground/60">
+                  kW
+                </span>
               </div>
               <div className="pointer-events-none absolute bottom-6 right-6 flex h-9 w-9 items-center justify-center rounded-full border border-border/20 bg-black text-sm text-white dark:border-white/40 dark:bg-white dark:text-black">
                 ↗
@@ -4182,6 +4190,13 @@ export function PolDashboardView() {
   const { data: polRevenueAggregate } = usePolRevenueAggregate();
   const { data: polRevenueFarms } = usePolRevenueFarms();
   const { data: polRevenueRegions } = usePolRevenueRegions();
+  // Pulled for per-farm nameplate capacity (`systemWattageOutput`). The
+  // /pol/revenue/farms endpoint only exposes `panels` count, which would
+  // force a hardcoded W/panel assumption; joining with completed-applications
+  // lets us use the authoritative kW DC rating reported by the installer.
+  const { farms: completedFarmApplications } = useCompletedFarms({
+    includeFractions: true,
+  });
 
   const ninetyDayApy = React.useMemo(() => {
     const raw = polRevenueAggregate?.ninety_day_apy;
@@ -4197,17 +4212,79 @@ export function PolDashboardView() {
     return formatPercent(pct);
   }, [ninetyDayApy]);
 
-  const activeFarmsCount =
-    polRevenueAggregate?.active_farms && polRevenueAggregate.active_farms > 0
-      ? polRevenueAggregate.active_farms
-      : null;
-  const totalSolarInstallations = React.useMemo(() => {
-    const fromImpact = impactTotals?.totalFarms ?? null;
-    if (fromImpact !== null && Number.isFinite(fromImpact) && fromImpact > 0) {
-      return Math.round(fromImpact);
+  // Monthly Solar Construction = average kW of new solar brought online per
+  // 4-week month, computed over the trailing 13-week window.
+  //
+  // Data sources:
+  // - `polRevenueFarms` gives each farm's `audit_week` (the first protocol
+  //   week the farm is active and earning GLW).
+  // - `completedFarmApplications` gives each farm's `systemWattageOutput`
+  //   (authoritative nameplate kW DC as reported by the installer).
+  //
+  // Farms are joined by `farm_id`. If a farm is missing from the completed-
+  // applications feed or its wattage string can't be parsed, we fall back to
+  // a panels × 400 W estimate, which is close for residential installs but
+  // under-counts modern high-efficiency commercial modules.
+  const monthlySolarConstructionKw = React.useMemo(() => {
+    const farms = polRevenueFarms?.farms ?? [];
+    if (farms.length === 0) return null;
+
+    const WATTS_PER_PANEL_FALLBACK = 400;
+    const WINDOW_WEEKS = 13;
+    const WEEKS_PER_MONTH = 4;
+    // Anchor to the same start-of-window week as the adjacent
+    // trailing-3-month POL growth KPI so "13 weeks" is consistent across
+    // the Overview row. Farms whose first active week is strictly after the
+    // snapshot week are considered "new" within the window.
+    const windowStartWeek = trailing3MonthStartWeek;
+
+    const wattsByFarmId = new Map<string, number>();
+    for (const app of completedFarmApplications) {
+      const farmId = app.farm?.id;
+      if (!farmId) continue;
+      const kw = parseSystemWattageOutputKw(app.systemWattageOutput);
+      if (kw === null) continue;
+      wattsByFarmId.set(farmId, kw * 1000);
     }
-    return activeFarmsCount;
-  }, [activeFarmsCount, impactTotals?.totalFarms]);
+
+    let wattsInWindow = 0;
+    for (const farm of farms) {
+      const raw =
+        (farm as any).audit_week ?? (farm as any).auditWeek ?? null;
+      const firstActiveWeek =
+        typeof raw === "string"
+          ? Number(raw)
+          : typeof raw === "number"
+            ? raw
+            : null;
+      if (firstActiveWeek === null || !Number.isFinite(firstActiveWeek)) {
+        continue;
+      }
+      if (firstActiveWeek <= windowStartWeek) continue;
+
+      const farmId =
+        (farm as any).farm_id ?? (farm as any).farmId ?? null;
+      const nameplateWatts =
+        typeof farmId === "string" ? wattsByFarmId.get(farmId) : undefined;
+
+      if (nameplateWatts !== undefined && nameplateWatts > 0) {
+        wattsInWindow += nameplateWatts;
+      } else {
+        const panels = Number(farm.panels) || 0;
+        if (panels <= 0) continue;
+        wattsInWindow += panels * WATTS_PER_PANEL_FALLBACK;
+      }
+    }
+
+    if (wattsInWindow <= 0) return null;
+    const kwPerMonth =
+      (wattsInWindow * WEEKS_PER_MONTH) / WINDOW_WEEKS / 1000;
+    return Number.isFinite(kwPerMonth) ? kwPerMonth : null;
+  }, [
+    completedFarmApplications,
+    polRevenueFarms,
+    trailing3MonthStartWeek,
+  ]);
 
   // 3 Month Trailing PoL Growth (headline KPI) is defined as the delta in total PoL
   // liquidity between now and ~3 months ago (13 weeks), not the CRM-recognized contribution flow.
@@ -4891,10 +4968,10 @@ export function PolDashboardView() {
     () => [
       {
         key: "installations" as const,
-        label: "Total Solar Installations",
+        label: "Monthly Solar Construction",
         value:
-          totalSolarInstallations !== null
-            ? formatNumber(totalSolarInstallations)
+          monthlySolarConstructionKw !== null
+            ? `${formatNumber(Math.round(monthlySolarConstructionKw))} kW`
             : "—",
       },
       {
@@ -4921,7 +4998,7 @@ export function PolDashboardView() {
       polGrowthMoMDisplay,
       polTrailingPolGrowthDisplay?.lq,
       supplyGrowthAnnualDisplay,
-      totalSolarInstallations,
+      monthlySolarConstructionKw,
     ],
   );
 
@@ -4950,7 +5027,7 @@ export function PolDashboardView() {
             priceDisplay={priceDisplay}
             totalPolLq={totalPolLq}
             totalPolBreakdown={totalPolBreakdown}
-            totalSolarInstallations={totalSolarInstallations}
+            monthlySolarConstructionKw={monthlySolarConstructionKw}
             polTrailingPolGrowthDisplay={polTrailingPolGrowthDisplay}
             liquidityUnitValueDisplay={liquidityUnitValueDisplay}
             supplyGrowthAnnualDisplay={supplyGrowthAnnualDisplay}

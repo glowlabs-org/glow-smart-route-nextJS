@@ -15,6 +15,11 @@ export interface CompletedApplication {
   paymentCurrency: PaymentCurrency;
   netCarbonCreditEarningWeekly: string;
   solarPanelsQuantity: number;
+  // Full completed-applications endpoint only. Format is a free-text string
+  // like "589.7 kW-DC" / "12.87 kW-DC" / "10.935 kW-DC" from the CRM; parse
+  // with `parseSystemWattageOutputKw` when numeric capacity is needed.
+  systemWattageOutput?: string | null;
+  solarPanelsBrandAndModel?: string | null;
   paymentAmount: string;
   sponsorSplitPercent?: number | null;
   fractions?: Array<{
@@ -46,6 +51,19 @@ interface UseCompletedFarmsParams {
 
 const COMPLETED_FARMS_URL = "/api/applications/completed/summary";
 const COMPLETED_FARMS_FULL_URL = "/api/applications/completed";
+
+// CRM reports nameplate capacity as a human-readable string such as
+// "589.7 kW-DC" or "12.87 kW-DC". Extract the leading numeric kW value;
+// returns null when the field is missing or un-parseable.
+export function parseSystemWattageOutputKw(
+  value: string | null | undefined,
+): number | null {
+  if (!value) return null;
+  const match = String(value).match(/([\d.]+)\s*k?W/i);
+  if (!match) return null;
+  const kw = Number(match[1]);
+  return Number.isFinite(kw) && kw > 0 ? kw : null;
+}
 
 export function useCompletedFarms(params: UseCompletedFarmsParams = {}) {
   const { enabled = true, includeFractions = false } = params;
