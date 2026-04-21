@@ -368,8 +368,8 @@ function renderCard(data: CardData) {
         flexDirection: "column",
         fontFamily: "Söhne",
         color: "#050505",
-        padding: "12px",
-        background: "#f3f3f3",
+        backgroundImage,
+        letterSpacing: "-0.02em",
       }}
     >
       <div
@@ -378,9 +378,7 @@ function renderCard(data: CardData) {
           flexDirection: "column",
           width: "100%",
           height: "100%",
-          backgroundImage,
-          padding: "30px 30px 18px 30px",
-          borderRadius: "24px",
+          padding: "42px 42px 30px 42px",
           overflow: "hidden",
         }}
       >
@@ -399,7 +397,7 @@ function renderCard(data: CardData) {
               flexWrap: "wrap",
               alignItems: "baseline",
               fontSize: "72px",
-              letterSpacing: "-0.042em",
+              letterSpacing: "-0.02em",
               lineHeight: 1,
             }}
           >
@@ -430,7 +428,7 @@ function renderCard(data: CardData) {
             marginTop: "64px",
           }}
         >
-          <div style={{ display: "flex", gap: "10px", height: "224px" }}>
+          <div style={{ display: "flex", gap: "12px", height: "224px" }}>
             <StatCard>
               <div
                 style={{
@@ -438,7 +436,7 @@ function renderCard(data: CardData) {
                   fontSize: "132px",
                   fontWeight: 400,
                   lineHeight: 0.9,
-                  letterSpacing: "-0.05em",
+                  letterSpacing: "-0.02em",
                 }}
               >
                 {formatCount(data.unitsAvailable)}
@@ -471,7 +469,7 @@ function renderCard(data: CardData) {
                     display: "flex",
                     fontSize: data.unitSize.length >= 5 ? "114px" : "132px",
                     fontWeight: 400,
-                    letterSpacing: "-0.05em",
+                    letterSpacing: "-0.02em",
                   }}
                 >
                   {data.unitSize}
@@ -523,7 +521,7 @@ function renderCard(data: CardData) {
             </StatCard>
           </div>
 
-          <div style={{ display: "flex", gap: "10px", height: "230px" }}>
+          <div style={{ display: "flex", gap: "12px", height: "230px" }}>
             <StatCard>
               <div
                 style={{
@@ -550,7 +548,7 @@ function renderCard(data: CardData) {
                     display: "flex",
                     fontSize: "118px",
                     fontWeight: 400,
-                    letterSpacing: "-0.05em",
+                    letterSpacing: "-0.02em",
                   }}
                 >
                   {data.glwEmissionValue}
@@ -612,7 +610,7 @@ function renderCard(data: CardData) {
                     display: "flex",
                     fontSize: "118px",
                     fontWeight: 400,
-                    letterSpacing: "-0.05em",
+                    letterSpacing: "-0.02em",
                   }}
                 >
                   {data.pdRewardsValue}
@@ -655,7 +653,7 @@ function renderCard(data: CardData) {
           style={{
             display: "flex",
             flexDirection: "column",
-            marginTop: "28px",
+            marginTop: "42px",
             flex: 1,
           }}
         >

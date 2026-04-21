@@ -140,6 +140,7 @@ function renderCard(data: MinerCardData) {
         fontFamily: "Söhne",
         color: "#050505",
         backgroundImage,
+        letterSpacing: "-0.02em",
       }}
     >
       <div
@@ -167,7 +168,7 @@ function renderCard(data: MinerCardData) {
               flexWrap: "wrap",
               alignItems: "baseline",
               fontSize: "72px",
-              letterSpacing: "-0.042em",
+              letterSpacing: "-0.02em",
               lineHeight: 1,
             }}
           >
@@ -204,7 +205,7 @@ function renderCard(data: MinerCardData) {
                     fontSize: "132px",
                     fontWeight: 400,
                     lineHeight: 0.9,
-                    letterSpacing: "-0.05em",
+                    letterSpacing: "-0.02em",
                   }}
                 >
                   {data.minersCount} Miners
@@ -213,7 +214,7 @@ function renderCard(data: MinerCardData) {
             </div>
           ) : null}
 
-          <div style={{ display: "flex", gap: "10px", height: "230px" }}>
+          <div style={{ display: "flex", gap: "12px", height: "230px" }}>
             <StatCard>
               <div
                 style={{
@@ -224,7 +225,7 @@ function renderCard(data: MinerCardData) {
                   fontSize: "132px",
                   fontWeight: 400,
                   lineHeight: 0.9,
-                  letterSpacing: "-0.05em",
+                  letterSpacing: "-0.02em",
                 }}
               >
                 {data.perMinerUsd}
@@ -254,7 +255,7 @@ function renderCard(data: MinerCardData) {
                   fontSize: "132px",
                   fontWeight: 400,
                   lineHeight: 0.9,
-                  letterSpacing: "-0.05em",
+                  letterSpacing: "-0.02em",
                 }}
               >
                 {data.glwPerWeek}
@@ -281,7 +282,7 @@ function renderCard(data: MinerCardData) {
           style={{
             display: "flex",
             flexDirection: "column",
-            marginTop: "28px",
+            marginTop: "42px",
             flex: 1,
           }}
         >
