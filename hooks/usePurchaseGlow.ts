@@ -405,7 +405,20 @@ export function usePurchaseGlow() {
 
     const reservesGlow = Number(formatUnits(reserveTokenB, 18));
 
-    if (!useEarlyLiquidity) {
+    const uniswapPrice = reservesUsdg / reservesGlow;
+    // Safety net: even if a caller passes useEarlyLiquidity:true, refuse
+    // to route any funds through the bonding curve when it is priced
+    // worse than the Uniswap pool. The bonding curve is only ever a win
+    // when its current price is below the live Uniswap price.
+    const isBondingCurvePriced = Number.isFinite(earlyLiquidityCurrentPrice) && earlyLiquidityCurrentPrice > 0;
+    const bondingCurveBeatsUniswap =
+      isBondingCurvePriced &&
+      Number.isFinite(uniswapPrice) &&
+      uniswapPrice > 0 &&
+      earlyLiquidityCurrentPrice < uniswapPrice;
+    const shouldUseEarlyLiquidity = useEarlyLiquidity && bondingCurveBeatsUniswap;
+
+    if (!shouldUseEarlyLiquidity) {
       const amountInUni = BigInt(
         new Decimal(amountUsdgInNumber)
           .mul(new Decimal(10).pow(6))
@@ -427,7 +440,7 @@ export function usePurchaseGlow() {
         uniswapUSDGReserves: reservesUsdg,
         uniswapGlowReserves: reservesGlow,
         expectedEndingPriceEarlyLiquidity: 0,
-        expectedEndingPriceUniswap: reservesUsdg / reservesGlow,
+        expectedEndingPriceUniswap: uniswapPrice,
         earlyLiquidityCurrentPrice: earlyLiquidityCurrentPrice,
         usdgToSpend: amountUsdgInNumber,
       });
