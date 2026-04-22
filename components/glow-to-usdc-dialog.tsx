@@ -27,13 +27,14 @@ import { formatUnits, parseUnits } from "viem";
 //
 // Full GLW -> USDC: approve GLW + swap GLW->USDG + approve USDG + redeem USDG
 // Full GLW -> USDG: approve GLW + swap GLW->USDG
-const GLOW_APPROVE_GAS = 60_000n;
-const UNISWAP_SWAP_GAS = 200_000n;
-const USDG_APPROVE_GAS = 60_000n;
-const USDG_REDEEM_GAS = 180_000n;
-const GLOW_TO_USDG_GAS_UNITS = GLOW_APPROVE_GAS + UNISWAP_SWAP_GAS;
-const GLOW_TO_USDC_GAS_UNITS =
-  GLOW_APPROVE_GAS + UNISWAP_SWAP_GAS + USDG_APPROVE_GAS + USDG_REDEEM_GAS;
+// Preflight assumes approvals already exist. useEthGasPreflight adds a
+// 15% safety margin that effectively covers one approval if it turns
+// out to be needed. The swap-side constants match hooks/useSwap.ts and
+// hooks/useSwapUSDCToUSDG.ts so display and preflight agree.
+const UNISWAP_SWAP_GAS = 130_000n;
+const USDG_REDEEM_GAS = 100_000n;
+const GLOW_TO_USDG_GAS_UNITS = UNISWAP_SWAP_GAS;
+const GLOW_TO_USDC_GAS_UNITS = UNISWAP_SWAP_GAS + USDG_REDEEM_GAS;
 
 type PendingState = {
   code: string;

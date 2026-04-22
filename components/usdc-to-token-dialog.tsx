@@ -29,14 +29,19 @@ import {
 import { useEthGasPreflight } from "@/hooks/useEthGasPreflight";
 import { useSmartAccountCheck } from "@/hooks/useSmartAccountCheck";
 
-// Upper-bound per-leg gas so the preflight budgets the FULL flow, not just
-// the first step. Users often have enough ETH to approve + swap USDC -> USDG
-// but nothing for USDG -> GLW, so they get stranded mid-flow.
-const USDC_APPROVE_GAS = 60_000n;
-const USDG_APPROVE_GAS = 60_000n;
-const UNISWAP_SWAP_GAS = 200_000n;
-const ETH_TO_USDC_SWAP_GAS = 200_000n;
-const USDG_TO_GLOW_GAS = 250_000n; // Uniswap or bonding curve (upper bound)
+// Per-leg gas for the preflight. These must match the constants the
+// swap-interface estimator uses (hooks/useSwapUSDCToUSDG.ts and
+// hooks/useSwap.ts) so the "Estimated Network Fee" and the preflight's
+// "you need X ETH" decision agree. Preflight is intentionally OPTIMISTIC:
+// it assumes approvals already exist. useEthGasPreflight adds its own
+// 15% safety margin on top, which covers one-off approval gas if it
+// actually turns out to be needed. Better to let the wallet's own
+// prompt surface an insufficient-gas failure at approval time than to
+// block users pre-emptively while they have enough ETH for the swap.
+const USDC_TO_USDG_GAS = 85_000n;
+const UNISWAP_SWAP_GAS = 130_000n;
+const ETH_TO_USDC_SWAP_GAS = 130_000n;
+const USDG_TO_GLOW_GAS = 130_000n;
 
 function estimateTotalGasUnits(
   selectedTokenSell: Token,
@@ -47,27 +52,20 @@ function estimateTotalGasUnits(
   if (sell === "ETH" && buy === "GLOW") {
     return (
       ETH_TO_USDC_SWAP_GAS +
-      USDC_APPROVE_GAS +
-      UNISWAP_SWAP_GAS +
-      USDG_APPROVE_GAS +
+      USDC_TO_USDG_GAS +
       USDG_TO_GLOW_GAS
     );
   }
   if (sell === "USDC" && buy === "USDG") {
-    return USDC_APPROVE_GAS + UNISWAP_SWAP_GAS;
+    return USDC_TO_USDG_GAS;
   }
   if (sell === "USDC" && buy === "GLOW") {
-    return (
-      USDC_APPROVE_GAS +
-      UNISWAP_SWAP_GAS +
-      USDG_APPROVE_GAS +
-      USDG_TO_GLOW_GAS
-    );
+    return USDC_TO_USDG_GAS + USDG_TO_GLOW_GAS;
   }
   if (sell === "USDG" && buy === "GLOW") {
-    return USDG_APPROVE_GAS + USDG_TO_GLOW_GAS;
+    return USDG_TO_GLOW_GAS;
   }
-  return 500_000n; // conservative fallback
+  return 300_000n; // conservative fallback
 }
 
 function buildInitialSteps(
