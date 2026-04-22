@@ -256,7 +256,7 @@ export function SwapInterface({
   const [isSmartAccountWarningOpen, setIsSmartAccountWarningOpen] =
     useState(false);
 
-  const { signer } = useEthersSigner();
+  const { signer, isLoading: isSignerLoading } = useEthersSigner();
 
   // Smart account check function
   const checkSmartAccountBeforeSwap = async (): Promise<boolean> => {
@@ -321,7 +321,13 @@ export function SwapInterface({
   });
 
   // Network status check
-  const hasNetworkIssues = erc20HasError || (!hasSigner && isConnected);
+  // Only flag a network issue once the signer hook has actually settled —
+  // otherwise the brief "wallet connected but signer still resolving"
+  // window on fresh page loads surfaces as a scary "Reconnect Wallet"
+  // prompt even though nothing is broken.
+  const hasNetworkIssues =
+    erc20HasError ||
+    (!hasSigner && isConnected && !isSignerLoading && !balancesLoading);
 
   const { run: debouncedEstimate, cancel: cancelEstimate } = useDebouncedAsync<
     string,
