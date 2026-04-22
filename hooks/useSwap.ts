@@ -449,7 +449,10 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
       totalEstimatedGas = totalEstimatedGas + estimatedCost;
     }
 
-    const estimatedGas: bigint = BigInt(160000);
+    // 130k upper-bound matches observed mainnet averages for a single-hop
+    // Uniswap V2 swapExactTokensForTokens call. The prior 160k over-padded
+    // the estimate by ~20% vs real execution.
+    const estimatedGas: bigint = BigInt(130000);
     const gasPrice: bigint = await uniswapRouter.provider.getGasPrice();
     const estimatedCost: bigint = estimatedGas * gasPrice;
     totalEstimatedGas = totalEstimatedGas + estimatedCost;

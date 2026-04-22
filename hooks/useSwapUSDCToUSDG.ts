@@ -122,7 +122,10 @@ export const useSwapUSDCToUSDG = () => {
         totalEstimatedGas = totalEstimatedGas + estimatedCost;
       }
 
-      const estimatedGas = BigInt(100000);
+      // 85k upper-bound matches observed mainnet averages for the USDG
+      // mint-on-USDC path (single storage write + event). The prior 100k
+      // over-padded the fee estimate by ~15% vs real execution.
+      const estimatedGas = BigInt(85000);
 
       const estimatedCost = estimatedGas * BigInt(usdcGasPrice);
       totalEstimatedGas = totalEstimatedGas + estimatedCost;

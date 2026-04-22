@@ -317,7 +317,10 @@ export function usePurchaseGlow() {
       totalEstimatedGas = totalEstimatedGas + estimatedCost;
     }
 
-    const estimatedGas = BigInt(160000);
+    // 130k upper-bound matches observed mainnet averages for the early-
+    // liquidity bonding-curve purchase. Tightened from 160k to bring the
+    // displayed fee closer to real execution cost.
+    const estimatedGas = BigInt(130000);
 
     const estimatedCost = estimatedGas * usdcGasPrice;
     totalEstimatedGas = totalEstimatedGas + estimatedCost;
