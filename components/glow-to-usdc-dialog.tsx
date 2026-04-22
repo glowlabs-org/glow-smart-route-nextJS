@@ -27,12 +27,11 @@ import { formatUnits, parseUnits } from "viem";
 //
 // Full GLW -> USDC: approve GLW + swap GLW->USDG + approve USDG + redeem USDG
 // Full GLW -> USDG: approve GLW + swap GLW->USDG
-// Preflight assumes approvals already exist. useEthGasPreflight adds a
-// 15% safety margin that effectively covers one approval if it turns
-// out to be needed. The swap-side constants match hooks/useSwap.ts and
-// hooks/useSwapUSDCToUSDG.ts so display and preflight agree.
-const UNISWAP_SWAP_GAS = 130_000n;
-const USDG_REDEEM_GAS = 100_000n;
+// Preflight assumes approvals already exist. Constants reflect observed
+// mainnet averages with a small buffer. The hook adds its own safety
+// margin on top.
+const UNISWAP_SWAP_GAS = 120_000n;
+const USDG_REDEEM_GAS = 80_000n;
 const GLOW_TO_USDG_GAS_UNITS = UNISWAP_SWAP_GAS;
 const GLOW_TO_USDC_GAS_UNITS = UNISWAP_SWAP_GAS + USDG_REDEEM_GAS;
 

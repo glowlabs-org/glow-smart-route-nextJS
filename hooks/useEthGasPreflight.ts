@@ -21,7 +21,7 @@ export interface UseEthGasPreflightOptions {
   estimatedGasUnits: bigint;
   /** disable the check entirely (eg. dialog not open) */
   enabled?: boolean;
-  /** multiplier to apply to (gasUnits * gasPrice) as a safety margin, default 1.15 (15%) */
+  /** multiplier to apply to (gasUnits * gasPrice) as a safety margin, default 1.07 (7%) */
   safetyBps?: number;
 }
 
@@ -43,7 +43,11 @@ const EMPTY: EthGasPreflight = {
 export function useEthGasPreflight(
   options: UseEthGasPreflightOptions,
 ): EthGasPreflight {
-  const { estimatedGasUnits, enabled = true, safetyBps = 1_500 } = options;
+  // Default 7% safety margin over (gasUnits * gasPrice). Gas prices move
+  // slowly within the few seconds between preflight and submit, so a tighter
+  // buffer keeps users from being blocked when they genuinely have enough
+  // ETH for the swap.
+  const { estimatedGasUnits, enabled = true, safetyBps = 700 } = options;
   const { address } = useAccount();
   const publicClient = usePublicClient();
   const { data: balanceData } = useBalance({
