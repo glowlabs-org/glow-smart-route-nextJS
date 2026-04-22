@@ -26,6 +26,49 @@ import {
   type TransactionStep,
   type StepStatus,
 } from "@/components/transaction-stepper";
+import { useEthGasPreflight } from "@/hooks/useEthGasPreflight";
+import { useSmartAccountCheck } from "@/hooks/useSmartAccountCheck";
+
+// Upper-bound per-leg gas so the preflight budgets the FULL flow, not just
+// the first step. Users often have enough ETH to approve + swap USDC -> USDG
+// but nothing for USDG -> GLW, so they get stranded mid-flow.
+const USDC_APPROVE_GAS = 60_000n;
+const USDG_APPROVE_GAS = 60_000n;
+const UNISWAP_SWAP_GAS = 200_000n;
+const ETH_TO_USDC_SWAP_GAS = 200_000n;
+const USDG_TO_GLOW_GAS = 250_000n; // Uniswap or bonding curve (upper bound)
+
+function estimateTotalGasUnits(
+  selectedTokenSell: Token,
+  selectedTokenBuy: Token,
+): bigint {
+  const sell = selectedTokenSell.label;
+  const buy = selectedTokenBuy.label;
+  if (sell === "ETH" && buy === "GLOW") {
+    return (
+      ETH_TO_USDC_SWAP_GAS +
+      USDC_APPROVE_GAS +
+      UNISWAP_SWAP_GAS +
+      USDG_APPROVE_GAS +
+      USDG_TO_GLOW_GAS
+    );
+  }
+  if (sell === "USDC" && buy === "USDG") {
+    return USDC_APPROVE_GAS + UNISWAP_SWAP_GAS;
+  }
+  if (sell === "USDC" && buy === "GLOW") {
+    return (
+      USDC_APPROVE_GAS +
+      UNISWAP_SWAP_GAS +
+      USDG_APPROVE_GAS +
+      USDG_TO_GLOW_GAS
+    );
+  }
+  if (sell === "USDG" && buy === "GLOW") {
+    return USDG_APPROVE_GAS + USDG_TO_GLOW_GAS;
+  }
+  return 500_000n; // conservative fallback
+}
 
 function buildInitialSteps(
   selectedTokenSell: Token,
@@ -182,6 +225,33 @@ export const UsdcToTokenDialog: FC<{
         : selectedTokenSell.address,
     tokenB_address: addresses.glow,
   });
+
+  // Pre-flight: enough ETH for the FULL multi-leg flow + not a smart account.
+  // Prevents users from paying for leg 1 (USDC approve + swap) and then
+  // getting stranded on leg 2 (USDG approve + USDG->GLW). Smart-account
+  // detection catches MetaMask's "pay gas with USDC" feature that silently
+  // converts EOAs to contract accounts, which can't interact with our
+  // contracts.
+  const totalGasUnits = React.useMemo(
+    () => estimateTotalGasUnits(selectedTokenSell, selectedTokenBuy),
+    [selectedTokenSell, selectedTokenBuy],
+  );
+  const gasPreflight = useEthGasPreflight({
+    estimatedGasUnits: totalGasUnits,
+    enabled: isOpen && !isPending && !isSuccess,
+  });
+  const smartAccountCheck = useSmartAccountCheck({
+    enabled: isOpen && !isPending && !isSuccess,
+  });
+  const hasInsufficientGas = gasPreflight.sufficient === false;
+  const isSmartAccount = smartAccountCheck.isBlocked;
+  const gasShortfallEth =
+    gasPreflight.shortfallWei != null
+      ? formatUnits(gasPreflight.shortfallWei, 18)
+      : null;
+  const isPreflightBlocked = hasInsufficientGas || isSmartAccount;
+  const isPreflightChecking =
+    gasPreflight.isChecking || smartAccountCheck.isChecking;
 
   const updateStepStatus = React.useCallback(
     (
@@ -554,6 +624,21 @@ export const UsdcToTokenDialog: FC<{
   }, [isOpen]);
 
   const handleDispatchBuy = () => {
+    if (isSmartAccount) {
+      const msg = smartAccountCheck.reason ?? "Smart account not supported.";
+      setIsError(true);
+      setErrorMessage(msg);
+      toast.error(msg);
+      return;
+    }
+    if (hasInsufficientGas) {
+      const msg =
+        "Insufficient ETH for gas to cover the full swap. Add more ETH and try again.";
+      setIsError(true);
+      setErrorMessage(msg);
+      toast.error(msg);
+      return;
+    }
     handlePurchaseGlow();
   };
 
@@ -683,17 +768,38 @@ export const UsdcToTokenDialog: FC<{
       </Button>
     </div>
   ) : !isPending && !isTransactionSuccessful ? (
-    <div className="flex gap-3">
-      <Button
-        variant="outline"
-        onClick={() => onOpenChange(false)}
-        className="flex-1"
-      >
-        Cancel
-      </Button>
-      <Button onClick={handleDispatchBuy} className="flex-1">
-        Approve and Buy
-      </Button>
+    <div className="flex flex-col gap-2">
+      {isSmartAccount && (
+        <div className="rounded-md bg-red-50 border border-red-200 text-red-900 text-xs px-3 py-2">
+          {smartAccountCheck.reason}
+        </div>
+      )}
+      {!isSmartAccount && hasInsufficientGas && (
+        <div className="rounded-md bg-amber-50 border border-amber-200 text-amber-900 text-xs px-3 py-2">
+          Not enough ETH to cover the full{" "}
+          {selectedTokenBuy.label === "GLOW" ? "swap + purchase" : "swap"}. Add{" "}
+          {gasShortfallEth
+            ? `~${Number(gasShortfallEth).toFixed(5)} ETH`
+            : "more ETH"}{" "}
+          to this wallet and try again.
+        </div>
+      )}
+      <div className="flex gap-3">
+        <Button
+          variant="outline"
+          onClick={() => onOpenChange(false)}
+          className="flex-1"
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={handleDispatchBuy}
+          className="flex-1"
+          disabled={isPreflightBlocked || isPreflightChecking}
+        >
+          {isPreflightChecking ? "Checking…" : "Approve and Buy"}
+        </Button>
+      </div>
     </div>
   ) : undefined;
 

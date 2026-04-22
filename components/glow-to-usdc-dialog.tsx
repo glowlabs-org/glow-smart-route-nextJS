@@ -16,14 +16,24 @@ import { toFixedTruncate } from "@/utils/toFixedTruncate";
 
 import { useUSDGRedemption } from "@/hooks/useUSDGRedemption";
 import { useEthGasPreflight } from "@/hooks/useEthGasPreflight";
+import { useSmartAccountCheck } from "@/hooks/useSmartAccountCheck";
 import { addresses } from "@/web3/constants/addresses";
 import { formatUnits, parseUnits } from "viem";
 
-// Upper-bound gas units for the full swap flow (ERC20 approve + Uniswap V2
-// swapExactTokensForTokens). Used by the pre-flight gas check to warn users
-// with too little ETH BEFORE they sign, so they don't hit
+// Upper-bound gas units per leg of the multi-step flow. Used by the pre-flight
+// gas check to warn users with too little ETH BEFORE they sign, so they don't
+// successfully pay for step 1 and then get stranded on step 2 with a
 // `insufficient funds for gas * price + value` from the node.
-const GLOW_SWAP_GAS_UNITS = 310_000n;
+//
+// Full GLW -> USDC: approve GLW + swap GLW->USDG + approve USDG + redeem USDG
+// Full GLW -> USDG: approve GLW + swap GLW->USDG
+const GLOW_APPROVE_GAS = 60_000n;
+const UNISWAP_SWAP_GAS = 200_000n;
+const USDG_APPROVE_GAS = 60_000n;
+const USDG_REDEEM_GAS = 180_000n;
+const GLOW_TO_USDG_GAS_UNITS = GLOW_APPROVE_GAS + UNISWAP_SWAP_GAS;
+const GLOW_TO_USDC_GAS_UNITS =
+  GLOW_APPROVE_GAS + UNISWAP_SWAP_GAS + USDG_APPROVE_GAS + USDG_REDEEM_GAS;
 
 type PendingState = {
   code: string;
@@ -163,11 +173,14 @@ export const GlowToUsdcDialog: FC<{
 
   const { redeemUSDGForUSDC } = useUSDGRedemption();
 
-  // Pre-flight: make sure the user has enough ETH for gas BEFORE they sign.
-  // Fixes the recurring "Insufficient ETH for gas" surprise that users hit
-  // at the end of a swap.
+  // Pre-flight: make sure the user has enough ETH for the FULL flow BEFORE
+  // they sign anything. Budgeting just the first leg strands users on the
+  // second (USDG approve + redeem) when they paid enough for approve + swap
+  // but nothing more.
+  const totalGasUnits =
+    targetToken === "USDG" ? GLOW_TO_USDG_GAS_UNITS : GLOW_TO_USDC_GAS_UNITS;
   const gasPreflight = useEthGasPreflight({
-    estimatedGasUnits: GLOW_SWAP_GAS_UNITS,
+    estimatedGasUnits: totalGasUnits,
     enabled: isOpen && !isPending && !isSuccess,
   });
   const hasInsufficientGas = gasPreflight.sufficient === false;
@@ -176,7 +189,28 @@ export const GlowToUsdcDialog: FC<{
       ? formatUnits(gasPreflight.shortfallWei, 18)
       : null;
 
+  // Smart-account preflight: MetaMask's "pay gas with USDC" feature silently
+  // upgrades EOAs to smart accounts via EIP-7702 delegation. Once that
+  // happens, users can't interact with Glow contracts that require a plain
+  // EOA signer. Detect early and show a clear fix path.
+  const smartAccountCheck = useSmartAccountCheck({
+    enabled: isOpen && !isPending && !isSuccess,
+  });
+  const isSmartAccount = smartAccountCheck.isBlocked;
+
+  const isPreflightBlocked = hasInsufficientGas || isSmartAccount;
+  const isPreflightChecking =
+    gasPreflight.isChecking || smartAccountCheck.isChecking;
+
   const handleSwapGlowToTarget = async () => {
+    if (isSmartAccount) {
+      const msg = smartAccountCheck.reason ?? "Smart account not supported.";
+      setCurrentState("ERROR");
+      setIsError(true);
+      setErrorMessage(msg);
+      toast.error(msg);
+      return;
+    }
     if (hasInsufficientGas) {
       const msg =
         "Insufficient ETH for gas. Add more ETH to your wallet and try again.";
@@ -549,9 +583,16 @@ export const GlowToUsdcDialog: FC<{
     </div>
   ) : !isPending && !isTransactionSuccessful ? (
     <div className="flex flex-col gap-2">
-      {hasInsufficientGas && (
+      {isSmartAccount && (
+        <div className="rounded-md bg-red-50 border border-red-200 text-red-900 text-xs px-3 py-2">
+          {smartAccountCheck.reason}
+        </div>
+      )}
+      {!isSmartAccount && hasInsufficientGas && (
         <div className="rounded-md bg-amber-50 border border-amber-200 text-amber-900 text-xs px-3 py-2">
-          Not enough ETH for gas. Add {gasShortfallEth
+          Not enough ETH to cover the full{" "}
+          {targetToken === "USDG" ? "swap" : "swap + redemption"}. Add{" "}
+          {gasShortfallEth
             ? `~${Number(gasShortfallEth).toFixed(5)} ETH`
             : "more ETH"}{" "}
           to this wallet and try again.
@@ -568,9 +609,9 @@ export const GlowToUsdcDialog: FC<{
         <Button
           onClick={handleSwapGlowToTarget}
           className="flex-1"
-          disabled={hasInsufficientGas || gasPreflight.isChecking}
+          disabled={isPreflightBlocked || isPreflightChecking}
         >
-          {gasPreflight.isChecking ? "Checking gas…" : "Approve and Swap"}
+          {isPreflightChecking ? "Checking…" : "Approve and Swap"}
         </Button>
       </div>
     </div>
