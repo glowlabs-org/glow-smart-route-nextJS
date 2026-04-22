@@ -1466,13 +1466,14 @@ export function SwapInterface({
   // signer resolved (or during a transient signer flicker from wagmi
   // re-renders) and the in-flight estimate got aborted by this effect's
   // cleanup when the signer finally landed.
+  // Deliberately NOT depending on publicClient here — its reference can
+  // change on wagmi internal re-renders (new block, unrelated state
+  // churn) even when the chain and transport have not changed. If we
+  // tracked it as a dep, each churn would fire this effect's cleanup,
+  // cancel the in-flight debounced estimate, and leave "You receive"
+  // stuck at 0.00 when a balance query or similar state update happens
+  // mid-estimate. estimateAmount checks publicClient itself at run time.
   useEffect(() => {
-    if (!publicClient) {
-      setSmartBalancingAmounts(undefined);
-      setEstimatedOutputAmount(defaultTokensEstimate);
-      return;
-    }
-
     if (selectedTokenSell && selectedTokenBuy && amountToSell) {
       if (!Number.isNaN(Number(amountToSell)) && Number(amountToSell) > 0) {
         debouncedEstimate(amountToSell);
@@ -1487,7 +1488,8 @@ export function SwapInterface({
     return () => {
       cancelEstimate();
     };
-  }, [selectedTokenSell, selectedTokenBuy, amountToSell, publicClient]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTokenSell, selectedTokenBuy, amountToSell]);
 
   // Add effect to fetch USDC balance when wallet connects
   useEffect(() => {
