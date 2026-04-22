@@ -5,6 +5,18 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "."),
+      // Next.js boundary markers throw at import time to enforce
+      // server/client separation at build time. vitest has no concept of
+      // those boundaries and just needs the imports to resolve, so point
+      // them at a no-op module.
+      "server-only": path.resolve(
+        __dirname,
+        "./__tests__/fixtures/empty-module.ts",
+      ),
+      "client-only": path.resolve(
+        __dirname,
+        "./__tests__/fixtures/empty-module.ts",
+      ),
     },
   },
   test: {

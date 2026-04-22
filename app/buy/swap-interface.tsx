@@ -903,10 +903,12 @@ export function SwapInterface({
   };
 
   const estimateAmount = async (amountStr: string, signal: AbortSignal) => {
-    // Early return if contracts aren't ready - this prevents "Contracts not available" errors
-    if (!signer || !isReady) {
-      return;
-    }
+    // Estimation is a read-only price quote and only needs the app's
+    // publicClient (Alchemy). Don't block on the ethers signer resolving,
+    // because (a) it can take several seconds to resolve on slow wallets
+    // and (b) transient signer flickers would otherwise abort the estimate
+    // mid-flow. Intentionally NO signer/isReady gate here.
+    if (!publicClient) return;
 
     try {
       if (selectedTokenSell.label === "ETH") {
@@ -1458,10 +1460,14 @@ export function SwapInterface({
     if (signer && isReady) getTokenSellBalance();
   }, [selectedTokenSell, signer, isReady, ethBalanceFormatted]);
 
-  // Estimate output when inputs change; no balance fetch here
+  // Estimate output as soon as the user has input — do NOT wait on the
+  // ethers signer or balance query. Gating on signer/isReady used to
+  // produce the "You receive: 0.00" bug where users typed before the
+  // signer resolved (or during a transient signer flicker from wagmi
+  // re-renders) and the in-flight estimate got aborted by this effect's
+  // cleanup when the signer finally landed.
   useEffect(() => {
-    // Only estimate if contracts are ready (signer available)
-    if (!signer || !isReady) {
+    if (!publicClient) {
       setSmartBalancingAmounts(undefined);
       setEstimatedOutputAmount(defaultTokensEstimate);
       return;
@@ -1481,7 +1487,7 @@ export function SwapInterface({
     return () => {
       cancelEstimate();
     };
-  }, [selectedTokenSell, selectedTokenBuy, amountToSell, signer, isReady]);
+  }, [selectedTokenSell, selectedTokenBuy, amountToSell, publicClient]);
 
   // Add effect to fetch USDC balance when wallet connects
   useEffect(() => {

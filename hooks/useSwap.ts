@@ -612,7 +612,9 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") {
       return new Ok(BigInt(0));
     }
-    if (!signer) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
+    // Estimation is a pure read against publicClient; no signer needed.
+    // (Was previously gated on signer which blocked the quote until the
+    // ethers signer finished resolving — several seconds on some wallets.)
     if (!uniswapRouter) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     if (!pairAddress) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     if (!tokenA) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
@@ -650,7 +652,7 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") {
       return new Ok(BigInt(0));
     }
-    if (!signer) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
+    // Pure read — no signer needed. See estimateOutputAmount above.
     if (!uniswapRouter) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     const amountInBigInt = toBigIntAmount(amountIn);
 

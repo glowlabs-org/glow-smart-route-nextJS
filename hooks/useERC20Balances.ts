@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { JsonRpcSigner } from "ethers";
 import React from "react";
+import { useAccount } from "wagmi";
 
 export type SYMBOLS = "GLOW" | "IMPACT POWER POINTS" | "USDG" | "USDC";
 
@@ -27,24 +28,35 @@ export const useER20Balances = ({
 }) => {
   const { usdg, glow, usdc, isReady } = useContracts(signer);
 
-  // Get wallet address synchronously for query keys
-  const [walletAddress, setWalletAddress] = React.useState<string | null>(null);
+  // Prefer wagmi's synchronous address — it is available as soon as the
+  // wallet is connected and doesn't wait on the ethers signer to resolve.
+  // The signer.getAddress() fallback remains for environments where wagmi
+  // hasn't hydrated yet.
+  const { address: wagmiAddress } = useAccount();
+  const [signerAddress, setSignerAddress] = React.useState<string | null>(null);
+  const walletAddress = wagmiAddress ?? signerAddress;
 
   React.useEffect(() => {
+    // Only resolve via signer when wagmi hasn't already provided an address,
+    // so we don't block balance loading behind a slow ethers roundtrip.
+    if (wagmiAddress) {
+      setSignerAddress(null);
+      return;
+    }
     if (signer) {
       signer
         .getAddress()
         .then((addr) => {
-          setWalletAddress(addr);
+          setSignerAddress(addr);
         })
         .catch((error) => {
           console.error("Failed to get wallet address:", error);
-          setWalletAddress(null);
+          setSignerAddress(null);
         });
     } else {
-      setWalletAddress(null);
+      setSignerAddress(null);
     }
-  }, [signer]);
+  }, [signer, wagmiAddress]);
 
   // Single optimized query that fetches all balances at once
   const {

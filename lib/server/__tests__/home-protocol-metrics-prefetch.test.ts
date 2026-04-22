@@ -5,6 +5,13 @@ import type { HeadlineStats } from "../headline-stats";
 import { prefetchHomeProtocolMetricsData } from "../home-protocol-metrics-prefetch";
 import { hubGet } from "../../api/hub-client";
 
+// next/cache is a Next.js runtime primitive. In vitest, bypass its caching
+// layer and let the wrapped function execute directly so our hubGet mock
+// returns the fixture as expected.
+vi.mock("next/cache", () => ({
+  unstable_cache: <T extends (...args: unknown[]) => unknown>(fn: T) => fn,
+}));
+
 vi.mock("../../api/hub-client", () => ({
   hubGet: vi.fn(),
 }));
