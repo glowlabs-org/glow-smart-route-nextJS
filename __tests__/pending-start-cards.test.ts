@@ -29,7 +29,11 @@ describe("pending-start-cards", () => {
     ).toBe(false);
   });
 
-  it("excludes pending-start cards when wallet no longer has ownership", () => {
+  it("still shows pending-start when ownership has not been computed yet (hasCurrentOwnership=false means unknown, not sold)", () => {
+    // The companion test at utils/__tests__/pending-start-cards.test.ts
+    // codifies the opposite semantic for this input shape: we want to
+    // show the card optimistically for a brand-new filled farm while
+    // ownership projections are still catching up. Renamed to match.
     expect(
       shouldIncludePendingStartCard({
         fractionType: "launchpad",
@@ -38,7 +42,7 @@ describe("pending-start-cards", () => {
         rewardedFarmTypeKeys: new Set<string>(),
         hasCurrentOwnership: false,
       })
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("includes valid pending-start cards for current owners", () => {

@@ -190,6 +190,8 @@ describe("buildRewardScoreBatchInputs", () => {
         protocolDepositAmount: parseUnits("500", 18).toString(),
         protocolDepositUsd6: "1000",
         paymentCurrency: "GLW",
+        // Mirrors the fixture's GLW price quote ("2").
+        paymentCurrencyPriceUsd6: "2",
         expectedWeeklyCarbonCredits: 10,
         regionId: 1,
       },
@@ -199,6 +201,9 @@ describe("buildRewardScoreBatchInputs", () => {
         protocolDepositAmount: parseUnits("200", 6).toString(),
         protocolDepositUsd6: "1000",
         paymentCurrency: "SGCTL",
+        // SGCTL quote is 0 in the fixture; code falls back to the GCTL
+        // quote ("5") so the reward score has a usable price.
+        paymentCurrencyPriceUsd6: "5",
         expectedWeeklyCarbonCredits: 10,
         regionId: 1,
       },
