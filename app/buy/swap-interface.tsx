@@ -48,6 +48,10 @@ import { UsdcToTokenDialog } from "@/components/usdc-to-token-dialog";
 import { GlowToUsdcDialog } from "@/components/glow-to-usdc-dialog";
 import { UsdgToUsdcRedemptionDialog } from "@/components/usdg-to-usdc-redemption-dialog";
 import { toFixedTruncate } from "@/utils/toFixedTruncate";
+import {
+  parseSwapInputValue,
+  toUnitsDecimal,
+} from "@/utils/swap-input";
 import { useDebouncedAsync } from "@/hooks/useDebouncedAsync";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getOptimalUSDGAmountsWithFees } from "@/utils/glowSmartBalancing";
@@ -429,18 +433,8 @@ export function SwapInterface({
     }
   }
 
-  function toUnitsDecimal(value: string, decimals: number): bigint {
-    try {
-      const d = new Decimal(value || "0");
-      if (!d.isFinite() || d.lte(0)) return BigInt(0);
-      const scaled = d
-        .mul(new Decimal(10).pow(decimals))
-        .toFixed(0, Decimal.ROUND_DOWN);
-      return BigInt(scaled);
-    } catch {
-      return BigInt(0);
-    }
-  }
+  // Pure helpers live in utils/swap-input.ts for unit testing.
+  // (kept here just as a local re-export to minimize call-site churn)
 
   function computeButtonProps() {
     if (isGlowPriceHardCapped) {
@@ -1725,16 +1719,9 @@ export function SwapInterface({
                   value={amountToSell}
                   disabled={!isConnected || isWalletLoading}
                   onChange={(e) => {
-                    // Accept comma as decimal separator (common in EU locales)
-                    const value = e.target.value.replace(",", ".");
-                    if (value !== "" && !/^\d*\.?\d*$/.test(value)) {
-                      return;
-                    }
-                    if (Number(value) < 0) {
-                      setAmountToSell("");
-                      return;
-                    }
-                    setAmountToSell(value);
+                    const next = parseSwapInputValue(e.target.value);
+                    if (next === null) return;
+                    setAmountToSell(next);
                   }}
                 />
               </div>

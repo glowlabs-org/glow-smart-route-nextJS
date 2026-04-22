@@ -26,6 +26,9 @@ export function useEthersSigner({ chainId }: { chainId?: number } = {}) {
   const [signerAddress, setSignerAddress] = React.useState<string | undefined>(
     undefined
   );
+  const [signerChainId, setSignerChainId] = React.useState<number | undefined>(
+    undefined
+  );
   const [isSignerLoading, setIsSignerLoading] = React.useState(true);
   const expectedAddress = walletClientAddress?.toLowerCase();
 
@@ -36,27 +39,42 @@ export function useEthersSigner({ chainId }: { chainId?: number } = {}) {
         if (isMounted) {
           setSigner(undefined);
           setSignerAddress(undefined);
+          setSignerChainId(undefined);
           setIsSignerLoading(false);
         }
         return;
       }
 
+      // Transient wagmi re-renders (new block, unrelated state churn)
+      // change `walletClient`'s reference without changing the user's
+      // address or chain. Skipping re-creation here prevents the signer
+      // from flickering to undefined and then back — which was killing
+      // in-flight estimate requests in the swap interface.
+      const isAlreadyCurrent =
+        signer !== undefined &&
+        signerAddress?.toLowerCase() === expectedAddress &&
+        signerChainId === walletClientChainId;
+      if (isAlreadyCurrent) return;
+
       setIsSignerLoading(true);
       // Clear stale signer immediately so callers cannot sign with a previous account.
       setSigner(undefined);
       setSignerAddress(undefined);
+      setSignerChainId(undefined);
       try {
         const s = await walletClientToSigner(walletClient as WalletClient);
         const resolvedAddress = (await s.getAddress()).toLowerCase();
         if (isMounted) {
           setSigner(s);
           setSignerAddress(resolvedAddress);
+          setSignerChainId(walletClientChainId);
         }
       } catch (err) {
         console.error(err);
         if (isMounted) {
           setSigner(undefined);
           setSignerAddress(undefined);
+          setSignerChainId(undefined);
         }
       } finally {
         if (isMounted) setIsSignerLoading(false);
