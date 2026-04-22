@@ -1722,10 +1722,18 @@ export function SwapInterface({
                 <Input
                   type="text"
                   inputMode="decimal"
-                  placeholder="0.00"
+                  placeholder={
+                    isConnected && balancesLoading
+                      ? "Loading balances…"
+                      : "0.00"
+                  }
                   className="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold bg-transparent border-0 p-0 focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full"
                   value={amountToSell}
-                  disabled={!isConnected || isWalletLoading}
+                  disabled={
+                    !isConnected ||
+                    isWalletLoading ||
+                    balancesLoading
+                  }
                   onChange={(e) => {
                     const next = parseSwapInputValue(e.target.value);
                     if (next === null) return;
