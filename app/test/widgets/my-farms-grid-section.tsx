@@ -549,13 +549,10 @@ function getPendingStartTimelineCopy(params: {
 }
 
 function getFarmEarnedLabel(farm: FarmCardData): string {
-  const protocolDepositAsset = formatProtocolDepositAsset(
-    farm.protocolDepositAsset
-  );
   const protocolDepositEntries = getProtocolDepositDisplayEntries({
     byAsset: sumWeeklyProtocolDepositByAsset({
       weeks: farm.weeklyBreakdown,
-      fallbackAsset: protocolDepositAsset,
+      fallbackAsset: farm.protocolDepositAsset,
     }),
     isProtocolDepositUsd: farm.isProtocolDepositUsd,
   });
@@ -563,25 +560,16 @@ function getFarmEarnedLabel(farm: FarmCardData): string {
   if (farm.type === "miner") {
     return `${fmtGlw(farm.inflationGlw)} GLW`;
   }
-  if (protocolDepositEntries.length > 1) {
+
+  if (protocolDepositEntries.length > 0) {
     return getCombinedRewardsLabel({
       inflationGlw: farm.inflationGlw,
       protocolDepositEntries,
       isMiner: false,
     });
   }
-  if (farm.isProtocolDepositUsd) {
-    return `${fmtGlw(farm.inflationGlw)} GLW + ${fmtUsdAmount(
-      farm.recovered
-    )} ${protocolDepositAsset}`;
-  }
-  if (protocolDepositAsset !== "GLW") {
-    return `${fmtGlw(farm.inflationGlw)} GLW + ${formatTokenAmountByAsset(
-      farm.recovered,
-      protocolDepositAsset
-    )} ${protocolDepositAsset}`;
-  }
-  return `${fmtGlw(farm.recovered + farm.inflationGlw)} GLW`;
+
+  return `${fmtGlw(farm.inflationGlw)} GLW`;
 }
 
 function getFarmLastWeekLabel(farm: FarmCardData): string | null {
