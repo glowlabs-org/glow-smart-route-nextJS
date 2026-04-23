@@ -584,6 +584,43 @@ function getFarmEarnedLabel(farm: FarmCardData): string {
   return `${fmtGlw(farm.recovered + farm.inflationGlw)} GLW`;
 }
 
+function getFarmLastWeekLabel(farm: FarmCardData): string | null {
+  const groupedWeeks = groupWeeklyBreakdownByWeek({
+    weeks: farm.weeklyBreakdown,
+    fallbackAsset: farm.protocolDepositAsset,
+  });
+  const latestWeek = groupedWeeks.at(-1);
+
+  if (latestWeek) {
+    const protocolDepositEntries = getProtocolDepositDisplayEntries({
+      byAsset: latestWeek.protocolDepositByAsset,
+      isProtocolDepositUsd: farm.isProtocolDepositUsd,
+    });
+    const inflationGlw = parseGlwFromWei(latestWeek.inflationRewards.toString());
+    const hasRewards =
+      inflationGlw > 0 ||
+      protocolDepositEntries.some((entry) => entry.amount > 0);
+
+    if (hasRewards) {
+      return getCombinedRewardsLabel({
+        inflationGlw,
+        protocolDepositEntries,
+        isMiner: farm.type === "miner",
+      });
+    }
+  }
+
+  if (
+    typeof farm.lastWeekRewardsGlw === "number" &&
+    Number.isFinite(farm.lastWeekRewardsGlw) &&
+    farm.lastWeekRewardsGlw > 0
+  ) {
+    return `${fmtGlw(farm.lastWeekRewardsGlw)} GLW`;
+  }
+
+  return null;
+}
+
 function getAuditUrl(params: { id: string | null | undefined }) {
   if (!params.id) return null;
   return `https://glow.org/audits/${params.id}`;
@@ -938,10 +975,7 @@ function FarmCard({
         ? (totalValue / farm.initialCost) * 100
         : 0;
   const isProfitable = roiPercent >= 100;
-  const lastWeekLabel =
-    typeof farm.lastWeekRewardsGlw === "number"
-      ? `${fmtGlw(farm.lastWeekRewardsGlw)} GLW`
-      : null;
+  const lastWeekLabel = getFarmLastWeekLabel(farm);
   const hasLastWeekRewards = lastWeekLabel !== null;
 
   const getTypeBadge = () => {
@@ -3131,7 +3165,7 @@ export default function MyFarmsGridSection({
                         </span>
                       ) : (
                         <span className="font-mono text-xs tabular-nums text-muted-foreground">
-                          {fmtGlw(farm.lastWeekRewardsGlw ?? 0)} GLW
+                          {getFarmLastWeekLabel(farm) ?? "—"}
                         </span>
                       )}
                     </TableCell>
