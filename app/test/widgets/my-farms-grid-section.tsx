@@ -151,6 +151,170 @@ function parseProtocolDepositTokenAmount(
   return parseDelegationAmountFromBaseUnits(value, delegationCurrency);
 }
 
+type WeeklyBreakdownRow = {
+  weekNumber: number;
+  inflationRewards: string;
+  protocolDepositRewards: string;
+  protocolDepositAsset?: string | null;
+  protocolDepositRewardsByAsset?: Record<string, string>;
+  totalRewards: string;
+};
+
+function parseBigIntSafe(value: string | number | bigint | null | undefined): bigint {
+  try {
+    if (typeof value === "bigint") return value;
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return BigInt(Math.trunc(value));
+    }
+    if (typeof value === "string" && value.trim() !== "") {
+      return BigInt(value);
+    }
+  } catch {}
+  return BigInt(0);
+}
+
+function getWeeklyProtocolDepositByAsset(params: {
+  week: WeeklyBreakdownRow;
+  fallbackAsset: string | null | undefined;
+}): Map<string, bigint> {
+  const byAsset = new Map<string, bigint>();
+  const explicit = params.week.protocolDepositRewardsByAsset;
+  if (explicit && Object.keys(explicit).length > 0) {
+    for (const [asset, amount] of Object.entries(explicit)) {
+      const normalizedAsset = formatProtocolDepositAsset(asset);
+      const atomicAmount = parseBigIntSafe(amount);
+      if (atomicAmount <= BigInt(0)) continue;
+      byAsset.set(normalizedAsset, atomicAmount);
+    }
+    return byAsset;
+  }
+
+  const fallbackAsset = formatProtocolDepositAsset(
+    params.week.protocolDepositAsset ?? params.fallbackAsset
+  );
+  const amount = parseBigIntSafe(params.week.protocolDepositRewards);
+  if (amount > BigInt(0)) {
+    byAsset.set(fallbackAsset, amount);
+  }
+  return byAsset;
+}
+
+function groupWeeklyBreakdownByWeek(params: {
+  weeks: WeeklyBreakdownRow[];
+  fallbackAsset: string | null | undefined;
+}): Array<{
+  weekNumber: number;
+  inflationRewards: bigint;
+  protocolDepositByAsset: Map<string, bigint>;
+  totalRewards: bigint;
+}> {
+  const grouped = new Map<
+    number,
+    {
+      inflationRewards: bigint;
+      protocolDepositByAsset: Map<string, bigint>;
+      totalRewards: bigint;
+    }
+  >();
+
+  for (const week of params.weeks) {
+    const existing = grouped.get(week.weekNumber) ?? {
+      inflationRewards: BigInt(0),
+      protocolDepositByAsset: new Map<string, bigint>(),
+      totalRewards: BigInt(0),
+    };
+    existing.inflationRewards += parseBigIntSafe(week.inflationRewards);
+    existing.totalRewards += parseBigIntSafe(week.totalRewards);
+    for (const [asset, amount] of getWeeklyProtocolDepositByAsset({
+      week,
+      fallbackAsset: params.fallbackAsset,
+    })) {
+      existing.protocolDepositByAsset.set(
+        asset,
+        (existing.protocolDepositByAsset.get(asset) ?? BigInt(0)) + amount
+      );
+    }
+    grouped.set(week.weekNumber, existing);
+  }
+
+  return Array.from(grouped.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([weekNumber, data]) => ({
+      weekNumber,
+      inflationRewards: data.inflationRewards,
+      protocolDepositByAsset: data.protocolDepositByAsset,
+      totalRewards: data.totalRewards,
+    }));
+}
+
+function sumWeeklyProtocolDepositByAsset(params: {
+  weeks: WeeklyBreakdownRow[];
+  fallbackAsset: string | null | undefined;
+}): Map<string, bigint> {
+  const total = new Map<string, bigint>();
+  for (const week of params.weeks) {
+    for (const [asset, amount] of getWeeklyProtocolDepositByAsset({
+      week,
+      fallbackAsset: params.fallbackAsset,
+    })) {
+      total.set(asset, (total.get(asset) ?? BigInt(0)) + amount);
+    }
+  }
+  return total;
+}
+
+function getProtocolDepositDisplayEntries(params: {
+  byAsset: Map<string, bigint>;
+  isProtocolDepositUsd: boolean;
+}) {
+  return Array.from(params.byAsset.entries())
+    .filter(([, amount]) => amount > BigInt(0))
+    .sort(([assetA], [assetB]) => {
+      if (assetA === "GLW") return -1;
+      if (assetB === "GLW") return 1;
+      return assetA.localeCompare(assetB);
+    })
+    .map(([asset, amount]) => {
+      const raw = amount.toString();
+      const parsed = params.isProtocolDepositUsd
+        ? parsePdRewardsUsd({ value: raw, asset })
+        : parseProtocolDepositTokenAmount(raw, asset);
+      return {
+        asset,
+        amount: parsed,
+        label: params.isProtocolDepositUsd
+          ? `${fmtUsdAmount(parsed)} ${asset}`
+          : `${formatTokenAmountByAsset(parsed, asset)} ${asset}`,
+      };
+    });
+}
+
+function getCombinedRewardsLabel(params: {
+  inflationGlw: number;
+  protocolDepositEntries: Array<{ asset: string; amount: number; label: string }>;
+  isMiner: boolean;
+}): string {
+  if (params.isMiner) {
+    return `${fmtGlw(params.inflationGlw)} GLW`;
+  }
+
+  const glwPd =
+    params.protocolDepositEntries.find((entry) => entry.asset === "GLW")?.amount ??
+    0;
+  const nonGlw = params.protocolDepositEntries.filter(
+    (entry) => entry.asset !== "GLW"
+  );
+  const glwTotal = params.inflationGlw + glwPd;
+
+  if (nonGlw.length === 0) {
+    return `${fmtGlw(glwTotal)} GLW`;
+  }
+
+  return `${fmtGlw(glwTotal)} GLW + ${nonGlw.map((entry) => entry.label).join(
+    " + "
+  )}`;
+}
+
 function formatDelegatedAmountsByAsset(params: {
   amounts?: DelegationAmountsByAsset;
   fallbackAmount: number;
@@ -388,8 +552,23 @@ function getFarmEarnedLabel(farm: FarmCardData): string {
   const protocolDepositAsset = formatProtocolDepositAsset(
     farm.protocolDepositAsset
   );
+  const protocolDepositEntries = getProtocolDepositDisplayEntries({
+    byAsset: sumWeeklyProtocolDepositByAsset({
+      weeks: farm.weeklyBreakdown,
+      fallbackAsset: protocolDepositAsset,
+    }),
+    isProtocolDepositUsd: farm.isProtocolDepositUsd,
+  });
+
   if (farm.type === "miner") {
     return `${fmtGlw(farm.inflationGlw)} GLW`;
+  }
+  if (protocolDepositEntries.length > 1) {
+    return getCombinedRewardsLabel({
+      inflationGlw: farm.inflationGlw,
+      protocolDepositEntries,
+      isMiner: false,
+    });
   }
   if (farm.isProtocolDepositUsd) {
     return `${fmtGlw(farm.inflationGlw)} GLW + ${fmtUsdAmount(
@@ -430,6 +609,8 @@ interface FarmCardData {
     weekNumber: number;
     inflationRewards: string;
     protocolDepositRewards: string;
+    protocolDepositAsset?: string | null;
+    protocolDepositRewardsByAsset?: Record<string, string>;
     totalRewards: string;
   }>;
   lastWeekRewardsGlw?: number;
@@ -1196,11 +1377,29 @@ function FarmDetailDialog({
   const inProgressIsMiningCenter =
     isInProgress && farm.inProgressKind === "mining-center";
 
-  const totalEarned = farm.recovered + farm.inflation;
   const protocolDepositAsset = formatProtocolDepositAsset(
     farm.protocolDepositAsset
   );
-
+  const groupedWeeklyBreakdown = groupWeeklyBreakdownByWeek({
+    weeks: farm.weeklyBreakdown,
+    fallbackAsset: protocolDepositAsset,
+  });
+  const protocolDepositEntries = getProtocolDepositDisplayEntries({
+    byAsset: sumWeeklyProtocolDepositByAsset({
+      weeks: farm.weeklyBreakdown,
+      fallbackAsset: protocolDepositAsset,
+    }),
+    isProtocolDepositUsd: farm.isProtocolDepositUsd,
+  });
+  const protocolDepositSummaryLabel =
+    protocolDepositEntries.length > 0
+      ? protocolDepositEntries.map((entry) => entry.label).join(" + ")
+      : farm.isProtocolDepositUsd
+      ? `${fmtUsdAmount(farm.recovered)} ${protocolDepositAsset}`
+      : `${formatTokenAmountByAsset(
+          farm.recovered,
+          farm.protocolDepositAsset
+        )} ${protocolDepositAsset}`;
   const investedLabel = (() => {
     if (isInProgress) {
       if (inProgressIsMiningCenter) return fmtUsd(farm.initialCost);
@@ -1585,16 +1784,7 @@ function FarmDetailDialog({
                           </div>
                         </div>
                         <div className="text-right font-mono font-bold text-delegation-purple">
-                          {farm.isProtocolDepositUsd
-                            ? `${fmtUsdAmount(farm.recovered)} ${formatProtocolDepositAsset(
-                                farm.protocolDepositAsset
-                              )}`
-                            : `${formatTokenAmountByAsset(
-                                farm.recovered,
-                                farm.protocolDepositAsset
-                              )} ${formatProtocolDepositAsset(
-                                farm.protocolDepositAsset
-                              )}`}
+                          {protocolDepositSummaryLabel}
                         </div>
                       </div>
                     )}
@@ -1657,28 +1847,32 @@ function FarmDetailDialog({
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border/20">
-                          {farm.weeklyBreakdown
-                            .slice()
+                          {groupedWeeklyBreakdown
                             .reverse()
                             .map((week) => {
-                              const pdAmount = farm.isProtocolDepositUsd
-                                ? parsePdRewardsUsd({
-                                    value: week.protocolDepositRewards,
-                                    asset: farm.protocolDepositAsset ?? null,
-                                  })
-                                : parseProtocolDepositTokenAmount(
-                                    week.protocolDepositRewards,
-                                    protocolDepositAsset,
-                                  );
-                              const inflationGlw = parseGlwFromWei(
-                                week.inflationRewards,
-                              );
-                              const totalGlw =
-                                isMiner
-                                  ? inflationGlw
-                                  : protocolDepositAsset === "GLW"
-                                  ? parseGlwFromWei(week.totalRewards)
-                                  : null;
+                              const inflationGlw =
+                                Number(week.inflationRewards) / 1e18;
+                              const weekProtocolDepositEntries =
+                                getProtocolDepositDisplayEntries({
+                                  byAsset: week.protocolDepositByAsset,
+                                  isProtocolDepositUsd: farm.isProtocolDepositUsd,
+                                });
+                              const pdLabel =
+                                weekProtocolDepositEntries.length > 0
+                                  ? weekProtocolDepositEntries
+                                      .map((entry) => entry.label)
+                                      .join(" + ")
+                                  : farm.isProtocolDepositUsd
+                                  ? `${fmtUsdAmount(0)} ${protocolDepositAsset}`
+                                  : `${formatTokenAmountByAsset(
+                                      0,
+                                      protocolDepositAsset
+                                    )} ${protocolDepositAsset}`;
+                              const totalLabel = getCombinedRewardsLabel({
+                                inflationGlw,
+                                protocolDepositEntries: weekProtocolDepositEntries,
+                                isMiner,
+                              });
 
                               return (
                                 <tr
@@ -1690,15 +1884,7 @@ function FarmDetailDialog({
                                   </td>
                                   {!isMiner && (
                                     <td className="py-3.5 px-6 text-right font-mono text-delegation-purple text-sm tabular-nums">
-                                      {farm.isProtocolDepositUsd
-                                        ? fmtUsdAmount(pdAmount)
-                                        : formatTokenAmountByAsset(
-                                            pdAmount,
-                                            protocolDepositAsset
-                                          )}
-                                      <span className="text-[10px] font-normal text-muted-foreground ml-1">
-                                        {protocolDepositAsset}
-                                      </span>
+                                      {pdLabel}
                                     </td>
                                   )}
                                   <td className="py-3.5 px-6 text-right font-mono text-[color:var(--color-miner-contrast)] text-sm tabular-nums">
@@ -1708,25 +1894,7 @@ function FarmDetailDialog({
                                     </span>
                                   </td>
                                   <td className="py-3.5 px-6 text-right font-mono font-bold text-sm tabular-nums text-foreground">
-                                    {totalGlw != null ? (
-                                      <>
-                                        {fmtGlw(totalGlw)}
-                                        <span className="text-[10px] font-normal text-muted-foreground ml-1">
-                                          GLW
-                                        </span>
-                                      </>
-                                    ) : (
-                                      <>
-                                        {fmtGlw(inflationGlw)} GLW +{" "}
-                                        {farm.isProtocolDepositUsd
-                                          ? fmtUsdAmount(pdAmount)
-                                          : formatTokenAmountByAsset(
-                                              pdAmount,
-                                              protocolDepositAsset
-                                            )}{" "}
-                                        {protocolDepositAsset}
-                                      </>
-                                    )}
+                                    {totalLabel}
                                   </td>
                                 </tr>
                               );

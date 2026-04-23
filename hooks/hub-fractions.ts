@@ -220,6 +220,8 @@ export interface RewardsBreakdownResponse {
       weekNumber: number;
       inflationRewards: string;
       protocolDepositRewards: string;
+      protocolDepositAsset?: string | null;
+      protocolDepositRewardsByAsset?: Record<string, string>;
       totalRewards: string;
     }>;
   }>;
@@ -239,6 +241,8 @@ export interface RewardsBreakdownResponse {
         weekNumber: number;
         inflationRewards: string;
         protocolDepositRewards: string;
+        protocolDepositAsset?: string | null;
+        protocolDepositRewardsByAsset?: Record<string, string>;
         totalRewards: string;
       }>;
     }>;
