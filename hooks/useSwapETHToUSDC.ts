@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo } from "react";
 import { useChainId, useWalletClient, usePublicClient } from "wagmi";
-import { parseAbi } from "viem";
+import { getAddress, parseAbi, parseEventLogs } from "viem";
 import { Err, Ok, Result } from "ts-results";
 import { getAddresses } from "@glowlabs-org/utils/browser";
 import { waitForViemTransactionWithRetry } from "@glowlabs-org/utils/browser";
@@ -20,6 +20,7 @@ const UNISWAP_V2_ROUTER_ABI = parseAbi([
 
 const ERC20_ABI = parseAbi([
   "function balanceOf(address owner) view returns (uint256)",
+  "event Transfer(address indexed from, address indexed to, uint256 value)",
 ]);
 
 // Sepolia-specific addresses from Uniswap
@@ -214,13 +215,6 @@ export function useSwapETHToUSDC() {
       const { useV3 } = resolvedAddresses;
 
       try {
-        const balanceBefore = (await publicClient.readContract({
-          address: usdc,
-          abi: ERC20_ABI,
-          functionName: "balanceOf",
-          args: [recipient],
-        })) as bigint;
-
         let txHash: `0x${string}`;
 
         if (useV3) {
@@ -267,17 +261,25 @@ export function useSwapETHToUSDC() {
           pollIntervalMs: 2000,
         });
 
-        const balanceAfter = (await publicClient.readContract({
-          address: usdc,
+        // Derive usdcReceived from the receipt's Transfer events rather than a
+        // balanceOf delta. A follow-up balanceOf can hit a stale RPC replica
+        // and return the pre-swap balance, producing a false "0 USDC" result
+        // even when the swap succeeded on-chain.
+        const receipt = await publicClient.getTransactionReceipt({
+          hash: txHash,
+        });
+        const usdcAddress = getAddress(usdc);
+        const recipientAddress = getAddress(recipient);
+        const transferLogs = parseEventLogs({
           abi: ERC20_ABI,
-          functionName: "balanceOf",
-          args: [recipient],
-        })) as bigint;
-
-        const usdcReceived =
-          balanceAfter > balanceBefore
-            ? balanceAfter - balanceBefore
-            : BigInt(0);
+          eventName: "Transfer",
+          logs: receipt.logs,
+        });
+        const usdcReceived = transferLogs.reduce((sum, log) => {
+          if (getAddress(log.address) !== usdcAddress) return sum;
+          if (getAddress(log.args.to) !== recipientAddress) return sum;
+          return sum + log.args.value;
+        }, BigInt(0));
 
         return new Ok({ usdcReceived, txHash });
       } catch (e: any) {
