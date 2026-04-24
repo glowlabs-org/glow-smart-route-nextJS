@@ -140,6 +140,19 @@ export function useReferral() {
         }),
       });
 
+      // An auto-link triggered by ToS acceptance (POST /referral/auto-link with
+      // bypassNonceCheck) can land before the user clicks Claim Bonus. If the
+      // backend already shows this referee linked to the same code, short-
+      // circuit as success instead of prompting a redundant signature and
+      // racing the nonce.
+      if (
+        status?.referral &&
+        typeof status.referral.referralCode === "string" &&
+        status.referral.referralCode.toLowerCase() === referralCode.toLowerCase()
+      ) {
+        return status.referral;
+      }
+
       const deadline = Math.floor(Date.now() / 1000 + 3600); // 1 hour
       const nonce = status.nonce;
 
@@ -155,13 +168,38 @@ export function useReferral() {
         },
       });
 
-      return await hubPost<any>("/referral/link", {
-        wallet: walletAddress,
-        signature,
-        nonce: nonce.toString(),
-        referralCode,
-        deadline: deadline.toString(),
-      });
+      try {
+        return await hubPost<any>("/referral/link", {
+          wallet: walletAddress,
+          signature,
+          nonce: nonce.toString(),
+          referralCode,
+          deadline: deadline.toString(),
+        });
+      } catch (error) {
+        // If an auto-link raced us between fetchQuery and POST, the backend
+        // nonce will have advanced and the POST fails with "Invalid nonce".
+        // Re-fetch status once — if the referee is now linked to the same
+        // code, the race already gave us the outcome we wanted.
+        const message = error instanceof Error ? error.message : String(error);
+        if (/Invalid nonce/i.test(message)) {
+          const freshStatus = await queryClient.fetchQuery({
+            queryKey: ["referral-status", walletAddress],
+            queryFn: () => hubGet<any>("/referral/status", {
+              params: { walletAddress },
+            }),
+          });
+          if (
+            freshStatus?.referral &&
+            typeof freshStatus.referral.referralCode === "string" &&
+            freshStatus.referral.referralCode.toLowerCase() ===
+              referralCode.toLowerCase()
+          ) {
+            return freshStatus.referral;
+          }
+        }
+        throw error;
+      }
     },
     onSuccess: (_, referralCode) => {
       clearStoredReferralAttribution();
@@ -217,6 +255,15 @@ export function useReferral() {
         }),
       });
 
+      if (
+        status?.referral &&
+        typeof status.referral.referralCode === "string" &&
+        status.referral.referralCode.toLowerCase() ===
+          newReferralCode.toLowerCase()
+      ) {
+        return status.referral;
+      }
+
       const deadline = Math.floor(Date.now() / 1000 + 3600);
       const nonce = status.nonce;
 
@@ -232,13 +279,34 @@ export function useReferral() {
         },
       });
 
-      return await hubPost<any>("/referral/change", {
-        wallet: walletAddress,
-        signature,
-        nonce: nonce.toString(),
-        newReferralCode,
-        deadline: deadline.toString(),
-      });
+      try {
+        return await hubPost<any>("/referral/change", {
+          wallet: walletAddress,
+          signature,
+          nonce: nonce.toString(),
+          newReferralCode,
+          deadline: deadline.toString(),
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (/Invalid nonce/i.test(message)) {
+          const freshStatus = await queryClient.fetchQuery({
+            queryKey: ["referral-status", walletAddress],
+            queryFn: () => hubGet<any>("/referral/status", {
+              params: { walletAddress },
+            }),
+          });
+          if (
+            freshStatus?.referral &&
+            typeof freshStatus.referral.referralCode === "string" &&
+            freshStatus.referral.referralCode.toLowerCase() ===
+              newReferralCode.toLowerCase()
+          ) {
+            return freshStatus.referral;
+          }
+        }
+        throw error;
+      }
     },
     onSuccess: (_, newReferralCode) => {
       clearStoredReferralAttribution();
