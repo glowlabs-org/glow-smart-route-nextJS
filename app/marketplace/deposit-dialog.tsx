@@ -46,6 +46,8 @@ import {
 import { useGctlPreparationOrchestrator } from "@/hooks/useGctlPreparationOrchestrator";
 import { ConnectButton } from "@/components/connect-button";
 import { trackEvent } from "@/lib/telemetry";
+import { bucketUsd } from "@/lib/telemetry-buckets";
+import { getStoredReferralAttribution } from "@/lib/referral-attribution";
 import * as Sentry from "@sentry/nextjs";
 import { AnimatePresence, motion } from "framer-motion";
 import { getControlRouter } from "@/lib/api/control-routers";
@@ -1974,6 +1976,8 @@ export function DepositDialog({
               tx_hash: null,
               farm_name: currentApplication.farmName ?? null,
               zone_name: currentApplication.zone?.name ?? null,
+              referral_code:
+                getStoredReferralAttribution()?.referralCode ?? null,
             });
 
             toast.success("Delegation successful!");
@@ -2142,6 +2146,13 @@ export function DepositDialog({
       updateStepStatus("CONFIRM_TX", "completed", { txHash });
       setPhase("success");
 
+      // USDC/USDG are 1:1 with USD so costBigInt / 1e6 is exact revenue.
+      // GLW delegations don't carry USD here; revenue stays null.
+      const revenueUsd =
+        runtimeSelectedCurrency === "USDC"
+          ? Number(costBigInt) / 1e6
+          : null;
+
       trackEvent("marketplace_deposit_success", {
         currency: runtimeSelectedCurrency,
         payment_method: selectedPaymentMethod,
@@ -2153,6 +2164,11 @@ export function DepositDialog({
         tx_hash: txHash,
         farm_name: currentApplication.farmName ?? null,
         zone_name: currentApplication.zone?.name ?? null,
+        revenue: revenueUsd,
+        amount_usd_bucket:
+          revenueUsd != null ? bucketUsd(revenueUsd) : null,
+        referral_code:
+          getStoredReferralAttribution()?.referralCode ?? null,
       });
 
       toast.success(

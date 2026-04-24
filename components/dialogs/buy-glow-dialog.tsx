@@ -40,6 +40,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { GlowSymbol } from "../glow-symbol";
 import { trackEvent } from "@/lib/telemetry";
+import { bucketUsd } from "@/lib/telemetry-buckets";
+import { getStoredReferralAttribution } from "@/lib/referral-attribution";
 import { toFixedTruncate } from "@/utils/toFixedTruncate";
 import {
   useAccount,
@@ -972,12 +974,22 @@ export function BuyGlowDialog({
 
       setPhase("success");
       toast.success("Successfully purchased GLW!");
+      // USDC / USDG are 1:1 with USD. Anything else doesn't carry USD here.
+      const payUsd =
+        payToken === "USDC" || payToken === "USDG"
+          ? Number(inputAmount)
+          : null;
       trackEvent("buy_glw_success", {
         pay_token: payToken,
         pay_amount: inputAmount,
         estimated_glw: finalEstimatedGlw,
         has_bonding_step: hasBondingOutput,
         source,
+        revenue: payUsd != null && Number.isFinite(payUsd) ? payUsd : null,
+        amount_usd_bucket:
+          payUsd != null && Number.isFinite(payUsd) ? bucketUsd(payUsd) : null,
+        referral_code:
+          getStoredReferralAttribution()?.referralCode ?? null,
       });
       onSuccess?.();
     } catch (error: any) {
