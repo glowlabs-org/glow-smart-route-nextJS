@@ -12,7 +12,8 @@ interface EarlyLiquidityPriceResult {
   updatedAt: number;
 }
 
-export function useEarlyLiquidityPrice() {
+export function useEarlyLiquidityPrice(options?: { enabled?: boolean }) {
+  const enabled = options?.enabled ?? true;
   const query = useQuery<EarlyLiquidityPriceResult | null>({
     queryKey: ["glw-early-liquidity-price"],
     queryFn: async () => {
@@ -32,8 +33,9 @@ export function useEarlyLiquidityPrice() {
         return null;
       }
     },
+    enabled,
     staleTime: 15_000,
-    refetchInterval: 30_000,
+    refetchInterval: enabled ? 30_000 : false,
     refetchOnMount: true,
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,

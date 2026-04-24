@@ -49,7 +49,7 @@ const maskRpcUrl = (url?: string) => {
   }
 };
 
-const shouldReportRpcError = (error: unknown): boolean => {
+const shouldReportRpcError = (error: unknown, source?: string): boolean => {
   const errorAny = error as any;
   const name = errorAny?.name ?? "";
   const causeName = errorAny?.cause?.name ?? "";
@@ -57,6 +57,15 @@ const shouldReportRpcError = (error: unknown): boolean => {
 
   if (name === "AbortError" || causeName === "AbortError") return false;
   if (details.includes("Fetch is aborted")) return false;
+
+  // publicClient is background read-only polling that callers already
+  // retry/swallow. Per-visitor network blips would just create noise.
+  if (
+    source === "publicClient" &&
+    (name === "TimeoutError" || causeName === "TimeoutError")
+  ) {
+    return false;
+  }
 
   return true;
 };
@@ -89,7 +98,7 @@ const captureRpcError = (error: unknown, context: {
   const errorObject = error instanceof Error ? error : new Error(String(error));
   const errorAny = error as any;
 
-  if (!shouldReportRpcError(error)) return;
+  if (!shouldReportRpcError(error, context.source)) return;
 
   const errorName = errorAny?.name ?? errorObject.name ?? "Error";
   if (!shouldReportOnce(context.method, errorName)) return;

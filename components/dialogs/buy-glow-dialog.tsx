@@ -308,7 +308,9 @@ export function BuyGlowDialog({
     tokenB_address: addresses.glow,
   });
 
-  const { currentPrice: earlyLiquidityCurrentPrice } = useEarlyLiquidityPrice();
+  const { currentPrice: earlyLiquidityCurrentPrice } = useEarlyLiquidityPrice({
+    enabled: open,
+  });
 
   const { ethPrice } = useEthPrice();
 
