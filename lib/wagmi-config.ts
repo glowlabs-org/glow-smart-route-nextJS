@@ -306,7 +306,6 @@ const wagmiAdapter = new WagmiAdapter({
                   reportConnectorDebug(window, {
                     connectorId: "io.metamask",
                     event: "metamask_provider_fallback_window_ethereum",
-                    level: "warning",
                     extra: {
                       ethereumIsMetaMask: ethereum.isMetaMask ?? null,
                       ethereumIsCoinbaseWallet: ethereum.isCoinbaseWallet ?? null,
@@ -324,7 +323,6 @@ const wagmiAdapter = new WagmiAdapter({
                   reportConnectorDebug(window, {
                     connectorId: "io.metamask",
                     event: "metamask_provider_fallback_rejected_non_metamask",
-                    level: "warning",
                     extra: {
                       ethereumIsMetaMask: ethereum.isMetaMask ?? null,
                       ethereumIsCoinbaseWallet: ethereum.isCoinbaseWallet ?? null,
@@ -341,7 +339,6 @@ const wagmiAdapter = new WagmiAdapter({
                 reportConnectorDebug(window, {
                   connectorId: "io.metamask",
                   event: "metamask_provider_not_found",
-                  level: "warning",
                   extra: {
                     hasWindowEthereum: Boolean(ethereum),
                     ethereumProvidersCount:

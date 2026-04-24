@@ -58,10 +58,11 @@ const shouldReportRpcError = (error: unknown, source?: string): boolean => {
   if (name === "AbortError" || causeName === "AbortError") return false;
   if (details.includes("Fetch is aborted")) return false;
 
-  // publicClient is background read-only polling that callers already
-  // retry/swallow. Per-visitor network blips would just create noise.
+  // publicClient and wagmi read hooks are background read-only polling that
+  // callers already retry/swallow. Per-visitor network blips would just
+  // create noise.
   if (
-    source === "publicClient" &&
+    (source === "publicClient" || source === "wagmi") &&
     (name === "TimeoutError" || causeName === "TimeoutError")
   ) {
     return false;
