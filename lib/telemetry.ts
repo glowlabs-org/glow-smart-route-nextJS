@@ -1,5 +1,3 @@
-import { track } from "@vercel/analytics";
-
 export interface TelemetryData {
   [key: string]: string | number | boolean | null;
 }
@@ -128,11 +126,9 @@ export function trackEvent(name: string, data?: Record<string, unknown>) {
     const geo = getGeoContextFromCookies();
     const sanitized = sanitizeData(geo ? { ...geo, ...(data || {}) } : data);
     if (sanitized && Object.keys(sanitized).length > 0) {
-      track(eventName, sanitized);
       umamiTrack(eventName, sanitized);
       return;
     }
-    track(eventName);
     umamiTrack(eventName);
   } catch {
     // Telemetry must never impact UX.

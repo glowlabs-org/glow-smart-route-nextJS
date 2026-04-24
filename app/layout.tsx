@@ -3,7 +3,6 @@ import "./globals.css";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { WagmiWrapper } from "./providers/wagmiWrapper";
 import { ThemeProvider } from "./providers/theme-provider";
-import { Analytics } from "@vercel/analytics/next";
 import Script from "next/script";
 import { headers } from "next/headers";
 import { Metadata } from "next";
@@ -182,7 +181,6 @@ export default async function RootLayout({
       <body className={`antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <WagmiWrapper cookies={cookieHeader}>
-            <Analytics />
             <NuqsAdapter>{children}</NuqsAdapter>
           </WagmiWrapper>
         </ThemeProvider>

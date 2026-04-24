@@ -1,44 +1,59 @@
-## Telemetry (Vercel Web Analytics)
+## Telemetry (Umami — self-hosted)
 
-This app uses **Vercel Web Analytics custom events** to understand user behavior and operational health without impacting UX.
+This app uses **Umami custom events** (self-hosted on Railway) to understand user behavior and operational health without impacting UX. Umami is privacy-focused, cookie-free, and gives the whole team dashboard access without a Vercel seat.
+
+### Infrastructure
+
+- **Instance**: `https://umami-production-c5d3.up.railway.app` (Railway project `shimmering-clarity` in ICRG workspace)
+- **Website ID**: `80e6d736-7ef9-4ae8-9db0-b47cf730702d` (domain: `app.glow.org`)
+- **Tracker script**: loaded in `app/layout.tsx`, gated to `NODE_ENV === "production"` so dev / preview builds don't pollute stats
+- **Stack**: Umami + Postgres + Valkey (Redis), single replica in `us-east4-eqdc4a`
 
 ### Where telemetry lives
 
 - **Client-side wrapper**: `lib/telemetry.ts`
   - Use `trackEvent(name, data?)` in client components.
-  - Enforces Vercel custom event constraints (flat, primitive values), truncation, and **never throws**.
+  - Calls `window.umami.track(name, data)` when the tracker is loaded; silent no-op otherwise (dev, ad-blockers, preview deployments).
+  - Applies Umami payload limits, truncation, and **never throws**.
+- **Client-side identify**: `lib/telemetry.ts` → `identifyWallet(address, extra?)`
+  - Associates the connected wallet with the current Umami session so backend joins can attribute events.
+  - Fires from `lib/wallet-session-logger.ts` on every connect / address_change.
 - **Server-side wrapper**: `lib/telemetry-server.ts`
-  - Use `await trackServerEvent(name, data?)` in API routes / server actions.
-  - Same payload safety guarantees and **never throws**.
+  - Use `await trackServerEvent(name, data?, options?)` in API routes / server actions.
+  - POSTs to Umami's `/api/send` endpoint with `{ type: "event", payload }`. Requires a non-empty `User-Agent` (Umami drops the event otherwise; we set one by default).
+  - Uses `keepalive: true` so telemetry doesn't block the API response.
+  - Configurable via `UMAMI_URL` and `UMAMI_WEBSITE_ID` env vars (default to production self-host).
 - **Geo extraction helper**: `lib/geo-context.ts`
   - Shared logic to extract `{ geo_country, geo_region }` from a `NextRequest` (`request.geo` + Vercel headers fallback).
 - **Geo bootstrap**: `middleware.ts`
-  - For **HTML document navigations only**, sets `geo_country` / `geo_region` cookies (24h TTL) so client events can include geo context.
+  - For **HTML document navigations only**, sets `geo_country` / `geo_region` cookies (24h TTL) so client events include geo context as event properties.
   - Only sets cookies when values are **missing or changed** (avoids repeated `Set-Cookie` on every navigation).
+  - Umami also derives its own session-level geo from IP. Our explicit `geo_country` / `geo_region` properties let us filter/segment events directly in the Events view, independent of session-level geo.
 
 ### Event naming
 
 - **Format**: `snake_case`
 - **Examples**:
-  - `wallet_view`
-  - `marketplace_deposit_tx_submitted`
+  - `wallet_connected`
+  - `marketplace_deposit_success`
   - `api_newsletter_subscribe_success`
 
-### Payload rules (important)
-
-Vercel custom event properties should be **flat** and **primitive**.
+### Payload rules (Umami constraints)
 
 - **Allowed values**: `string | number | boolean | null`
-- **Not allowed**: nested objects / arrays (the wrapper will stringify them, but don’t rely on that)
-- **Key/value length**: truncated to 255 chars
+- **Not allowed**: nested objects / arrays (the wrapper will stringify them, but don't rely on that)
+- **String values**: truncated to 500 chars
+- **Property keys**: truncated to 255 chars
+- **Max properties**: 50 per event
+- **Numbers**: up to 4 decimals of precision
 - **Do not send PII**: no emails; no IP; avoid full wallet addresses unless explicitly approved
 - **Tx hash**: allowed (we use `tx_hash` where it already exists in-memory)
 
 ### Geo fields (where users are located)
 
-We attach coarse geo to telemetry:
+We attach coarse geo to every client event:
 
-- **`geo_country`**: country code (e.g. `US`, `CA`)
+- **`geo_country`**: country code (e.g. `US`, `CA`, `KR`)
 - **`geo_region`**: region code (when available)
 
 How it works:
@@ -46,9 +61,9 @@ How it works:
 - On Vercel, the edge/runtime provides geo information via headers and (optionally) `request.geo`.
 - `middleware.ts` stores geo in cookies (`geo_country`, `geo_region`) with a 24h TTL **only for HTML document requests**, and only when missing/changed.
 - `trackEvent(...)` automatically merges `{ geo_country, geo_region }` into every client event.
-- Server-side events can add geo with `getGeoContextFromRequest(request)` (see `app/api/ens-names/route.ts`, `app/api/newsletter/route.ts`).
+- Server-side events can add geo with `getGeoContextFromRequest(request)` (see `app/api/newsletter/route.ts`).
 
-Local dev note: geo headers won’t exist locally, so geo fields may be `null` / absent.
+Local dev note: geo headers won't exist locally, so geo fields may be `null` / absent. Umami itself is also disabled in dev (`NODE_ENV !== "production"` gate), so this is moot.
 
 ### Instrumented areas (high level)
 
@@ -63,16 +78,19 @@ Local dev note: geo headers won’t exist locally, so geo fields may be `null` /
     - `marketplace_deposit_share_native_click`: user shared success with the native share sheet
       - props: `currency`, `application_id`, `fraction_id`, `steps_to_buy`, `tx_hash`, `has_image`
   - `app/marketplace/launchpad-view.tsx`: filters + CTAs + stats opens
+  - `app/marketplace/mining-center-view.tsx`: zone/sort filters (`mining_filter_change`)
 - **Buy flows**
   - `app/buy/view.tsx`: swap intent/result + dialog opens + smart-account blocks
   - `components/dialogs/buy-glow-dialog.tsx`: dialog funnel (open/close/submit/step results/success/error)
+- **Wallet**
+  - `lib/wallet-session-logger.ts`: `wallet_connected` event + `identifyWallet(address)` on every connect/address_change
 - **Home / Dashboard (Bento)**
   - `app/page.tsx`: dashboard entrypoint on `/`
   - `app/test/bento.tsx`: dashboard composition + dialogs
   - `app/test/widgets/*`: dashboard widgets
   - `app/wallet/claims-panel.tsx`: claims funnel (re-used inside dashboard widgets)
 - **API routes**
-  - `app/api/ens-names/route.ts`, `app/api/newsletter/route.ts`: request/success/error + duration + geo
+  - `app/api/newsletter/route.ts`: request/success/error + duration + geo
 
 ### Actions to track (Dashboard / Bento)
 
@@ -86,11 +104,12 @@ Most dashboard events should include:
 - **`wallet_connected`**: `boolean`
 - **`wallet_address`**: **raw wallet address (lowercased)** when available; otherwise `null`
   - Explicitly approved for this dashboard telemetry (see PII note above).
+  - Also automatically tied to sessions via `identifyWallet()`, but included on events for explicit filtering.
 - **`chain_id`**: optional number (when readily available)
 
 #### Amount bucketing (no exact amounts)
 
-For any “amount”-like telemetry, only send **bucket strings**:
+For any "amount"-like telemetry, only send **bucket strings**:
 
 - **Stablecoins (USDC/USDG)**: `amount_usd_bucket`
   - `0-25`, `25-100`, `100-250`, `250-1000`, `1000+`
@@ -119,6 +138,13 @@ All events below follow `snake_case` and use `dashboard_*` (dashboard surface ar
   - `dashboard_discord_click`: clicked Discord widget banner
     - props: `source`, `wallet_connected`, `wallet_address`
     - emitted by: `app/test/widgets/discord-widget.tsx`
+
+- **Wallet connection**
+
+  - `wallet_connected`: initial wallet connection (fires once per address on first connect)
+    - props: `chain_id`
+    - emitted by: `lib/wallet-session-logger.ts`
+  - Also: `identifyWallet(address, { chain_id })` is called on every connect/address_change to tie all subsequent events to the wallet.
 
 - **GCTL minting & staking (key protocol KPI)**
 
@@ -245,7 +271,7 @@ All events below follow `snake_case` and use `dashboard_*` (dashboard surface ar
     - props: `application_id`, `app_type`, `zone_id`
     - emitted by: `app/marketplace/launchpad-view.tsx`
 
-- **Mining (solar farm widget)**
+- **Mining (solar farm widget + mining-center)**
 
   - `dashboard_mining_details_open_click`: opened mining performance details dialog
     - props: `source`, `wallet_connected`, `wallet_address`, `cta` (`view_details|stats_block`)
@@ -256,6 +282,9 @@ All events below follow `snake_case` and use `dashboard_*` (dashboard surface ar
   - `dashboard_mining_filter_change`: changed filter in farms performance dialog
     - props: `filter` (`all|miners|delegations|other|in-progress`)
     - emitted by: `app/test/widgets/solar-farm-widget.tsx`
+  - `mining_filter_change`: changed filter on the mining-center listing page
+    - props: `filter_type` (`zone|sort|sort_order`), `filter_value`
+    - emitted by: `app/marketplace/mining-center-view.tsx`
 
 - **My Farms**
 
@@ -355,13 +384,7 @@ Events for the referral program, tracking user acquisition and engagement.
 
 #### Landing site (glow.org)
 
-The marketing site has its own analytics integration (`@vercel/analytics/next` in `glow.org/app/layout.tsx`). We emit:
-
-- `newsletter_subscribe_submit`
-- `newsletter_subscribe_success`
-- `newsletter_subscribe_error`
-
-from `glow.org/components/sections/newsletter.tsx` with props `{ source: "glow_org_newsletter_section", variant }` and **never** the email address.
+The marketing site (`glow.org/`) is a separate repo and still uses `@vercel/analytics/next`. It has its own Umami migration pending. Until then, marketing-site events (`newsletter_subscribe_*`) continue to flow to Vercel only.
 
 ### How to add a new event
 
@@ -372,10 +395,24 @@ from `glow.org/components/sections/newsletter.tsx` with props `{ source: "glow_o
    - Client: `import { trackEvent } from "@/lib/telemetry";`
    - Server: `import { trackServerEvent } from "@/lib/telemetry-server";`
 
-### Viewing events in Vercel
+### Viewing events in Umami
 
-In Vercel dashboard:
+Dashboard: [`umami-production-c5d3.up.railway.app/websites/80e6d736-7ef9-4ae8-9db0-b47cf730702d`](https://umami-production-c5d3.up.railway.app/websites/80e6d736-7ef9-4ae8-9db0-b47cf730702d)
 
-- Project → **Analytics** → **Web Analytics** → **Events** (Custom Events)
+- **Events view** — filter by event name, property values (including `geo_country` / `geo_region`)
+- **Reports** — pre-built funnels, retention, goals, journey, UTM
+- **Sessions** — per-visitor breakdown (identified by wallet address when connected, anonymous otherwise)
 
-Custom event properties appear as filters/dimensions (including `geo_country` / `geo_region`).
+### How wallets get tied to sessions
+
+`identifyWallet(address, { chain_id })` is called from `lib/wallet-session-logger.ts` on every `connect` / `address_change`. Umami stores the wallet address as the session's `sessionId`, so:
+
+- Every subsequent event from that session shows up under the wallet address in the Sessions view.
+- The backend can join `wallet_session_events` (custom telemetry we write to gca-crm-backend) with Umami session IDs for cross-system attribution.
+- Switching wallets mid-session updates the identify, so events land under the new wallet from that point on.
+
+### Not sent to Umami
+
+- **Pageviews in dev / preview**: the tracker script is gated on `NODE_ENV === "production"` in `app/layout.tsx`.
+- **Anything on Sepolia**: `trackEvent` and `trackServerEvent` early-return when `NEXT_PUBLIC_CHAIN_ID === "11155111"`.
+- **Marketing-site events**: still on Vercel until `glow.org/` migrates.
