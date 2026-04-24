@@ -974,7 +974,8 @@ export function BuyGlowDialog({
 
       setPhase("success");
       toast.success("Successfully purchased GLW!");
-      // USDC / USDG are 1:1 with USD. Anything else doesn't carry USD here.
+      // USD ticket-size bucket for cohort analysis. Revenue is owned by the
+      // backend pol/revenue sync.
       const payUsd =
         payToken === "USDC" || payToken === "USDG"
           ? Number(inputAmount)
@@ -985,7 +986,6 @@ export function BuyGlowDialog({
         estimated_glw: finalEstimatedGlw,
         has_bonding_step: hasBondingOutput,
         source,
-        revenue: payUsd != null && Number.isFinite(payUsd) ? payUsd : null,
         amount_usd_bucket:
           payUsd != null && Number.isFinite(payUsd) ? bucketUsd(payUsd) : null,
         referral_code:

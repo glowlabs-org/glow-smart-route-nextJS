@@ -2146,9 +2146,10 @@ export function DepositDialog({
       updateStepStatus("CONFIRM_TX", "completed", { txHash });
       setPhase("success");
 
-      // USDC/USDG are 1:1 with USD so costBigInt / 1e6 is exact revenue.
-      // GLW delegations don't carry USD here; revenue stays null.
-      const revenueUsd =
+      // USD ticket-size bucket for cohort analysis (whale vs retail).
+      // Revenue itself is owned by the backend pol/revenue sync, not here,
+      // to avoid double-counting in Umami's Revenue report.
+      const usdTicket =
         runtimeSelectedCurrency === "USDC"
           ? Number(costBigInt) / 1e6
           : null;
@@ -2164,9 +2165,8 @@ export function DepositDialog({
         tx_hash: txHash,
         farm_name: currentApplication.farmName ?? null,
         zone_name: currentApplication.zone?.name ?? null,
-        revenue: revenueUsd,
         amount_usd_bucket:
-          revenueUsd != null ? bucketUsd(revenueUsd) : null,
+          usdTicket != null ? bucketUsd(usdTicket) : null,
         referral_code:
           getStoredReferralAttribution()?.referralCode ?? null,
       });

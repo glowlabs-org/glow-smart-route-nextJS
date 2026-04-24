@@ -1298,12 +1298,6 @@ export function MintAndStakeGctlDialog({
 
       const { txHash, mintCurrency } = mintResult;
 
-      // Stablecoin pay currencies are 1:1 USD. ETH would need a live price
-      // feed to convert; leave revenue null in that branch.
-      const revenueUsd =
-        selectedCurrency === "USDC" || selectedCurrency === "USDG"
-          ? amountNumber
-          : null;
       trackGctlEvent("gctl_mint_stake_tx_sent", {
         step,
         region_id: selectedRegionId,
@@ -1312,10 +1306,6 @@ export function MintAndStakeGctlDialog({
         pay_amount_bucket: payAmountBucket,
         minted_gctl_bucket: mintedGctlBucket,
         tx_hash: txHash,
-        revenue:
-          revenueUsd != null && Number.isFinite(revenueUsd)
-            ? revenueUsd
-            : null,
         referral_code:
           getStoredReferralAttribution()?.referralCode ?? null,
       });

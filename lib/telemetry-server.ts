@@ -12,8 +12,12 @@ const UMAMI_URL =
 const UMAMI_WEBSITE_ID =
   process.env.UMAMI_WEBSITE_ID ?? "80e6d736-7ef9-4ae8-9db0-b47cf730702d";
 
-// Umami requires a non-empty User-Agent or it drops the payload silently.
-const SERVER_USER_AGENT = "glow-smart-route-nextJS/server";
+// Umami's tracker runs `isbot` on inbound User-Agent and silently drops
+// anything bot-ish (returns `{"beep":"boop"}`). Even a trailing token like
+// "GlowServerSync" trips it. Use a pure Chrome UA; server identity is
+// encoded in event `url` (e.g. /server) and `hostname` (app.glow.org).
+const SERVER_USER_AGENT =
+  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
 
 function truncateString(value: string, maxLen: number): string {
   if (value.length <= maxLen) return value;
@@ -92,7 +96,8 @@ export async function trackServerEvent(
 
     const payload: Record<string, unknown> = {
       website: UMAMI_WEBSITE_ID,
-      hostname: options?.hostname ?? "server",
+      // Must match a website-allowed domain or events are silently dropped.
+      hostname: options?.hostname ?? "app.glow.org",
       name: eventName,
       url: options?.url ?? "/server",
       referrer: options?.referrer ?? "",
