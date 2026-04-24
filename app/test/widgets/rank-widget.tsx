@@ -2,11 +2,9 @@
 
 import * as React from "react";
 
-import { useQuery } from "@tanstack/react-query";
 import { Info, X, Users, Trophy } from "lucide-react";
 import Link from "next/link";
 import { isAddress } from "viem";
-import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,6 +36,7 @@ import { trackEvent } from "@/lib/telemetry";
 import { cn } from "@/lib/utils";
 import {
   useImpactLeaderboardQuery,
+  useImpactScoreQuery,
   type ImpactGlowScoreResponse,
   type ImpactGlowScoreLeaderboardRow,
 } from "@/hooks";
@@ -45,7 +44,6 @@ import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import { useReferralLaunch } from "@/hooks/use-referral-launch";
 import { formatTopPercentile } from "@/utils/impact";
-import { getCurrentEpoch } from "@/utils/getCurrentEpoch";
 import { ArrowTopRightIcon } from "@radix-ui/react-icons";
 
 function formatPoints(
@@ -256,39 +254,16 @@ export function RankWidget({
   const totalWalletCount = leaderboardQuery.data?.totalWalletCount ?? 0;
   const normalizedWalletAddress = walletAddress?.toLowerCase() ?? "";
 
-  const currentWeek = getCurrentEpoch();
+  const weekRange = leaderboardQuery.data?.weekRange ?? null;
 
-  const impactScoreQuery = useQuery({
-    queryKey: ["impact-glow-score", walletAddress, currentWeek, "no-weekly"],
-    enabled: Boolean(hasWallet && isValidWalletAddress),
-    staleTime: 60_000,
-    gcTime: 10 * 60_000,
-    refetchOnWindowFocus: false,
-    retry: 0,
-    queryFn: async (): Promise<ImpactGlowScoreResponse> => {
-      try {
-        if (!walletAddress) throw new Error("Missing wallet address");
-        const url = new URL("/api/impact/glow-score", window.location.origin);
-        url.searchParams.set("walletAddress", walletAddress);
-        url.searchParams.set("endWeek", String(currentWeek));
-        url.searchParams.set("includeWeekly", "0");
-        url.searchParams.set("includeProjection", "1");
-        url.searchParams.set("includeReferral", "1");
-
-        const response = await fetch(url.toString(), {
-          headers: { Accept: "application/json" },
-        });
-        if (!response.ok) {
-          throw new Error(`Request failed (${response.status})`);
-        }
-        return (await response.json()) as ImpactGlowScoreResponse;
-      } catch (error) {
-        toast.error("Failed to load Impact Score", {
-          description: error instanceof Error ? error.message : String(error),
-        });
-        throw error;
-      }
-    },
+  const impactScoreQuery = useImpactScoreQuery({
+    walletAddress: walletAddress ?? null,
+    weekRange,
+    enabled: Boolean(hasWallet && isValidWalletAddress && weekRange),
+    toastTitle: "Failed to load Impact Score",
+    includeWeekly: false,
+    includeProjection: true,
+    includeReferral: true,
   });
 
   const impactScore = impactScoreQuery.data ?? null;
