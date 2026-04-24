@@ -59,6 +59,7 @@ import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import { formatUnits } from "viem";
 import { useAccount } from "wagmi";
 import { useFractionSplits } from "@/hooks";
+import { trackEvent } from "@/lib/telemetry";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SlidersHorizontal, X, ArrowRight, HelpCircle } from "lucide-react";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
@@ -344,14 +345,26 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
     onZoneChange: (v: string | null) => {
       setZoneParam(v);
       setIsDrawerOpen(false);
+      trackEvent("mining_filter_change", {
+        filter_type: "zone",
+        filter_value: v ?? "all",
+      });
     },
     onSortChange: (v: string) => {
       setSortParam(v);
       setIsDrawerOpen(false);
+      trackEvent("mining_filter_change", {
+        filter_type: "sort",
+        filter_value: v,
+      });
     },
     onSortOrderChange: (v: string) => {
       setSortOrderParam(v);
       setIsDrawerOpen(false);
+      trackEvent("mining_filter_change", {
+        filter_type: "sort_order",
+        filter_value: v,
+      });
     },
   };
 

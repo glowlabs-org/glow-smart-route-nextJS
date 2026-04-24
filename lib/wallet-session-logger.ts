@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useAccount } from "wagmi";
 import { hubPost } from "@/lib/api/hub-client";
 import { getStoredReferralAttribution } from "@/lib/referral-attribution";
+import { identifyWallet, trackEvent } from "@/lib/telemetry";
 
 /**
  * Passive demand telemetry: logs a single event each time a wallet connects,
@@ -143,6 +144,14 @@ export function useWalletSessionLogger(): void {
     lastChainIdRef.current = nextChainId;
 
     if (!eventType) return;
+
+    // Attribute all future Umami events to this wallet. Fires on every
+    // connect / address_change so the session always reflects the active address.
+    identifyWallet(canonicalAddress, { chain_id: nextChainId });
+
+    if (eventType === "connect") {
+      trackEvent("wallet_connected", { chain_id: nextChainId });
+    }
 
     const payload = buildPayload({
       walletAddress: canonicalAddress,

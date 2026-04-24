@@ -4,6 +4,7 @@ import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { WagmiWrapper } from "./providers/wagmiWrapper";
 import { ThemeProvider } from "./providers/theme-provider";
 import { Analytics } from "@vercel/analytics/next";
+import Script from "next/script";
 import { headers } from "next/headers";
 import { Metadata } from "next";
 import { SEO } from "@/lib/seo";
@@ -168,6 +169,15 @@ export default async function RootLayout({
           name="viewport"
           content="width=device-width, initial-scale=1, viewport-fit=cover"
         />
+
+        {/* Umami analytics (production only) — self-hosted on Railway */}
+        {process.env.NODE_ENV === "production" && (
+          <Script
+            src="https://umami-production-c5d3.up.railway.app/script.js"
+            data-website-id="80e6d736-7ef9-4ae8-9db0-b47cf730702d"
+            strategy="afterInteractive"
+          />
+        )}
       </head>
       <body className={`antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>

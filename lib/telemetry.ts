@@ -4,6 +4,38 @@ export interface TelemetryData {
   [key: string]: string | number | boolean | null;
 }
 
+// Umami global exposed by the tracker script in app/layout.tsx (production only).
+// Safe to call on the server or in dev; window.umami will be undefined and we
+// silently skip. Payload limits: 50 props, strings <=500 chars, 4-decimal nums.
+interface UmamiGlobal {
+  track: {
+    (): void;
+    (event: string, data?: Record<string, string | number | boolean | null>): void;
+  };
+  identify: {
+    (id: string, data?: Record<string, string | number | boolean | null>): void;
+    (data: Record<string, string | number | boolean | null>): void;
+  };
+}
+
+declare global {
+  interface Window {
+    umami?: UmamiGlobal;
+  }
+}
+
+function umamiTrack(name: string, data?: TelemetryData): void {
+  if (typeof window === "undefined") return;
+  const umami = window.umami;
+  if (!umami) return;
+  try {
+    if (data) umami.track(name, data);
+    else umami.track(name);
+  } catch {
+    // Telemetry must never impact UX.
+  }
+}
+
 function readCookieValue(cookieName: string): string | null {
   try {
     if (typeof document === "undefined") return null;
@@ -97,10 +129,34 @@ export function trackEvent(name: string, data?: Record<string, unknown>) {
     const sanitized = sanitizeData(geo ? { ...geo, ...(data || {}) } : data);
     if (sanitized && Object.keys(sanitized).length > 0) {
       track(eventName, sanitized);
+      umamiTrack(eventName, sanitized);
       return;
     }
     track(eventName);
+    umamiTrack(eventName);
   } catch {
     // Telemetry must never impact UX.
+  }
+}
+
+// Associate the connected wallet with the Umami session so backend joins can
+// attribute events to an address. Wallet addresses are not PII, but do NOT
+// pass emails / IPs / keys. Safe no-op if the tracker isn't loaded.
+export function identifyWallet(
+  walletAddress: string,
+  extra?: Record<string, unknown>,
+): void {
+  if (typeof window === "undefined") return;
+  const umami = window.umami;
+  if (!umami) return;
+  try {
+    const sanitized = sanitizeData(extra);
+    if (sanitized && Object.keys(sanitized).length > 0) {
+      umami.identify(walletAddress.toLowerCase(), sanitized);
+    } else {
+      umami.identify(walletAddress.toLowerCase());
+    }
+  } catch {
+    // swallow
   }
 }
