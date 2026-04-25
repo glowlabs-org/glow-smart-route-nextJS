@@ -3,6 +3,8 @@ import "./globals.css";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { WagmiWrapper } from "./providers/wagmiWrapper";
 import { ThemeProvider } from "./providers/theme-provider";
+import { LangProvider } from "@/lib/i18n";
+import { Analytics } from "@vercel/analytics/next";
 import Script from "next/script";
 import { headers } from "next/headers";
 import { Metadata } from "next";
@@ -184,10 +186,15 @@ export default async function RootLayout({
       </head>
       <body className={`antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <WagmiWrapper cookies={cookieHeader}>
-            <NuqsAdapter>{children}</NuqsAdapter>
-          </WagmiWrapper>
+          <LangProvider>
+            <WagmiWrapper cookies={cookieHeader}>
+              <NuqsAdapter>{children}</NuqsAdapter>
+            </WagmiWrapper>
+          </LangProvider>
         </ThemeProvider>
+        {/* Vercel Web Analytics — basic visitor + pageview tracking only.
+            Custom events are sent to Umami exclusively (lib/telemetry.ts). */}
+        <Analytics />
       </body>
     </html>
   );
