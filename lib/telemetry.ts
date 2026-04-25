@@ -61,6 +61,15 @@ function getGeoContextFromCookies(): Record<string, unknown> | undefined {
   };
 }
 
+// Active UI language (en | ko, etc.). Set by lib/i18n/provider.tsx on mount
+// and on user language switch. Stamped on every event so funnels, cohorts,
+// and breakdowns can be filtered by language without per-call instrumentation.
+function getLangFromCookies(): Record<string, unknown> | undefined {
+  const lang = readCookieValue("glow_lang");
+  if (!lang) return undefined;
+  return { lang };
+}
+
 function truncateString(value: string, maxLen: number): string {
   if (value.length <= maxLen) return value;
   return value.slice(0, maxLen);
@@ -124,7 +133,9 @@ export function trackEvent(name: string, data?: Record<string, unknown>) {
     const eventName = sanitizeEventName(name);
     if (!eventName) return;
     const geo = getGeoContextFromCookies();
-    const sanitized = sanitizeData(geo ? { ...geo, ...(data || {}) } : data);
+    const lang = getLangFromCookies();
+    const merged = { ...(geo || {}), ...(lang || {}), ...(data || {}) };
+    const sanitized = sanitizeData(merged);
     if (sanitized && Object.keys(sanitized).length > 0) {
       umamiTrack(eventName, sanitized);
       return;
