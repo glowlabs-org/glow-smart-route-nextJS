@@ -126,8 +126,9 @@ function formatEstimatedWeeklyRewards(params: {
   estimatedUserWeeklyUsd?: number;
   estimatedUserWeeklyPd?: number;
   estimatedUserWeeklyPdAsset?: string | null;
-}) {
+}, labels?: Pick<FarmsPerfLabels, "weekAbbrev">) {
   const pdAsset = formatProtocolDepositAsset(params.estimatedUserWeeklyPdAsset);
+  const weekAbbrev = labels?.weekAbbrev ?? "wk";
 
   if (
     pdAsset !== "GLW" &&
@@ -149,21 +150,23 @@ function formatEstimatedWeeklyRewards(params: {
         pdAsset
       )} ${pdAsset}`
     );
-    return `~${parts.join(" + ")}/wk`;
+    return `~${parts.join(" + ")}/${weekAbbrev}`;
   }
 
   if (
     (params.estimatedUserWeeklyGlw ?? 0) > 0 &&
     Number.isFinite(params.estimatedUserWeeklyGlw)
   ) {
-    return `~${formatGlwPrecise(params.estimatedUserWeeklyGlw ?? 0)} GLW/wk`;
+    return `~${formatGlwPrecise(
+      params.estimatedUserWeeklyGlw ?? 0
+    )} GLW/${weekAbbrev}`;
   }
 
   if (
     (params.estimatedUserWeeklyUsd ?? 0) > 0 &&
     Number.isFinite(params.estimatedUserWeeklyUsd)
   ) {
-    return `~$${fmtUsdAmount(params.estimatedUserWeeklyUsd ?? 0)}/wk`;
+    return `~$${fmtUsdAmount(params.estimatedUserWeeklyUsd ?? 0)}/${weekAbbrev}`;
   }
 
   return null;
@@ -236,6 +239,7 @@ interface PerformanceRowData {
 export function formatInProgressFilledLabel(params: {
   application: AuctionApplication | null | undefined;
   fractionType: "launchpad" | "mining-center";
+  labels?: Pick<FarmsPerfLabels, "filledLabel" | "minersFilledLabel">;
 }): string | null {
   const application = params.application;
   if (!application?.activeFraction) return null;
@@ -247,7 +251,10 @@ export function formatInProgressFilledLabel(params: {
     );
 
     if (totalShares <= 0 || remainingShares < 0) return null;
-    return `${Math.max(0, totalShares - remainingShares)} / ${totalShares} filled`;
+    const filled = Math.max(0, totalShares - remainingShares);
+    return params.labels?.filledLabel
+      ? params.labels.filledLabel(filled, totalShares)
+      : `${filled} / ${totalShares} filled`;
   }
 
   const remainingSteps = application.activeFraction.remainingSteps ?? null;
@@ -257,7 +264,10 @@ export function formatInProgressFilledLabel(params: {
     return null;
   }
 
-  return `${totalSteps - remainingSteps} / ${totalSteps} miners filled`;
+  const filled = totalSteps - remainingSteps;
+  return params.labels?.minersFilledLabel
+    ? params.labels.minersFilledLabel(filled, totalSteps)
+    : `${filled} / ${totalSteps} miners filled`;
 }
 
 function computeDerivedMetrics(data: PerformanceRowData) {
@@ -392,13 +402,21 @@ function getPendingNextMilestone(params: {
   if (phase === "epoch") {
     return {
       label: labels.milestoneWeekCloses,
-      date: formatRewardPipelineDate(epochEndsAtMs),
+      date: formatRewardPipelineDate(epochEndsAtMs, {
+        locale: labels.dateLocale,
+        month: "short",
+        day: "numeric",
+      }),
     };
   }
   if (phase === "audit") {
     return {
       label: labels.milestoneAuditedPosted,
-      date: formatRewardPipelineDate(auditPostedAtMs),
+      date: formatRewardPipelineDate(auditPostedAtMs, {
+        locale: labels.dateLocale,
+        month: "short",
+        day: "numeric",
+      }),
     };
   }
   return {
@@ -410,6 +428,7 @@ function getPendingNextMilestone(params: {
       phase === "claimable"
         ? labels.nowLabel
         : formatRewardPipelineDate(claimableAtMs, {
+            locale: labels.dateLocale,
             month: "short",
             day: "numeric",
             year: "numeric",
@@ -476,7 +495,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
       estimatedUserWeeklyPd: data.estimatedUserWeeklyPd,
       estimatedUserWeeklyPdAsset:
         data.estimatedUserWeeklyPdAsset ?? data.protocolDepositAsset,
-    }) ?? "—";
+    }, fp) ?? "—";
   const pendingTimeline = React.useMemo(() => {
     if (!isPendingStart || !data.purchaseDate) return null;
     return buildPendingRewardTimeline({ purchaseDate: data.purchaseDate });
@@ -495,15 +514,24 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
       })
     : null;
   const pendingStartsEarningLabel = pendingTimeline
-    ? formatRewardPipelineDate(pendingTimeline.epochEndsAtMs)
+    ? formatRewardPipelineDate(pendingTimeline.epochEndsAtMs, {
+        locale: fp.dateLocale,
+        month: "short",
+        day: "numeric",
+      })
     : null;
   const pendingAuditPostedLabel = pendingTimeline
-    ? formatRewardPipelineDate(pendingTimeline.auditPostedAtMs)
+    ? formatRewardPipelineDate(pendingTimeline.auditPostedAtMs, {
+        locale: fp.dateLocale,
+        month: "short",
+        day: "numeric",
+      })
     : null;
   const pendingClaimingStartsLabel = pendingTimeline
     ? pendingTimeline.phase === "claimable"
       ? fp.nowLabel
       : formatRewardPipelineDate(pendingTimeline.claimableAtMs, {
+          locale: fp.dateLocale,
           month: "short",
           day: "numeric",
           year: "numeric",
@@ -577,7 +605,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
             className
           )}
         >
-          IN PROGRESS
+          {fp.inProgress}
         </div>
       );
     }
@@ -595,7 +623,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
             className
           )}
         >
-          REWARDS
+          {fp.rewardsStatus}
         </div>
       );
     }
@@ -661,7 +689,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
           <div className="mt-4 space-y-3">
             <div className="flex items-center justify-between gap-3">
               <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                Funding
+                {fp.funding}
               </div>
               <div className="text-[10px] font-mono text-muted-foreground tabular-nums">
                 {Math.round(data.inProgressPercent ?? 0)}%
@@ -672,7 +700,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
             />
             <div className="flex items-center justify-between gap-3">
               <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                Est. weekly
+                {fp.estWeekly}
               </div>
               <div
                 className={cn(
@@ -743,7 +771,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                      Starts earning
+                      {fp.startsEarning}
                     </div>
                     <div className="text-sm font-semibold text-foreground mt-1">
                       {pendingStartsEarningLabel}
@@ -752,7 +780,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                   {pendingNextMilestone ? (
                     <div className="text-right">
                       <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                        Next step
+                        {fp.nextStep}
                       </div>
                       <div className="text-sm font-semibold text-foreground mt-1">
                         {pendingNextMilestone.date}
@@ -765,9 +793,9 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
               <div className="mt-4">
                 <div className="flex items-center justify-between text-[10px] font-mono text-muted-foreground mb-2">
                   <span>
-                    {data.weeksActive} / {data.totalWeeks} weeks
+                    {fp.weeksProgress(data.weeksActive, data.totalWeeks)}
                   </span>
-                  <span>{weeksRemaining} left</span>
+                  <span>{fp.weeksLeft(weeksRemaining)}</span>
                 </div>
                 <div className="relative w-full h-3 bg-muted/70 dark:bg-muted rounded-full overflow-hidden border border-border/30 dark:border-border/40">
                   <div
@@ -787,7 +815,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                   {!isMiner && !isPendingStart && (
                     <>
                       <span className="text-muted-foreground">
-                        PD Recovered
+                        {fp.pdRecovered}
                       </span>
                       <span
                         className={cn(
@@ -814,19 +842,25 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                         {isClaimReadyPending ? fp.readyToClaim : estimatedWeeklyLabel}
                       </span>
                       <div className="col-span-2 h-px bg-border/30 dark:bg-border/40" />
-                      <span className="text-muted-foreground">Rewards start</span>
+                      <span className="text-muted-foreground">
+                        {fp.rewardsStart}
+                      </span>
                       <span className="text-right text-foreground">
                         {pendingStartsEarningLabel ?? "—"}
                       </span>
                     </>
                   ) : (
                     <>
-                      <span className="text-muted-foreground">Emissions</span>
+                      <span className="text-muted-foreground">
+                        {fp.emissions}
+                      </span>
                       <span className="text-right text-[color:var(--color-miner-contrast)]">
                         +{fmtGlw(data.inflationGlw)} GLW
                       </span>
                       <div className="col-span-2 h-px bg-border/30 dark:bg-border/40" />
-                      <span className="text-muted-foreground font-bold">Total</span>
+                      <span className="text-muted-foreground font-bold">
+                        {fp.total}
+                      </span>
                       <span className="text-right font-bold text-foreground">
                         {isMiner ? fmtUsd(totalEarned) : totalRewardsLabel ?? "—"}
                       </span>
@@ -835,15 +869,21 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                 </div>
                 {isPendingStart && pendingTimeline ? (
                   <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm font-mono mt-3">
-                    <span className="text-muted-foreground">Week closes</span>
+                    <span className="text-muted-foreground">
+                      {fp.weekCloses}
+                    </span>
                     <span className="text-right text-foreground">
                       {pendingStartsEarningLabel}
                     </span>
-                    <span className="text-muted-foreground">Audited & posted</span>
+                    <span className="text-muted-foreground">
+                      {fp.auditedPosted}
+                    </span>
                     <span className="text-right text-foreground">
                       {pendingAuditPostedLabel ?? "—"}
                     </span>
-                    <span className="text-muted-foreground">First funds available</span>
+                    <span className="text-muted-foreground">
+                      {fp.firstFundsAvailable}
+                    </span>
                     <span className="flex items-center justify-end gap-1 text-right text-foreground">
                       <FirstFundsInfo labels={fp} />
                       <span>{pendingClaimingStartsLabel ?? "—"}</span>
@@ -851,14 +891,16 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm font-mono mt-3">
-                    <span className="text-muted-foreground">Time Progress</span>
+                    <span className="text-muted-foreground">
+                      {fp.timeProgress}
+                    </span>
                     <span className="text-right text-foreground">
                       {timePercent.toFixed(0)}%
                     </span>
                     {!isMiner && (
                       <>
                         <span className="text-muted-foreground">
-                          Value Progress
+                          {fp.valueProgress}
                         </span>
                         <span
                           className={cn(
@@ -914,24 +956,24 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
             {isInProgress ? (
               <div className="text-xs font-mono text-muted-foreground">
                 {data.inProgressFilledLabel ??
-                  `${Math.round(data.inProgressPercent ?? 0)}% filled`}
+                  fp.percentFilled(Math.round(data.inProgressPercent ?? 0))}
               </div>
             ) : isPendingStart && pendingTimeline ? (
               <div className="space-y-1">
                 <div className="text-xs font-mono text-muted-foreground">
-                  Starts earning {pendingStartsEarningLabel}
+                  {fp.startsEarningOn(pendingStartsEarningLabel)}
                 </div>
                 <div className="text-[11px] font-mono text-muted-foreground/80">
-                  First funds available {pendingClaimingStartsLabel}
+                  {fp.firstFundsAvailableOn(pendingClaimingStartsLabel)}
                 </div>
               </div>
             ) : (
               <div>
                 <div className="flex items-center justify-between text-[10px] font-mono text-muted-foreground mb-1.5">
                   <span>
-                    {data.weeksActive} / {data.totalWeeks} wks
+                    {fp.weeksProgressShort(data.weeksActive, data.totalWeeks)}
                   </span>
-                  <span>{weeksRemaining} left</span>
+                  <span>{fp.weeksLeft(weeksRemaining)}</span>
                 </div>
                 <div className="relative w-full h-2.5 bg-muted/70 dark:bg-muted rounded-full overflow-hidden border border-border/30 dark:border-border/40">
                   <div
@@ -949,7 +991,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
               <div className="flex items-center gap-4 w-full">
                 <div className="flex-1">
                   <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
-                    Funding
+                    {fp.funding}
                   </div>
                   <Progress
                     value={Math.max(
@@ -1018,7 +1060,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                 </div>
                 <div className="text-center min-w-[70px]">
                   <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
-                    Last week
+                    {fp.lastWeek}
                   </div>
                   <div className="text-sm font-mono font-semibold text-foreground tabular-nums">
                     {lastWeekValue}
@@ -1085,7 +1127,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                         <div className="flex items-center gap-2">
                           <div className="w-2 h-2 rounded-full bg-[color:var(--color-miner)]" />
                           <span className="text-muted-foreground">
-                            Est. weekly
+                            {fp.estWeekly}
                           </span>
                         </div>
                         <span className="text-[color:var(--color-miner-contrast)]">
@@ -1096,7 +1138,9 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                       <div className="flex justify-between">
                         <div className="flex items-center gap-2">
                           <div className="w-2 h-2 rounded-full bg-[color:var(--color-miner)]" />
-                          <span className="text-muted-foreground">Emissions</span>
+                          <span className="text-muted-foreground">
+                            {fp.emissions}
+                          </span>
                         </div>
                         <span className="text-[color:var(--color-miner-contrast)]">
                           +{fmtGlw(data.inflationGlw)} GLW
@@ -1106,14 +1150,18 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                     <div className="h-px bg-border/30 dark:bg-border/40 my-2" />
                     {isPendingStart ? (
                       <div className="flex justify-between font-bold">
-                        <span className="text-muted-foreground">Rewards start</span>
+                        <span className="text-muted-foreground">
+                          {fp.rewardsStart}
+                        </span>
                         <span className="text-foreground">
                           {pendingStartsEarningLabel ?? "—"}
                         </span>
                       </div>
                     ) : (
                       <div className="flex justify-between font-bold">
-                        <span className="text-muted-foreground">Total</span>
+                        <span className="text-muted-foreground">
+                          {fp.total}
+                        </span>
                         <span className="text-foreground">
                           {isMiner ? fmtUsd(totalEarned) : totalRewardsLabel ?? "—"}
                         </span>
@@ -1125,28 +1173,30 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                 {/* RIGHT: TIMELINE */}
                 <div>
                   <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-3">
-                    Timeline
+                    {fp.timeline}
                   </div>
                   <div className="space-y-2 text-sm font-mono">
                     {isPendingStart && pendingTimeline ? (
                       <>
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">
-                            Current phase
+                            {fp.currentPhase}
                           </span>
                           <span className="text-foreground">
                             {pendingPhaseLabel}
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Week closes</span>
+                          <span className="text-muted-foreground">
+                            {fp.weekCloses}
+                          </span>
                           <span className="text-foreground">
                             {pendingStartsEarningLabel ?? "—"}
                           </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">
-                            Audited & posted
+                            {fp.auditedPosted}
                           </span>
                           <span className="text-foreground">
                             {pendingAuditPostedLabel ?? "—"}
@@ -1155,7 +1205,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                         <div className="h-px bg-border/30 dark:bg-border/40 my-2" />
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">
-                            First funds available
+                            {fp.firstFundsAvailable}
                           </span>
                           <span className="flex items-center gap-1 text-foreground">
                             <FirstFundsInfo labels={fp} />
@@ -1166,14 +1216,16 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                     ) : (
                       <>
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Week</span>
+                          <span className="text-muted-foreground">
+                            {fp.week}
+                          </span>
                           <span className="text-foreground">
-                            {data.weeksActive} of {data.totalWeeks}
+                            {fp.weekOf(data.weeksActive, data.totalWeeks)}
                           </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">
-                            Time Progress
+                            {fp.timeProgress}
                           </span>
                           <span className="text-foreground">
                             {timePercent.toFixed(1)}%
@@ -1182,7 +1234,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                         {!isMiner && (
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">
-                              Value Progress
+                              {fp.valueProgress}
                             </span>
                             <span
                               className={cn(
@@ -1197,9 +1249,11 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                         )}
                         <div className="h-px bg-border/30 dark:bg-border/40 my-2" />
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Remaining</span>
+                          <span className="text-muted-foreground">
+                            {fp.remaining}
+                          </span>
                           <span className="text-foreground">
-                            {weeksRemaining} weeks
+                            {fp.remainingWeeks(weeksRemaining)}
                           </span>
                         </div>
                       </>
@@ -1414,13 +1468,13 @@ export function FarmsPerformanceDialogContent({
         const regionName = (() => {
           if (!farmMetadata) return "—";
           const region = regions.find((r) => r.id === farmMetadata.regionId);
-          return region?.name || `Region ${farmMetadata.regionId}`;
+          return region?.name || fp.regionFallback(farmMetadata.regionId);
         })();
 
         const displayName =
           farmMetadata?.name ||
           farmNameByFarmId.get(farm.farmId) ||
-          `Farm ${farm.farmId.substring(0, 8)}`;
+          fp.farmFallback(farm.farmId.substring(0, 8));
 
         if (farm.type === "launchpad") {
           const protocolDepositAsset = formatProtocolDepositAsset(
@@ -1483,7 +1537,7 @@ export function FarmsPerformanceDialogContent({
       rewardsBreakdown.otherFarmsWithRewards?.farms ?? []
     ).map((farm): PerformanceRowData => {
       const displayName =
-        farm.farmName || `Farm ${farm.farmId.substring(0, 8)}`;
+        farm.farmName || fp.farmFallback(farm.farmId.substring(0, 8));
       const identityDetail = farm.asset ?? "—";
 
       const isProtocolDepositUsd = farm.asset === "USDG" || farm.asset === "USDC";
@@ -1528,6 +1582,7 @@ export function FarmsPerformanceDialogContent({
 
     return [...farmRows, ...otherRows];
   }, [
+    fp,
     farmNameByFarmId,
     launchpadDelegatedAmountsByFarmId,
     purchasedFarms,
@@ -1639,7 +1694,7 @@ export function FarmsPerformanceDialogContent({
       const existing = byFarm.get(pendingKey) ?? {
         farmId,
         applicationId: evt.applicationId,
-        farmName: evt.farmName || `Farm ${farmId.substring(0, 8)}`,
+        farmName: evt.farmName || fp.farmFallback(farmId.substring(0, 8)),
         purchaseDate: evt.purchaseDate ?? null,
         fractionType,
         launchpadCurrency,
@@ -1746,7 +1801,7 @@ export function FarmsPerformanceDialogContent({
               const region = regions.find((r) => r.id === farmData.regionId);
               if (region?.name) return region.name;
             }
-            return launchpadApp?.zone?.name || "Launchpad";
+            return launchpadApp?.zone?.name || fp.launchpadLabel;
           })();
         const launchpadCurrency =
           item.launchpadCurrency ?? resolveDelegationCurrency(launchpadApp);
@@ -1785,7 +1840,7 @@ export function FarmsPerformanceDialogContent({
             const region = regions.find((r) => r.id === farmData.regionId);
             if (region?.name) return region.name;
           }
-          return miningCenterApp?.zone?.name || "Miner";
+          return miningCenterApp?.zone?.name || fp.minerLabel;
         })();
       const investedUsd = parseUsdcFromBaseUnits(item.totalAmount.toString());
       return {
@@ -1808,6 +1863,7 @@ export function FarmsPerformanceDialogContent({
       };
     });
   }, [
+    fp,
     launchpadDelegatedAmountsByFarmId,
     regions,
     purchasedFarms,
@@ -1854,7 +1910,7 @@ export function FarmsPerformanceDialogContent({
 
     combined.forEach((item) => {
       const app = item.application;
-      const zoneName = app?.zone?.name || "Launchpad";
+      const zoneName = app?.zone?.name || fp.launchpadLabel;
       const delegationCurrency =
         item.fractionType === "launchpad"
           ? item.delegationCurrency ?? resolveDelegationCurrency(app)
@@ -1862,10 +1918,11 @@ export function FarmsPerformanceDialogContent({
       const filledLabel = formatInProgressFilledLabel({
         application: app,
         fractionType: item.fractionType,
+        labels: fp,
       });
 
       const displayName =
-        app?.farmName || `Farm ${item.applicationId.substring(0, 8)}`;
+        app?.farmName || fp.farmFallback(item.applicationId.substring(0, 8));
       const rowFarmId = app?.farmId ?? item.applicationId;
       const rowKey =
         item.fractionType === "launchpad"
@@ -1954,6 +2011,7 @@ export function FarmsPerformanceDialogContent({
 
     return Array.from(rowsByKey.values());
   }, [
+    fp,
     launchpadDelegatedAmountsByFarmId,
     miningCenterInProgressWithEstimates,
     sponsorshipsInProgressWithEstimates,
@@ -2024,7 +2082,7 @@ export function FarmsPerformanceDialogContent({
       {/* Header */}
       <DialogHeader className="px-4 sm:px-6 py-4 sm:py-5 border-b border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 flex-shrink-0 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6 space-y-0">
         <DialogTitle className="text-xl sm:text-2xl font-bold font-mono uppercase tracking-wide leading-tight">
-          Farm Performance
+          {fp.farmPerformance}
         </DialogTitle>
 
         <Tabs
@@ -2046,14 +2104,14 @@ export function FarmsPerformanceDialogContent({
               value="all"
               className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-[#ffb472] data-[state=active]:bg-[#ffb472]/12 data-[state=active]:border data-[state=active]:border-[#ffb472]"
             >
-              ALL
+              {fp.all}
             </TabsTrigger>
             {tabCounts.miners > 0 || filter === "miners" ? (
               <TabsTrigger
                 value="miners"
                 className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-[color:var(--color-miner)] data-[state=active]:bg-[color:var(--color-miner)]/12 data-[state=active]:border data-[state=active]:border-[color:var(--color-miner)]"
               >
-                MINERS
+                {fp.miners}
               </TabsTrigger>
             ) : null}
             {tabCounts.delegations > 0 || filter === "delegations" ? (
@@ -2061,7 +2119,7 @@ export function FarmsPerformanceDialogContent({
                 value="delegations"
                 className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-delegation-purple data-[state=active]:bg-delegation-purple/12 data-[state=active]:border data-[state=active]:border-delegation-purple"
               >
-                DELEGATIONS
+                {fp.delegations}
               </TabsTrigger>
             ) : null}
             {tabCounts.other > 0 || filter === "other" ? (
@@ -2069,7 +2127,7 @@ export function FarmsPerformanceDialogContent({
                 value="other"
                 className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-emerald-700 dark:data-[state=active]:text-[color:var(--color-glow-green)] data-[state=active]:bg-[color:var(--color-glow-green)]/10 data-[state=active]:border data-[state=active]:border-[color:var(--color-glow-green)]"
               >
-                OTHER
+                {fp.other}
               </TabsTrigger>
             ) : null}
             {tabCounts.inProgress > 0 || filter === "in-progress" ? (
@@ -2077,7 +2135,7 @@ export function FarmsPerformanceDialogContent({
                 value="in-progress"
                 className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-delegation-purple data-[state=active]:bg-delegation-purple/12 data-[state=active]:border data-[state=active]:border-delegation-purple"
               >
-                IN PROGRESS
+                {fp.inProgress}
               </TabsTrigger>
             ) : null}
           </TabsList>
@@ -2086,10 +2144,10 @@ export function FarmsPerformanceDialogContent({
 
       {/* Legend / Columns */}
       <div className="hidden sm:grid grid-cols-12 px-6 py-3 border-b border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 text-xs font-mono uppercase text-muted-foreground tracking-wider flex-shrink-0 gap-4">
-        <div className="col-span-3">Identity</div>
-        <div className="col-span-3 px-2">Lifecycle</div>
-        <div className="col-span-4 text-center">Key Metrics</div>
-        <div className="col-span-2 text-right">Progress</div>
+        <div className="col-span-3">{fp.identity}</div>
+        <div className="col-span-3 px-2">{fp.lifecycle}</div>
+        <div className="col-span-4 text-center">{fp.keyMetrics}</div>
+        <div className="col-span-2 text-right">{fp.progress}</div>
       </div>
 
       {/* Scrollable List */}
@@ -2099,7 +2157,7 @@ export function FarmsPerformanceDialogContent({
             {!hasWallet ? (
               <div className="py-16 flex flex-col items-center justify-center gap-3 text-center">
                 <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-                  Connect your wallet to view farm performance
+                  {fp.connectWalletPrompt}
                 </div>
                 <ConnectButton
                   variant="default"
@@ -2135,7 +2193,7 @@ export function FarmsPerformanceDialogContent({
                       refetchRewards();
                     }}
                   >
-                    Retry
+                    {fp.retry}
                   </Button>
                 ) : null}
               </div>
@@ -2154,8 +2212,7 @@ export function FarmsPerformanceDialogContent({
                   (!Number.isFinite(glwSpotPriceUsd ?? NaN) ||
                     (glwSpotPriceUsd ?? 0) <= 0) && (
                     <div className="rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-3 text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
-                      ROI requires GLW spot price; showing $0 until price is
-                      available.
+                      {fp.roiRequiresSpotPrice}
                     </div>
                   )}
                 {visibleRowsWithInProgress.map((row) => (
@@ -2182,6 +2239,8 @@ interface FarmsPerformanceDialogWidgetProps {
 export default function FarmsPerformanceDialogWidget({
   walletAddress,
 }: FarmsPerformanceDialogWidgetProps) {
+  const { t } = useLang();
+  const fp = t.bigDialogs.farmsPerformance;
   const [isModalOpen, setIsModalOpen] = React.useState(false);
 
   return (
@@ -2191,10 +2250,10 @@ export default function FarmsPerformanceDialogWidget({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <CardTitle className="tracking-tight text-sm font-bold text-foreground uppercase font-mono">
-                Glow Mining
+                {fp.glowMining}
               </CardTitle>
               <span className="px-2 py-0.5 rounded-full bg-muted text-xs text-muted-foreground font-mono">
-                Last 10 Weeks
+                {fp.last10Weeks}
               </span>
             </div>
             <DialogTrigger asChild>
@@ -2204,7 +2263,7 @@ export default function FarmsPerformanceDialogWidget({
                 className="h-7 text-xs font-mono text-muted-foreground hover:text-foreground hover:bg-muted gap-1"
               >
                 <LayoutGrid className="w-3 h-3" />
-                View Details
+                {fp.viewDetails}
               </Button>
             </DialogTrigger>
           </div>
@@ -2212,7 +2271,7 @@ export default function FarmsPerformanceDialogWidget({
 
         <CardContent className="flex-1 min-h-0 p-6 flex flex-col gap-6">
           <div className="flex items-center justify-center h-full text-muted-foreground font-mono text-xs">
-            [ Chart View Component ]
+            {fp.chartViewComponent}
           </div>
         </CardContent>
       </Card>

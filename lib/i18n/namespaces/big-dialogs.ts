@@ -317,6 +317,7 @@ export interface BigDialogsStrings {
     phaseFinalizing: string;
     phaseClaimReady: string;
     phasePending: string;
+    dateLocale: string;
     milestoneWeekCloses: string;
     milestoneAuditedPosted: string;
     milestoneFundsAvailable: string;
@@ -334,6 +335,54 @@ export interface BigDialogsStrings {
     rewardPipeline: string;
     breakdown: string;
     recovered: string;
+    inProgress: string;
+    rewardsStatus: string;
+    funding: string;
+    startsEarning: string;
+    nextStep: string;
+    pdRecovered: string;
+    rewardsStart: string;
+    emissions: string;
+    total: string;
+    weekCloses: string;
+    auditedPosted: string;
+    firstFundsAvailable: string;
+    timeProgress: string;
+    valueProgress: string;
+    timeline: string;
+    currentPhase: string;
+    week: string;
+    remaining: string;
+    lastWeek: string;
+    identity: string;
+    lifecycle: string;
+    keyMetrics: string;
+    progress: string;
+    farmPerformance: string;
+    all: string;
+    miners: string;
+    delegations: string;
+    other: string;
+    connectWalletPrompt: string;
+    retry: string;
+    roiRequiresSpotPrice: string;
+    glowMining: string;
+    last10Weeks: string;
+    viewDetails: string;
+    chartViewComponent: string;
+    weekAbbrev: string;
+    filledLabel: (filled: number, total: number) => string;
+    minersFilledLabel: (filled: number, total: number) => string;
+    percentFilled: (percent: number) => string;
+    weeksProgress: (active: number, total: number) => string;
+    weeksProgressShort: (active: number, total: number) => string;
+    weeksLeft: (weeks: number) => string;
+    weekOf: (active: number, total: number) => string;
+    remainingWeeks: (weeks: number) => string;
+    startsEarningOn: (date: string | null) => string;
+    firstFundsAvailableOn: (date: string | null) => string;
+    regionFallback: (id: number | string) => string;
+    farmFallback: (id: string) => string;
     launchpadLabel: string;
     minerLabel: string;
     pending: string;
@@ -710,6 +759,7 @@ const en: BigDialogsStrings = {
     phaseFinalizing: "Finalizing",
     phaseClaimReady: "Claim Ready",
     phasePending: "Pending",
+    dateLocale: "en-US",
     milestoneWeekCloses: "Week closes",
     milestoneAuditedPosted: "Audited & posted",
     milestoneFundsAvailable: "Funds available",
@@ -728,6 +778,55 @@ const en: BigDialogsStrings = {
     rewardPipeline: "Reward Pipeline",
     breakdown: "Breakdown",
     recovered: "Recovered",
+    inProgress: "In progress",
+    rewardsStatus: "Rewards",
+    funding: "Funding",
+    startsEarning: "Starts earning",
+    nextStep: "Next step",
+    pdRecovered: "PD Recovered",
+    rewardsStart: "Rewards start",
+    emissions: "Emissions",
+    total: "Total",
+    weekCloses: "Week closes",
+    auditedPosted: "Audited & posted",
+    firstFundsAvailable: "First funds available",
+    timeProgress: "Time Progress",
+    valueProgress: "Value Progress",
+    timeline: "Timeline",
+    currentPhase: "Current phase",
+    week: "Week",
+    remaining: "Remaining",
+    lastWeek: "Last week",
+    identity: "Identity",
+    lifecycle: "Lifecycle",
+    keyMetrics: "Key Metrics",
+    progress: "Progress",
+    farmPerformance: "Farm Performance",
+    all: "All",
+    miners: "Miners",
+    delegations: "Delegations",
+    other: "Other",
+    connectWalletPrompt: "Connect your wallet to view farm performance",
+    retry: "Retry",
+    roiRequiresSpotPrice:
+      "ROI requires GLW spot price; showing $0 until price is available.",
+    glowMining: "Glow Mining",
+    last10Weeks: "Last 10 Weeks",
+    viewDetails: "View Details",
+    chartViewComponent: "[ Chart View Component ]",
+    weekAbbrev: "wk",
+    filledLabel: (filled, total) => `${filled} / ${total} filled`,
+    minersFilledLabel: (filled, total) => `${filled} / ${total} miners filled`,
+    percentFilled: (percent) => `${percent}% filled`,
+    weeksProgress: (active, total) => `${active} / ${total} weeks`,
+    weeksProgressShort: (active, total) => `${active} / ${total} wks`,
+    weeksLeft: (weeks) => `${weeks} left`,
+    weekOf: (active, total) => `${active} of ${total}`,
+    remainingWeeks: (weeks) => `${weeks} weeks`,
+    startsEarningOn: (date) => `Starts earning ${date ?? "—"}`,
+    firstFundsAvailableOn: (date) => `First funds available ${date ?? "—"}`,
+    regionFallback: (id) => `Region ${id}`,
+    farmFallback: (id) => `Farm ${id}`,
     launchpadLabel: "Launchpad",
     minerLabel: "Miner",
     pending: "Pending",
@@ -1103,6 +1202,7 @@ const ko: BigDialogsStrings = {
     phaseFinalizing: "확정 중",
     phaseClaimReady: "클레임 준비",
     phasePending: "대기 중",
+    dateLocale: "ko-KR",
     milestoneWeekCloses: "주간 마감",
     milestoneAuditedPosted: "감사 및 게시 완료",
     milestoneFundsAvailable: "자금 사용 가능",
@@ -1121,6 +1221,55 @@ const ko: BigDialogsStrings = {
     rewardPipeline: "리워드 파이프라인",
     breakdown: "내역",
     recovered: "회수됨",
+    inProgress: "진행 중",
+    rewardsStatus: "리워드",
+    funding: "모금",
+    startsEarning: "수익 시작",
+    nextStep: "다음 단계",
+    pdRecovered: "PD 회수",
+    rewardsStart: "리워드 시작",
+    emissions: "발행분",
+    total: "총합",
+    weekCloses: "주간 마감",
+    auditedPosted: "감사 및 게시 완료",
+    firstFundsAvailable: "첫 자금 사용 가능",
+    timeProgress: "시간 진행률",
+    valueProgress: "가치 진행률",
+    timeline: "타임라인",
+    currentPhase: "현재 단계",
+    week: "주차",
+    remaining: "남음",
+    lastWeek: "지난주",
+    identity: "식별 정보",
+    lifecycle: "수명 주기",
+    keyMetrics: "핵심 지표",
+    progress: "진행률",
+    farmPerformance: "발전소 성과",
+    all: "전체",
+    miners: "마이너",
+    delegations: "위임",
+    other: "기타",
+    connectWalletPrompt: "발전소 성과를 보려면 지갑을 연결하세요",
+    retry: "다시 시도",
+    roiRequiresSpotPrice:
+      "ROI 계산에는 GLW 현물 가격이 필요합니다. 가격을 사용할 수 있을 때까지 $0으로 표시합니다.",
+    glowMining: "Glow 마이닝",
+    last10Weeks: "최근 10주",
+    viewDetails: "상세 보기",
+    chartViewComponent: "[ 차트 보기 컴포넌트 ]",
+    weekAbbrev: "주",
+    filledLabel: (filled, total) => `${filled} / ${total} 충족`,
+    minersFilledLabel: (filled, total) => `${filled} / ${total} 마이너 충족`,
+    percentFilled: (percent) => `${percent}% 충족`,
+    weeksProgress: (active, total) => `${active} / ${total}주`,
+    weeksProgressShort: (active, total) => `${active} / ${total}주`,
+    weeksLeft: (weeks) => `${weeks}주 남음`,
+    weekOf: (active, total) => `${active} / ${total}`,
+    remainingWeeks: (weeks) => `${weeks}주`,
+    startsEarningOn: (date) => `수익 시작 ${date ?? "—"}`,
+    firstFundsAvailableOn: (date) => `첫 자금 사용 가능 ${date ?? "—"}`,
+    regionFallback: (id) => `지역 ${id}`,
+    farmFallback: (id) => `발전소 ${id}`,
     launchpadLabel: "런치패드",
     minerLabel: "마이너",
     pending: "대기 중",
