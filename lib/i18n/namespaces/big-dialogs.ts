@@ -259,6 +259,36 @@ export interface BigDialogsStrings {
     regionLabel: string;
     powerActivated: string;
     glwDirected: string;
+    back: string;
+    stepCount: (current: number, total: number) => string;
+    gctlName: string;
+    gctlTagline: string;
+    gctlIntro: string;
+    gctlNonTransferable: string;
+    nonTransferable: string;
+    boostImpactScoreDesc: string;
+    selectRegion: string;
+    currentShare: (share: string) => string;
+    glwPerWeek: string;
+    inputAmount: string;
+    availableAmount: (amount: string, currency: string) => string;
+    finalizingCountdown: (seconds: number) => string;
+    transactionFailedDesc: string;
+    rewardsRedirected: string;
+    pointsUnit: string;
+    understandTitle: string;
+    understandRedirectPrefix: string;
+    understandRedirectStrong: string;
+    understandRedirectSuffix: string;
+    understandUnstakingPrefix: string;
+    understandUnstakingStrong: string;
+    understandUnstakingSuffix: string;
+    swappingEth: string;
+    signing: string;
+    successDesc: string;
+    profileUpdateDelay: string;
+    pointsGained: (amount: string) => string;
+    perWeekShort: string;
   };
 
   contribute: {
@@ -700,6 +730,41 @@ const en: BigDialogsStrings = {
     regionLabel: "Region",
     powerActivated: "Power Activated",
     glwDirected: "GLW Directed",
+    back: "Back",
+    stepCount: (current, total) => `Step ${current}/${total}`,
+    gctlName: "Glow Control (GCTL)",
+    gctlTagline: "Governance • Impact • Rewards",
+    gctlIntro:
+      "GCTL is the governance power that directs where solar infrastructure is built. By staking to a region, you direct GLW emissions to fund solar farms there.",
+    gctlNonTransferable:
+      "GCTL is currently managed off-chain. It is non-transferable and cannot be sold or traded at this time.",
+    nonTransferable: "non-transferable",
+    boostImpactScoreDesc:
+      "Earn 3 pts per GLW steered on the leaderboard.",
+    selectRegion: "Select Region",
+    currentShare: (share) => `Current Share: ${share}`,
+    glwPerWeek: "GLW/week",
+    inputAmount: "Input Amount",
+    availableAmount: (amount, currency) => `Available: ${amount} ${currency}`,
+    finalizingCountdown: (seconds) => `Finalizing (≈ ${seconds}s)…`,
+    transactionFailedDesc: "We couldn’t complete your transaction.",
+    rewardsRedirected: "Rewards Redirected",
+    pointsUnit: "pts",
+    understandTitle: "I understand that:",
+    understandRedirectPrefix: "GCTL ",
+    understandRedirectStrong: "redirects GLW emissions to farms",
+    understandRedirectSuffix: " in the selected region — not to my wallet",
+    understandUnstakingPrefix: "Unstaking takes ",
+    understandUnstakingStrong: "~100 weeks",
+    understandUnstakingSuffix: " (1% release per week)",
+    swappingEth: "Swapping ETH...",
+    signing: "Signing...",
+    successDesc:
+      "Your Governance Power is now live and directing rewards.",
+    profileUpdateDelay:
+      "It may take up to 36 seconds to appear on your profile.",
+    pointsGained: (amount) => `+${amount} gained`,
+    perWeekShort: "/wk",
   },
 
   contribute: {
@@ -1143,6 +1208,41 @@ const ko: BigDialogsStrings = {
     regionLabel: "지역",
     powerActivated: "파워 활성화됨",
     glwDirected: "GLW 할당됨",
+    back: "뒤로",
+    stepCount: (current, total) => `단계 ${current}/${total}`,
+    gctlName: "Glow Control (GCTL)",
+    gctlTagline: "거버넌스 • 임팩트 • 리워드",
+    gctlIntro:
+      "GCTL은 태양광 인프라가 어디에 구축될지 지시하는 거버넌스 파워입니다. 지역에 스테이크하면 GLW 발행분이 해당 지역의 태양광 발전소 자금으로 향합니다.",
+    gctlNonTransferable:
+      "GCTL은 현재 오프체인으로 관리됩니다. 양도할 수 없으며 지금은 판매하거나 거래할 수 없습니다.",
+    nonTransferable: "양도 불가",
+    boostImpactScoreDesc:
+      "리더보드에서 할당한 GLW 1개당 3 pts를 획득합니다.",
+    selectRegion: "지역 선택",
+    currentShare: (share) => `현재 비중: ${share}`,
+    glwPerWeek: "GLW/주",
+    inputAmount: "입력 금액",
+    availableAmount: (amount, currency) => `사용 가능: ${amount} ${currency}`,
+    finalizingCountdown: (seconds) => `마무리 중 (약 ${seconds}초)…`,
+    transactionFailedDesc: "트랜잭션을 완료하지 못했습니다.",
+    rewardsRedirected: "리워드 재분배",
+    pointsUnit: "pts",
+    understandTitle: "다음을 이해했습니다:",
+    understandRedirectPrefix: "GCTL은 ",
+    understandRedirectStrong: "GLW 발행분을 발전소로 재분배합니다",
+    understandRedirectSuffix: " 선택한 지역 안에서만 적용되며 내 지갑으로 들어오지 않습니다",
+    understandUnstakingPrefix: "언스테이킹에는 ",
+    understandUnstakingStrong: "약 100주",
+    understandUnstakingSuffix: "가 걸립니다 (주당 1% 해제)",
+    swappingEth: "ETH 스왑 중...",
+    signing: "서명 중...",
+    successDesc:
+      "거버넌스 파워가 활성화되어 리워드 방향을 지정하고 있습니다.",
+    profileUpdateDelay:
+      "프로필에 표시되기까지 최대 36초가 걸릴 수 있습니다.",
+    pointsGained: (amount) => `+${amount} 획득`,
+    perWeekShort: "/주",
   },
 
   contribute: {

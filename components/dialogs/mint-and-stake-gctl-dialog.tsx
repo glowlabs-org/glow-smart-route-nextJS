@@ -1512,7 +1512,7 @@ export function MintAndStakeGctlDialog({
                     disabled={isBusy}
                   >
                     <ChevronLeft className="h-4 w-4" />
-                    <span className="ml-1">Back</span>
+                    <span className="ml-1">{m.back}</span>
                   </Button>
                 ) : (
                   <div className="h-8 w-[66px]" />
@@ -1526,7 +1526,7 @@ export function MintAndStakeGctlDialog({
 
                 <div className="flex items-center gap-2">
                   <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-                    Step {step}/3
+                    {m.stepCount(step, 3)}
                   </div>
                   {showHeaderClose && (
                     <DialogClose asChild>
@@ -1558,19 +1558,16 @@ export function MintAndStakeGctlDialog({
                     </div>
                     <div>
                       <div className="text-base font-semibold">
-                        Glow Control (GCTL)
+                        {m.gctlName}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        Governance • Impact • Rewards
+                        {m.gctlTagline}
                       </div>
                     </div>
                   </div>
 
                   <div className="text-sm text-muted-foreground leading-relaxed">
-                    GCTL is the governance power that directs where solar
-                    infrastructure is built. By staking to a region, you direct{" "}
-                    <span className="text-foreground font-medium">GLW</span>{" "}
-                    emissions to fund solar farms there.
+                    {m.gctlIntro}
                   </div>
 
                   <div className="pt-1">
@@ -1579,11 +1576,7 @@ export function MintAndStakeGctlDialog({
                         {m.offChainAsset}
                       </div>
                       <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
-                        GCTL is currently managed off-chain. It is{" "}
-                        <span className="text-foreground font-medium">
-                          non-transferable
-                        </span>{" "}
-                        and cannot be sold or traded at this time.
+                        {m.gctlNonTransferable}
                       </p>
                     </div>
                   </div>
@@ -1603,7 +1596,7 @@ export function MintAndStakeGctlDialog({
                           {m.boostImpactScore}
                         </div>
                         <div className="text-xs text-muted-foreground mt-0.5">
-                          Earn 3 pts per GLW steered on the leaderboard.
+                          {m.boostImpactScoreDesc}
                         </div>
                       </div>
                     </div>
@@ -1641,7 +1634,7 @@ export function MintAndStakeGctlDialog({
               // STEP 2: SELECT REGION
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <div className="text-sm font-medium">Select Region</div>
+                  <div className="text-sm font-medium">{m.selectRegion}</div>
                   <div className="text-xs text-muted-foreground">
                     {m.whereToDirect}
                   </div>
@@ -1661,7 +1654,9 @@ export function MintAndStakeGctlDialog({
                     const glwPerWeek = Number((r as any).glwPerWeek);
                     const glwLabel =
                       Number.isFinite(glwPerWeek) && glwPerWeek > 0
-                        ? `${formatCompact(glwPerWeek, { maximumFractionDigits: 1 })} GLW/wk`
+                        ? `${formatCompact(glwPerWeek, {
+                            maximumFractionDigits: 1,
+                          })} ${m.glwPerWeek}`
                         : null;
                     const isCgp = r.name?.toLowerCase().includes("clean grid");
 
@@ -1688,7 +1683,7 @@ export function MintAndStakeGctlDialog({
                               )}
                             </div>
                             <div className="text-xs text-muted-foreground mt-0.5">
-                              Current Share: {shareLabel}
+                              {m.currentShare(shareLabel)}
                             </div>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
@@ -1743,9 +1738,9 @@ export function MintAndStakeGctlDialog({
                       <div className="text-sm text-muted-foreground">
                         {stakeUiState === "processing"
                           ? trackingTxHash
-                            ? `Finalizing (≈ ${transferCountdown}s)…`
-                            : "Follow the steps below in your wallet."
-                          : "We couldn’t complete your transaction."}
+                            ? m.finalizingCountdown(transferCountdown)
+                            : m.followSteps
+                          : m.transactionFailedDesc}
                       </div>
                     </div>
 
@@ -1798,13 +1793,16 @@ export function MintAndStakeGctlDialog({
                   <>
                     <div className="space-y-2">
                       <div className="flex items-center justify-between px-1">
-                        <div className="text-sm font-medium">Input Amount</div>
+                        <div className="text-sm font-medium">
+                          {m.inputAmount}
+                        </div>
                         <div className="text-xs font-mono text-muted-foreground">
-                          Available:{" "}
-                          {formatTokenAmount(maxAmountNumber, {
-                            maximumFractionDigits: 2,
-                          })}{" "}
-                          {stakeMode === "stake" ? "GCTL" : selectedCurrency}
+                          {m.availableAmount(
+                            formatTokenAmount(maxAmountNumber, {
+                              maximumFractionDigits: 2,
+                            }),
+                            stakeMode === "stake" ? "GCTL" : selectedCurrency,
+                          )}
                         </div>
                       </div>
 
@@ -1986,7 +1984,7 @@ export function MintAndStakeGctlDialog({
                             </div>
                             <div>
                               <div className="flex items-center gap-1 text-sm font-medium">
-                                <span>Rewards Redirected</span>
+                                <span>{m.rewardsRedirected}</span>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <button
@@ -2021,7 +2019,7 @@ export function MintAndStakeGctlDialog({
                               )}
                             </div>
                             <div className="text-xs font-mono text-[#22D3EE]">
-                              GLW/week
+                              {m.glwPerWeek}
                             </div>
                           </div>
                         </div>
@@ -2038,7 +2036,7 @@ export function MintAndStakeGctlDialog({
                                 "—"
                               )}
                               <span className="text-xs text-muted-foreground ml-1">
-                                pts
+                                {m.pointsUnit}
                               </span>
                             </div>
                           </div>
@@ -2095,7 +2093,7 @@ export function MintAndStakeGctlDialog({
                           />
                           <div className="space-y-2">
                             <div className="text-sm font-medium text-foreground">
-                              I understand that:
+                              {m.understandTitle}
                             </div>
                             <ul className="space-y-1.5 text-xs text-muted-foreground">
                               <li className="flex items-start gap-2">
@@ -2103,11 +2101,11 @@ export function MintAndStakeGctlDialog({
                                   •
                                 </span>
                                 <span>
-                                  GCTL{" "}
+                                  {m.understandRedirectPrefix}
                                   <span className="font-medium text-foreground">
-                                    redirects GLW emissions to farms
+                                    {m.understandRedirectStrong}
                                   </span>{" "}
-                                  in the selected region — not to my wallet
+                                  {m.understandRedirectSuffix}
                                 </span>
                               </li>
                               <li className="flex items-start gap-2">
@@ -2115,11 +2113,11 @@ export function MintAndStakeGctlDialog({
                                   •
                                 </span>
                                 <span>
-                                  Unstaking takes{" "}
+                                  {m.understandUnstakingPrefix}
                                   <span className="font-medium text-foreground">
-                                    ~100 weeks
+                                    {m.understandUnstakingStrong}
                                   </span>{" "}
-                                  (1% release per week)
+                                  {m.understandUnstakingSuffix}
                                 </span>
                               </li>
                             </ul>
@@ -2136,17 +2134,17 @@ export function MintAndStakeGctlDialog({
                         className="w-full h-11"
                       >
                         {isSwappingEth
-                          ? "Swapping ETH..."
+                          ? m.swappingEth
                           : isApproving
                             ? stakeMode === "stake"
-                              ? "Signing..."
-                              : "Approving..."
+                              ? m.signing
+                              : m.approving
                             : isSubmitting
                               ? stakeMode === "stake"
-                                ? "Confirming..."
-                                : "Minting..."
+                                ? m.confirming
+                                : m.minting
                               : isProcessing
-                                ? "Finalizing..."
+                                ? m.finalizing
                                 : stakeMode === "stake"
                                   ? m.confirmStake
                                   : m.confirmMintAndStake}
@@ -2216,10 +2214,10 @@ function SuccessLevelUp(props: {
           {m.impactActivated}
         </div>
         <div className="text-sm text-muted-foreground">
-          Your Governance Power is now live and directing rewards.
+          {m.successDesc}
         </div>
         <div className="text-xs text-muted-foreground/80">
-          It may take up to 36 seconds to appear on your profile.
+          {m.profileUpdateDelay}
         </div>
         <div className="inline-flex items-center gap-2 rounded-full border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 px-3 py-1">
           <SteeringIcon className="h-3.5 w-3.5 text-[#22D3EE]" />
@@ -2240,13 +2238,13 @@ function SuccessLevelUp(props: {
                 {rounded}
               </motion.span>
               <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                pts
+                {m.pointsUnit}
               </span>
             </div>
           }
           sublabel={
             <span className="text-xs text-[#22D3EE] font-medium">
-              +{delta.toLocaleString()} gained
+              {m.pointsGained(delta.toLocaleString())}
             </span>
           }
           userColor="rgba(6,182,212,0.9)"
@@ -2286,7 +2284,7 @@ function SuccessLevelUp(props: {
                 {receipt.deltaGlwPerWeek != null
                   ? `+${formatCompact(receipt.deltaGlwPerWeek)}`
                   : "—"}
-                /wk
+                {m.perWeekShort}
               </span>
             </div>
           </div>
