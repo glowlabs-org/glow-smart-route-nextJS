@@ -171,14 +171,13 @@ export default async function RootLayout({
           content="width=device-width, initial-scale=1, viewport-fit=cover"
         />
 
-        {/* Umami analytics + Session Replay (production only).
-            recorder.js is the superset of script.js and also captures
-            rrweb session recordings when replayEnabled is true on the
-            website. Sample rate, max duration, and masking level are
-            controlled server-side via the website's replayConfig. */}
+        {/* Umami analytics (production only). Reverted from recorder.js to
+            script.js to test whether the larger rrweb bundle was failing to
+            init in real browsers. Replays disabled while we diagnose the
+            Vercel-vs-Umami capture-rate gap. */}
         {process.env.NODE_ENV === "production" && (
           <Script
-            src="https://umami-production-c5d3.up.railway.app/recorder.js"
+            src="https://umami-production-c5d3.up.railway.app/script.js"
             data-website-id="80e6d736-7ef9-4ae8-9db0-b47cf730702d"
             strategy="afterInteractive"
           />
