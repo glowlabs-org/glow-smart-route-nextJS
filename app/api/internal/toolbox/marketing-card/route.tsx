@@ -356,9 +356,22 @@ function StatCard({
   );
 }
 
+function computeHeaderFontSize(
+  farmName: string,
+  zoneName: string,
+): number {
+  const title = zoneName ? `${farmName} ${zoneName}` : farmName;
+  const charCount = Math.max(1, title.length);
+  const availableWidth = 1080 - 84 - 72 - 16; // canvas - side padding - logo - gap
+  const widthPerEm = 0.55;
+  const ideal = availableWidth / (charCount * widthPerEm);
+  return Math.round(Math.max(40, Math.min(72, ideal)));
+}
+
 function renderCard(data: CardData) {
   const backgroundImage =
     "linear-gradient(100deg, #c8f8ce 0%, #dff4d7 38%, #d9cbff 100%)";
+  const headerFontSize = computeHeaderFontSize(data.farmName, data.zoneName);
   return (
     <div
       style={{
@@ -394,11 +407,16 @@ function renderCard(data: CardData) {
           <div
             style={{
               display: "flex",
-              flexWrap: "wrap",
+              flexWrap: "nowrap",
               alignItems: "baseline",
-              fontSize: "72px",
+              flex: 1,
+              minWidth: 0,
+              marginRight: "16px",
+              fontSize: `${headerFontSize}px`,
               letterSpacing: "-0.02em",
               lineHeight: 1,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
             }}
           >
             <span style={{ fontWeight: 700 }}>{data.farmName}</span>
@@ -413,6 +431,7 @@ function renderCard(data: CardData) {
               display: "flex",
               width: "72px",
               height: "72px",
+              flexShrink: 0,
             }}
           >
             {GLOW_STARBURST_SVG}
