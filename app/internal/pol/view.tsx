@@ -72,6 +72,7 @@ import type {
 
 import { formatUnits } from "viem";
 import { getCurrentWeekNumber } from "@/lib/rewards/weekly-delegations";
+import { useLang } from "@/lib/i18n";
 
 const MiniBlogGraphButton = dynamic<MiniBlogGraphButtonProps>(
   () =>
@@ -118,6 +119,204 @@ const FARM_IMAGE_MODAL_WIDTH = 900;
 const FARM_IMAGE_MODAL_QUALITY = 85;
 const DEFINED_FI_GLOW_URL =
   "https://www.defined.fi/eth/0x6fa09ffc45f1ddc95c1bc192956717042f142c5d";
+
+const POL_COPY = {
+  en: {
+    clickForBasics: "Click for basics ↗",
+    clickForNotes: "Click for notes ↗",
+    clickToExplore: "Click to explore ↗",
+    liveUnavailable: "Live data unavailable",
+    open: "Open ↗",
+    overview: "Overview",
+    openGlowEconomy: "Open The Glow economy",
+    marketCap: "Market Cap",
+    glwPrice: "GLW Price",
+    poolActivity: "Pool activity ↗",
+    embeddedLiquidity: "Embedded Liquidity",
+    liquidityUnitValue: `1${LIQUIDITY_UNIT} Value`,
+    oneLiquidityUnit: "1 liquidity unit",
+    monthlySolarConstruction: "Monthly Solar Construction",
+    embeddedLiquidityGrowth3m: "Embedded Liquidity Growth (3 Months)",
+    annualizedCirculatingGrowth: "Annualized Circulating Supply Growth",
+    embeddedLiquidityGrowthMom: "Embedded Liquidity Growth",
+    mom: "MoM",
+    supplyAndCirculation: "Supply & Circulation",
+    openSupplyModel: "Open supply model explorer",
+    circulatingSupply: "Circulating supply",
+    circulating: "Circulating",
+    vaulted: "Vaulted",
+    embeddedGlw: "Embedded GLW",
+    exploreSupplyModel: "Explore Supply Model",
+    solarFarmEconomics: "Solar Farm Economics",
+    sortBy: "Sort by",
+    latest: "Latest",
+    lifetime: "Lifetime",
+    ccPerWeek: "CC / Week",
+    seeAll: "See all",
+    generatedRevenue: "Generated Revenue",
+    lifetimeProgress: "Lifetime Progress",
+    embeddedLiquidityGctlWallets: "Embedded Liquidity, GCTL, Wallets",
+    openProtocolLiquidityNotes: "Open protocol liquidity notes",
+    liquidity: "Liquidity",
+    apy: "APY",
+    marketCapExitable: "Market cap exitable",
+    openGctlNotes: "Open GCTL notes",
+    totalGctl: "Total GCTL",
+    mintPrice: "Mint Price",
+    staked: "Staked",
+    unstaked: "Unstaked",
+    stakingByRegion: "Staking by region",
+    openWalletStatsNotes: "Open wallet stats notes",
+    walletStats: "Wallet Stats",
+    glwHolders: "GLW Holders",
+    protocolParticipants: "Protocol Participants",
+    newWalletsPerWeek: "New wallets per week",
+    walletBreakdown: "Wallet breakdown",
+    walletBreakdownLabels: {
+      Delegators: "Delegators",
+      Miners: "Miners",
+      "GCTL holders": "GCTL holders",
+    } as Record<string, string>,
+    delegationRegions: "Delegation + Regions",
+    openDelegationNotes: "Open delegation metrics notes",
+    delegationMetrics: "Delegation Metrics",
+    glwDelegated: "GLW delegated",
+    delegators: "Delegators",
+    estimatedApy: "Est. APY",
+    delegationGrowth: "Delegation growth (V2)",
+    current: "Current",
+    delegated: "Delegated",
+    delegationRatio: "Delegation ratio",
+    openRegionRevenueNotes: "Open per-region protocol revenue notes",
+    perRegionRevenue: "Per-Region Protocol Revenue",
+    region: "Region",
+    threeMonth: "3 Month",
+    farms: "Farms",
+    gctlStakedSuffix: "GCTL staked",
+    tokenEmissions: "Token Emissions Over Time",
+    tokenBreakdown: "Token breakdown",
+    glwTotal: "GLW total",
+    fdvHelperAt: "at",
+    embeddedUsdc: "Embedded USDC",
+    glwPriceLower: "GLW price",
+    reset: "Reset",
+    priceHistory: "Price History ↗",
+    coreMetrics: "Core Metrics",
+    growthDetailsDesc: "Growth card details and mini-blog.",
+    protocolLiquidity: "Protocol Liquidity",
+    noRegionSelected: "No region selected.",
+    fallbackCc: "Fallback from CC / week",
+    shareOfTotal: "Share of Total",
+    totalPds: "Total PDs",
+    farmDetailsDesc: "Solar farm details and revenue stats.",
+    selectFarmDetails: "Select a farm to view details.",
+    panels: "panels",
+    creditType: "Credit Type",
+    generatedCreditsLifetime: "Generated Credits (Lifetime)",
+    projectedLifetimeCredits: "Projected Lifetime Credits",
+    numberOfPanels: "Number of Panels",
+  },
+  ko: {
+    clickForBasics: "기본 내용 보기 ↗",
+    clickForNotes: "설명 보기 ↗",
+    clickToExplore: "자세히 보기 ↗",
+    liveUnavailable: "실시간 데이터 없음",
+    open: "열기 ↗",
+    overview: "개요",
+    openGlowEconomy: "Glow 경제 설명 열기",
+    marketCap: "시가총액",
+    glwPrice: "GLW 가격",
+    poolActivity: "풀 활동 보기 ↗",
+    embeddedLiquidity: "내장 유동성",
+    liquidityUnitValue: `1${LIQUIDITY_UNIT} 가치`,
+    oneLiquidityUnit: "유동성 단위 1개",
+    monthlySolarConstruction: "월간 태양광 구축",
+    embeddedLiquidityGrowth3m: "내장 유동성 성장 (3개월)",
+    annualizedCirculatingGrowth: "유통 공급량 연환산 성장",
+    embeddedLiquidityGrowthMom: "내장 유동성 성장",
+    mom: "전월 대비",
+    supplyAndCirculation: "공급량 & 유통량",
+    openSupplyModel: "공급 모델 탐색 열기",
+    circulatingSupply: "유통량",
+    circulating: "유통 중",
+    vaulted: "보관됨",
+    embeddedGlw: "내장 GLW",
+    exploreSupplyModel: "공급 모델 탐색",
+    solarFarmEconomics: "태양광 발전소 경제성",
+    sortBy: "정렬 기준",
+    latest: "최신순",
+    lifetime: "누적",
+    ccPerWeek: "CC / 주",
+    seeAll: "전체 보기",
+    generatedRevenue: "생성 수익",
+    lifetimeProgress: "누적 진행률",
+    embeddedLiquidityGctlWallets: "내장 유동성, GCTL, 지갑",
+    openProtocolLiquidityNotes: "프로토콜 유동성 설명 열기",
+    liquidity: "유동성",
+    apy: "APY",
+    marketCapExitable: "인출 가능 시가총액 비율",
+    openGctlNotes: "GCTL 설명 열기",
+    totalGctl: "총 GCTL",
+    mintPrice: "민트 가격",
+    staked: "스테이킹됨",
+    unstaked: "스테이킹 안 됨",
+    stakingByRegion: "지역별 스테이킹",
+    openWalletStatsNotes: "지갑 통계 설명 열기",
+    walletStats: "지갑 통계",
+    glwHolders: "GLW 보유자",
+    protocolParticipants: "프로토콜 참여자",
+    newWalletsPerWeek: "주간 신규 지갑",
+    walletBreakdown: "지갑 구성",
+    walletBreakdownLabels: {
+      Delegators: "위임자",
+      Miners: "마이너",
+      "GCTL holders": "GCTL 보유자",
+    } as Record<string, string>,
+    delegationRegions: "위임 + 지역",
+    openDelegationNotes: "위임 지표 설명 열기",
+    delegationMetrics: "위임 지표",
+    glwDelegated: "위임된 GLW",
+    delegators: "위임자",
+    estimatedApy: "예상 APY",
+    delegationGrowth: "위임 성장 (V2)",
+    current: "현재",
+    delegated: "위임됨",
+    delegationRatio: "위임 비율",
+    openRegionRevenueNotes: "지역별 프로토콜 수익 설명 열기",
+    perRegionRevenue: "지역별 프로토콜 수익",
+    region: "지역",
+    threeMonth: "3개월",
+    farms: "발전소",
+    gctlStakedSuffix: "GCTL 스테이킹",
+    tokenEmissions: "시간별 토큰 발행",
+    tokenBreakdown: "토큰 구성",
+    glwTotal: "GLW 총량",
+    fdvHelperAt: "가격 기준",
+    embeddedUsdc: "내장 USDC",
+    glwPriceLower: "GLW 가격",
+    reset: "초기화",
+    priceHistory: "가격 내역 ↗",
+    coreMetrics: "핵심 지표",
+    growthDetailsDesc: "성장 카드 세부 정보와 미니 블로그입니다.",
+    protocolLiquidity: "프로토콜 유동성",
+    noRegionSelected: "선택한 지역이 없습니다.",
+    fallbackCc: "CC / 주 기준 대체값",
+    shareOfTotal: "전체 비중",
+    totalPds: "총 PD",
+    farmDetailsDesc: "태양광 발전소 세부 정보와 수익 통계입니다.",
+    selectFarmDetails: "세부 정보를 보려면 발전소를 선택하세요.",
+    panels: "패널",
+    creditType: "크레딧 유형",
+    generatedCreditsLifetime: "생성된 크레딧 (누적)",
+    projectedLifetimeCredits: "예상 누적 크레딧",
+    numberOfPanels: "패널 수",
+  },
+} as const;
+
+function usePolCopy() {
+  const { lang } = useLang();
+  return POL_COPY[lang];
+}
 
 const NUMBER_FORMATTER_WHOLE = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 0,
@@ -1082,22 +1281,21 @@ function FarmDetailsDialog({
     selectedFarm?.panels !== null && selectedFarm?.panels !== undefined
       ? formatNumber(selectedFarm.panels)
       : "—";
+  const p = usePolCopy();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[980px] p-0 gap-0 overflow-y-auto max-h-[90vh] rounded-[24px] bg-card border border-border/40 shadow-none">
         <DialogHeader className="sr-only">
-          <DialogTitle>Solar Farm Economics</DialogTitle>
-          <DialogDescription>
-            Solar farm details and revenue stats.
-          </DialogDescription>
+          <DialogTitle>{p.solarFarmEconomics}</DialogTitle>
+          <DialogDescription>{p.farmDetailsDesc}</DialogDescription>
         </DialogHeader>
 
         <ScrollArea className="max-h-[80vh]">
           <div className="p-6 space-y-6">
             {!selectedFarm ? (
               <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4 text-sm text-muted-foreground">
-                Select a farm to view details.
+                {p.selectFarmDetails}
               </div>
             ) : (
               <>
@@ -1126,7 +1324,7 @@ function FarmDetailsDialog({
                         {selectedFarm.name}
                       </h3>
                       <div className="mt-1 text-xs font-mono uppercase tracking-widest text-white/70">
-                        {selectedFarm.panels} panels
+                        {selectedFarm.panels} {p.panels}
                       </div>
                     </div>
                   </div>
@@ -1135,18 +1333,18 @@ function FarmDetailsDialog({
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
                     <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                      Generated Revenue
+                      {p.generatedRevenue}
                     </div>
                     <div className="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight font-mono tabular-nums">
                       {lifetimeValue}
                     </div>
                     <div className="mt-1 text-xs text-muted-foreground">
-                      {lifetimeBreakdown ?? "Live data unavailable"}
+                      {lifetimeBreakdown ?? p.liveUnavailable}
                     </div>
                   </div>
                   <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
                     <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                      Lifetime Progress
+                      {p.lifetimeProgress}
                     </div>
                     <div className="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight font-mono tabular-nums">
                       {lifetimeProgress}
@@ -1154,7 +1352,7 @@ function FarmDetailsDialog({
                   </div>
                   <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
                     <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                      Credit Type
+                      {p.creditType}
                     </div>
                     <div className="mt-1 text-xl sm:text-2xl font-semibold tracking-tight">
                       {selectedFarm.creditType}
@@ -1162,7 +1360,7 @@ function FarmDetailsDialog({
                   </div>
                   <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
                     <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                      Generated Credits (Lifetime)
+                      {p.generatedCreditsLifetime}
                     </div>
                     <div className="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight font-mono tabular-nums">
                       {generatedCredits}
@@ -1170,7 +1368,7 @@ function FarmDetailsDialog({
                   </div>
                   <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
                     <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                      Projected Lifetime Credits
+                      {p.projectedLifetimeCredits}
                     </div>
                     <div className="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight font-mono tabular-nums">
                       {projectedCredits}
@@ -1178,7 +1376,7 @@ function FarmDetailsDialog({
                   </div>
                   <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
                     <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                      Number of Panels
+                      {p.numberOfPanels}
                     </div>
                     <div className="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight font-mono tabular-nums">
                       {panels}
@@ -1481,10 +1679,12 @@ const RegionCompareCard = React.memo(function RegionCompareCard({
     gctlPerPd: number | null;
   } | null;
 }) {
+  const p = usePolCopy();
+
   if (!row) {
     return (
       <div className="rounded-xl border border-border/20 bg-muted/20 p-4 text-sm text-muted-foreground">
-        No region selected.
+        {p.noRegionSelected}
       </div>
     );
   }
@@ -1511,13 +1711,13 @@ const RegionCompareCard = React.memo(function RegionCompareCard({
           }
           helper={
             row.glwPerWeek === null && row.ccPerWeek !== null
-              ? "Fallback from CC / week"
+              ? p.fallbackCc
               : undefined
           }
           valueClassName="text-base sm:text-lg tracking-tight"
         />
         <MiniStat
-          label="Staked GCTL"
+          label={p.staked + " GCTL"}
           value={
             row.stakedGctl !== null
               ? formatCompactNumberPrecise(row.stakedGctl)
@@ -1526,14 +1726,14 @@ const RegionCompareCard = React.memo(function RegionCompareCard({
           valueClassName="text-base sm:text-lg tracking-tight"
         />
         <MiniStat
-          label="Share of Total"
+          label={p.shareOfTotal}
           value={
             row.shareOfTotal !== null ? `${row.shareOfTotal.toFixed(1)}%` : "—"
           }
           valueClassName="text-base sm:text-lg tracking-tight"
         />
         <MiniStat
-          label="Total PDs"
+          label={p.totalPds}
           value={
             row.totalPds !== null
               ? `$${formatCompactNumberPrecise(row.totalPds)}`
@@ -1596,8 +1796,10 @@ const PolLiquidityTooltip = React.memo(function PolLiquidityTooltip({
   payload?: Array<{ payload?: any }>;
   label?: string;
 }) {
+  const copy = usePolCopy();
+
   if (!active || !payload?.length) return null;
-  const p = payload[0]?.payload as
+  const point = payload[0]?.payload as
     | {
         weekStartMs?: number;
         weekEndMs?: number;
@@ -1606,11 +1808,11 @@ const PolLiquidityTooltip = React.memo(function PolLiquidityTooltip({
         botActiveLiquidity?: number;
       }
     | undefined;
-  if (!p) return null;
+  if (!point) return null;
   const weekStart =
-    typeof p.weekStartMs === "number" ? new Date(p.weekStartMs) : null;
+    typeof point.weekStartMs === "number" ? new Date(point.weekStartMs) : null;
   const weekEnd =
-    typeof p.weekEndMs === "number" ? new Date(p.weekEndMs - 1) : null;
+    typeof point.weekEndMs === "number" ? new Date(point.weekEndMs - 1) : null;
   const dateRangeLabel =
     weekStart && weekEnd
       ? `${formatDateShortUtc(weekStart)} - ${formatDateShortUtc(weekEnd)} UTC`
@@ -1632,19 +1834,19 @@ const PolLiquidityTooltip = React.memo(function PolLiquidityTooltip({
       <div className="mt-2 space-y-2">
         <div className="flex items-center justify-between gap-4">
           <div className="text-xs text-muted-foreground">
-            Embedded liquidity
+            {copy.embeddedLiquidity}
           </div>
           <div className="text-sm font-mono font-semibold tabular-nums text-foreground">
-            {typeof p.liquidity === "number"
-              ? formatLiquidityCompact(p.liquidity)
+            {typeof point.liquidity === "number"
+              ? formatLiquidityCompact(point.liquidity)
               : "—"}
           </div>
         </div>
         <div className="flex items-center justify-between gap-4">
           <div className="text-xs text-muted-foreground">Endowment</div>
           <div className="text-sm font-mono tabular-nums text-foreground">
-            {typeof p.endowmentLiquidity === "number"
-              ? formatLiquidityCompact(p.endowmentLiquidity)
+            {typeof point.endowmentLiquidity === "number"
+              ? formatLiquidityCompact(point.endowmentLiquidity)
               : "—"}
           </div>
         </div>
@@ -1652,8 +1854,8 @@ const PolLiquidityTooltip = React.memo(function PolLiquidityTooltip({
         <div className="flex items-center justify-between gap-4">
           <div className="text-xs text-muted-foreground">Trading bot</div>
           <div className="text-sm font-mono tabular-nums text-foreground">
-            {typeof p.botActiveLiquidity === "number"
-              ? formatLiquidityCompact(p.botActiveLiquidity)
+            {typeof point.botActiveLiquidity === "number"
+              ? formatLiquidityCompact(point.botActiveLiquidity)
               : "—"}
           </div>
         </div>
@@ -1760,31 +1962,39 @@ const OverviewSection = React.memo(function OverviewSection({
   setIsBannerBlogOpen: (open: boolean) => void;
   setIsSupplyDialogOpen: (open: boolean) => void;
 }) {
+  const p = usePolCopy();
   const supplyPieData = React.useMemo(
     () =>
       [
         {
-          name: "Circulating",
+          name: p.circulating,
           value: Math.round(circulatingSupplyForSupplyCard),
           fill: "#4ade80",
         },
         {
-          name: "Vaulted",
+          name: p.vaulted,
           value: Math.round(vaultedGlw ?? 0),
           fill: "#a855f7",
         },
         {
-          name: "Embedded GLW",
+          name: p.embeddedGlw,
           value: Math.round(polGlwInPol ?? 0),
           fill: "#ffb472",
         },
       ].filter((d) => d.value > 0),
-    [circulatingSupplyForSupplyCard, polGlwInPol, vaultedGlw],
+    [
+      circulatingSupplyForSupplyCard,
+      p.circulating,
+      p.embeddedGlw,
+      p.vaulted,
+      polGlwInPol,
+      vaultedGlw,
+    ],
   );
 
   return (
     <section className="flex flex-col gap-6">
-      <SectionHeader title="Overview" />
+      <SectionHeader title={p.overview} />
 
       {/* ── Row 1: Headline banner ── */}
       <Card
@@ -1794,7 +2004,7 @@ const OverviewSection = React.memo(function OverviewSection({
         )}
         role="button"
         tabIndex={0}
-        aria-label="Open The Glow economy"
+        aria-label={p.openGlowEconomy}
         onClick={() => {
           resetModalBlog("overview");
           setIsBannerBlogOpen(true);
@@ -1820,13 +2030,13 @@ const OverviewSection = React.memo(function OverviewSection({
           </div>
           <div className="absolute right-[24px] top-[16px]">
             <div className="text-[10px] font-mono uppercase tracking-widest text-white/75">
-              Click for basics ↗
+              {p.clickForBasics}
             </div>
           </div>
           <div className="relative z-10 mx-auto w-full max-w-5xl px-5 py-10 pt-14 sm:px-12 sm:py-14 sm:pt-16 lg:py-16 lg:pt-16 grid grid-cols-1 gap-8 md:grid-cols-3 md:gap-x-12 md:gap-y-8 md:items-end">
             <div className="grid grid-rows-[auto_auto] gap-3 md:col-span-3 md:justify-self-center md:items-center md:text-center">
               <div className="text-[10px] font-mono uppercase tracking-widest text-white/75">
-                Market Cap
+                {p.marketCap}
               </div>
               <div className="text-6xl sm:text-7xl lg:text-8xl font-bold tracking-tight font-mono tabular-nums leading-none text-white">
                 {marketCapDisplay}
@@ -1835,7 +2045,7 @@ const OverviewSection = React.memo(function OverviewSection({
 
             <div className="grid grid-rows-[auto_auto_auto] gap-3 md:justify-self-start md:items-center md:text-center">
               <div className="text-[10px] font-mono uppercase tracking-widest text-white/75">
-                GLW Price
+                {p.glwPrice}
               </div>
               <div className="text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none text-white">
                 {priceDisplay}
@@ -1847,13 +2057,13 @@ const OverviewSection = React.memo(function OverviewSection({
                 className="text-sm text-white/75 hover:text-white transition-colors"
                 onClick={(e) => e.stopPropagation()}
               >
-                Pool activity ↗
+                {p.poolActivity}
               </Link>
             </div>
 
             <div className="grid grid-rows-[auto_auto_auto] gap-3 md:justify-self-center md:items-center md:text-center">
               <div className="text-[10px] font-mono uppercase tracking-widest text-white/75">
-                Embedded Liquidity
+                {p.embeddedLiquidity}
               </div>
               <div className="text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none text-white">
                 {totalPolLq !== null ? formatLiquidityCompact(totalPolLq) : "—"}
@@ -1861,19 +2071,19 @@ const OverviewSection = React.memo(function OverviewSection({
               <div className="text-sm text-white/75 text-left md:text-center">
                 {totalPolBreakdown?.breakdown
                   ? `(${totalPolBreakdown.breakdown})`
-                  : "Live data unavailable"}
+                  : p.liveUnavailable}
               </div>
             </div>
 
             <div className="grid grid-rows-[auto_auto_auto] gap-3 md:justify-self-end md:items-center md:text-center">
               <div className="text-[10px] font-mono uppercase tracking-widest text-white/75">
-                {`1${LIQUIDITY_UNIT} Value`}
+                {p.liquidityUnitValue}
               </div>
               <div className="text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none text-white">
                 {liquidityUnitValueDisplay}
               </div>
               <div className="text-sm text-white/75 text-left md:text-center">
-                1 liquidity unit
+                {p.oneLiquidityUnit}
               </div>
             </div>
           </div>
@@ -1890,7 +2100,7 @@ const OverviewSection = React.memo(function OverviewSection({
             )}
             role="button"
             tabIndex={0}
-            aria-label="Open growth cards modal on monthly solar construction"
+        aria-label={p.monthlySolarConstruction}
             onClick={() => openGrowthCardsDialog("installations")}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
@@ -1909,7 +2119,7 @@ const OverviewSection = React.memo(function OverviewSection({
             />
             <CardContent className="relative h-full flex flex-col px-5 py-5 pb-14 sm:px-8 sm:py-7 sm:pb-14">
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                Monthly Solar Construction
+                {p.monthlySolarConstruction}
               </div>
               <div className="mt-4 text-5xl sm:text-7xl font-semibold tracking-tight font-mono tabular-nums leading-none">
                 {monthlySolarConstructionKw !== null
@@ -1932,7 +2142,7 @@ const OverviewSection = React.memo(function OverviewSection({
             )}
             role="button"
             tabIndex={0}
-            aria-label="Open growth cards modal on embedded liquidity growth"
+        aria-label={p.embeddedLiquidityGrowth3m}
             onClick={() => openGrowthCardsDialog("liquidityGrowth")}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
@@ -1951,7 +2161,7 @@ const OverviewSection = React.memo(function OverviewSection({
             />
             <CardContent className="relative h-full flex flex-col px-5 py-5 pb-14 sm:px-8 sm:py-7 sm:pb-14">
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                Embedded Liquidity Growth (3 Months)
+                {p.embeddedLiquidityGrowth3m}
               </div>
               <div className="mt-4 text-5xl sm:text-7xl font-semibold tracking-tight font-mono tabular-nums leading-none">
                 {polTrailingPolGrowthDisplay?.lq ?? "—"}
@@ -1959,7 +2169,7 @@ const OverviewSection = React.memo(function OverviewSection({
               <div className="mt-3 text-sm text-muted-foreground">
                 {polTrailingPolGrowthDisplay?.breakdown
                   ? `(${polTrailingPolGrowthDisplay.breakdown})`
-                  : "Live data unavailable"}
+                  : p.liveUnavailable}
               </div>
               <div className="pointer-events-none absolute bottom-6 right-6 flex h-9 w-9 items-center justify-center rounded-full border border-border/20 bg-black text-sm text-white dark:border-white/40 dark:bg-white dark:text-black">
                 ↗
@@ -1973,7 +2183,7 @@ const OverviewSection = React.memo(function OverviewSection({
             )}
             role="button"
             tabIndex={0}
-            aria-label="Open growth cards modal on annualized circulating growth"
+        aria-label={p.annualizedCirculatingGrowth}
             onClick={() => openGrowthCardsDialog("circulatingGrowth")}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
@@ -1992,7 +2202,7 @@ const OverviewSection = React.memo(function OverviewSection({
             />
             <CardContent className="relative h-full flex flex-col px-5 py-5 pb-14 sm:px-8 sm:py-7 sm:pb-14">
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                Annualized Circulating Supply Growth
+                {p.annualizedCirculatingGrowth}
               </div>
               <div className="mt-4 text-5xl sm:text-7xl font-semibold tracking-tight font-mono tabular-nums leading-none">
                 {supplyGrowthAnnualDisplay}
@@ -2010,7 +2220,7 @@ const OverviewSection = React.memo(function OverviewSection({
             )}
             role="button"
             tabIndex={0}
-            aria-label="Open growth cards modal on embedded liquidity growth MoM"
+        aria-label={`${p.embeddedLiquidityGrowthMom} (${p.mom})`}
             onClick={() => openGrowthCardsDialog("embeddedGrowth")}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
@@ -2029,8 +2239,8 @@ const OverviewSection = React.memo(function OverviewSection({
             />
             <CardContent className="relative h-full flex flex-col px-5 py-5 pb-14 sm:px-8 sm:py-7 sm:pb-14">
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                Embedded Liquidity Growth (
-                <span className="normal-case">MoM</span>)
+                {p.embeddedLiquidityGrowthMom} (
+                <span className="normal-case">{p.mom}</span>)
               </div>
               <div className="mt-4 text-5xl sm:text-7xl font-semibold tracking-tight font-mono tabular-nums leading-none">
                 {polGrowthMoMDisplay}
@@ -2049,7 +2259,7 @@ const OverviewSection = React.memo(function OverviewSection({
           )}
           role="button"
           tabIndex={0}
-          aria-label="Open supply model explorer"
+          aria-label={p.openSupplyModel}
           onClick={() => {
             resetModalBlog("supply");
             setIsSupplyDialogOpen(true);
@@ -2065,17 +2275,17 @@ const OverviewSection = React.memo(function OverviewSection({
           <CardHeader className="pb-0">
             <div className="flex items-center justify-between gap-2">
               <div className="text-sm font-semibold">
-                Supply &amp; Circulation
+                {p.supplyAndCirculation}
               </div>
               <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
-                Click to explore ↗
+                {p.clickToExplore}
               </div>
             </div>
           </CardHeader>
           <CardContent className="flex flex-col gap-5">
             <div>
               <MetricCard
-                label="Circulating supply"
+                label={p.circulatingSupply}
                 value={
                   hasLiveSupply
                     ? `${formatCompactNumberPrecise(
@@ -2124,28 +2334,32 @@ const OverviewSection = React.memo(function OverviewSection({
                       className="inline-block h-2 w-2 rounded-full shrink-0"
                       style={{ background: "#4ade80" }}
                     />
-                    <span className="text-muted-foreground">Circulating</span>
+                    <span className="text-muted-foreground">
+                      {p.circulating}
+                    </span>
                   </div>
                   <div className="flex items-center gap-1.5 whitespace-nowrap">
                     <span
                       className="inline-block h-2 w-2 rounded-full shrink-0"
                       style={{ background: "#ffb472" }}
                     />
-                    <span className="text-muted-foreground">Embedded GLW</span>
+                    <span className="text-muted-foreground">
+                      {p.embeddedGlw}
+                    </span>
                   </div>
                   <div className="flex items-center gap-1.5 whitespace-nowrap">
                     <span
                       className="inline-block h-2 w-2 rounded-full shrink-0"
                       style={{ background: "#a855f7" }}
                     />
-                    <span className="text-muted-foreground">Vaulted</span>
+                    <span className="text-muted-foreground">{p.vaulted}</span>
                   </div>
                 </div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <MiniStat
-                label="Vaulted"
+                label={p.vaulted}
                 value={
                   vaultedGlw !== null
                     ? formatCompactNumberPrecise(vaultedGlw)
@@ -2154,7 +2368,7 @@ const OverviewSection = React.memo(function OverviewSection({
                 valueClassName="text-xl sm:text-2xl tracking-tight"
               />
               <MiniStat
-                label="Embedded GLW"
+                label={p.embeddedGlw}
                 value={
                   polGlwInPol !== null
                     ? `${formatCompactNumberPrecise(polGlwInPol)} GLW`
@@ -2170,7 +2384,7 @@ const OverviewSection = React.memo(function OverviewSection({
                 setIsSupplyDialogOpen(true);
               }}
             >
-              Explore Supply Model
+              {p.exploreSupplyModel}
             </Button>
           </CardContent>
         </Card>
@@ -2201,16 +2415,18 @@ const SolarFarmEconomicsSection = React.memo(
     openFarmDialog: (farm: FarmRow) => void;
     prefetchFarmImage: (farm: FarmRow) => void;
   }) {
+    const p = usePolCopy();
+
     return (
       <section className="flex flex-col gap-6 pt-16">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <SectionHeader title="Solar Farm Economics" />
+          <SectionHeader title={p.solarFarmEconomics} />
 
           <div className="flex items-center justify-end gap-3">
             {showAllFarms ? (
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
-                  Sort by
+                  {p.sortBy}
                 </span>
                 <select
                   value={farmSortKey}
@@ -2221,9 +2437,9 @@ const SolarFarmEconomicsSection = React.memo(
                   }
                   className="rounded-lg border border-border/40 bg-background px-2.5 py-1.5 text-xs font-mono cursor-pointer hover:border-border/60 transition-colors"
                 >
-                  <option value="latest">Latest</option>
-                  <option value="lifetime">Lifetime</option>
-                  <option value="credits">CC / Week</option>
+                  <option value="latest">{p.latest}</option>
+                  <option value="lifetime">{p.lifetime}</option>
+                  <option value="credits">{p.ccPerWeek}</option>
                 </select>
               </div>
             ) : null}
@@ -2234,7 +2450,7 @@ const SolarFarmEconomicsSection = React.memo(
                 size="sm"
                 onClick={() => setShowAllFarms(true)}
               >
-                See all
+                {p.seeAll}
               </Button>
             ) : null}
           </div>
@@ -2297,7 +2513,7 @@ const SolarFarmEconomicsSection = React.memo(
                       </h3>
                     </div>
                     <div className="absolute top-3 right-3 z-10 rounded-full border border-white/30 bg-black/40 px-2 py-0.5 text-[9px] font-mono uppercase tracking-widest text-white/80">
-                      Open ↗
+                      {p.open}
                     </div>
                   </div>
                   <div className="px-5 pt-4 pb-0">
@@ -2311,7 +2527,7 @@ const SolarFarmEconomicsSection = React.memo(
                   <div className="px-5 pt-5 pb-5 grid grid-cols-2 gap-5">
                     <div className="flex flex-col gap-0.5">
                       <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                        Generated Revenue
+                        {p.generatedRevenue}
                       </div>
                       <div className="text-xl font-semibold font-mono tabular-nums tracking-tight">
                         {lifetimeLq.value}
@@ -2322,7 +2538,7 @@ const SolarFarmEconomicsSection = React.memo(
                     </div>
                     <div className="flex flex-col gap-0.5">
                       <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                        Lifetime Progress
+                        {p.lifetimeProgress}
                       </div>
                       <div className="text-xl font-semibold font-mono tabular-nums tracking-tight">
                         {lifetimeProgress}
@@ -2391,6 +2607,7 @@ const LiquidityGctlWalletsSection = React.memo(
     setIsGctlDialogOpen: (open: boolean) => void;
     setIsWalletStatsDialogOpen: (open: boolean) => void;
   }) {
+    const p = usePolCopy();
     const walletBreakdownRows = React.useMemo(
       () =>
         walletStats.breakdown.filter(
@@ -2410,7 +2627,7 @@ const LiquidityGctlWalletsSection = React.memo(
 
     return (
       <section className="flex flex-col gap-6 pt-16">
-        <SectionHeader title="Embedded Liquidity, GCTL, Wallets" />
+        <SectionHeader title={p.embeddedLiquidityGctlWallets} />
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* ── Protocol Liquidity ── */}
           <Card
@@ -2420,7 +2637,7 @@ const LiquidityGctlWalletsSection = React.memo(
             )}
             role="button"
             tabIndex={0}
-            aria-label="Open protocol liquidity notes"
+            aria-label={p.openProtocolLiquidityNotes}
             onClick={() => {
               resetModalBlog("polLiquidity");
               setIsPolLiquidityDialogOpen(true);
@@ -2435,16 +2652,16 @@ const LiquidityGctlWalletsSection = React.memo(
           >
             <CardHeader className="pb-0">
               <div className="flex items-center justify-between gap-2">
-                <div className="text-sm font-semibold"> Liquidity</div>
+                <div className="text-sm font-semibold">{p.liquidity}</div>
                 <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
-                  Click for notes ↗
+                  {p.clickForNotes}
                 </div>
               </div>
             </CardHeader>
             <CardContent className="flex flex-col gap-5 h-full">
               <div className="grid grid-cols-2 gap-6">
                 <MetricCard
-                  label="Embedded Liquidity"
+                  label={p.embeddedLiquidity}
                   value={
                     totalPolLq !== null
                       ? formatLiquidityCompact(totalPolLq)
@@ -2453,30 +2670,30 @@ const LiquidityGctlWalletsSection = React.memo(
                   helper={
                     totalPolBreakdown?.breakdown
                       ? `(${totalPolBreakdown.breakdown})`
-                      : "Live data unavailable"
+                      : p.liveUnavailable
                   }
                   valueClassName="text-2xl sm:text-4xl"
                 />
                 <MetricCard
-                  label="APY"
+                  label={p.apy}
                   value={polApyDisplay}
                   helper={
-                    ninetyDayApy !== null ? undefined : "Live data unavailable"
+                    ninetyDayApy !== null ? undefined : p.liveUnavailable
                   }
                   valueClassName="text-2xl sm:text-4xl"
                 />
               </div>
               <div className="grid grid-cols-1 gap-3">
                 <MiniStat
-                  label="Market cap exitable"
+                  label={p.marketCapExitable}
                   value={polExitabilityDisplay}
                   valueClassName="text-base sm:text-lg tracking-tight"
                 />
               </div>
               <div className="flex-1 flex flex-col min-h-0">
                 <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
-                  Embedded Liquidity
-                  {polLiquidityIsLive ? "" : " · Live data unavailable"}
+                  {p.embeddedLiquidity}
+                  {polLiquidityIsLive ? "" : ` · ${p.liveUnavailable}`}
                 </div>
                 <ChartContainer
                   config={polLiquidityChartConfig}
@@ -2514,7 +2731,7 @@ const LiquidityGctlWalletsSection = React.memo(
             )}
             role="button"
             tabIndex={0}
-            aria-label="Open GCTL notes"
+            aria-label={p.openGctlNotes}
             onClick={() => {
               resetModalBlog("gctl");
               setIsGctlDialogOpen(true);
@@ -2531,14 +2748,14 @@ const LiquidityGctlWalletsSection = React.memo(
               <div className="flex items-center justify-between gap-2">
                 <div className="text-sm font-semibold">GCTL</div>
                 <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
-                  Click for notes ↗
+                  {p.clickForNotes}
                 </div>
               </div>
             </CardHeader>
             <CardContent className="flex flex-col gap-5">
               <div className="grid grid-cols-2 gap-6">
                 <MetricCard
-                  label="Total GCTL"
+                  label={p.totalGctl}
                   value={
                     isGctlLoading
                       ? "..."
@@ -2547,7 +2764,7 @@ const LiquidityGctlWalletsSection = React.memo(
                   valueClassName="text-2xl sm:text-4xl"
                 />
                 <MetricCard
-                  label="Mint Price"
+                  label={p.mintPrice}
                   value={
                     isGctlLoading ? "..." : `$${gctlPriceNumber.toFixed(2)}`
                   }
@@ -2556,7 +2773,7 @@ const LiquidityGctlWalletsSection = React.memo(
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <MiniStat
-                  label="Staked"
+                  label={p.staked}
                   value={
                     isGctlLoading
                       ? "..."
@@ -2565,7 +2782,7 @@ const LiquidityGctlWalletsSection = React.memo(
                   valueClassName="text-base sm:text-lg tracking-tight"
                 />
                 <MiniStat
-                  label="Unstaked"
+                  label={p.unstaked}
                   value={
                     isGctlLoading
                       ? "..."
@@ -2576,7 +2793,7 @@ const LiquidityGctlWalletsSection = React.memo(
               </div>
               <div className="flex-1 flex flex-col">
                 <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                  Staking by region
+                  {p.stakingByRegion}
                 </div>
                 <div className="flex-1 flex flex-col items-center justify-center gap-6 pt-4 pb-2">
                   <ChartContainer
@@ -2643,7 +2860,7 @@ const LiquidityGctlWalletsSection = React.memo(
             )}
             role="button"
             tabIndex={0}
-            aria-label="Open wallet stats notes"
+            aria-label={p.openWalletStatsNotes}
             onClick={() => {
               resetModalBlog("walletStats");
               setIsWalletStatsDialogOpen(true);
@@ -2658,16 +2875,16 @@ const LiquidityGctlWalletsSection = React.memo(
           >
             <CardHeader className="pb-0">
               <div className="flex items-center justify-between gap-2">
-                <div className="text-sm font-semibold">Wallet Stats</div>
+                <div className="text-sm font-semibold">{p.walletStats}</div>
                 <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
-                  Click for notes ↗
+                  {p.clickForNotes}
                 </div>
               </div>
             </CardHeader>
             <CardContent className="flex flex-col gap-5">
               <div className="grid grid-cols-2 gap-4">
                 <MiniStat
-                  label="GLW Holders"
+                  label={p.glwHolders}
                   value={
                     isWalletStatsLoading
                       ? "..."
@@ -2676,7 +2893,7 @@ const LiquidityGctlWalletsSection = React.memo(
                   valueClassName="text-xl sm:text-2xl tracking-tight"
                 />
                 <MiniStat
-                  label="Protocol Participants"
+                  label={p.protocolParticipants}
                   value={
                     isWalletStatsLoading
                       ? "..."
@@ -2688,8 +2905,8 @@ const LiquidityGctlWalletsSection = React.memo(
 
               <div>
                 <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
-                  New wallets per week
-                  {isWalletGrowthMock ? " · Live data unavailable" : ""}
+                  {p.newWalletsPerWeek}
+                  {isWalletGrowthMock ? ` · ${p.liveUnavailable}` : ""}
                 </div>
                 <ChartContainer
                   config={walletGrowthChartConfig}
@@ -2716,8 +2933,8 @@ const LiquidityGctlWalletsSection = React.memo(
 
               <div>
                 <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
-                  Wallet breakdown
-                  {hasWalletBreakdown ? "" : " · Live data unavailable"}
+                  {p.walletBreakdown}
+                  {hasWalletBreakdown ? "" : ` · ${p.liveUnavailable}`}
                 </div>
                 <div className="flex flex-col gap-3">
                   {hasWalletBreakdown && walletBreakdownRows.length > 0 ? (
@@ -2731,7 +2948,7 @@ const LiquidityGctlWalletsSection = React.memo(
                                 style={{ backgroundColor: row.color }}
                               />
                               <span className="text-muted-foreground">
-                                {row.label}
+                                {p.walletBreakdownLabels[row.label] ?? row.label}
                               </span>
                             </span>
                             <span className="font-mono tabular-nums text-foreground">
@@ -2759,7 +2976,7 @@ const LiquidityGctlWalletsSection = React.memo(
                     ))
                   ) : (
                     <div className="text-xs text-muted-foreground">
-                      Live data unavailable
+                      {p.liveUnavailable}
                     </div>
                   )}
                 </div>
@@ -2816,10 +3033,12 @@ const DelegationRegionsAndImpactSection = React.memo(
     setIsRegionsDialogOpen: (open: boolean) => void;
     setIsNetworkImpactDialogOpen: (open: boolean) => void;
   }) {
+    const p = usePolCopy();
+
     return (
       <>
         <section className="flex flex-col gap-6 pt-16">
-          <SectionHeader title="Delegation + Regions" />
+          <SectionHeader title={p.delegationRegions} />
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 items-stretch">
             <Card
               className={cn(
@@ -2828,7 +3047,7 @@ const DelegationRegionsAndImpactSection = React.memo(
               )}
               role="button"
               tabIndex={0}
-              aria-label="Open delegation metrics notes"
+              aria-label={p.openDelegationNotes}
               onClick={() => {
                 resetModalBlog("delegation");
                 setIsDelegationDialogOpen(true);
@@ -2844,40 +3063,40 @@ const DelegationRegionsAndImpactSection = React.memo(
               <CardHeader className="pb-0">
                 <div className="flex items-center justify-between gap-2">
                   <div className="text-sm font-semibold">
-                    Delegation Metrics
+                    {p.delegationMetrics}
                   </div>
                   <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
-                    Click for notes ↗
+                    {p.clickForNotes}
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="flex flex-col gap-6 h-full">
                 <div className="grid grid-cols-3 gap-3 sm:gap-4">
                   <MiniStat
-                    label="GLW delegated"
+                    label={p.glwDelegated}
                     value={delegatedDisplay}
                     helper={
-                      hasDelegationData ? undefined : "Live data unavailable"
+                      hasDelegationData ? undefined : p.liveUnavailable
                     }
                     valueClassName="text-lg sm:text-2xl tracking-tight"
                   />
                   <MiniStat
-                    label="Delegators"
+                    label={p.delegators}
                     value={delegatorsDisplay}
                     helper={
                       delegatorsCount !== null
                         ? undefined
-                        : "Live data unavailable"
+                        : p.liveUnavailable
                     }
                     valueClassName="text-lg sm:text-2xl tracking-tight"
                   />
                   <MiniStat
-                    label="Est. APY"
+                    label={p.estimatedApy}
                     value={averageApyDisplay}
                     helper={
                       averageDelegatorApy !== null
                         ? undefined
-                        : "Live data unavailable"
+                        : p.liveUnavailable
                     }
                     valueClassName="text-lg sm:text-2xl tracking-tight"
                   />
@@ -2885,7 +3104,7 @@ const DelegationRegionsAndImpactSection = React.memo(
 
                 <div className="flex flex-col">
                   <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-3">
-                    Delegation growth (V2)
+                    {p.delegationGrowth}
                   </div>
                   <ChartContainer
                     config={delegationTrendChartConfig}
@@ -2904,7 +3123,7 @@ const DelegationRegionsAndImpactSection = React.memo(
                             delegationCurrentTickValue !== null &&
                             n === delegationCurrentTickValue
                           ) {
-                            return "Current";
+                            return p.current;
                           }
                           return formatMonthAxisUtc(new Date(n - 1));
                         }}
@@ -2959,7 +3178,7 @@ const DelegationRegionsAndImpactSection = React.memo(
                               const formatted = Number.isFinite(numeric)
                                 ? numeric.toFixed(3)
                                 : value;
-                              return [`${formatted}M GLW`, "Delegated"];
+                              return [`${formatted}M GLW`, p.delegated];
                             }}
                           />
                         }
@@ -2978,7 +3197,7 @@ const DelegationRegionsAndImpactSection = React.memo(
 
                 <div>
                   <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
-                    Delegation ratio
+                    {p.delegationRatio}
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="flex-1 h-2.5 rounded-full bg-muted/50 dark:bg-background/40 overflow-hidden">
@@ -3011,7 +3230,7 @@ const DelegationRegionsAndImpactSection = React.memo(
               )}
               role="button"
               tabIndex={0}
-              aria-label="Open per-region protocol revenue notes"
+              aria-label={p.openRegionRevenueNotes}
               onClick={() => {
                 resetModalBlog("regions");
                 setIsRegionsDialogOpen(true);
@@ -3027,10 +3246,10 @@ const DelegationRegionsAndImpactSection = React.memo(
               <CardHeader className="pb-0">
                 <div className="flex items-center justify-between gap-2">
                   <div className="text-sm font-semibold">
-                    Per-Region Protocol Revenue
+                    {p.perRegionRevenue}
                   </div>
                   <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
-                    Click for notes ↗
+                    {p.clickForNotes}
                   </div>
                 </div>
               </CardHeader>
@@ -3039,11 +3258,11 @@ const DelegationRegionsAndImpactSection = React.memo(
                   <table className="w-full text-sm">
                     <thead className="bg-muted/40 dark:bg-background/40">
                       <tr className="text-left text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                        <th className="px-3 sm:px-4 py-3">Region</th>
-                        <th className="px-3 sm:px-4 py-3">Lifetime</th>
-                        <th className="px-3 sm:px-4 py-3">3 Month</th>
+                        <th className="px-3 sm:px-4 py-3">{p.region}</th>
+                        <th className="px-3 sm:px-4 py-3">{p.lifetime}</th>
+                        <th className="px-3 sm:px-4 py-3">{p.threeMonth}</th>
                         <th className="px-3 sm:px-4 py-3 hidden sm:table-cell">
-                          Farms
+                          {p.farms}
                         </th>
                       </tr>
                     </thead>
@@ -3087,7 +3306,7 @@ const DelegationRegionsAndImpactSection = React.memo(
                                 {region.stakedGctl !== null
                                   ? `${formatNumber(
                                       region.stakedGctl,
-                                    )} GCTL staked`
+                                    )} ${p.gctlStakedSuffix}`
                                   : "—"}
                               </div>
                             </td>
@@ -3163,9 +3382,11 @@ const TokenEmissionsSection = React.memo(function TokenEmissionsSection({
   polGlwInPol: number | null;
   onOpenFdvDialog: () => void;
 }) {
+  const p = usePolCopy();
+
   return (
     <section className="flex flex-col gap-6 pt-16">
-      <SectionHeader title="Token Emissions Over Time" />
+      <SectionHeader title={p.tokenEmissions} />
       <Card
         className={cn(
           "!gap-6 transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
@@ -3173,7 +3394,7 @@ const TokenEmissionsSection = React.memo(function TokenEmissionsSection({
         )}
         role="button"
         tabIndex={0}
-        aria-label="Open token FDV notes"
+        aria-label={p.tokenEmissions}
         onClick={onOpenFdvDialog}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -3185,10 +3406,10 @@ const TokenEmissionsSection = React.memo(function TokenEmissionsSection({
         <CardHeader className="pb-0">
           <div className="flex items-center justify-between gap-2">
             <div className="text-sm font-semibold">
-              Token Emissions Over Time
+              {p.tokenEmissions}
             </div>
             <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
-              Click to explore ↗
+              {p.clickToExplore}
             </div>
           </div>
         </CardHeader>
@@ -3357,11 +3578,11 @@ const TokenEmissionsSection = React.memo(function TokenEmissionsSection({
                   <ChartTooltip
                     content={
                       <ChartTooltipContent
-                        labelFormatter={(label) => `Year ${label}`}
+                    labelFormatter={(label) => `Year ${label}`}
                         formatter={(value) => {
                           const n =
                             typeof value === "number" ? value : Number(value);
-                          return `${Math.round(n)}M GLW unlocked`;
+                    return `${Math.round(n)}M GLW unlocked`;
                         }}
                       />
                     }
@@ -3393,23 +3614,23 @@ const TokenEmissionsSection = React.memo(function TokenEmissionsSection({
                   fdvUsd !== null && hasLivePrice
                     ? `${formatCompactNumberPrecise(
                         FDV_TOTAL_TOKENS_GLW - (polGlwInPol ?? 0),
-                      )} GLW at $${priceDetail}`
-                    : "Live data unavailable"
+                      )} GLW ${p.fdvHelperAt} $${priceDetail}`
+                    : p.liveUnavailable
                 }
               />
               <div className="rounded-2xl border border-border/20 dark:border-border/40 bg-muted/20 dark:bg-background/40 p-4">
                 <div className="flex items-center justify-between gap-4">
                   <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                    Token breakdown
+                    {p.tokenBreakdown}
                   </div>
                   <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
                     {vestingBreakdown
                       ? `${formatCompactNumberPrecise(
                           vestingBreakdown.total,
-                        )} GLW total`
+                        )} ${p.glwTotal}`
                       : `${formatCompactNumberPrecise(
                           FDV_TOTAL_TOKENS_GLW,
-                        )} GLW total`}
+                        )} ${p.glwTotal}`}
                   </div>
                 </div>
 
@@ -3487,6 +3708,7 @@ const TokenEmissionsSection = React.memo(function TokenEmissionsSection({
 TokenEmissionsSection.displayName = "TokenEmissionsSection";
 
 export function PolDashboardView() {
+  const p = usePolCopy();
   const [isBannerBlogOpen, setIsBannerBlogOpen] = React.useState(false);
   const [isSupplyDialogOpen, setIsSupplyDialogOpen] = React.useState(false);
   const [isFarmDialogOpen, setIsFarmDialogOpen] = React.useState(false);
@@ -3917,10 +4139,10 @@ export function PolDashboardView() {
     totalDelegatedGlw !== null && currentCirculating > 0
       ? `${formatCompactNumberTwoDecimals(
           totalDelegatedGlw,
-        )} of ${formatCompactNumberTwoDecimals(
+        )} / ${formatCompactNumberTwoDecimals(
           currentCirculating,
-        )} circulating GLW delegated`
-      : "Live data unavailable";
+        )} ${p.circulating} GLW ${p.delegated}`
+      : p.liveUnavailable;
 
   const delegationTrendLive = React.useMemo(() => {
     const byWeek = activelyDelegatedByWeekData?.byWeek;
@@ -4729,7 +4951,7 @@ export function PolDashboardView() {
   const poolDepthDisplay = poolLiquidityBreakdown.value;
   const poolDepthHelper = hasPoolReserves
     ? `(${poolLiquidityBreakdown.breakdown})`
-    : "Live data unavailable";
+    : p.liveUnavailable;
 
   // What % of the market cap can be exited through PoL?
   // Model: dump the full circulating supply into the PoL constant-product invariant.
@@ -4968,7 +5190,7 @@ export function PolDashboardView() {
     () => [
       {
         key: "installations" as const,
-        label: "Monthly Solar Construction",
+        label: p.monthlySolarConstruction,
         value:
           monthlySolarConstructionKw !== null
             ? `${formatNumber(Math.round(monthlySolarConstructionKw))} kW`
@@ -4976,19 +5198,20 @@ export function PolDashboardView() {
       },
       {
         key: "liquidityGrowth" as const,
-        label: "Embedded Liquidity Growth (3 Months)",
+        label: p.embeddedLiquidityGrowth3m,
         value: polTrailingPolGrowthDisplay?.lq ?? "—",
       },
       {
         key: "circulatingGrowth" as const,
-        label: "Annualized Circulating Supply Growth",
+        label: p.annualizedCirculatingGrowth,
         value: supplyGrowthAnnualDisplay,
       },
       {
         key: "embeddedGrowth" as const,
         label: (
           <>
-            Embedded Liquidity Growth (<span className="normal-case">MoM</span>)
+            {p.embeddedLiquidityGrowthMom} (
+            <span className="normal-case">{p.mom}</span>)
           </>
         ),
         value: polGrowthMoMDisplay,
@@ -4999,6 +5222,11 @@ export function PolDashboardView() {
       polTrailingPolGrowthDisplay?.lq,
       supplyGrowthAnnualDisplay,
       monthlySolarConstructionKw,
+      p.annualizedCirculatingGrowth,
+      p.embeddedLiquidityGrowth3m,
+      p.embeddedLiquidityGrowthMom,
+      p.mom,
+      p.monthlySolarConstruction,
     ],
   );
 
@@ -5128,7 +5356,7 @@ export function PolDashboardView() {
       >
         <DialogContent className="sm:max-w-[920px] p-0 pt-4 gap-0 overflow-y-auto max-h-[90vh] rounded-[24px] bg-card border border-border/40 shadow-none">
           <DialogHeader className="sr-only">
-            <DialogTitle>Explore Supply Model</DialogTitle>
+            <DialogTitle>{p.exploreSupplyModel}</DialogTitle>
             <DialogDescription>
               Interactive supply model for circulating and embedded liquidity.
             </DialogDescription>
@@ -5137,7 +5365,7 @@ export function PolDashboardView() {
             <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
               <div className="min-w-0">
                 <MetricCard
-                  label="Circulating Supply"
+                  label={p.circulatingSupply}
                   value={
                     liquidCirculatingModeled !== null
                       ? `${formatCompactNumberPrecise(
@@ -5150,7 +5378,7 @@ export function PolDashboardView() {
               </div>
               <div className="min-w-0">
                 <MetricCard
-                  label="Embedded GLW"
+                  label={p.embeddedGlw}
                   value={
                     modeledPolGlw !== null
                       ? `${formatCompactNumberPrecise(modeledPolGlw)} GLW`
@@ -5161,7 +5389,7 @@ export function PolDashboardView() {
               </div>
               <div className="min-w-0">
                 <MetricCard
-                  label="Embedded USDC"
+                  label={p.embeddedUsdc}
                   value={
                     modeledPolUsdg !== null
                       ? formatUsdCompactHero(modeledPolUsdg)
@@ -5218,7 +5446,7 @@ export function PolDashboardView() {
                           style={{ background: "hsl(142, 71%, 45%)" }}
                         />
                         <span className="text-muted-foreground">
-                          Circulating
+                          {p.circulating}
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5">
@@ -5227,7 +5455,7 @@ export function PolDashboardView() {
                           style={{ background: "hsl(29, 90%, 60%)" }}
                         />
                         <span className="text-muted-foreground">
-                          Embedded GLW
+                          {p.embeddedGlw}
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5">
@@ -5235,7 +5463,9 @@ export function PolDashboardView() {
                           className="inline-block h-2 w-2 rounded-full shrink-0"
                           style={{ background: "hsl(270, 70%, 60%)" }}
                         />
-                        <span className="text-muted-foreground">Vaulted</span>
+                        <span className="text-muted-foreground">
+                          {p.vaulted}
+                        </span>
                       </div>
                     </div>
                   </>
@@ -5246,7 +5476,7 @@ export function PolDashboardView() {
             <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80 font-semibold">
-                  GLW price
+                  {p.glwPriceLower}
                 </div>
                 <div className="text-lg font-semibold font-mono tabular-nums">
                   ${price.toFixed(price < 0.01 ? 4 : price < 1 ? 3 : 2)}
@@ -5286,7 +5516,7 @@ export function PolDashboardView() {
                 onClick={resetSupplyModel}
                 disabled={!hasAdjustedSlider}
               >
-                Reset
+                {p.reset}
               </Button>
             </div>
           </div>
@@ -5320,7 +5550,7 @@ export function PolDashboardView() {
       >
         <DialogContent className="sm:max-w-[860px] p-0 gap-0 overflow-y-auto max-h-[90vh] rounded-[24px] bg-card border border-border/40 shadow-none">
           <DialogHeader className="sr-only">
-            <DialogTitle>The Glow Economy</DialogTitle>
+            <DialogTitle>{p.openGlowEconomy}</DialogTitle>
             <DialogDescription>
               Glow economy overview and learn-more mini blog.
             </DialogDescription>
@@ -5344,13 +5574,13 @@ export function PolDashboardView() {
                   rel="noopener noreferrer"
                   className="text-[10px] font-mono uppercase tracking-widest text-white/80 hover:text-white"
                 >
-                  Price History ↗
+                  {p.priceHistory}
                 </Link>
               </div>
               <div className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-3 sm:gap-x-10 sm:gap-y-8">
                 <div className="space-y-1.5 sm:col-span-3 sm:justify-self-center sm:text-center">
                   <div className="text-[10px] font-mono uppercase tracking-widest text-white/70">
-                    Market Cap
+                    {p.marketCap}
                   </div>
                   <div className="text-5xl sm:text-6xl font-bold font-mono tabular-nums tracking-tight leading-none text-white">
                     {marketCapDisplay}
@@ -5358,7 +5588,7 @@ export function PolDashboardView() {
                 </div>
                 <div className="space-y-1.5 sm:justify-self-start sm:text-center">
                   <div className="text-[10px] font-mono uppercase tracking-widest text-white/70">
-                    GLW Price
+                    {p.glwPrice}
                   </div>
                   <div className="text-3xl sm:text-4xl font-semibold font-mono tabular-nums tracking-tight leading-none text-white">
                     {priceDisplay}
@@ -5366,7 +5596,7 @@ export function PolDashboardView() {
                 </div>
                 <div className="space-y-1.5 sm:justify-self-center sm:text-center">
                   <div className="text-[10px] font-mono uppercase tracking-widest text-white/70">
-                    Embedded Liquidity
+                    {p.embeddedLiquidity}
                   </div>
                   <div className="text-3xl sm:text-4xl font-semibold font-mono tabular-nums tracking-tight leading-none text-white">
                     {totalPolLq !== null
@@ -5376,7 +5606,7 @@ export function PolDashboardView() {
                 </div>
                 <div className="space-y-1.5 sm:justify-self-end sm:text-center">
                   <div className="text-[10px] font-mono uppercase tracking-widest text-white/70">
-                    {`1${LIQUIDITY_UNIT} Value`}
+                    {p.liquidityUnitValue}
                   </div>
                   <div className="text-3xl sm:text-4xl font-semibold font-mono tabular-nums tracking-tight leading-none text-white">
                     {liquidityUnitValueDisplay}
@@ -5408,10 +5638,10 @@ export function PolDashboardView() {
         <DialogContent className="sm:max-w-[920px] p-0 gap-0 overflow-y-auto max-h-[90vh] rounded-[24px] bg-card border border-border/40 shadow-none">
           <DialogHeader className="px-6 pt-6 pb-0">
             <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
-              Core Metrics
+              {p.coreMetrics}
             </DialogTitle>
             <DialogDescription className="sr-only">
-              Growth card details and mini-blog.
+              {p.growthDetailsDesc}
             </DialogDescription>
           </DialogHeader>
           <div className="p-6 space-y-6">
@@ -5465,7 +5695,7 @@ export function PolDashboardView() {
       >
         <DialogContent className="sm:max-w-[1060px] p-0 gap-0 overflow-y-auto max-h-[90vh] rounded-[24px] bg-card border border-border/40 shadow-none">
           <DialogHeader className="sr-only">
-            <DialogTitle>Protocol Liquidity</DialogTitle>
+            <DialogTitle>{p.protocolLiquidity}</DialogTitle>
             <DialogDescription>
               Embedded liquidity and trend chart.
             </DialogDescription>
@@ -5475,7 +5705,7 @@ export function PolDashboardView() {
             <div className="sm:w-[520px] shrink-0 border-b sm:border-b-0 sm:border-r border-border/20 dark:border-border/40 p-6 flex flex-col gap-6">
               <div className="space-y-1">
                 <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                  Embedded Liquidity
+                  {p.embeddedLiquidity}
                 </div>
                 <div className="text-5xl font-mono font-semibold text-foreground tracking-tighter">
                   {totalPolLq !== null
@@ -5490,23 +5720,23 @@ export function PolDashboardView() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <MiniStat
-                  label="APY"
+                  label={p.apy}
                   value={polApyDisplay}
                   helper={
-                    ninetyDayApy !== null ? undefined : "Live data unavailable"
+                    ninetyDayApy !== null ? undefined : p.liveUnavailable
                   }
                   valueClassName="text-2xl sm:text-3xl tracking-tight"
                 />
                 <MiniStat
-                  label="Market cap exitable"
+                  label={p.marketCapExitable}
                   value={polExitabilityDisplay}
                   valueClassName="text-2xl sm:text-3xl tracking-tight"
                 />
               </div>
               <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4 flex-1 flex flex-col min-h-0">
                 <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80 mb-2">
-                  Embedded Liquidity
-                  {polLiquidityIsLive ? "" : " · Live data unavailable"}
+                  {p.embeddedLiquidity}
+                  {polLiquidityIsLive ? "" : ` · ${p.liveUnavailable}`}
                 </div>
                 <ChartContainer
                   config={polLiquidityChartConfig}
@@ -5569,7 +5799,7 @@ export function PolDashboardView() {
             <div className="sm:w-[520px] shrink-0 border-b sm:border-b-0 sm:border-r border-border/20 dark:border-border/40 p-6 flex flex-col gap-6">
               <div className="space-y-1">
                 <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                  Total GCTL
+                  {p.totalGctl}
                 </div>
                 <div className="text-5xl font-mono font-semibold text-foreground tracking-tighter">
                   {isGctlLoading
@@ -5579,7 +5809,7 @@ export function PolDashboardView() {
               </div>
               <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4 flex-1 flex flex-col min-h-0">
                 <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80 mb-3">
-                  Staking by region
+                  {p.stakingByRegion}
                 </div>
                 <div className="flex flex-col items-center gap-4">
                   <ChartContainer
@@ -5659,7 +5889,7 @@ export function PolDashboardView() {
       >
         <DialogContent className="sm:max-w-[1060px] p-0 gap-0 overflow-y-auto max-h-[90vh] rounded-[24px] bg-card border border-border/40 shadow-none">
           <DialogHeader className="sr-only">
-            <DialogTitle>Wallet Stats</DialogTitle>
+            <DialogTitle>{p.walletStats}</DialogTitle>
             <DialogDescription>
               Protocol participants and new wallet growth.
             </DialogDescription>
@@ -5669,7 +5899,7 @@ export function PolDashboardView() {
             <div className="sm:w-[520px] shrink-0 border-b sm:border-b-0 sm:border-r border-border/20 dark:border-border/40 p-6 flex flex-col gap-6">
               <div className="space-y-1">
                 <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                  Protocol Participants
+                  {p.protocolParticipants}
                 </div>
                 <div className="text-5xl font-mono font-semibold text-foreground tracking-tighter">
                   {isWalletStatsLoading
@@ -5679,8 +5909,8 @@ export function PolDashboardView() {
               </div>
               <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4 flex-1 flex flex-col min-h-0">
                 <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80 mb-2">
-                  New wallets per week
-                  {isWalletGrowthMock ? " · Live data unavailable" : ""}
+                  {p.newWalletsPerWeek}
+                  {isWalletGrowthMock ? ` · ${p.liveUnavailable}` : ""}
                 </div>
                 <ChartContainer
                   config={walletGrowthChartConfig}
@@ -5730,7 +5960,7 @@ export function PolDashboardView() {
       >
         <DialogContent className="sm:max-w-[1060px] p-0 gap-0 overflow-y-auto max-h-[90vh] rounded-[24px] bg-card border border-border/40 shadow-none">
           <DialogHeader className="sr-only">
-            <DialogTitle>Delegation Metrics</DialogTitle>
+            <DialogTitle>{p.delegationMetrics}</DialogTitle>
             <DialogDescription>
               Delegated GLW and delegation trend.
             </DialogDescription>
@@ -5741,20 +5971,20 @@ export function PolDashboardView() {
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-1">
                   <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                    GLW Delegated
+                    {p.glwDelegated}
                   </div>
                   <div className="text-4xl sm:text-5xl font-mono font-semibold text-foreground tracking-tighter">
                     {delegatedDisplay}
                   </div>
                   {!hasDelegationData && (
                     <div className="text-xs text-muted-foreground/60 dark:text-muted-foreground/80 font-mono">
-                      Live data unavailable
+                      {p.liveUnavailable}
                     </div>
                   )}
                 </div>
                 <div className="space-y-1">
                   <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                    Active Delegators
+                    {p.delegators}
                   </div>
                   <div className="text-4xl sm:text-5xl font-mono font-semibold text-foreground tracking-tighter">
                     {delegatorsDisplay}
@@ -5763,7 +5993,7 @@ export function PolDashboardView() {
               </div>
               <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4 flex-1 flex flex-col min-h-0">
                 <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80 mb-2">
-                  Delegation growth (V2)
+                  {p.delegationGrowth}
                 </div>
                 <ChartContainer
                   config={delegationTrendChartConfig}
@@ -5782,7 +6012,7 @@ export function PolDashboardView() {
                           delegationCurrentTickValue !== null &&
                           n === delegationCurrentTickValue
                         ) {
-                          return "Current";
+                          return p.current;
                         }
                         return formatMonthAxisUtc(new Date(n - 1));
                       }}
@@ -5812,7 +6042,7 @@ export function PolDashboardView() {
                               ? new Date(datum.weekEndMs - 1)
                               : null;
 
-                            if (datum?.isCurrent) return "Current";
+                            if (datum?.isCurrent) return p.current;
 
                             if (weekStart && weekEnd) {
                               return `${formatDateShortUtc(
@@ -5833,7 +6063,7 @@ export function PolDashboardView() {
                             const formatted = Number.isFinite(numeric)
                               ? numeric.toFixed(3)
                               : value;
-                            return [`${formatted}M GLW`, "Delegated"];
+                            return [`${formatted}M GLW`, p.delegated];
                           }}
                         />
                       }
@@ -5875,7 +6105,7 @@ export function PolDashboardView() {
       >
         <DialogContent className="sm:max-w-[1060px] p-0 gap-0 overflow-y-auto max-h-[90vh] rounded-[24px] bg-card border border-border/40 shadow-none">
           <DialogHeader className="sr-only">
-            <DialogTitle>Per-Region Protocol Revenue</DialogTitle>
+            <DialogTitle>{p.perRegionRevenue}</DialogTitle>
             <DialogDescription>
               Region comparison for weekly GLW, staked GCTL, share, PDs, and
               GCTL per PD.
@@ -5885,7 +6115,7 @@ export function PolDashboardView() {
             {/* Left: tabs + region stats */}
             <div className="sm:w-[520px] shrink-0 border-b sm:border-b-0 sm:border-r border-border/20 dark:border-border/40 p-6 flex flex-col gap-5">
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                Per-Region Protocol Revenue
+                {p.perRegionRevenue}
               </div>
               {/* Region tabs */}
               <div className="flex flex-wrap gap-1.5">
@@ -5928,7 +6158,7 @@ export function PolDashboardView() {
                       valueClassName="text-lg sm:text-xl tracking-tight"
                     />
                     <MiniStat
-                      label="Staked GCTL"
+                      label={`${p.staked} GCTL`}
                       value={
                         primaryRegionRow.stakedGctl !== null
                           ? formatCompactNumberPrecise(
@@ -5939,7 +6169,7 @@ export function PolDashboardView() {
                       valueClassName="text-lg sm:text-xl tracking-tight"
                     />
                     <MiniStat
-                      label="Share"
+                      label={p.shareOfTotal}
                       value={
                         primaryRegionRow.shareOfTotal !== null
                           ? `${primaryRegionRow.shareOfTotal.toFixed(1)}%`
@@ -5948,7 +6178,7 @@ export function PolDashboardView() {
                       valueClassName="text-lg sm:text-xl tracking-tight"
                     />
                     <MiniStat
-                      label="Total PDs"
+                      label={p.totalPds}
                       value={
                         primaryRegionRow.totalPds !== null
                           ? `$${formatCompactNumberPrecise(
@@ -5970,7 +6200,7 @@ export function PolDashboardView() {
                       valueClassName="text-lg sm:text-xl tracking-tight"
                     />
                     <MiniStat
-                      label="Farms"
+                      label={p.farms}
                       value={
                         primaryRegionRow.farms > 0
                           ? String(primaryRegionRow.farms)
@@ -5987,7 +6217,7 @@ export function PolDashboardView() {
                     <div className="grid grid-cols-2 gap-6">
                       <div>
                         <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                          Lifetime
+                          {p.lifetime}
                         </div>
                         <div className="mt-2 text-4xl sm:text-5xl font-mono font-semibold tabular-nums text-foreground tracking-tighter">
                           {primaryRegionRow.lifetimeLq !== null
@@ -6134,8 +6364,8 @@ export function PolDashboardView() {
                 {fdvUsd !== null && hasLivePrice
                   ? `${formatCompactNumberPrecise(
                       FDV_TOTAL_TOKENS_GLW - (polGlwInPol ?? 0),
-                    )} GLW at $${priceDetail}`
-                  : "Live data unavailable"}
+                    )} GLW ${p.fdvHelperAt} $${priceDetail}`
+                  : p.liveUnavailable}
               </div>
             </div>
           </div>

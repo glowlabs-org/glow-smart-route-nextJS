@@ -45,6 +45,7 @@ import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import { useReferralLaunch } from "@/hooks/use-referral-launch";
 import { formatTopPercentile } from "@/utils/impact";
 import { ArrowTopRightIcon } from "@radix-ui/react-icons";
+import { useLang } from "@/lib/i18n";
 
 function formatPoints(
   value?: string,
@@ -137,6 +138,7 @@ function RankWidgetSkeleton({
 }: {
   variant?: "default" | "hero";
 }) {
+  const { t } = useLang();
   const isHero = variant === "hero";
 
   return (
@@ -151,7 +153,7 @@ function RankWidgetSkeleton({
       <CardHeader className="py-0 px-6">
         <div className="flex items-center justify-between gap-3">
           <div className="text-sm md:text-lg font-semibold tracking-tight text-foreground">
-            Impact Score
+            {t.widgets.rankWidget.title}
           </div>
           <Skeleton className="h-8 w-8 rounded-full" />
         </div>
@@ -227,6 +229,7 @@ export function RankWidget({
   variant = "default",
   readOnly = false,
 }: RankWidgetProps) {
+  const { t } = useLang();
   const hasWallet = Boolean(walletAddress);
   const isHero = variant === "hero";
 
@@ -260,7 +263,7 @@ export function RankWidget({
     walletAddress: walletAddress ?? null,
     weekRange,
     enabled: Boolean(hasWallet && isValidWalletAddress && weekRange),
-    toastTitle: "Failed to load Impact Score",
+    toastTitle: t.widgets.rankWidget.loadFailedToast,
     includeWeekly: false,
     includeProjection: true,
     includeReferral: true,
@@ -293,11 +296,11 @@ export function RankWidget({
     Boolean(impactScore) && !impactScoreQuery.isLoading && hasPositiveScore;
 
   const pointsHeroText = React.useMemo(() => {
-    if (impactScoreQuery.isLoading) return "— pts";
+    if (impactScoreQuery.isLoading) return t.widgets.rankWidget.emptyPoints;
     const formatted = formatPoints(totalsPoints, { maximumFractionDigits: 0 });
-    if (formatted === "—") return "— pts";
+    if (formatted === "—") return t.widgets.rankWidget.emptyPoints;
     return `${formatted} pts`;
-  }, [impactScoreQuery.isLoading, totalsPoints]);
+  }, [impactScoreQuery.isLoading, totalsPoints, t.widgets.rankWidget.emptyPoints]);
 
   const selfLeaderboardRow = React.useMemo(() => {
     if (!normalizedWalletAddress) return null;
@@ -331,7 +334,7 @@ export function RankWidget({
 
     if (selfGlobalRank && totalWalletCount > 0) {
       const percentile = (selfGlobalRank / totalWalletCount) * 100;
-      return `Top ${formatTopPercentile(percentile)}`;
+      return t.widgets.rankWidget.topPercentile(formatTopPercentile(percentile));
     }
 
     if (
@@ -339,7 +342,9 @@ export function RankWidget({
       leaderboardRows.length > 0 &&
       totalWalletCount > 0
     )
-      return `Below Top ${formatTopPercentile(listThresholdPercentile)}`;
+      return t.widgets.rankWidget.belowTopPercentile(
+        formatTopPercentile(listThresholdPercentile),
+      );
 
     return "—";
   }, [
@@ -350,6 +355,7 @@ export function RankWidget({
     normalizedWalletAddress,
     leaderboardRows.length,
     listThresholdPercentile,
+    t.widgets.rankWidget,
   ]);
 
   const shouldFetchBalances = isBuyGlowOpen || isMintAndStakeOpen;
@@ -429,7 +435,7 @@ export function RankWidget({
         <CardHeader className="py-0 px-6">
           <div className="flex items-center justify-between gap-3">
             <div className="text-sm md:text-lg font-semibold tracking-tight text-foreground">
-              Impact Score
+              {t.widgets.rankWidget.title}
             </div>
             {hasWallet && (
               <Button
@@ -463,23 +469,23 @@ export function RankWidget({
             <div className="flex flex-col gap-3">
               <div className="flex flex-col items-center justify-center text-center px-1 select-none">
                 <div className="font-mono text-xs uppercase tracking-wider text-muted-foreground blur-[1px] opacity-60">
-                  Total points
+                  {t.widgets.rankWidget.totalPoints}
                 </div>
                 <div className="mt-2 font-mono text-5xl md:text-6xl font-bold tracking-tighter text-foreground tabular-nums blur-[2px] opacity-60">
-                  — pts
+                  {t.widgets.rankWidget.emptyPoints}
                 </div>
 
                 <div className="mt-2 flex items-center justify-center gap-3 text-xs text-muted-foreground blur-[1px] opacity-60">
                   <div className="flex items-baseline gap-2 font-mono">
                     <span className="text-[10px] uppercase tracking-wider text-muted-foreground/80">
-                      Rank
+                      {t.widgets.rankWidget.rank}
                     </span>
                     <span className="tabular-nums">—</span>
                   </div>
                   <div className="h-3 w-px bg-border/60" />
                   <div className="flex items-baseline gap-2 font-mono">
                     <span className="text-[10px] uppercase tracking-wider text-muted-foreground/80">
-                      Percentile
+                      {t.widgets.rankWidget.percentile}
                     </span>
                     <span className="tabular-nums">—</span>
                   </div>
@@ -488,10 +494,10 @@ export function RankWidget({
 
               <div className="rounded-xl border border-border bg-muted/20 p-3 text-center">
                 <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                  Connect your wallet
+                  {t.widgets.rankWidget.connectWalletKicker}
                 </div>
                 <div className="mt-1 text-sm text-muted-foreground">
-                  Connect your wallet to see your points and rank.
+                  {t.widgets.rankWidget.connectWalletBody}
                 </div>
               </div>
             </div>
@@ -504,7 +510,7 @@ export function RankWidget({
                     isHero ? "text-xs" : "text-[10px]",
                   )}
                 >
-                  Total points
+                  {t.widgets.rankWidget.totalPoints}
                 </div>
                 <div
                   className={cn(
@@ -534,7 +540,7 @@ export function RankWidget({
                         isHero ? "text-[10px]" : "text-[9px]",
                       )}
                     >
-                      Rank
+                      {t.widgets.rankWidget.rank}
                     </span>
                     <span className="tabular-nums font-medium">{rankText}</span>
                   </div>
@@ -551,7 +557,7 @@ export function RankWidget({
                         isHero ? "text-[10px]" : "text-[9px]",
                       )}
                     >
-                      Percentile
+                      {t.widgets.rankWidget.percentile}
                     </span>
                     <span className="tabular-nums font-medium">
                       {percentileText}
@@ -595,7 +601,7 @@ export function RankWidget({
                         onMintAndStakeClick(true);
                       }}
                     >
-                      Rank Up
+                      {t.widgets.rankWidget.rankUp}
                     </Button>
                   ) : (
                     <Button
@@ -616,7 +622,7 @@ export function RankWidget({
                           });
                         }}
                       >
-                        Mint &amp; stake GCTL
+                        {t.widgets.rankWidget.mintAndStakeGctl}
                       </Link>
                     </Button>
                   )
@@ -640,7 +646,7 @@ export function RankWidget({
                     }}
                     disabled={impactScoreQuery.isError || !impactScore}
                   >
-                    Breakdown
+                    {t.widgets.rankWidget.breakdown}
                   </Button>
                 ) : null}
 
@@ -654,7 +660,7 @@ export function RankWidget({
                     asChild
                   >
                     <Link href="/stats/rewards">
-                      Leaderboard
+                      {t.widgets.rankWidget.leaderboard}
                     </Link>
                   </Button>
                 ) : isReferralLive ? (
@@ -673,10 +679,10 @@ export function RankWidget({
                   >
                     <Users className="w-3.5 h-3.5" />
                     {referralPointsThisWeek > 0
-                      ? `Invites (+${formatPoints(
-                          String(referralPointsThisWeek),
-                        )})`
-                      : "Invite Friends"}
+                      ? t.widgets.rankWidget.invitesWithPoints(
+                          formatPoints(String(referralPointsThisWeek)),
+                        )
+                      : t.widgets.rankWidget.inviteFriends}
                   </Button>
                 ) : (
                   <Button
@@ -701,7 +707,7 @@ export function RankWidget({
                         });
                       }}
                     >
-                      Leaderboard
+                      {t.widgets.rankWidget.leaderboard}
                     </Link>
                   </Button>
                 )}

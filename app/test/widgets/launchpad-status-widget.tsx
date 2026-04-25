@@ -76,6 +76,7 @@ import { formatUnits } from "viem";
 import { LaunchpadStatsDialog } from "@/app/marketplace/launchpad-stats-dialog";
 import { MiningStatsDialog } from "@/app/marketplace/mining-stats-dialog";
 import { getListingVisibleStartAtMs } from "@/utils/launchpad";
+import { useLang } from "@/lib/i18n";
 
 const DEFINED_POOL_ACTIVITY_URL =
   "https://www.defined.fi/eth/0x6fa09ffc45f1ddc95c1bc192956717042f142c5d";
@@ -248,6 +249,7 @@ interface FullRowLaunchpadGridProps {
 }
 
 function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
+  const { t } = useLang();
   const { address, isConnected } = useAccount();
   const walletAddress = address?.toLowerCase() ?? null;
   const source = "launchpad_status_widget_fullrow";
@@ -645,7 +647,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
               src={imageUrl}
               widthForProxy={800}
               quality={85}
-              alt={application.farmName || "Farm"}
+              alt={application.farmName || t.widgets.launchpadStatus.unnamedFarm}
               className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
             />
           ) : (
@@ -670,7 +672,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                   isMiner ? "bg-[color:var(--color-miner)]" : "bg-purple-400",
                 )}
               />
-              {isMiner ? "Miner" : "Delegation"}
+              {isMiner ? t.widgets.launchpadStatus.miner : t.widgets.launchpadStatus.delegation}
             </div>
           </div>
 
@@ -678,7 +680,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
           <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10">
             {availability.isSoldOut ? (
               <div className="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-semibold bg-white/90 dark:bg-black/60 text-foreground dark:text-white backdrop-blur-xl border border-border/20 dark:border-white/20 shadow-sm">
-                Sold Out
+                {t.widgets.launchpadStatus.soldOut}
               </div>
             ) : (
               <Button
@@ -699,8 +701,8 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                 }}
                 className="backdrop-blur-xl bg-white/90 dark:bg-black/60 hover:bg-white dark:hover:bg-black/70 border border-border/20 dark:border-white/20 text-foreground dark:text-white rounded-full px-2.5 sm:px-3 h-7 sm:h-8 text-[10px] sm:text-xs font-semibold transition-all shadow-sm"
               >
-                <span className="hidden sm:inline">Advanced Stats</span>
-                <span className="sm:hidden">Stats</span>
+                <span className="hidden sm:inline">{t.widgets.launchpadStatus.advancedStats}</span>
+                <span className="sm:hidden">{t.widgets.launchpadStatus.statsShort}</span>
                 <ArrowUpRight className="ml-1 w-3 h-3" />
               </Button>
             )}
@@ -712,11 +714,11 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
           {/* Title and Location */}
           <div className="mb-4">
             <h3 className="text-xl sm:text-xl md:text-2xl font-bold text-foreground tracking-tight line-clamp-1">
-              {application.farmName || "Unnamed Farm"}
+              {application.farmName || t.widgets.launchpadStatus.unnamedFarm}
             </h3>
             <div className="flex items-center gap-1.5 mt-1 sm:mt-1.5 text-muted-foreground text-xs sm:text-sm">
               <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-              <span>{application.zone?.name || "Unknown Region"}</span>
+              <span>{application.zone?.name || t.widgets.launchpadStatus.unknownRegion}</span>
             </div>
           </div>
 
@@ -741,11 +743,11 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
                 {availability.isSoldOut
                   ? isMiner
-                    ? "Total"
-                    : "Delegated"
+                    ? t.widgets.launchpadStatus.total
+                    : t.widgets.launchpadStatus.delegated
                   : isMiner
-                    ? "Price"
-                    : "Amount"}
+                    ? t.widgets.launchpadStatus.price
+                    : t.widgets.launchpadStatus.amount}
               </span>
               <div className="flex items-baseline gap-1">
                 <span className="text-xl font-bold text-foreground font-mono tabular-nums leading-tight">
@@ -760,7 +762,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                       {Math.round(cost).toLocaleString()}
                     </>
                   ) : (
-                    "Free"
+                    t.widgets.launchpadStatus.free
                   )}
                 </span>
                 <span className="text-sm text-muted-foreground font-medium">
@@ -769,8 +771,11 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
               </div>
               <span className="text-xs text-muted-foreground font-medium">
                 {availability.isSoldOut
-                  ? "filled"
-                  : `${availability.remaining}/${availability.total} left`}
+                  ? t.widgets.launchpadStatus.filled
+                  : t.widgets.launchpadStatus.leftCount(
+                      availability.remaining,
+                      availability.total,
+                    )}
               </span>
             </div>
 
@@ -783,7 +788,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                 )}
               >
                 <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
-                  Sold In
+                  {t.widgets.launchpadStatus.soldIn}
                 </span>
                 <span className="text-base sm:text-lg font-bold text-foreground leading-tight">
                   {formatTimeToSellOut(
@@ -792,7 +797,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                   )}
                 </span>
                 <span className="text-xs text-muted-foreground font-medium">
-                  to fill
+                  {t.widgets.launchpadStatus.toFill}
                 </span>
               </div>
             ) : isRowScoreLoading ? (
@@ -803,7 +808,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                 )}
               >
                 <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
-                  Est. Weekly
+                  {t.widgets.launchpadStatus.estWeekly}
                 </span>
                 <Skeleton className="h-5 w-16 sm:w-20 mb-1" />
                 <Skeleton className="h-3 w-12 sm:w-16" />
@@ -822,7 +827,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                   >
                     <div className="flex items-center gap-1 mb-1">
                       <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
-                        Est. Weekly
+                        {t.widgets.launchpadStatus.estWeekly}
                       </span>
                       <HelpCircle className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-muted-foreground/60" />
                     </div>
@@ -840,10 +845,12 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                         </div>
                         <span className="text-xs text-muted-foreground font-medium">
                           {isMiner
-                            ? `for ${formatMinerWeeksLabel(
-                                getMinerWeeksRemaining(row.scoreData),
-                              )}`
-                            : "for 100 weeks"}
+                            ? t.widgets.launchpadStatus.forMinerWeeks(
+                                formatMinerWeeksLabel(
+                                  getMinerWeeksRemaining(row.scoreData),
+                                ),
+                              )
+                            : t.widgets.launchpadStatus.for100Weeks}
                         </span>
                       </>
                     ) : (
@@ -867,7 +874,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                           </div>
                         </div>
                         <span className="text-xs text-muted-foreground font-medium">
-                          for 100 weeks
+                          {t.widgets.launchpadStatus.for100Weeks}
                         </span>
                       </>
                     )}
@@ -876,16 +883,16 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                 <TooltipContent className="max-w-xs">
                   {isMiner ? (
                     <p className="text-xs">
-                      {`Estimated weekly rewards per miner, paid for ${formatMinerWeeksLabel(
-                        getMinerWeeksRemaining(row.scoreData),
-                      )}. May decrease as new farms join.`}
+                      {t.widgets.launchpadStatus.tooltipMinerWeekly(
+                        formatMinerWeeksLabel(
+                          getMinerWeeksRemaining(row.scoreData),
+                        ),
+                      )}
                     </p>
                   ) : (
                     <div className="space-y-2">
                       <p className="text-xs text-muted-foreground">
-                        Weekly reward breakdown (per delegation). Estimates
-                        update weekly as new farms and regions join the
-                        protocol.
+                        {t.widgets.launchpadStatus.tooltipDelegationWeekly}
                       </p>
                       {row.scoreData &&
                       "userWeeklyGlwRewards" in row.scoreData &&
@@ -918,7 +925,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                               <div className="space-y-1.5 pt-2 border-t border-border/20 dark:border-border/40">
                                 <div className="flex justify-between gap-4 text-xs">
                                   <span className="text-muted-foreground">
-                                    PD Recovery
+                                    {t.widgets.launchpadStatus.pdRecovery}
                                   </span>
                                   <span className="font-mono font-medium">
                                     +
@@ -933,7 +940,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                                 </div>
                                 <div className="flex justify-between gap-4 text-xs">
                                   <span className="text-muted-foreground">
-                                    Emissions
+                                    {t.widgets.launchpadStatus.emissions}
                                   </span>
                                   <span className="font-mono font-medium">
                                     +
@@ -962,7 +969,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                 )}
               >
                 <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
-                  Est. Weekly
+                  {t.widgets.launchpadStatus.estWeekly}
                 </span>
                 <span className="text-base sm:text-lg font-bold text-muted-foreground leading-tight">
                   —
@@ -983,7 +990,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                   )}
                 >
                   <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
-                    Score
+                    {t.widgets.launchpadStatus.score}
                   </span>
                   <Skeleton className="h-5 w-10 sm:w-12 mb-1" />
                   <Skeleton className="h-3 w-16 sm:w-20" />
@@ -999,7 +1006,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                     >
                       <div className="flex items-center gap-1 mb-1">
                         <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
-                          Score
+                          {t.widgets.launchpadStatus.score}
                         </span>
                         <Info className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-muted-foreground/60" />
                       </div>
@@ -1007,14 +1014,13 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                         {Math.round(rewardScore)}
                       </span>
                       <span className="text-xs text-muted-foreground font-medium">
-                        Reward Score
+                        {t.widgets.launchpadStatus.rewardScore}
                       </span>
                     </div>
                   </TooltipTrigger>
                   <TooltipContent className="max-w-xs">
                     <p className="text-xs">
-                      Combines deposit recovery and GLW emissions into expected
-                      rewards per dollar. Higher is better.
+                      {t.widgets.launchpadStatus.rewardScoreTooltip}
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -1046,7 +1052,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                   );
                 }}
               >
-                View Audit <ArrowUpRight className="ml-1.5 w-4 h-4" />
+                {t.widgets.launchpadStatus.viewAudit} <ArrowUpRight className="ml-1.5 w-4 h-4" />
               </Button>
             ) : isMiner ? (
               <div className="flex justify-end">
@@ -1061,7 +1067,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                     handleCardClick(row);
                   }}
                 >
-                  Purchase Miner <ArrowUpRight className="w-4 h-4 ml-1.5" />
+                  {t.widgets.launchpadStatus.purchaseMiner} <ArrowUpRight className="w-4 h-4 ml-1.5" />
                 </Button>
               </div>
             ) : (
@@ -1076,7 +1082,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                   handleCardClick(row);
                 }}
               >
-                {`Delegate ${currency}`}{" "}
+                {t.widgets.launchpadStatus.delegate(currency)}{" "}
                 <ArrowUpRight className="ml-1.5 w-4 h-4" />
               </Button>
             )}
@@ -1131,7 +1137,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <GlowSymbol className="h-12 w-12 mb-4 opacity-50" />
         <div className="text-sm text-muted-foreground">
-          No listings available at this time.
+          {t.widgets.launchpadStatus.noListings}
         </div>
       </div>
     );
@@ -1159,7 +1165,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                 : "bg-muted/30 dark:bg-muted/50 text-muted-foreground hover:bg-muted/50 dark:hover:bg-muted/70",
             )}
           >
-            All{" "}
+            {t.widgets.launchpadStatus.tabAll}{" "}
             <span className="ml-0.5 sm:ml-1 font-mono tabular-nums text-[10px] sm:text-xs opacity-70">
               {delegationsAvailableCount + minersAvailableCount}
             </span>
@@ -1184,8 +1190,8 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
             )}
           >
             <DelegationIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span className="hidden sm:inline">Delegations</span>
-            <span className="sm:hidden">Deleg.</span>{" "}
+            <span className="hidden sm:inline">{t.widgets.launchpadStatus.tabDelegations}</span>
+            <span className="sm:hidden">{t.widgets.launchpadStatus.tabDelegationsShort}</span>{" "}
             <span className="font-mono tabular-nums text-[10px] sm:text-xs opacity-70">
               {delegationsAvailableCount}
             </span>
@@ -1210,7 +1216,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
             )}
           >
             <CashMinerIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            Miners{" "}
+            {t.widgets.launchpadStatus.tabMiners}{" "}
             <span className="font-mono tabular-nums text-[10px] sm:text-xs opacity-70">
               {minersAvailableCount}
             </span>
@@ -1245,7 +1251,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
               }}
               disabled={pageIndex === 0}
               className="h-10 w-10 rounded-full border border-border/20"
-              aria-label="Previous listings"
+              aria-label={t.widgets.launchpadStatus.previousListings}
             >
               <ChevronLeft className="w-4 h-4" />
             </Button>
@@ -1273,7 +1279,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
               }}
               disabled={pageIndex >= pageCount - 1}
               className="h-10 w-10 rounded-full border border-border/20"
-              aria-label="Next listings"
+              aria-label={t.widgets.launchpadStatus.nextListings}
             >
               <ChevronRight className="w-4 h-4" />
             </Button>
@@ -1330,6 +1336,7 @@ export default function LaunchpadStatusWidget({
   isApproaching = false,
   onPayDeposit,
 }: LaunchpadStatusWidgetProps) {
+  const { t } = useLang();
   const { address, isConnected } = useAccount();
   const walletAddress = address?.toLowerCase() ?? null;
   const source = "launchpad_status_widget";
@@ -1550,14 +1557,14 @@ export default function LaunchpadStatusWidget({
                 )}
               >
                 {isLive
-                  ? "Glow Launchpad"
+                  ? t.widgets.launchpadStatus.launchpadTitle
                   : effectiveIsApproaching
                     ? hasSplitBatchSchedule
-                      ? "New miners in..."
-                      : "Get ready"
+                      ? t.widgets.launchpadStatus.newMinersIn
+                      : t.widgets.launchpadStatus.getReady
                     : hasSplitBatchSchedule
-                      ? "New Mining Center Listing In..."
-                      : "New Solar Farm Listing In..."}
+                      ? t.widgets.launchpadStatus.newMiningCenterListingIn
+                      : t.widgets.launchpadStatus.newSolarFarmListingIn}
               </CardTitle>
             </div>
 
@@ -1570,7 +1577,7 @@ export default function LaunchpadStatusWidget({
                   "border border-border/20 dark:border-border/40",
                 )}
               >
-                View Marketplace
+                {t.widgets.launchpadStatus.viewMarketplace}
                 <ArrowUpRight className="w-4 h-4" />
               </Link>
             ) : (
@@ -1593,7 +1600,7 @@ export default function LaunchpadStatusWidget({
                 <ShoppingCart
                   className={cn("mr-1.5", isFullRow ? "h-3 w-3" : "h-4 w-4")}
                 />
-                Buy GLW
+                {t.widgets.launchpadStatus.buyGlw}
               </Button>
             )}
           </div>
@@ -1646,7 +1653,7 @@ export default function LaunchpadStatusWidget({
             )}
           >
             <div className="text-sm text-muted-foreground">
-              Status currently unavailable.
+              {t.widgets.launchpadStatus.statusUnavailable}
             </div>
           </div>
         ) : isLive ? (
@@ -1682,7 +1689,7 @@ export default function LaunchpadStatusWidget({
                   }}
                   className="w-full h-12 font-mono font-bold text-base"
                 >
-                  See All Activity
+                  {t.widgets.launchpadStatus.seeAllActivity}
                 </Button>
               </div>
             </div>
@@ -1692,11 +1699,11 @@ export default function LaunchpadStatusWidget({
                 {hasMinerLeadWindow && splitDelegationLaunchLabel ? (
                   <div className="px-4 pt-3">
                     <div className="rounded-2xl border border-border/30 bg-muted/25 px-4 py-3 text-sm text-muted-foreground">
-                      Miners are live now. Delegations open at{" "}
+                      {t.widgets.launchpadStatus.minersLiveDelegationsPre}
                       <span className="font-medium text-foreground">
                         {splitDelegationLaunchLabel}
                       </span>
-                      .
+                      {t.widgets.launchpadStatus.minersLiveDelegationsPost}
                     </div>
                   </div>
                 ) : null}
@@ -1734,15 +1741,13 @@ export default function LaunchpadStatusWidget({
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="text-lg font-semibold text-foreground transition-colors group-hover:text-delegation-purple">
-                        Guide to Delegation
+                        {t.widgets.launchpadStatus.guideToDelegationTitle}
                       </div>
                       <div className="mt-1.5 text-sm text-muted-foreground line-clamp-3 leading-relaxed">
-                        Delegate your GLW to fund solar farms. Earn GLW
-                        emissions and gradually recover your delegated tokens
-                        over 100 weeks based on farm efficiency.
+                        {t.widgets.launchpadStatus.guideToDelegationBody}
                       </div>
                       <div className="mt-3 text-xs font-medium text-muted-foreground group-hover:text-delegation-purple/80 transition-colors flex items-center gap-1">
-                        Learn more <span aria-hidden="true">→</span>
+                        {t.widgets.launchpadStatus.learnMore} <span aria-hidden="true">→</span>
                       </div>
                     </div>
                   </div>
@@ -1769,15 +1774,13 @@ export default function LaunchpadStatusWidget({
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="text-lg font-semibold text-foreground transition-colors group-hover:text-[color:var(--color-miner-contrast)]">
-                        How Miners Work
+                        {t.widgets.launchpadStatus.howMinersWorkTitle}
                       </div>
                       <div className="mt-1.5 text-sm text-muted-foreground line-clamp-3 leading-relaxed">
-                        Buy "Solar Miners" with USDC. They earn GLW emissions
-                        tokens over the farm's remaining reward schedule based on real-world electricity
-                        generation.
+                        {t.widgets.launchpadStatus.howMinersWorkBody}
                       </div>
                       <div className="mt-3 text-xs font-medium text-muted-foreground group-hover:text-[color:var(--color-miner-contrast)]/80 transition-colors flex items-center gap-1">
-                        Learn more <span aria-hidden="true">→</span>
+                        {t.widgets.launchpadStatus.learnMore} <span aria-hidden="true">→</span>
                       </div>
                     </div>
                   </div>
@@ -1793,7 +1796,7 @@ export default function LaunchpadStatusWidget({
               <div className="flex flex-col items-center justify-center gap-4 py-8 px-10  w-full max-w-lg">
                 <GlowSymbol className="h-12 w-12" />
                 <div className="text-lg md:text-xl font-medium text-muted-foreground uppercase tracking-wider">
-                  New listings in
+                  {t.widgets.launchpadStatus.newListingsIn}
                 </div>
                 <div className="font-mono font-bold tracking-tighter tabular-nums text-foreground">
                   <div className="sm:hidden">
@@ -1843,15 +1846,13 @@ export default function LaunchpadStatusWidget({
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="text-lg font-semibold text-foreground transition-colors group-hover:text-delegation-purple">
-                        Guide to Delegation
+                        {t.widgets.launchpadStatus.guideToDelegationTitle}
                       </div>
                       <div className="mt-1.5 text-sm text-muted-foreground line-clamp-3 leading-relaxed">
-                        Delegate your GLW to fund solar farms. Earn GLW
-                        emissions and gradually recover your delegated tokens
-                        over 100 weeks based on farm efficiency.
+                        {t.widgets.launchpadStatus.guideToDelegationBody}
                       </div>
                       <div className="mt-3 text-xs font-medium text-muted-foreground group-hover:text-delegation-purple/80 transition-colors flex items-center gap-1">
-                        Learn more <span aria-hidden="true">→</span>
+                        {t.widgets.launchpadStatus.learnMore} <span aria-hidden="true">→</span>
                       </div>
                     </div>
                   </div>
@@ -1878,15 +1879,13 @@ export default function LaunchpadStatusWidget({
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="text-lg font-semibold text-foreground transition-colors group-hover:text-[color:var(--color-miner-contrast)]">
-                        How Miners Work
+                        {t.widgets.launchpadStatus.howMinersWorkTitle}
                       </div>
                       <div className="mt-1.5 text-sm text-muted-foreground line-clamp-3 leading-relaxed">
-                        Buy "Solar Miners" with USDC. They earn GLW emissions
-                        tokens over the farm's remaining reward schedule based on real-world electricity
-                        generation.
+                        {t.widgets.launchpadStatus.howMinersWorkBody}
                       </div>
                       <div className="mt-3 text-xs font-medium text-muted-foreground group-hover:text-[color:var(--color-miner-contrast)]/80 transition-colors flex items-center gap-1">
-                        Learn more <span aria-hidden="true">→</span>
+                        {t.widgets.launchpadStatus.learnMore} <span aria-hidden="true">→</span>
                       </div>
                     </div>
                   </div>
@@ -1946,12 +1945,10 @@ export default function LaunchpadStatusWidget({
 
                 <div className="flex-1 space-y-1 py-0.5">
                   <p className="text-base font-semibold text-foreground">
-                    Be ready for Tuesday launchpad windows.
+                    {t.widgets.launchpadStatus.beReadyTitle}
                   </p>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Launchpad listings open in sGCTL at Tuesday 1:00 AM ET,
-                    then shift to GLW at Tuesday 1:00 PM ET. Listings created
-                    after 1:00 AM ET join at the 1:00 PM ET GLW release.
+                    {t.widgets.launchpadStatus.beReadyBody}
                   </p>
                 </div>
               </div>

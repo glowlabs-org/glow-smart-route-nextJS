@@ -72,6 +72,7 @@ import {
   normalizeDashboardAsset,
   parseProtocolDepositTokenAmount,
 } from "@/app/test/widgets/rewards-widget-utils";
+import { useLang, type Strings } from "@/lib/i18n";
 
 interface AssetHistoryPoint {
   weekNumber: number;
@@ -246,11 +247,13 @@ const AssetHistoryTooltip = ({
   payload,
   label,
   asset,
+  earnedLabel,
 }: {
   active?: boolean;
   payload?: Array<{ dataKey?: string; value?: number | string }>;
   label?: string;
   asset: string;
+  earnedLabel: string;
 }) => {
   if (active && payload && payload.length) {
     const amountRaw = payload.find((p) => p.dataKey === "amount")?.value ?? 0;
@@ -263,7 +266,7 @@ const AssetHistoryTooltip = ({
           {label}
         </p>
         <div className="flex items-center justify-between gap-4">
-          <span className="text-xs font-mono text-muted-foreground">Earned</span>
+          <span className="text-xs font-mono text-muted-foreground">{earnedLabel}</span>
           <span className="text-sm font-semibold text-foreground font-mono">
             {formatTokenPrecise(amount)} {asset}
           </span>
@@ -297,10 +300,12 @@ const PendingFarmRow = ({
   data,
   isPending,
   onOpenDialog,
+  labels,
 }: {
   data: PendingFarmData | InProgressFarmData;
   isPending: boolean;
   onOpenDialog?: () => void;
+  labels: Strings["widgets"]["solarFarm"];
 }) => {
   const isMiningCenter = data.fractionType === "mining-center";
 
@@ -363,7 +368,7 @@ const PendingFarmRow = ({
             className
           )}
         >
-          STARTS SOON
+          {labels.pendingBadge}
         </div>
       );
     }
@@ -374,7 +379,7 @@ const PendingFarmRow = ({
           className
         )}
       >
-        IN PROGRESS
+        {labels.inProgressBadge}
       </div>
     );
   };
@@ -407,13 +412,13 @@ const PendingFarmRow = ({
             </div>
             <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground mt-0.5">
               <span className="uppercase tracking-wider">
-                {isPending ? "Pending" : "In Progress"}
+                {isPending ? labels.pendingLabel : labels.inProgressLabel}
               </span>
               {!isPending && typeof data.progressPercent === "number" && (
                 <>
                   <span>•</span>
                   <span className="tabular-nums">
-                    {Math.round(data.progressPercent)}% filled
+                    {labels.percentFilled(Math.round(data.progressPercent))}
                   </span>
                 </>
               )}
@@ -424,7 +429,7 @@ const PendingFarmRow = ({
         <div className="mt-3 flex items-center justify-between text-xs font-mono">
           <div className="flex flex-col">
             <span className="text-[9px] uppercase tracking-wider text-muted-foreground mb-0.5">
-              {isMiningCenter ? "Cost" : "Delegated"}
+              {isMiningCenter ? labels.costLabel : labels.delegatedLabel}
             </span>
             {amountValue ? (
               <span
@@ -445,7 +450,7 @@ const PendingFarmRow = ({
           </div>
           <div className="flex flex-col items-end">
             <span className="text-[9px] uppercase tracking-wider text-muted-foreground mb-0.5">
-              Est. Weekly
+              {labels.estWeeklyCol}
             </span>
             {estimatedGlw ? (
               <span
@@ -487,7 +492,7 @@ const PendingFarmRow = ({
                 {data.farmName}
               </span>
               <span className="text-sm font-mono text-muted-foreground truncate">
-                {isPending ? "Pending" : "In Progress"}
+                {isPending ? labels.pendingLabel : labels.inProgressLabel}
               </span>
             </div>
           </div>
@@ -496,7 +501,7 @@ const PendingFarmRow = ({
           <div className="col-span-3 px-2">
             {!isPending && typeof data.progressPercent === "number" ? (
               <div className="text-xs font-mono text-muted-foreground">
-                {Math.round(data.progressPercent ?? 0)}% filled
+                {labels.percentFilled(Math.round(data.progressPercent ?? 0))}
               </div>
             ) : null}
           </div>
@@ -507,7 +512,7 @@ const PendingFarmRow = ({
               <div className="flex items-center gap-4 w-full">
                 <div className="flex-1">
                   <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
-                    Funding
+                    {labels.fundingLabel}
                   </div>
                   <Progress
                     value={Math.max(
@@ -529,7 +534,7 @@ const PendingFarmRow = ({
                       {formatGlwPrecise(estimatedGlw)}
                     </div>
                     <div className="text-[10px] font-mono text-muted-foreground">
-                      GLW/wk est.
+                      {labels.glwPerWeekEst}
                     </div>
                   </div>
                 )}
@@ -538,7 +543,7 @@ const PendingFarmRow = ({
               <>
                 <div className="text-center min-w-[70px]">
                   <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
-                    {isMiningCenter ? "Cost" : "Delegated"}
+                    {isMiningCenter ? labels.costLabel : labels.delegatedLabel}
                   </div>
                   <div className="flex items-baseline justify-center gap-1">
                     {amountValue ? (
@@ -563,7 +568,7 @@ const PendingFarmRow = ({
                 </div>
                 <div className="text-center min-w-[70px]">
                   <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
-                    Est. Weekly
+                    {labels.estWeeklyCol}
                   </div>
                   <div className="flex items-baseline justify-center gap-1">
                     {estimatedGlw ? (
@@ -614,6 +619,7 @@ export default function SolarFarmWidget({
   walletAddress,
   variant = "default",
 }: SolarFarmWidgetProps) {
+  const { t } = useLang();
   const queryClient = useQueryClient();
   const { isConnecting, isReconnecting } = useAccount();
   const hasWallet = Boolean(walletAddress);
@@ -1042,8 +1048,8 @@ export default function SolarFarmWidget({
     return [
       {
         weekNumber: estimateWeek,
-        dateLabel: "Est.",
-        tooltipDate: "Estimated in-progress rewards",
+        dateLabel: t.widgets.solarFarm.estAbbrev,
+        tooltipDate: t.widgets.solarFarm.estInProgressRewardsTooltip,
         amount: selectedAssetEstimatedInProgress,
       },
     ];
@@ -1113,28 +1119,28 @@ export default function SolarFarmWidget({
       {
         key: "miners" as const,
         count: stats.activeMiners,
-        label: "Miners",
+        label: t.widgets.solarFarm.miners,
         iconSrc: "/images/icons/cash-miner.svg",
         iconClassName: "text-miner",
       },
       {
         key: "delegations" as const,
         count: stats.activeDelegations,
-        label: "Delegations",
+        label: t.widgets.solarFarm.delegations,
         iconSrc: "/images/icons/vault.svg",
         iconClassName: "text-glow-purple",
       },
       {
         key: "other" as const,
         count: stats.activeOtherRewards,
-        label: "Other",
+        label: t.widgets.solarFarm.other,
         Icon: Gift,
         iconClassName: "text-[color:var(--color-glow-green)]",
       },
     ].filter((i) => i.count > 0);
 
     return items.length ? items : [];
-  }, [stats.activeDelegations, stats.activeMiners, stats.activeOtherRewards]);
+  }, [stats.activeDelegations, stats.activeMiners, stats.activeOtherRewards, t.widgets.solarFarm]);
 
   const statsGridColsClass = React.useMemo(() => {
     const n = visibleStatsItems.length;
@@ -1223,7 +1229,7 @@ export default function SolarFarmWidget({
           <CardHeader className="pb-0 pt-4">
             <div className="flex items-center justify-between gap-3">
               <CardTitle className="text-lg font-semibold tracking-tight text-foreground">
-                Glow Mining
+                {t.widgets.solarFarm.title}
               </CardTitle>
               <DialogTrigger asChild>
                 <Button
@@ -1241,7 +1247,7 @@ export default function SolarFarmWidget({
                   }}
                 >
                   <LayoutGrid className="h-3.5 w-3.5" />
-                  <span>View Details</span>
+                  <span>{t.widgets.solarFarm.viewDetails}</span>
                 </Button>
               </DialogTrigger>
             </div>
@@ -1267,7 +1273,7 @@ export default function SolarFarmWidget({
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="flex flex-col gap-1 min-w-0">
                       <span className="text-[10px] uppercase text-muted-foreground font-mono tracking-wider">
-                        Current Weekly Payout
+                        {t.widgets.solarFarm.currentWeeklyPayout}
                       </span>
                       <div className="flex items-center gap-3">
                         <div className="flex items-center gap-2">
@@ -1295,7 +1301,7 @@ export default function SolarFarmWidget({
                             <CashMinerIcon className="w-6 h-6" />
                           </div>
                           <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
-                            Miners
+                            {t.widgets.solarFarm.miners}
                           </span>
                         </div>
                         <div className="flex flex-col items-center sm:items-end px-2 sm:px-3">
@@ -1306,7 +1312,7 @@ export default function SolarFarmWidget({
                             <Zap className="w-4 h-4 text-glow-purple" />
                           </div>
                           <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
-                            Delegations
+                            {t.widgets.solarFarm.delegations}
                           </span>
                         </div>
                         <div className="flex flex-col items-center sm:items-end px-2 sm:px-3">
@@ -1317,7 +1323,7 @@ export default function SolarFarmWidget({
                             <Gift className="w-4 h-4 text-[color:var(--color-glow-green)]" />
                           </div>
                           <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
-                            Other
+                            {t.widgets.solarFarm.other}
                           </span>
                         </div>
                       </div>
@@ -1358,10 +1364,10 @@ export default function SolarFarmWidget({
 
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center gap-2">
                   <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-                    Connect your wallet
+                    {t.widgets.solarFarm.connectWalletKicker}
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    Connect your wallet to view mining performance.
+                    {t.widgets.solarFarm.connectWalletBody}
                   </div>
                 </div>
               </div>
@@ -1371,7 +1377,7 @@ export default function SolarFarmWidget({
           ) : isWidgetError ? (
             <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-3 text-center">
               <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-                Unable to load rewards breakdown
+                {t.widgets.solarFarm.errorUnableToLoad}
               </div>
               <Button
                 variant="outline"
@@ -1386,7 +1392,7 @@ export default function SolarFarmWidget({
                   refetch();
                 }}
               >
-                Retry
+                {t.widgets.solarFarm.retry}
               </Button>
             </div>
           ) : isEmptyButConnected ? (
@@ -1395,11 +1401,10 @@ export default function SolarFarmWidget({
                 <div className="relative flex flex-col items-center justify-center text-center flex-1 gap-6">
                   <div className="space-y-2">
                     <div className="text-lg font-bold text-foreground">
-                      No Active Solar Streams
+                      {t.widgets.solarFarm.noActiveStreamsTitle}
                     </div>
                     <div className="mx-auto max-w-[400px] text-sm text-zinc-400">
-                      Your portfolio is currently dormant. Delegate GLW to
-                      generate weekly GLW rewards.
+                      {t.widgets.solarFarm.noActiveStreamsBody}
                     </div>
                   </div>
 
@@ -1420,25 +1425,25 @@ export default function SolarFarmWidget({
                         activeDelegationsListingsCount === 0 ? (
                           <>
                             <CashMinerIcon className="mr-2 h-6 w-6" />
-                            Buy Miners
+                            {t.widgets.solarFarm.buyMiners}
                           </>
                         ) : activeDelegationsListingsCount > 0 &&
                           activeMinersListingsCount === 0 ? (
                           <>
                             <Zap className="mr-2 h-4 w-4" />
-                            Delegate GLW
+                            {t.widgets.solarFarm.delegateGlw}
                           </>
                         ) : (
                           <>
                             <Rocket className="mr-2 h-4 w-4" />
-                            Browse Launchpad
+                            {t.widgets.solarFarm.browseLaunchpad}
                           </>
                         )}
                       </Button>
                     ) : (
                       <div className="flex flex-col items-center gap-2">
                         <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                          Next batch in
+                          {t.widgets.solarFarm.nextBatchIn}
                         </div>
                         <div className="solar-farm-next-batch-countdown">
                           <AnimatedCountdownDhms
@@ -1476,10 +1481,10 @@ export default function SolarFarmWidget({
                           </div>
                           <div className="min-w-0">
                             <div className="text-sm font-semibold text-foreground transition-colors group-hover:text-[color:var(--color-miner-contrast)]">
-                              How Mining Works
+                              {t.widgets.solarFarm.howMiningWorks}
                             </div>
                             <div className="mt-1 text-xs text-zinc-500">
-                              Learn about cash incentives & yield.
+                              {t.widgets.solarFarm.howMiningWorksBody}
                             </div>
                           </div>
                         </div>
@@ -1506,10 +1511,10 @@ export default function SolarFarmWidget({
                           </div>
                           <div className="min-w-0">
                             <div className="text-sm font-semibold text-foreground transition-colors group-hover:text-delegation-purple">
-                              Guide to Delegation
+                              {t.widgets.solarFarm.guideDelegation}
                             </div>
                             <div className="mt-1 text-xs text-zinc-500">
-                              Learn about deposit recovery & surplus.
+                              {t.widgets.solarFarm.guideDelegationBody}
                             </div>
                           </div>
                         </div>
@@ -1534,8 +1539,8 @@ export default function SolarFarmWidget({
                   <div className="flex flex-col gap-1.5 min-w-0">
                     <span className="text-[9px] uppercase text-muted-foreground/50 font-mono tracking-widest">
                       {stats.isEstimatedWeeklyPayout
-                        ? "Est. Weekly Rewards"
-                        : "Latest Weekly Earnings"}
+                        ? t.widgets.solarFarm.estWeeklyRewards
+                        : t.widgets.solarFarm.latestWeeklyEarnings}
                     </span>
                     <div className="flex items-center gap-3 min-w-0">
                       <Sun className="w-5 h-5 text-emerald-500 fill-emerald-500/20" />
@@ -1556,11 +1561,11 @@ export default function SolarFarmWidget({
                   {availableAssets.length > 1 ? (
                     <div className="flex flex-col gap-1.5 w-full sm:w-auto">
                       <span className="text-[9px] uppercase text-muted-foreground/50 font-mono tracking-widest">
-                        Asset
+                        {t.widgets.solarFarm.assetLabel}
                       </span>
                       <Select value={selectedAsset} onValueChange={setSelectedAsset}>
                         <SelectTrigger className="h-9 w-full sm:w-[132px] rounded-full border-border/20 bg-muted/30 text-xs font-mono">
-                          <SelectValue placeholder="Asset" />
+                          <SelectValue placeholder={t.widgets.solarFarm.assetLabel} />
                         </SelectTrigger>
                         <SelectContent align="start">
                           {availableAssets.map((asset) => (
@@ -1577,7 +1582,7 @@ export default function SolarFarmWidget({
                 <DialogTrigger asChild>
                   <button
                     type="button"
-                    aria-label="Open farm performance details"
+                    aria-label={t.widgets.solarFarm.farmDetailsAria}
                     onClick={() => {
                       trackEvent("dashboard_mining_details_open_click", {
                         source,
@@ -1667,7 +1672,12 @@ export default function SolarFarmWidget({
                           labelFormatter={(_, payload) =>
                             payload?.[0]?.payload?.tooltipDate ?? ""
                           }
-                          content={<AssetHistoryTooltip asset={selectedAsset} />}
+                          content={
+                            <AssetHistoryTooltip
+                              asset={selectedAsset}
+                              earnedLabel={t.widgets.solarFarm.earned}
+                            />
+                          }
                           cursor={{ fill: "var(--muted)", opacity: 0.35 }}
                         />
                         <Bar

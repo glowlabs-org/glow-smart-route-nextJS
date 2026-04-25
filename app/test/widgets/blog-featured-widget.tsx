@@ -7,6 +7,7 @@ import { ArrowUpRight } from "lucide-react";
 import { useAccount } from "wagmi";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/telemetry";
+import { useLang } from "@/lib/i18n";
 
 interface BlogFeaturedWidgetProps {
   className?: string;
@@ -15,20 +16,20 @@ interface BlogFeaturedWidgetProps {
 export default function BlogFeaturedWidget({
   className,
 }: BlogFeaturedWidgetProps) {
+  const { t } = useLang();
   const { address, isConnected } = useAccount();
   const walletAddress = address?.toLowerCase() ?? null;
   const source = "blog_featured_widget";
 
   const post = {
     slug: "capital-efficiency-in-the-glow-economy",
-    title: "Delegate or Mine? Capital Efficiency in the Glow Economy",
-    description:
-      "Optimizing your participation and rewards in the on-chain solar economy",
-    category: "Protocol",
-    readTime: "7 min read",
+    title: t.widgets.blogFeatured.title,
+    description: t.widgets.blogFeatured.description,
+    category: t.widgets.blogFeatured.category,
+    readTime: t.widgets.blogFeatured.readTime,
     author: {
       name: "Vik Kalghatgi",
-      role: "Chief Scientist",
+      role: t.widgets.blogFeatured.authorRole,
     },
     publishedAt: "2026-01-29",
     image: "/images/capital-efficiency-header.jpg",
@@ -81,7 +82,7 @@ export default function BlogFeaturedWidget({
         <div className="relative z-10 p-5 md:p-6 h-full flex flex-col justify-end text-white">
           {/* Metadata */}
           <div className="flex items-center gap-3 text-[10px] font-mono uppercase tracking-widest text-white/70 mb-3">
-            <time dateTime={post.publishedAt}>Jan 29, 2026</time>
+            <time dateTime={post.publishedAt}>{t.widgets.blogFeatured.publishedAtLabel}</time>
             <span aria-hidden="true">•</span>
             <span>{post.readTime}</span>
           </div>

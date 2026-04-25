@@ -25,6 +25,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Info } from "lucide-react";
+import { useLang } from "@/lib/i18n";
 
 interface UnstakeDialogProps {
   isOpen: boolean;
@@ -49,6 +50,7 @@ export function UnstakeDialog({
   regionYields,
   gctlUnstaking,
 }: UnstakeDialogProps) {
+  const { t } = useLang();
   const stakedRegions = useMemo(
     () => regionYields.filter((r) => parseNum(r.userStake) > 0),
     [regionYields]
@@ -65,21 +67,24 @@ export function UnstakeDialog({
 
   function handleSubmit() {
     if (disableSubmit) {
-      toast.error("Enter a valid amount to unstake");
+      toast.error(t.dialogs.unstake.toastEnterAmount);
       return;
     }
-    toast.success(`Unstaking ${unstakeAmount.toLocaleString()} GCTL`, {
-      description: `${selectedRegion} • Drips over 100 weeks (1%/wk)`,
-    });
+    toast.success(
+      t.dialogs.unstake.toastSuccess(unstakeAmount.toLocaleString()),
+      {
+        description: t.dialogs.unstake.toastSuccessDesc(selectedRegion),
+      },
+    );
     onClose();
   }
 
   function handleStopUnstake() {
     if (parseNum(gctlUnstaking) <= 0) {
-      toast.info("No ongoing unstake schedules");
+      toast.info(t.dialogs.unstake.toastNoOngoingSchedules);
       return;
     }
-    toast.success("Stopped ongoing unstake schedule");
+    toast.success(t.dialogs.unstake.toastStopped);
     onClose();
   }
 
@@ -87,18 +92,18 @@ export function UnstakeDialog({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle className="text-base">Unstake GCTL</DialogTitle>
+          <DialogTitle className="text-base">{t.dialogs.unstake.title}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
           {/* Regions */}
           <div>
             <h3 className="text-sm font-medium text-muted-foreground mb-2">
-              Your staked regions
+              {t.dialogs.unstake.yourStakedRegions}
             </h3>
             {stakedRegions.length === 0 ? (
               <div className="text-xs text-muted-foreground">
-                You have no staked GCTL in any region.
+                {t.dialogs.unstake.noStakedGctl}
               </div>
             ) : (
               <div className="border rounded-lg overflow-hidden">
@@ -113,8 +118,8 @@ export function UnstakeDialog({
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-12"></TableHead>
-                        <TableHead>Region</TableHead>
-                        <TableHead>Your Stake</TableHead>
+                        <TableHead>{t.dialogs.unstake.region}</TableHead>
+                        <TableHead>{t.dialogs.unstake.yourStake}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -146,7 +151,7 @@ export function UnstakeDialog({
           {/* Unstake percentage (remove-liquidity style) */}
           <div>
             <h3 className="text-sm font-medium text-muted-foreground">
-              Select unstake amount
+              {t.dialogs.unstake.selectUnstakeAmount}
             </h3>
             <div className="text-center py-4">
               <div className="text-5xl font-bold tabular-nums">
@@ -173,19 +178,17 @@ export function UnstakeDialog({
                   className="px-4"
                   disabled={!selectedRegion}
                 >
-                  {p === 100 ? "Max" : `${p}%`}
+                  {p === 100 ? t.dialogs.unstake.max : `${p}%`}
                 </Button>
               ))}
             </div>
             <div className="text-xs text-muted-foreground text-center mt-2">
-              {selectedRegion ? (
-                <>
-                  Unstaking {unstakeAmount.toLocaleString()} GCTL of{" "}
-                  {maxForRegion.toLocaleString()} GCTL
-                </>
-              ) : (
-                <>Select a region to continue</>
-              )}
+              {selectedRegion
+                ? t.dialogs.unstake.unstakingOfGctl(
+                    unstakeAmount.toLocaleString(),
+                    maxForRegion.toLocaleString(),
+                  )
+                : t.dialogs.unstake.selectRegion}
             </div>
           </div>
 
@@ -193,19 +196,25 @@ export function UnstakeDialog({
           {selectedRegion && percentage > 0 && (
             <div className="bg-muted/50 rounded-lg p-4 space-y-1 text-sm">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Region</span>
+                <span className="text-muted-foreground">
+                  {t.dialogs.unstake.region}
+                </span>
                 <span className="font-medium">{selectedRegion}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Unstake Amount</span>
+                <span className="text-muted-foreground">
+                  {t.dialogs.unstake.unstakeAmount}
+                </span>
                 <span className="font-medium">
                   {unstakeAmount.toLocaleString()} GCTL
                 </span>
               </div>
               <div className="flex justify-between pt-2 border-t">
-                <span className="text-muted-foreground">Schedule</span>
+                <span className="text-muted-foreground">
+                  {t.dialogs.unstake.schedule}
+                </span>
                 <span className="font-bold text-green-600">
-                  100 weeks (1%/wk)
+                  {t.dialogs.unstake.scheduleValue}
                 </span>
               </div>
             </div>
@@ -216,8 +225,7 @@ export function UnstakeDialog({
             <div className="flex items-start gap-2">
               <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5" />
               <div className="text-xs text-blue-600 dark:text-blue-400">
-                Unstaking releases 1% weekly. You can restake released GCTL at
-                any time.
+                {t.dialogs.unstake.infoBlurb}
               </div>
             </div>
           </div>
@@ -225,15 +233,17 @@ export function UnstakeDialog({
           <DialogFooter className="gap-2">
             {parseNum(gctlUnstaking) > 0 && (
               <Button variant="ghost" onClick={handleStopUnstake}>
-                Stop Unstake ({parseNum(gctlUnstaking).toLocaleString()} GCTL)
+                {t.dialogs.unstake.stopUnstakeLabel(
+                  parseNum(gctlUnstaking).toLocaleString(),
+                )}
               </Button>
             )}
             <div className="ml-auto flex gap-2">
               <Button variant="outline" onClick={onClose}>
-                Cancel
+                {t.dialogs.unstake.cancel}
               </Button>
               <Button onClick={handleSubmit} disabled={disableSubmit}>
-                Unstake
+                {t.dialogs.unstake.unstake}
               </Button>
             </div>
           </DialogFooter>

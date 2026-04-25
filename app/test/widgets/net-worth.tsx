@@ -25,6 +25,7 @@ import {
 import { cn } from "@/lib/utils";
 import { weekToTimestamp } from "@/lib/rewards/weekly-delegations";
 import { trackEvent } from "@/lib/telemetry";
+import { useLang, type Strings } from "@/lib/i18n";
 
 import OnboardingHeroWidget from "./onboarding-hero-widget";
 import {
@@ -54,7 +55,10 @@ interface NetWorthWidgetProps {
 function GlowWorthChartTooltip({
   active,
   payload,
-}: RechartsTooltipProps<number, string>) {
+  labels,
+}: RechartsTooltipProps<number | string, string | number> & {
+  labels: Strings["widgets"]["netWorthWidget"];
+}) {
   if (!active) return null;
   const point = payload?.[0]?.payload as GlowWorthPoint | undefined;
   const safeGlw = point?.glw ?? NaN;
@@ -86,12 +90,12 @@ function GlowWorthChartTooltip({
     <div className="rounded-xl border border-foreground/10 dark:border-zinc-800 bg-popover/95 px-3 py-2 shadow-xl">
       <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground dark:text-zinc-500">
         {isCurrent
-          ? `Current · ${currentDateLabel}`
-          : dateLabel
-            ? `Week ${week} · ${dateLabel}`
-            : week
-              ? `Week ${week}`
-              : "GLW worth"}
+          ? labels.tooltipCurrentPrefix(currentDateLabel)
+          : typeof week === "number" && dateLabel
+            ? labels.tooltipWeekWithDate(week, dateLabel)
+            : typeof week === "number"
+              ? labels.tooltipWeek(week)
+              : labels.tooltipFallback}
       </div>
       <div className="font-mono text-sm font-bold tabular-nums text-foreground">
         {safeGlw.toLocaleString("en-US", { maximumFractionDigits: 0 })} GLW
@@ -101,19 +105,19 @@ function GlowWorthChartTooltip({
       Number.isFinite(unclaimed) ? (
         <div className="mt-2 space-y-1 text-[11px] font-mono text-muted-foreground/80 dark:text-zinc-400">
           <div className="flex items-center justify-between gap-4">
-            <span>Liquid</span>
+            <span>{labels.tooltipLiquid}</span>
             <span className="tabular-nums text-foreground">
               {liquid.toLocaleString("en-US", { maximumFractionDigits: 0 })}
             </span>
           </div>
           <div className="flex items-center justify-between gap-4">
-            <span>Delegated + recovery</span>
+            <span>{labels.tooltipDelegatedRecovery}</span>
             <span className="tabular-nums text-foreground">
               {delegated.toLocaleString("en-US", { maximumFractionDigits: 0 })}
             </span>
           </div>
           <div className="flex items-center justify-between gap-4">
-            <span>Unclaimed</span>
+            <span>{labels.tooltipUnclaimed}</span>
             <span className="tabular-nums text-foreground">
               {unclaimed.toLocaleString("en-US", { maximumFractionDigits: 0 })}
             </span>
@@ -125,12 +129,13 @@ function GlowWorthChartTooltip({
 }
 
 function NetWorthSkeleton() {
+  const { t } = useLang();
   return (
     <Card className="h-full overflow-hidden flex flex-col gap-2 bg-muted/20 dark:bg-muted/30 border border-border/10 dark:border-border/20 rounded-2xl pt-6 pb-0 w-full">
       <CardHeader className="py-0 px-6">
         <div className="flex items-center justify-between gap-3">
           <div className="text-sm md:text-lg font-semibold tracking-tight text-foreground">
-            Glow Worth
+            {t.widgets.netWorthWidget.title}
           </div>
           <div className="flex items-center gap-2">
             <Skeleton className="h-7 w-20 rounded-full" />
@@ -242,6 +247,7 @@ export default function NetWorthWidget({
   variant = "default",
   onBuyGlowClick,
 }: NetWorthWidgetProps) {
+  const { t } = useLang();
   const chainId = useChainId();
   const isMinimal = variant === "minimal";
   const [isBreakdownOpen, setIsBreakdownOpen] = React.useState(false);
@@ -311,7 +317,7 @@ export default function NetWorthWidget({
       <CardHeader className="py-0 px-6">
         <div className="flex items-center justify-between gap-3">
           <div className="text-sm md:text-lg font-semibold tracking-tight text-foreground">
-            Glow Worth
+            {t.widgets.netWorthWidget.title}
           </div>
           <div className="flex items-center gap-2">
             {hasWallet ? (
@@ -328,7 +334,7 @@ export default function NetWorthWidget({
                   setIsBreakdownOpen(true);
                 }}
               >
-                <span>Breakdown</span>
+                <span>{t.widgets.netWorthWidget.breakdown}</span>
               </button>
             ) : null}
             <a
@@ -338,7 +344,7 @@ export default function NetWorthWidget({
               className="h-8 inline-flex items-center gap-2 rounded-full px-3 text-[11px] font-mono tracking-wider border border-border hover:bg-muted/50 transition-colors"
             >
               <ArrowUpRight className="h-3.5 w-3.5" />
-              <span>Price Chart</span>
+              <span>{t.widgets.netWorthWidget.priceChart}</span>
             </a>
           </div>
         </div>
@@ -407,7 +413,7 @@ export default function NetWorthWidget({
                         GLW
                       </Badge>
                       <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground/50">
-                        this week
+                        {t.widgets.netWorthWidget.thisWeek}
                       </span>
                     </div>
                   </div>
@@ -465,7 +471,12 @@ export default function NetWorthWidget({
                           stroke: "var(--border)",
                           strokeOpacity: 0.35,
                         }}
-                        content={GlowWorthChartTooltip}
+                        content={((props: any) => (
+                          <GlowWorthChartTooltip
+                            {...props}
+                            labels={t.widgets.netWorthWidget}
+                          />
+                        )) as any}
                       />
                       <defs>
                         <linearGradient
@@ -514,7 +525,7 @@ export default function NetWorthWidget({
           <div className="px-6 pb-6">
             <div className="rounded-xl border border-border bg-muted/20 p-3 text-center max-w-xs mx-auto">
               <div className="mt-1 text-sm text-muted-foreground">
-                Connect your wallet to Begin.
+                {t.widgets.netWorthWidget.connectWalletPrompt}
               </div>
               <div className="mt-3">
                 <ConnectButton

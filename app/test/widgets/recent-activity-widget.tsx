@@ -6,6 +6,7 @@ import { useRecentActivityFeed } from "@/hooks/useRecentActivityFeed";
 import { RecentActivity } from "@/app/wallet/recent-activity";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/lib/i18n";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +26,7 @@ export default function RecentActivityWidget({
   hideIfEmpty = true,
   variant = "default",
 }: RecentActivityWidgetProps) {
+  const { t } = useLang();
   const { address: connectedAddress } = useAccount();
   const address = walletAddress ?? connectedAddress;
   const hasWallet = Boolean(address);
@@ -69,12 +71,12 @@ export default function RecentActivityWidget({
               size="sm"
               className="h-7 text-xs"
             >
-              View All
+              {t.widgets.recentActivity.viewAll}
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md p-0 max-h-[85vh] flex flex-col overflow-hidden bg-card border-border/20 dark:border-border/40 rounded-2xl">
             <DialogHeader className="px-6 py-5 border-b border-border/20 dark:border-border/40 flex-shrink-0">
-              <DialogTitle className="text-lg font-semibold tracking-tight">Recent Activity</DialogTitle>
+              <DialogTitle className="text-lg font-semibold tracking-tight">{t.widgets.recentActivity.dialogTitle}</DialogTitle>
             </DialogHeader>
             <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6">
               <RecentActivity

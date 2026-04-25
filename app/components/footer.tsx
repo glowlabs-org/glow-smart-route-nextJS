@@ -4,6 +4,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { GlowSymbol } from "@/components/glow-symbol";
 import { GlowWordmark } from "@/components/glow-wordmark";
+import { useLang } from "@/lib/i18n";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -27,6 +28,8 @@ const itemVariants = {
 };
 
 export function Footer({ children }: { children?: React.ReactNode }) {
+  const { t } = useLang();
+  const f = t.footer;
   return (
     <footer className="glow-gradient-a  text-glow-black relative rounded-md">
       {children}
@@ -44,8 +47,7 @@ export function Footer({ children }: { children?: React.ReactNode }) {
               <div className="flex-1">
                 <GlowWordmark className="w-16 h-16 md:w-32 md:h-32 text-glow-black md:mb-6" />
                 <p className="text-glow-black/80 glow-body text-lg md:text-xl max-w-[200px] md:max-w-lg">
-                  A community working together to build a more sustainable
-                  energy grid
+                  {f.tagline}
                 </p>
               </div>
 
@@ -82,7 +84,7 @@ export function Footer({ children }: { children?: React.ReactNode }) {
                 fontWeight: 300,
               }}
             >
-              Audits
+              {f.audits}
             </Link>
             <Link
               href="/branding"
@@ -92,7 +94,7 @@ export function Footer({ children }: { children?: React.ReactNode }) {
                 fontWeight: 300,
               }}
             >
-              Branding
+              {f.branding}
             </Link>
             <Link
               href="/press"
@@ -102,7 +104,7 @@ export function Footer({ children }: { children?: React.ReactNode }) {
                 fontWeight: 300,
               }}
             >
-              Press
+              {f.press}
             </Link>
             <Link
               href="/blog"
@@ -112,7 +114,7 @@ export function Footer({ children }: { children?: React.ReactNode }) {
                 fontWeight: 300,
               }}
             >
-              Blog
+              {f.blog}
             </Link>
             <Link
               href="/subscribe"
@@ -122,7 +124,7 @@ export function Footer({ children }: { children?: React.ReactNode }) {
                 fontWeight: 300,
               }}
             >
-              Impact Subscription
+              {f.impactSubscription}
             </Link>
             <a
               href="mailto:partnerships@glow.org"
@@ -132,7 +134,7 @@ export function Footer({ children }: { children?: React.ReactNode }) {
                 fontWeight: 300,
               }}
             >
-              Partnerships
+              {f.partnerships}
             </a>
           </div>
 
@@ -220,7 +222,7 @@ export function Footer({ children }: { children?: React.ReactNode }) {
             {/* Copyright */}
             <div>
               <p className="text-glow-black/90 text-sm md:text-base">
-                ©2025 Glow. All rights reserved.
+                {f.copyright}
               </p>
             </div>
 
@@ -232,19 +234,19 @@ export function Footer({ children }: { children?: React.ReactNode }) {
                   href="/privacy-notice"
                   className="hover:text-glow-black transition-colors"
                 >
-                  Privacy Notice
+                  {f.privacyNotice}
                 </Link>
                 <Link
                   href="/cookie-policy"
                   className="hover:text-glow-black transition-colors"
                 >
-                  Cookie Policy
+                  {f.cookiePolicy}
                 </Link>
                 <Link
                   href="/terms-of-use"
                   className="hover:text-glow-black transition-colors"
                 >
-                  Terms of Use
+                  {f.termsOfUse}
                 </Link>
               </div>
             </div>

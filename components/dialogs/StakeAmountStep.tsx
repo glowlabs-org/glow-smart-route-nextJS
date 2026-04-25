@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/lib/i18n";
 
 interface StakeAmountStepProps {
   stakeAmount: number;
@@ -61,6 +62,8 @@ export function StakeAmountStep({
   stableBalance = null,
   isStableBalanceLoading = false,
 }: StakeAmountStepProps) {
+  const { t } = useLang();
+  const c = t.bigDialogs.contribute;
   const [inputValue, setInputValue] = useState(stakeAmount.toString());
   const [isEditingInput, setIsEditingInput] = useState(false);
 
@@ -143,11 +146,11 @@ export function StakeAmountStep({
                   onValueChange={onCurrencyChange}
                 >
                   <SelectTrigger className="h-10 w-[160px] rounded-full bg-background">
-                    <SelectValue placeholder="Payment method" />
+                    <SelectValue placeholder={c.paymentMethod} />
                   </SelectTrigger>
                   <SelectContent align="start" className="min-w-[160px]">
                     {gctlBalance > 0 && (
-                      <SelectItem value="GCTL">GCTL Balance</SelectItem>
+                      <SelectItem value="GCTL">{c.gctlBalance}</SelectItem>
                     )}
                     <SelectItem value="USDC">USDC</SelectItem>
                     <SelectItem value="USDG">USDG</SelectItem>
@@ -163,16 +166,16 @@ export function StakeAmountStep({
                     </span>
                   </p>
                   <p className="text-sm text-muted-foreground mb-1">
-                    ≈ $
-                    {gctlBalanceUSD.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}{" "}
-                    USD
+                    {c.approxUsd(
+                      gctlBalanceUSD.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      }),
+                    )}
                   </p>
                   {currentStaked > 0 && (
                     <p className="text-sm text-muted-foreground">
-                      Already staked: {currentStaked.toLocaleString()} GCTL
+                      {c.alreadyStaked(currentStaked.toLocaleString())}
                     </p>
                   )}
                 </>
@@ -180,7 +183,7 @@ export function StakeAmountStep({
                 <>
                   <p className="text-2xl font-semibold mb-1">
                     {isStableBalanceLoading
-                      ? "Loading..."
+                      ? c.loading
                       : (stableBalance ?? 0).toLocaleString(undefined, {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
@@ -190,7 +193,7 @@ export function StakeAmountStep({
                     </span>
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Available balance
+                    {c.availableBalance}
                   </p>
                 </>
               )}
@@ -200,7 +203,9 @@ export function StakeAmountStep({
             {targetAmount > 0 ? (
               <div className="flex-1 bg-muted/50 dark:bg-muted/60 rounded-xl p-4 md:p-5 border border-border/20 dark:border-border/40">
                 <div className="flex items-center gap-2 mb-3">
-                  <p className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">Campaign needs</p>
+                  <p className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
+                    {c.campaignNeeds}
+                  </p>
                 </div>
                 <p className="text-3xl font-semibold mb-1">
                   {(targetAmount - currentStaked).toLocaleString("en-US", {
@@ -212,14 +217,14 @@ export function StakeAmountStep({
                   </span>
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  to reach activation threshold
+                  {c.toReachThreshold}
                 </p>
               </div>
             ) : (
               <div className="flex-1 bg-muted/50 dark:bg-muted/60 rounded-xl p-4 md:p-5 border border-border/20 dark:border-border/40">
                 <div className="flex items-center gap-2 mb-3">
                   <p className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
-                    Infrastructure Project Balance
+                    {c.infrastructureProjectBalance}
                   </p>
                 </div>
                 <p className="text-3xl font-semibold mb-1">
@@ -232,7 +237,7 @@ export function StakeAmountStep({
                   </span>
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Staked amount for this region
+                  {c.stakedAmountForRegion}
                 </p>
               </div>
             )}
@@ -245,8 +250,8 @@ export function StakeAmountStep({
         <div>
           <label className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest mb-3 block">
             {selectedCurrency === "GCTL"
-              ? "Enter amount of GCTL to stake"
-              : `Enter amount in ${currencySymbol} to spend`}
+              ? c.enterGctlAmount
+              : c.enterAmountIn(currencySymbol)}
           </label>
 
           {/* Amount Input with Controls */}
@@ -322,10 +327,10 @@ export function StakeAmountStep({
                       <div className="h-8 w-8 rounded-lg bg-[#22D3EE]/10 flex items-center justify-center">
                         <TrendingUp className="w-4 h-4 text-[#22D3EE]" />
                       </div>
-                      <p className="text-sm font-medium text-foreground">Your Impact</p>
+                      <p className="text-sm font-medium text-foreground">{c.yourImpact}</p>
                     </div>
                     <Badge variant="default">
-                      +{userContributionPercentage.toFixed(1)}% of goal
+                      {c.ofGoal(userContributionPercentage.toFixed(1))}
                     </Badge>
                   </div>
 
@@ -354,13 +359,11 @@ export function StakeAmountStep({
                     </div>
 
                     <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>{c.currentColon(currentStaked.toLocaleString())}</span>
                       <span>
-                        Current: {currentStaked.toLocaleString()} GCTL
-                      </span>
-                      <span>
-                        After:{" "}
-                        {(currentStaked + stakeAmountInGctl).toLocaleString()}{" "}
-                        GCTL
+                        {c.afterColon(
+                          (currentStaked + stakeAmountInGctl).toLocaleString(),
+                        )}
                       </span>
                     </div>
                   </div>

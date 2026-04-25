@@ -28,6 +28,7 @@ import {
 } from "@/components/transaction-stepper";
 import { useEthGasPreflight } from "@/hooks/useEthGasPreflight";
 import { useSmartAccountCheck } from "@/hooks/useSmartAccountCheck";
+import { useLang } from "@/lib/i18n";
 
 // Per-leg gas for the preflight. These must match the constants the
 // swap-interface estimator uses (hooks/useSwapUSDCToUSDG.ts and
@@ -184,6 +185,8 @@ export const UsdcToTokenDialog: FC<{
   selectedTokenSell,
   slippagePointsTenThousandths,
 }) => {
+  const { t } = useLang();
+  const s = t.swap;
   const chainId = useChainId();
   const [isPending, setIsPending] = React.useState(false);
   const [isSuccess, setIsSuccess] = React.useState(false);
@@ -571,13 +574,13 @@ export const UsdcToTokenDialog: FC<{
       );
       if (activeStep) {
         updateStepStatus(activeStep.id, "error", {
-          errorMessage: error?.message || "Transaction failed",
+          errorMessage: error?.message || s.transactionFailed,
         });
       }
 
       setIsPending(false);
       setIsError(true);
-      setErrorMessage(error?.message || "Transaction failed");
+      setErrorMessage(error?.message || s.transactionFailed);
       setTxHash(error?.txHash ?? null);
     }
   };
@@ -623,15 +626,14 @@ export const UsdcToTokenDialog: FC<{
 
   const handleDispatchBuy = () => {
     if (isSmartAccount) {
-      const msg = smartAccountCheck.reason ?? "Smart account not supported.";
+      const msg = smartAccountCheck.reason ?? s.smartAccountNotSupported;
       setIsError(true);
       setErrorMessage(msg);
       toast.error(msg);
       return;
     }
     if (hasInsufficientGas) {
-      const msg =
-        "Insufficient ETH for gas to cover the full swap. Add more ETH and try again.";
+      const msg = s.insufficientGasError;
       setIsError(true);
       setErrorMessage(msg);
       toast.error(msg);
@@ -650,14 +652,14 @@ export const UsdcToTokenDialog: FC<{
   // Transaction details for review
   const transactionDetails: TransactionDetail[] = [
     {
-      label: "You Pay",
+      label: s.youPayLabel,
       value: Number(amountToSell).toLocaleString("en-US", {
         maximumFractionDigits: 6,
       }),
       unit: selectedTokenSell.label,
     },
     {
-      label: "You Receive",
+      label: s.youReceiveLabel,
       value: Number(amount) ? formatPrice(amount, 4) : "0.00",
       unit: selectedTokenBuy.label,
     },
@@ -666,14 +668,14 @@ export const UsdcToTokenDialog: FC<{
   // Success details
   const successDetails: TransactionDetail[] = [
     {
-      label: "Sent",
+      label: s.sentLabel,
       value: Number(amountToSell).toLocaleString("en-US", {
         maximumFractionDigits: 6,
       }),
       unit: selectedTokenSell.label,
     },
     {
-      label: "Received",
+      label: s.receivedLabel,
       value: (
         <span className="text-[#4ADE80] font-mono font-medium">
           {Number(amount).toLocaleString("en-US", {
@@ -693,7 +695,7 @@ export const UsdcToTokenDialog: FC<{
         <div className="bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 rounded-xl p-4">
           <div className="flex items-center justify-between text-left">
             <div>
-              <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest mb-1">You pay</div>
+              <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest mb-1">{s.youPay}</div>
               <div className="text-2xl font-semibold">
                 {Number(amountToSell).toLocaleString("en-US", {
                   maximumFractionDigits: 6,
@@ -717,7 +719,7 @@ export const UsdcToTokenDialog: FC<{
           <div className="flex items-center justify-between">
             <div>
               <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest mb-1">
-                You receive
+                {s.youReceive}
               </div>
               <div className="text-2xl font-semibold">
                 {Number(amount) ? formatPrice(amount, 4) : "0.00"}{" "}
@@ -747,7 +749,7 @@ export const UsdcToTokenDialog: FC<{
         onClick={() => onOpenChange(false)}
         className="flex-1"
       >
-        Cancel
+        {s.cancel}
       </Button>
       <Button
         onClick={() => {
@@ -762,7 +764,7 @@ export const UsdcToTokenDialog: FC<{
         }}
         className="flex-1"
       >
-        Try Again
+        {s.tryAgain}
       </Button>
     </div>
   ) : !isPending && !isTransactionSuccessful ? (
@@ -774,12 +776,17 @@ export const UsdcToTokenDialog: FC<{
       )}
       {!isSmartAccount && hasInsufficientGas && (
         <div className="rounded-md bg-amber-50 border border-amber-200 text-amber-900 text-xs px-3 py-2">
-          Not enough ETH to cover the full{" "}
-          {selectedTokenBuy.label === "GLOW" ? "swap + purchase" : "swap"}. Add{" "}
-          {gasShortfallEth
-            ? `~${Number(gasShortfallEth).toFixed(5)} ETH`
-            : "more ETH"}{" "}
-          to this wallet and try again.
+          {selectedTokenBuy.label === "GLOW"
+            ? s.notEnoughEthSwapPurchase(
+                gasShortfallEth
+                  ? `~${Number(gasShortfallEth).toFixed(5)} ETH`
+                  : "ETH",
+              )
+            : s.notEnoughEthSwap(
+                gasShortfallEth
+                  ? `~${Number(gasShortfallEth).toFixed(5)} ETH`
+                  : "ETH",
+              )}
         </div>
       )}
       <div className="flex gap-3">
@@ -788,14 +795,14 @@ export const UsdcToTokenDialog: FC<{
           onClick={() => onOpenChange(false)}
           className="flex-1"
         >
-          Cancel
+          {s.cancel}
         </Button>
         <Button
           onClick={handleDispatchBuy}
           className="flex-1"
           disabled={isPreflightBlocked || isPreflightChecking}
         >
-          {isPreflightChecking ? "Checking…" : "Approve and Buy"}
+          {isPreflightChecking ? s.checking : s.approveAndBuy}
         </Button>
       </div>
     </div>
@@ -816,18 +823,15 @@ export const UsdcToTokenDialog: FC<{
       isError={isError}
       contentClassName="sm:max-w-[520px]"
       bodyClassName="px-6 py-8 sm:px-7 sm:py-9"
-      title="Review Swap"
+      title={s.reviewSwap}
       successTitle={`+${Number(amount).toLocaleString("en-US", {
         maximumFractionDigits: 4,
       })} ${selectedTokenBuy.label}`}
-      errorTitle="Swap Failed"
-      processingTitle="Processing Swap"
-      description="Review your transaction details before confirming"
-      processingDescription="Please wait while we process your swap"
-      errorDescription={
-        errorMessage ||
-        "We were unable to complete your swap. Please try again."
-      }
+      errorTitle={s.swapFailed}
+      processingTitle={s.processingSwap}
+      description={s.reviewSwapDescription}
+      processingDescription={s.processingSwapDescription}
+      errorDescription={errorMessage || s.swapErrorFallback}
       transactionDetails={transactionDetails}
       successDetails={successDetails}
       txHash={txHash}
@@ -839,16 +843,16 @@ export const UsdcToTokenDialog: FC<{
         etherscanTxUrl ? (
           <Button variant="ghost" className="flex-1" asChild>
             <a href={etherscanTxUrl} target="_blank" rel="noopener noreferrer">
-              View on Etherscan
+              {s.viewOnEtherscan}
             </a>
           </Button>
         ) : null
       }
-      confirmLabel="Approve and Buy"
+      confirmLabel={s.approveAndBuy}
       showImpactScoreBoost={selectedTokenBuy.label === "GLOW"}
       impactScoreBoostMessage={
         selectedTokenBuy.label === "GLOW"
-          ? "You've increased your Glow Worth. You are now earning passive Impact Points on this balance."
+          ? s.glowWorthIncreasedMessage
           : undefined
       }
       impactScoreBoostIconType={

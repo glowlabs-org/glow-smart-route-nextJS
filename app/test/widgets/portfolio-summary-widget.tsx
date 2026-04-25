@@ -27,6 +27,7 @@ import {
 } from "./farms-performance-dialog";
 import { normalizeDelegationCurrency, parseDelegationAmountFromBaseUnits } from "@/utils/launchpad-rewards";
 import { isSplitActivityStillActive } from "@/utils/wallet-launchpad";
+import { useLang } from "@/lib/i18n";
 
 interface PortfolioSummaryWidgetProps {
   walletAddress?: string | null;
@@ -78,6 +79,7 @@ export default function PortfolioSummaryWidget({
   walletAddress,
   variant = "default",
 }: PortfolioSummaryWidgetProps) {
+  const { t } = useLang();
   const { isConnecting, isReconnecting } = useAccount();
   const hasWallet = Boolean(walletAddress);
   const isWalletConnecting = isConnecting || isReconnecting;
@@ -189,7 +191,7 @@ export default function PortfolioSummaryWidget({
     return (
       <Card className="h-full bg-card dark:bg-card border-border/30 dark:border-border/40 pt-6 pb-0">
         <CardHeader className="py-0 px-6">
-          <CardTitle className="text-center">Mining Summary</CardTitle>
+          <CardTitle className="text-center">{t.widgets.portfolioSummary.title}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4 px-6 pb-6">
           <Skeleton className="h-16 w-full rounded-xl" />
@@ -210,7 +212,9 @@ export default function PortfolioSummaryWidget({
       )}
     >
       <CardHeader className="py-0 px-6">
-        <CardTitle className="text-center">Mining Summary</CardTitle>
+        <CardTitle className="text-center">
+          {t.widgets.portfolioSummary.title}
+        </CardTitle>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col justify-evenly px-6 pb-6 gap-3">
         {/* Row 1: Actively Delegated */}
@@ -229,7 +233,9 @@ export default function PortfolioSummaryWidget({
             </div>
             <div className="flex flex-col">
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono">
-                {delegatedActiveAssets.SGCTL ? "Delegated Assets" : "Delegated GLW"}
+                {delegatedActiveAssets.SGCTL
+                  ? t.widgets.portfolioSummary.delegatedAssets
+                  : t.widgets.portfolioSummary.delegatedGlw}
               </span>
               <div className="flex items-center gap-1.5">
                 <span className="text-lg font-bold font-mono text-foreground">
@@ -249,8 +255,7 @@ export default function PortfolioSummaryWidget({
                 </div>
               </TooltipTrigger>
               <TooltipContent className="max-w-[200px] text-[11px] font-mono">
-                Active launchpad principal across GLW and SGCTL, net of
-                recovered rewards when available.
+                {t.widgets.portfolioSummary.delegatedTooltip}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -272,7 +277,7 @@ export default function PortfolioSummaryWidget({
             </div>
             <div className="flex flex-col">
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono">
-                Active Miners
+                {t.widgets.portfolioSummary.activeMiners}
               </span>
               <span className="text-lg font-bold font-mono text-foreground">
                 {stats.activeMiners}
@@ -299,7 +304,7 @@ export default function PortfolioSummaryWidget({
             </div>
             <div className="flex flex-col">
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono">
-                Active Delegations
+                {t.widgets.portfolioSummary.activeDelegations}
               </span>
               <span className="text-lg font-bold font-mono text-foreground">
                 {stats.activeDelegations}

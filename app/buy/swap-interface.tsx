@@ -69,6 +69,7 @@ import {
   isSmartAccountBlocked,
 } from "@/web3/web3/utils/detectSmartAccount";
 import { trackEvent } from "@/lib/telemetry";
+import { useLang } from "@/lib/i18n";
 import { tokens } from "./constants";
 import {
   INVALID_WALLET_TX_RESPONSE_MESSAGE,
@@ -132,6 +133,7 @@ export function SwapInterface({
   ethPriceInUSD: number | null;
   isDialog?: boolean;
 }) {
+  const { t } = useLang();
   const [estimatedOutputAmount, setEstimatedOutputAmount] = useState<
     typeof defaultTokensEstimate
   >(defaultTokensEstimate);
@@ -207,13 +209,12 @@ export function SwapInterface({
         next.gt(HIGH_SLIPPAGE_WARNING_THRESHOLD) &&
         (!previous || previous.lte(HIGH_SLIPPAGE_WARNING_THRESHOLD))
       ) {
-        toast.warning("High slippage enabled", {
-          description:
-            "Slippage above 5% can lead to materially worse execution on swaps.",
+        toast.warning(t.swap.toastHighSlippage, {
+          description: t.swap.toastHighSlippageBody,
         });
       }
     },
-    [slippageTolerance]
+    [slippageTolerance, t.swap]
   );
 
   // Add a general loading state check
@@ -445,13 +446,13 @@ export function SwapInterface({
   function computeButtonProps() {
     if (isGlowPriceHardCapped) {
       return {
-        label: "Early liquidity disabled",
+        label: t.swap.earlyLiquidityDisabled,
         disabled: true,
       };
     }
     if (hasNetworkIssues) {
       return {
-        label: `Reconnect Wallet`,
+        label: t.swap.reconnectWallet,
         disabled: false,
         callback: () => {
           forceDisconnect(disconnect, connectors);
@@ -460,13 +461,13 @@ export function SwapInterface({
     }
     if (Number(amountToSell) === 0) {
       return {
-        label: `Enter an amount`,
+        label: t.swap.enterAnAmount,
         disabled: true,
       };
     } else if (Number(tokenSellBalance) < Number(amountToSell)) {
       if (selectedTokenSell.label === "ETH") {
         return {
-          label: `Insufficient ETH balance`,
+          label: t.swap.insufficientEthBalance,
           disabled: true,
         };
       }
@@ -476,21 +477,21 @@ export function SwapInterface({
           Number(formatUnits(usdgBalance, 6)) >= Number(amountToSell)
         ) {
           return {
-            label: `BUY`,
+            label: t.swap.buy,
             disabled: false,
             callback: () => {
-              toast("You have sufficient USDG", {
-                description: "Would you like to use USDG instead?",
+              toast(t.swap.toastHasUsdg, {
+                description: t.swap.toastUseUsdgInstead,
                 duration: Infinity,
                 action: {
-                  label: "Yes",
+                  label: t.swap.toastYes,
                   onClick: () => {
                     handleSelectTokenToSell("USDG");
                     setAmountToSell(amountToSell);
                   },
                 },
                 cancel: {
-                  label: "No",
+                  label: t.swap.toastNo,
                   onClick: () => {
                     trackEvent("buy_usdc_to_token_dialog_open", {
                       sell_token: selectedTokenSell.label,
@@ -507,7 +508,7 @@ export function SwapInterface({
         }
         // fix ux show a modal or error instead
         return {
-          label: `Insufficient Funds`,
+          label: t.swap.insufficientFunds,
           disabled: true,
           callback: () => {},
         };
@@ -516,12 +517,12 @@ export function SwapInterface({
         selectedTokenBuy.label !== "GLOW"
       ) {
         return {
-          label: `Insufficient ${selectedTokenSell.label} balance`,
+          label: t.swap.insufficientBalanceFor(selectedTokenSell.label),
           disabled: true,
         };
       } else {
         return {
-          label: `CONVERT USDC TO USDG`,
+          label: t.swap.convertUsdcToUsdg,
           disabled: false,
           callback: () => {
             handleSelectTokenToSell("USDC");
@@ -539,21 +540,21 @@ export function SwapInterface({
           })()
         ) {
           return {
-            label: `SWAP`,
+            label: t.swap.swap,
             disabled: false,
             callback: () => {
-              toast("Insufficient USDC", {
-                description: "Would you like to use USDG instead?",
+              toast(t.swap.toastInsufficientUsdc, {
+                description: t.swap.toastUseUsdgInstead,
                 duration: Infinity,
                 action: {
-                  label: "Yes",
+                  label: t.swap.toastYes,
                   onClick: () => {
                     handleSelectTokenToSell("USDG");
                     setAmountToSell(amountToSell);
                   },
                 },
                 cancel: {
-                  label: "No",
+                  label: t.swap.toastNo,
                   onClick: (e) => {
                     toast.dismiss();
                   },
@@ -566,7 +567,7 @@ export function SwapInterface({
         // For USDC -> USDG, show the dialog
         if (selectedTokenBuy.label === "USDG") {
           return {
-            label: `SWAP`,
+            label: t.swap.swap,
             disabled: false,
             callback: async () => {
               // Check for smart account before proceeding
@@ -588,7 +589,7 @@ export function SwapInterface({
         }
         // Otherwise (e.g., USDC -> GLOW), open the combined flow dialog
         return {
-          label: `SWAP`,
+          label: t.swap.swap,
           disabled: false,
           callback: async () => {
             // Check for smart account before proceeding
@@ -612,7 +613,7 @@ export function SwapInterface({
         selectedTokenBuy.label === "GLOW"
       ) {
         return {
-          label: `SWAP`,
+          label: t.swap.swap,
           disabled: false,
           callback: async () => {
             // Check for smart account before proceeding
@@ -636,7 +637,7 @@ export function SwapInterface({
         selectedTokenBuy.label === "GLOW"
       ) {
         return {
-          label: `SWAP`,
+          label: t.swap.swap,
           disabled: false,
           callback: async () => {
             // Check for smart account before proceeding
@@ -660,7 +661,7 @@ export function SwapInterface({
         selectedTokenBuy.label === "USDC"
       ) {
         return {
-          label: `SWAP`,
+          label: t.swap.swap,
           disabled: false,
           callback: () => {
             handleBuy();
@@ -671,7 +672,7 @@ export function SwapInterface({
         selectedTokenBuy.label === "USDG"
       ) {
         return {
-          label: `SWAP`,
+          label: t.swap.swap,
           disabled: false,
           callback: async () => {
             // Check for smart account before proceeding
@@ -692,7 +693,7 @@ export function SwapInterface({
         };
       } else {
         return {
-          label: `SWAP`,
+          label: t.swap.swap,
           disabled: false,
           callback: () => {
             handleBuy();
@@ -823,7 +824,7 @@ export function SwapInterface({
 
       let errorMessage = getReadableRpcErrorMessage(
         error,
-        "Transaction failed"
+        t.swap.transactionFailed
       );
 
       if (
@@ -1377,7 +1378,7 @@ export function SwapInterface({
         const normalizedError =
           error instanceof Error
             ? error
-            : new Error(error?.message || "Failed to estimate swap amount");
+            : new Error(error?.message || t.swap.failedEstimateSwap);
         Sentry.captureException(normalizedError, {
           tags: {
             estimateFlow: "estimateAmount",
@@ -1394,7 +1395,7 @@ export function SwapInterface({
 
       if (!signal.aborted)
         setEstimateErrorMessage(
-          error?.message || "Failed to estimate swap amount"
+          error?.message || t.swap.failedEstimateSwap
         );
       setSmartBalancingAmounts(undefined);
       setEstimatedOutputAmount(defaultTokensEstimate);
@@ -1551,12 +1552,12 @@ export function SwapInterface({
           <div className="group relative bg-muted/30 dark:bg-muted/50 rounded-3xl p-4 lg:p-6 border border-border/20 dark:border-border/40 hover:border-border/40 dark:hover:border-border/60 transition-all duration-200">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs lg:text-sm font-medium text-muted-foreground">
-                You pay
+                {t.swap.youPay}
               </span>
               {isConnected && (
                 <div className="flex items-center gap-2 text-xs lg:text-sm text-muted-foreground">
                   <span>
-                    Balance:{" "}
+                    {t.swap.balance}{" "}
                     <span className="font-medium">
                       {isWalletLoading || balancesLoading ? (
                         <Skeleton className="w-16 h-4 inline-block" />
@@ -1602,7 +1603,7 @@ export function SwapInterface({
                             setAmountToSell(formatEthMaxFromWei(maxSpendWei));
                           } catch (e: any) {
                             toast.error(
-                              e?.message || "Failed to compute max ETH amount"
+                              e?.message || t.swap.failedComputeMaxEth
                             );
                           }
                           return;
@@ -1615,14 +1616,14 @@ export function SwapInterface({
                         setAmountToSell(maxVal);
                       }}
                     >
-                      Max
+                      {t.swap.max}
                     </Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
                           variant="outline"
                           className="h-7 w-7 p-0"
-                          aria-label="Slippage tolerance"
+                          aria-label={t.swap.slippageAriaLabel}
                           disabled={!isConnected || isWalletLoading}
                         >
                           <Settings className="h-3.5 w-3.5" />
@@ -1633,10 +1634,10 @@ export function SwapInterface({
                         className="min-w-[220px]"
                       >
                         <DropdownMenuLabel>
-                          Slippage tolerance
+                          {t.swap.slippageTolerance}
                         </DropdownMenuLabel>
                         <div className="px-3 pb-2 text-[11px] text-muted-foreground">
-                          Current:{" "}
+                          {t.swap.slippageCurrent}{" "}
                           <span className="font-mono text-foreground">
                             {slippageTolerance}%
                           </span>
@@ -1646,13 +1647,12 @@ export function SwapInterface({
                             <div className="flex items-start gap-2">
                               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                               <div>
-                                Estimated price impact is about{" "}
-                                {toFixedTruncate(
-                                  estimatedPriceImpactPct?.toNumber() ?? 0,
-                                  2
+                                {t.swap.slippagePriceImpact(
+                                  toFixedTruncate(
+                                    estimatedPriceImpactPct?.toNumber() ?? 0,
+                                    2
+                                  )
                                 )}
-                                %. Slippage above 5% can result in materially
-                                worse execution.
                               </div>
                             </div>
                           </div>
@@ -1678,11 +1678,13 @@ export function SwapInterface({
                         <DropdownMenuSeparator />
                         <div className="px-3 py-2">
                           <div className="mb-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                            Custom
+                            {t.swap.slippageCustom}
                           </div>
                           <Input
                             inputMode="decimal"
-                            placeholder={`e.g. ${DEFAULT_SLIPPAGE_TOLERANCE}`}
+                            placeholder={t.swap.placeholderSlippageExample(
+                              DEFAULT_SLIPPAGE_TOLERANCE,
+                            )}
                             value={slippageTolerance}
                             onChange={(e) => {
                               // Accept comma as decimal separator (common in EU locales)
@@ -1712,13 +1714,13 @@ export function SwapInterface({
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                   <div>
-                    Estimated price impact is about{" "}
-                    {toFixedTruncate(
-                      estimatedPriceImpactPct?.toNumber() ?? 0,
-                      2
-                    )}
-                    %. High slippage is enabled at {slippageTolerance}%.
-                    Execution can clear at materially worse prices above 5%.
+                    {t.swap.slippagePriceImpact(
+                      toFixedTruncate(
+                        estimatedPriceImpactPct?.toNumber() ?? 0,
+                        2
+                      )
+                    )}{" "}
+                    {t.swap.slippageHighEnabled(slippageTolerance)}
                   </div>
                 </div>
               </div>
@@ -1730,8 +1732,8 @@ export function SwapInterface({
                   inputMode="decimal"
                   placeholder={
                     isConnected && balancesLoading
-                      ? "Loading balances…"
-                      : "0.00"
+                      ? t.swap.placeholderLoadingBalances
+                      : t.swap.placeholder0
                   }
                   className="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold bg-transparent border-0 p-0 focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full"
                   value={amountToSell}
@@ -1783,12 +1785,12 @@ export function SwapInterface({
           <div className="group relative bg-muted/30 dark:bg-muted/50 rounded-3xl p-4 lg:p-6 border border-border/20 dark:border-border/40 hover:border-border/40 dark:hover:border-border/60 transition-all duration-200">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs lg:text-sm font-medium text-muted-foreground">
-                You receive
+                {t.swap.youReceive}
               </span>
               {isEstimateLoading && (
                 <div className="text-xs text-muted-foreground flex items-center gap-1">
                   <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-                  Calculating...
+                  {t.swap.calculating}
                 </div>
               )}
             </div>
@@ -1798,7 +1800,7 @@ export function SwapInterface({
                   <Skeleton className="h-10 lg:h-14 w-full bg-muted/50" />
                 ) : (
                   <Input
-                    placeholder="0.00"
+                    placeholder={t.swap.placeholder0}
                     className="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold bg-transparent border-0 p-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full"
                     value={
                       Number(currentTokenEstimatedOutputAmount)
@@ -1815,7 +1817,7 @@ export function SwapInterface({
                 {pricePerGlow !== null && !isEstimateLoading && (
                   <div className="mt-2 text-xs text-muted-foreground">
                     {glowLiquidityDisabledMessage ??
-                      `$${toFixedTruncate(pricePerGlow, 6)} per GLW`}
+                      t.swap.pricePerGlw(toFixedTruncate(pricePerGlow, 6))}
                   </div>
                 )}
               </div>
@@ -1846,7 +1848,7 @@ export function SwapInterface({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <div className="text-xs text-muted-foreground">
-                      Uniswap Route
+                      {t.swap.uniswapRoute}
                     </div>
                     <div className="text-sm font-medium">
                       {isEstimateLoading ? (
@@ -1860,7 +1862,7 @@ export function SwapInterface({
                   </div>
                   <div className="space-y-2">
                     <div className="text-xs text-muted-foreground">
-                      Bonding Curve
+                      {t.swap.bondingCurve}
                     </div>
                     <div className="text-sm font-medium">
                       {isEstimateLoading ? (
@@ -1883,7 +1885,7 @@ export function SwapInterface({
               <div className="pt-3 border-t border-border/20 dark:border-border/40">
                 <div className="flex items-center justify-between">
                   <span className="text-xs lg:text-sm text-muted-foreground">
-                    Estimated Network Fee
+                    {t.swap.estimatedNetworkFee}
                   </span>
                   <span className="text-xs lg:text-sm font-medium">
                     {isEstimateLoading ? (
@@ -1936,7 +1938,7 @@ export function SwapInterface({
                     <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
                   </div>
                 )}
-                {pendingTx ? "Processing..." : buttonProps.label}
+                {pendingTx ? t.swap.processing : buttonProps.label}
               </Button>
             )}
 

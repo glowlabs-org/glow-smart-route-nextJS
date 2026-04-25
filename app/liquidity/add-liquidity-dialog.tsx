@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useLiquidityPositions } from "@/hooks/useLiquidityPositions";
 import { GLW_INCENTIVES_END_TIME } from "@/hooks/useLiquidityPositionsOptimized";
+import { useLang } from "@/lib/i18n";
 
 interface AddLiquidityReviewDialogProps {
   open: boolean;
@@ -26,6 +27,8 @@ export function AddLiquidityReviewDialog({
   usdgAmount,
   onSuccess,
 }: AddLiquidityReviewDialogProps) {
+  const { t } = useLang();
+  const ld = t.routes.liquidityDialogs;
   // Transaction states
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isSuccess, setIsSuccess] = React.useState(false);
@@ -126,7 +129,7 @@ export function AddLiquidityReviewDialog({
         setIsSubmitting(false);
         setIsError(true);
         setErrorMessage(
-          "Pool reserves changed while reviewing. Current amounts likely fail slippage. Close and adjust inputs to match pool ratio."
+          ld.addPoolChangedError
         );
         return;
       }
@@ -164,10 +167,10 @@ export function AddLiquidityReviewDialog({
       setIsSubmitting(false);
       setIsError(true);
       const message =
-        err?.shortMessage || err?.message || "Failed to add liquidity";
+        err?.shortMessage || err?.message || ld.addToastFailed;
       setErrorMessage(message);
       setTxHash(err?.txHash ?? null);
-      toast.error("Failed to add liquidity");
+      toast.error(ld.addToastFailed);
     }
   }
   const glwText = Number.isFinite(glwAmount)
@@ -201,16 +204,16 @@ export function AddLiquidityReviewDialog({
 
   // Transaction details for review state
   const transactionDetails: TransactionDetail[] = [
-    { label: "USDG Amount", value: usdgText, unit: "USDG" },
-    { label: "GLW Amount", value: glwText, unit: "GLW" },
-    { label: "Share of Pool", value: shareOfPoolText },
+    { label: ld.detailUsdgAmount, value: usdgText, unit: "USDG" },
+    { label: ld.detailGlwAmount, value: glwText, unit: "GLW" },
+    { label: ld.detailShareOfPool, value: shareOfPoolText },
   ];
 
   // Success state details
   const successDetails: TransactionDetail[] = [
-    { label: "USDG Added", value: successUsdgText },
-    { label: "GLW Added", value: successGlwText },
-    { label: "Share of Pool", value: shareOfPoolText },
+    { label: ld.detailUsdgAdded, value: successUsdgText },
+    { label: ld.detailGlwAdded, value: successGlwText },
+    { label: ld.detailShareOfPool, value: shareOfPoolText },
   ];
 
   // Custom footer with acknowledgement checkbox
@@ -229,8 +232,8 @@ export function AddLiquidityReviewDialog({
           />
           <span className="text-foreground">
             {isAfterCutoff
-              ? "I understand the GLW incentive program has ended. New liquidity will not earn GLW rewards."
-              : "I understand GLW rewards will be claimable after the v2 Smart Contract relaunch. The relaunch date is not yet defined."}
+              ? ld.addIncentiveEndedAck
+              : ld.addIncentivePendingAck}
           </span>
         </label>
       </div>
@@ -240,14 +243,14 @@ export function AddLiquidityReviewDialog({
           onClick={() => onOpenChange(false)}
           className="flex-1"
         >
-          Cancel
+          {ld.cancel}
         </Button>
         <Button
           onClick={handleConfirm}
           disabled={!acknowledged || Boolean(wouldLikelyFail)}
           className="flex-1"
         >
-          Confirm
+          {ld.confirm}
         </Button>
       </div>
     </>
@@ -258,7 +261,7 @@ export function AddLiquidityReviewDialog({
       className="w-full"
       disabled
     >
-      Processing...
+      {ld.processing}
     </Button>
   );
 
@@ -269,19 +272,18 @@ export function AddLiquidityReviewDialog({
       isSubmitting={isSubmitting || addLiquidityMutation.isPending}
       isSuccess={isSuccess}
       isError={isError || wouldLikelyFail}
-      title="Review & Confirm"
-      successTitle="+ Liquidity Added"
+      title={ld.addReviewTitle}
+      successTitle={ld.addSuccessTitle}
       errorTitle={
-        wouldLikelyFail ? "Action Would Likely Fail" : "Transaction Failed"
+        wouldLikelyFail ? ld.actionWouldLikelyFail : ld.transactionFailed
       }
-      processingTitle="Processing Transaction"
-      description="Please review the details before confirming"
-      processingDescription="Please wait while we add your liquidity to the pool"
+      processingTitle={ld.processingTransaction}
+      description={ld.addReviewDescription}
+      processingDescription={ld.addProcessingDescription}
       errorDescription={
         wouldLikelyFail
-          ? "Pool reserves changed. Your amounts likely fail slippage. Close and adjust inputs to match the pool ratio."
-          : errorMessage ||
-            "We were unable to process your transaction. Please try again or contact support."
+          ? ld.addPoolChangedError
+          : errorMessage || ld.addGenericError
       }
       transactionDetails={transactionDetails}
       successDetails={successDetails}

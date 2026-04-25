@@ -21,6 +21,7 @@ import {
   safeNumber,
   formatGlwFromWei,
 } from "@/utils/impact";
+import { useLang } from "@/lib/i18n";
 
 interface GlobalLeaderboardWidgetProps {
   className?: string;
@@ -39,6 +40,7 @@ export default function GlobalLeaderboardWidget({
   limit = 3,
   variant = "default",
 }: GlobalLeaderboardWidgetProps & { variant?: "default" | "minimal" }) {
+  const { t } = useLang();
   const source = "global_leaderboard_widget";
   const leaderboardQuery = useImpactLeaderboardQuery();
   const allRows = React.useMemo(() => {
@@ -83,10 +85,10 @@ export default function GlobalLeaderboardWidget({
         <CardHeader className={cn("pb-3", isMinimal && "px-6 pt-0")}>
           <div className="flex items-center justify-between">
             <CardTitle className="tracking-tight text-lg">
-              Impact Leaderboard
+              {t.widgets.globalLeaderboard.title}
             </CardTitle>
             <span className="text-[10px] font-mono uppercase text-muted-foreground bg-muted px-2 py-1 rounded">
-              Top 3
+              {t.widgets.globalLeaderboard.topBadge}
             </span>
           </div>
         </CardHeader>
@@ -112,11 +114,11 @@ export default function GlobalLeaderboardWidget({
               </div>
             ) : leaderboardQuery.isError ? (
               <div className="flex h-full items-center justify-center text-center text-sm text-muted-foreground">
-                Unable to load leaderboard.
+                {t.widgets.globalLeaderboard.unableToLoad}
               </div>
             ) : topRows.length === 0 ? (
               <div className="flex h-full items-center justify-center text-center text-sm text-muted-foreground">
-                No leaderboard data yet.
+                {t.widgets.globalLeaderboard.noData}
               </div>
             ) : (
               <div className="space-y-3">
@@ -156,7 +158,7 @@ export default function GlobalLeaderboardWidget({
                         </div>
                         {rank === 1 && (
                           <div className="text-[10px] font-bold text-[color:var(--color-glow-orange)] uppercase tracking-wider">
-                            1st Place
+                            {t.widgets.globalLeaderboard.firstPlace}
                           </div>
                         )}
                       </div>
@@ -164,7 +166,7 @@ export default function GlobalLeaderboardWidget({
                       <div className="flex items-end justify-between pt-1">
                         <div className="flex flex-col">
                           <span className="text-[10px] uppercase text-muted-foreground font-mono tracking-wider">
-                            Total Points
+                            {t.widgets.globalLeaderboard.totalPoints}
                           </span>
                           <span className="text-xl font-bold font-mono text-foreground tabular-nums">
                             {formatImpactPoints(row.totalPoints, 0)}
@@ -172,7 +174,7 @@ export default function GlobalLeaderboardWidget({
                         </div>
                         <div className="flex flex-col items-end">
                           <span className="text-[10px] uppercase text-muted-foreground font-mono tracking-wider">
-                            Glow Worth
+                            {t.widgets.globalLeaderboard.glowWorth}
                           </span>
                           <span className="text-sm font-medium font-mono text-foreground/80 tabular-nums">
                             {glowWorth} <span className="text-xs">GLW</span>
@@ -202,7 +204,7 @@ export default function GlobalLeaderboardWidget({
                   });
                 }}
               >
-                See Full Leaderboard
+                {t.widgets.globalLeaderboard.seeFullLeaderboard}
               </Link>
             </Button>
           </div>

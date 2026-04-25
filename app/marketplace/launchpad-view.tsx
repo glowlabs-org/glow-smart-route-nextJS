@@ -47,6 +47,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useQueryState } from "nuqs";
 import { formatNumber } from "./utils";
+import { useLang } from "@/lib/i18n";
 import {
   useGlowLaunchpad,
   useAvailableZones,
@@ -186,6 +187,8 @@ function OwnedFractionsDisplay({
   application: AuctionApplication;
   walletAddress: string;
 }) {
+  const { t } = useLang();
+  const l = t.routes.launchpad;
   const { summary, isLoading } = useFractionSplits({
     walletAddress,
     fractionId: application.activeFraction?.id || null,
@@ -199,7 +202,7 @@ function OwnedFractionsDisplay({
           className="text-sm text-muted-foreground mb-2"
           style={{ fontFamily: "Söhne, sans-serif", fontWeight: 400 }}
         >
-          Your balance
+          {l.yourBalance}
         </div>
         <div className="space-y-2">
           <div className="h-5 w-40 bg-muted rounded" />
@@ -222,7 +225,7 @@ function OwnedFractionsDisplay({
         className="text-sm text-muted-foreground mb-2"
         style={{ fontFamily: "Söhne, sans-serif", fontWeight: 400 }}
       >
-        Your balance
+        {l.yourBalance}
       </div>
       <div
         className="text-lg lg:text-xl text-foreground"
@@ -250,6 +253,8 @@ function FilterBar({
   onZoneChange,
   onTypeChange,
 }: FilterBarProps) {
+  const { t } = useLang();
+  const l = t.routes.launchpad;
   return (
     <div className="space-y-6">
       {/* Type Filter */}
@@ -261,16 +266,16 @@ function FilterBar({
             fontWeight: 600,
           }}
         >
-          Type
+          {l.type}
         </label>
         <Select value={selectedType} onValueChange={onTypeChange}>
           <SelectTrigger className="w-full h-11 bg-background border-border/60 hover:border-border transition-colors">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="delegations">Delegation</SelectItem>
-            <SelectItem value="miners">Miners</SelectItem>
+            <SelectItem value="all">{l.all}</SelectItem>
+            <SelectItem value="delegations">{l.delegation}</SelectItem>
+            <SelectItem value="miners">{l.miners}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -286,17 +291,17 @@ function FilterBar({
             fontWeight: 600,
           }}
         >
-          Zone
+          {l.zone}
         </label>
         <Select
           value={selectedZoneId?.toString() || "all"}
           onValueChange={(v) => onZoneChange(v === "all" ? null : v)}
         >
           <SelectTrigger className="w-full h-11 bg-background border-border/60 hover:border-border transition-colors">
-            <SelectValue placeholder="All zones" />
+            <SelectValue placeholder={l.allZones} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All zones</SelectItem>
+            <SelectItem value="all">{l.allZones}</SelectItem>
             {zones.map((zone: any) => (
               <SelectItem key={zone.id} value={zone.id.toString()}>
                 {zone.name}
@@ -331,6 +336,8 @@ interface LaunchpadViewProps {
 }
 
 function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
+  const { t } = useLang();
+  const l = t.routes.launchpad;
   const isDialog = variant === "dialog";
   const [zoneParam, setZoneParam] = useQueryState("zone");
   const [typeParam, setTypeParam] = useQueryState("type", {
@@ -643,13 +650,13 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
         {/* Filters - Desktop inline, Mobile button */}
         {shouldShowFilters ? (
           <div className="hidden md:block bg-muted/30 rounded-2xl border border-border p-6 mb-6">
-            <h3 className="text-lg font-semibold mb-4">Filters</h3>
+            <h3 className="text-lg font-semibold mb-4">{l.filters}</h3>
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-4">
                 {/* Type Filter */}
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-muted-foreground">
-                    Type
+                    {l.type}
                   </span>
                   <Select
                     value={selectedType}
@@ -665,9 +672,9 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All</SelectItem>
-                      <SelectItem value="delegations">Delegation</SelectItem>
-                      <SelectItem value="miners">Miners</SelectItem>
+                      <SelectItem value="all">{l.all}</SelectItem>
+                      <SelectItem value="delegations">{l.delegation}</SelectItem>
+                      <SelectItem value="miners">{l.miners}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -675,7 +682,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                 {/* Zone Filter */}
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-muted-foreground">
-                    Zone
+                    {l.zone}
                   </span>
                   <Select
                     value={selectedZoneId?.toString() || "all"}
@@ -688,10 +695,10 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                     }}
                   >
                     <SelectTrigger className="w-[220px]">
-                      <SelectValue placeholder="All zones" />
+                      <SelectValue placeholder={l.allZones} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All zones</SelectItem>
+                      <SelectItem value="all">{l.allZones}</SelectItem>
                       {zones.map((zone) => (
                         <SelectItem key={zone.id} value={zone.id.toString()}>
                           {zone.name}
@@ -829,8 +836,8 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
           <>
             <LaunchCountdown
               target={getNextLaunchpadDelegationBatchAtET()}
-              title="Launchpad"
-              subtitle="The next batch of farms will be available soon"
+              title={l.title}
+              subtitle={l.nextBatchSoon}
               onComplete={handleCountdownComplete}
             />
           </>
@@ -964,8 +971,8 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                           )}
                         >
                           {application._type === "miners"
-                            ? "Miner"
-                            : "Delegation"}
+                            ? l.badgeMiner
+                            : l.badgeDelegation}
                         </Badge>
                       </div>
 
@@ -992,7 +999,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                               fontWeight: 600,
                             }}
                           >
-                            Available
+                            {l.available}
                           </div>
                         </div>
                         {/* Reward Score - Only for delegations */}
@@ -1019,7 +1026,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                   fontWeight: 600,
                                 }}
                               >
-                                Reward Score
+                                {l.rewardScore}
                               </div>
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -1027,25 +1034,14 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                     href="https://glow.org/blog/guide-to-delegating-glow"
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    aria-label="Learn about Reward Score"
+                                    aria-label={l.learnAboutRewardScore}
                                     className="text-muted-foreground hover:text-foreground transition-colors"
                                   >
                                     <Info className="h-3.5 w-3.5" />
                                   </a>
                                 </TooltipTrigger>
                                 <TooltipContent className="max-w-xs">
-                                  <p>
-                                    The Reward Score is a tool that combines
-                                    both revenue streams (deposit recovery and
-                                    GLW emission rewards) into a single metric
-                                    representing expected rewards per dollar
-                                    delegated. Higher Reward Scores generally
-                                    indicate better delegation opportunities,
-                                    but do not guarantee realized performance,
-                                    since a farm's actual competitiveness and
-                                    rewards may shift as new farms join its
-                                    region
-                                  </p>
+                                  <p>{l.rewardScoreLongDescription}</p>
                                 </TooltipContent>
                               </Tooltip>
                             </div>
@@ -1069,8 +1065,8 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                             }}
                           >
                             {application._type === "miners"
-                              ? "Price per Miner"
-                              : "Delegation Amount"}
+                              ? l.pricePerMiner
+                              : l.delegationAmount}
                           </div>
                           {application.activeFraction?.stepPrice &&
                           application._type === "miners" ? (
@@ -1226,10 +1222,12 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                   }}
                                 >
                                   {application._type === "miners"
-                                    ? `Weekly Rewards per Miner (${formatMinerWeeksLabel(
-                                        miningScore?.weeksOfMinerLifeRemaining
-                                      )})`
-                                    : "Est. Weekly Rewards (100 weeks)"}
+                                    ? l.weeklyMiner(
+                                        formatMinerWeeksLabel(
+                                          miningScore?.weeksOfMinerLifeRemaining,
+                                        ),
+                                      )
+                                    : l.estWeeklyRewardsHundred}
                                 </div>
                                 <div className="group/help relative">
                                   <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
@@ -1414,10 +1412,12 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                   }}
                                 >
                                   {application._type === "miners"
-                                    ? `Paid weekly for ${formatMinerWeeksLabel(
-                                        miningScore?.weeksOfMinerLifeRemaining
-                                      )}. See Advanced Stats.`
-                                    : "Paid weekly for 100 weeks. See Advanced Stats."}
+                                    ? l.paidWeeklyMinerNote(
+                                        formatMinerWeeksLabel(
+                                          miningScore?.weeksOfMinerLifeRemaining,
+                                        ),
+                                      )
+                                    : l.paidWeeklyDelegationNote}
                                 </div>
                               </div>
                             </div>
@@ -1506,7 +1506,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                         </div>
                                       );
                                     })()
-                                  : "Calculating rewards..."}
+                                  : l.calculatingRewards}
                               </div>
                             )}
                           </TooltipContent>
@@ -1552,13 +1552,13 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                             }}
                           >
                             {availability.isSoldOut
-                              ? "Unavailable"
+                              ? l.unavailable
                               : application._type === "miners"
-                              ? "Buy Miners"
+                              ? l.buyMiners
                               : resolveDelegationCurrency(application) ===
                                 "SGCTL"
-                              ? "Delegate SGCTL"
-                              : "Delegate GLW"}
+                              ? l.delegateSgctl
+                              : l.delegateGlw}
                           </span>
                         </Button>
                         {!isSoldOut && (
@@ -1715,6 +1715,8 @@ function LaunchpadMarketplaceWidget({
   layout,
   carouselVariant,
 }: LaunchpadMarketplaceWidgetProps) {
+  const { t } = useLang();
+  const l = t.routes.launchpad;
   const { address } = useAccount();
   const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
   const { ethPrice } = useEthPrice();
@@ -2126,7 +2128,7 @@ function LaunchpadMarketplaceWidget({
           className="h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/10 text-foreground"
           onClick={() => scrollCarouselBy(-1)}
           disabled={!canPrev}
-          aria-label="Previous"
+          aria-label={l.paginationPrevious}
         >
           <ChevronLeft className="h-5 w-5" />
         </Button>
@@ -2161,7 +2163,7 @@ function LaunchpadMarketplaceWidget({
           className="h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/10 text-foreground"
           onClick={() => scrollCarouselBy(1)}
           disabled={!canNext}
-          aria-label="Next"
+          aria-label={l.paginationNext}
         >
           <ChevronRight className="h-5 w-5" />
         </Button>
@@ -2278,7 +2280,7 @@ function LaunchpadMarketplaceWidget({
                   className="text-2xl md:text-3xl font-semibold tracking-tight"
                   style={{ fontFamily: "Söhne, sans-serif" }}
                 >
-                  {application.farmName || "Unnamed Farm"}
+                  {application.farmName || l.unnamedFarm}
                 </h3>
 
                 <div className="flex flex-wrap items-center gap-1.5 md:gap-2 text-xs md:text-sm">
@@ -2301,20 +2303,20 @@ function LaunchpadMarketplaceWidget({
                     ) : (
                       <DelegationIcon className="w-3.5 h-3.5" />
                     )}
-                    <span>{isMiner ? "Miner" : "Delegation"}</span>
+                    <span>{isMiner ? l.badgeMiner : l.badgeDelegation}</span>
                   </div>
                   {application._type === "delegations" && score > 0 ? (
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <div className="flex items-center gap-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/15 px-2.5 py-1 text-indigo-800 dark:text-indigo-200 backdrop-blur-md cursor-help">
                           <HelpCircle className="w-3.5 h-3.5" />
-                          <span>Score: {score.toFixed(0)}</span>
+                          <span>{l.scorePrefix(score.toFixed(0))}</span>
                         </div>
                       </TooltipTrigger>
                       <TooltipContent side="top" className="max-w-[300px]">
                         <div className="text-xs">
                           <div className="font-semibold mb-1.5">
-                            Reward Score
+                            {l.rewardScore}
                           </div>
                           <div className="text-primary-foreground/80 leading-relaxed">
                             The Reward Score combines both revenue streams
@@ -2339,11 +2341,11 @@ function LaunchpadMarketplaceWidget({
                     <span className="text-[9px] md:text-[10px] uppercase tracking-widest text-foreground/60 font-bold mb-0.5 md:mb-1 dark:text-white/50">
                       {availability.isSoldOut
                         ? isMiner
-                          ? "Total Mined"
-                          : "Total Delegated"
+                          ? l.totalMined
+                          : l.totalDelegated
                         : isMiner
-                        ? "Price"
-                        : "Amount"}
+                        ? l.priceLabel
+                        : l.amountLabel}
                     </span>
                     <div className="flex items-baseline justify-between gap-2">
                       <span className="text-base md:text-lg font-semibold">
@@ -2359,22 +2361,26 @@ function LaunchpadMarketplaceWidget({
                             {formatNumber(cost, 0)} {currency}
                           </>
                         ) : (
-                          "Free"
+                          l.free
                         )}
                       </span>
                       {!availability.isSoldOut && (
                         <span className="text-xs md:text-sm font-mono tabular-nums text-foreground/70 dark:text-white/60">
-                          {availability?.remaining}/{availability?.total} left
+                          {l.leftFraction(
+                            String(availability?.remaining),
+                            String(availability?.total),
+                          )}
                         </span>
                       )}
                     </div>
                     {availability.isSoldOut ? (
                       <span className="text-[9px] md:text-[10px] text-foreground/50 dark:text-white/40">
-                        {formatTimeToSellOut(
-                          getListingVisibleStartAtMs(application),
-                          application.activeFraction?.filledAt || null
-                        )}{" "}
-                        to sell out
+                        {l.toSellOutSuffix(
+                          formatTimeToSellOut(
+                            getListingVisibleStartAtMs(application),
+                            application.activeFraction?.filledAt || null,
+                          ),
+                        )}
                       </span>
                     ) : (
                       <span className="text-[9px] md:text-[10px] text-foreground/50 dark:text-white/40">
@@ -2391,23 +2397,23 @@ function LaunchpadMarketplaceWidget({
                       <div className="flex-1 min-w-[120px] md:min-w-[140px] p-2.5 md:p-3 rounded-2xl bg-gradient-to-br from-white/20 to-white/5 border border-white flex flex-col justify-center dark:from-white/10 dark:to-transparent dark:border-white/10 cursor-help">
                         <span className="text-[9px] md:text-[10px] uppercase tracking-widest text-foreground/60 font-bold mb-0.5 md:mb-1 dark:text-white/50">
                           {isMiner
-                            ? `Weekly (${formatMinerWeeksLabel(
-                                minerWeeksRemaining
-                              )})`
-                            : "Weekly (100 wks)"}
+                            ? l.weeklyMiner(
+                                formatMinerWeeksLabel(minerWeeksRemaining),
+                              )
+                            : l.weeklyHundred}
                         </span>
                         <span className="text-xs md:text-sm font-semibold">
-                          +{formatNumber(weeklyYield, 2)} GLW / wk
+                          {l.weeklyEarningsLine(formatNumber(weeklyYield, 2))}
                         </span>
                         <span className="text-[9px] md:text-[10px] text-foreground/50 dark:text-white/40">
-                          Estimated earnings are subject to change.
+                          {l.weeklyEarningsSubject}
                         </span>
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-[280px] p-3">
                       <div className="text-xs">
                         <div className="font-semibold mb-1.5">
-                          Estimated Rewards
+                          {l.estimatedRewards}
                         </div>
                         <div className="text-primary-foreground/80 leading-relaxed">
                           {isMiner
@@ -2421,7 +2427,7 @@ function LaunchpadMarketplaceWidget({
                             <div className="h-px bg-primary-foreground/15 my-2" />
                             <div className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-[11px]">
                               <div className="text-primary-foreground/80">
-                                {rewardsBreakdown.pdCurrency} from PDs
+                                {l.pdFromPdsLabel(rewardsBreakdown.pdCurrency)}
                               </div>
                               <div className="font-mono tabular-nums text-primary-foreground">
                                 {rewardsBreakdown.pdPerShare.toLocaleString(
@@ -2435,7 +2441,7 @@ function LaunchpadMarketplaceWidget({
                                 {rewardsBreakdown.pdCurrency}
                               </div>
                               <div className="text-primary-foreground/80">
-                                GLW from Inflation
+                                {l.glwFromInflation}
                               </div>
                               <div className="font-mono tabular-nums text-primary-foreground">
                                 {rewardsBreakdown.inflationPerShare.toLocaleString(
@@ -2473,12 +2479,12 @@ function LaunchpadMarketplaceWidget({
                   )}
                 >
                     {availability.isSoldOut
-                      ? "Sold Out"
+                      ? l.soldOut
                       : isMiner
-                      ? "Buy Miners"
+                      ? l.buyMiners
                       : resolveDelegationCurrency(application) === "SGCTL"
-                      ? "Delegate SGCTL"
-                      : "Delegate GLW"}
+                      ? l.delegateSgctl
+                      : l.delegateGlw}
                 </Button>
               </div>
             </div>
@@ -2573,8 +2579,8 @@ function LaunchpadMarketplaceWidget({
       ) : rows.length === 0 ? (
         <LaunchCountdown
           target={getNextLaunchpadDelegationBatchAtET()}
-          title="Launchpad"
-          subtitle="The next batch of farms will be available soon"
+          title={l.title}
+          subtitle={l.nextBatchSoon}
         />
       ) : resolvedLayout === "carousel" && isHeroCarousel && isMobile ? (
         // Mobile hero: vertical stack - use explicit height for h-full children
@@ -2601,7 +2607,7 @@ function LaunchpadMarketplaceWidget({
             <div className="mb-4 flex items-center justify-between gap-3 px-2">
               <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 {rows.length}{" "}
-                {rows.length === 1 ? "Active Listing" : "Active Listings"}
+                {rows.length === 1 ? l.activeListing : l.activeListings}
               </div>
             </div>
           ) : null}
@@ -2734,6 +2740,8 @@ function LaunchpadWidgetAssetCard({
       | null
   ) => void;
 }) {
+  const { t } = useLang();
+  const l = t.routes.launchpad;
   const { application, availability, scoreData, cost, weeklyYield } = row;
   const isDelegation = application._type === "delegations";
   const minerWeeksRemaining = !isDelegation
@@ -2752,16 +2760,16 @@ function LaunchpadWidgetAssetCard({
     return Math.max(0, Math.min(100, (remaining / total) * 100));
   }, [availability.remaining, availability.total, isSoldOut]);
 
-  const title = application.farmName || "Unnamed Farm";
+  const title = application.farmName || l.unnamedFarm;
   const imageSrc = getDialogCardImageSrc(application);
 
   const costLabel = isSoldOut
     ? isDelegation
-      ? "Total Delegated"
-      : "Total Mined"
+      ? l.totalDelegated
+      : l.totalMined
     : isDelegation
-    ? "Delegation Amount"
-    : "Price / Miner";
+    ? l.delegationAmount
+    : l.pricePerMinerShort;
 
   const costMain = isSoldOut
     ? isDelegation
@@ -2781,15 +2789,17 @@ function LaunchpadWidgetAssetCard({
     ? `≈ ${(cost / ethPrice).toLocaleString(undefined, {
         maximumFractionDigits: 4,
       })} ETH`
-    : "Stable price";
+    : l.stablePriceLower;
 
   const rewardsMain =
     isScoresLoading && weeklyYield === 0
       ? "…"
-      : `+${weeklyYield.toLocaleString(undefined, {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })} GLW/wk`;
+      : l.weeklyGlwPerWeek(
+          weeklyYield.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }),
+        );
 
   const delegationRewardsBreakdown = React.useMemo(() => {
     if (!isDelegation) return null;
@@ -2834,7 +2844,9 @@ function LaunchpadWidgetAssetCard({
   const rewardsSub = isDelegation
     ? null
     : glwSpotPrice > 0
-    ? `≈ $${Math.round(weeklyYield * glwSpotPrice).toLocaleString()} USD/wk`
+    ? l.weeklyUsdPerWeek(
+        Math.round(weeklyYield * glwSpotPrice).toLocaleString(),
+      )
     : "—";
 
   const accent = isDelegation
@@ -2886,7 +2898,7 @@ function LaunchpadWidgetAssetCard({
                     accent.badge
                   )}
                 >
-                  {isDelegation ? "Delegation" : "Miner"}
+                  {isDelegation ? l.badgeDelegation : l.badgeMiner}
                 </Badge>
               </div>
               <div className="mt-3">
@@ -2901,15 +2913,17 @@ function LaunchpadWidgetAssetCard({
                 </div>
                 <div className="mt-1.5 text-xs font-mono font-medium tabular-nums text-foreground/80">
                   {isSoldOut ? (
-                    <>
-                      SOLD OUT IN{" "}
-                      {formatTimeToSellOut(
+                    l.soldOutInPrefix(
+                      formatTimeToSellOut(
                         getListingVisibleStartAtMs(application),
-                        application.activeFraction?.filledAt || null
-                      )}
-                    </>
+                        application.activeFraction?.filledAt || null,
+                      ),
+                    )
                   ) : (
-                    `${availability.remaining} / ${availability.total} Left`
+                    l.leftFractionUpper(
+                      String(availability.remaining),
+                      String(availability.total),
+                    )
                   )}
                 </div>
               </div>
@@ -2925,12 +2939,12 @@ function LaunchpadWidgetAssetCard({
                 }}
               >
                 {isSoldOut
-                  ? "Waitlist"
+                  ? l.waitlist
                   : isDelegation
                   ? resolveDelegationCurrency(application) === "SGCTL"
-                    ? "Delegate SGCTL"
-                    : "Delegate GLW"
-                  : "Buy Miners"}
+                    ? l.delegateSgctl
+                    : l.delegateGlw
+                  : l.buyMiners}
               </Button>
               {!isSoldOut && (
                 <Button
@@ -2938,7 +2952,7 @@ function LaunchpadWidgetAssetCard({
                   className="h-10 rounded-full px-4 text-sm whitespace-nowrap"
                   onClick={() => onOpenStats(application, scoreData)}
                 >
-                  Advanced Stats
+                  {l.advancedStats}
                 </Button>
               )}
             </div>
@@ -2963,7 +2977,7 @@ function LaunchpadWidgetAssetCard({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div className="inline-flex cursor-help items-center gap-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                      Est. Rewards (100 weeks)
+                      {l.estRewards100Weeks}
                       <Info className="h-3.5 w-3.5 opacity-70" />
                     </div>
                   </TooltipTrigger>
@@ -2975,18 +2989,18 @@ function LaunchpadWidgetAssetCard({
                   >
                     <div className="space-y-2">
                       <div className="text-xs font-semibold text-primary-foreground">
-                        Estimated rewards
+                        {l.estimatedRewardsLower}
                       </div>
                       <div className="text-[11px] leading-snug text-primary-foreground/80">
-                        Weekly estimate per delegation, paid weekly for 100 weeks.
-                        Can decrease as regions fill. See Advanced Stats for
-                        details.
+                        {l.weeklyEstDelegationDesc}
                       </div>
                       <div className="h-px bg-primary-foreground/15" />
                       {delegationRewardsBreakdown ? (
                         <div className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-[11px]">
                           <div className="text-primary-foreground/80">
-                            {delegationRewardsBreakdown.pdCurrency} from PDs
+                            {l.pdFromPdsLabel(
+                              delegationRewardsBreakdown.pdCurrency,
+                            )}
                           </div>
                           <div className="font-mono tabular-nums text-primary-foreground">
                             {delegationRewardsBreakdown.pdPerShare.toLocaleString(
@@ -2999,7 +3013,7 @@ function LaunchpadWidgetAssetCard({
                             {delegationRewardsBreakdown.pdCurrency}
                           </div>
                           <div className="text-primary-foreground/80">
-                            GLW from Inflation
+                            {l.glwFromInflation}
                           </div>
                           <div className="font-mono tabular-nums text-primary-foreground">
                             {delegationRewardsBreakdown.inflationPerShare.toLocaleString(
@@ -3013,7 +3027,7 @@ function LaunchpadWidgetAssetCard({
                         </div>
                       ) : (
                         <div className="text-[11px] text-primary-foreground/70">
-                          Calculating breakdown…
+                          {l.calculatingBreakdown}
                         </div>
                       )}
                     </div>
@@ -3023,9 +3037,9 @@ function LaunchpadWidgetAssetCard({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div className="inline-flex cursor-help items-center gap-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                      {`Weekly Rewards (${formatMinerWeeksLabel(
-                        minerWeeksRemaining
-                      )})`}
+                      {l.weeklyMinerHeader(
+                        formatMinerWeeksLabel(minerWeeksRemaining),
+                      )}
                       <Info className="h-3.5 w-3.5 opacity-70" />
                     </div>
                   </TooltipTrigger>
@@ -3037,12 +3051,12 @@ function LaunchpadWidgetAssetCard({
                   >
                     <div className="space-y-2">
                       <div className="text-xs font-semibold text-primary-foreground">
-                        Estimated rewards
+                        {l.estimatedRewardsLower}
                       </div>
                       <div className="text-[11px] leading-snug text-primary-foreground/80">
-                        {`Estimated weekly rewards per miner for ${formatMinerWeeksLabel(
-                          minerWeeksRemaining
-                        )}. These estimates may decrease as new farms join the region and dilute the regional GLW allocation. See Advanced Stats for detailed information.`}
+                        {l.weeklyMinerDesc(
+                          formatMinerWeeksLabel(minerWeeksRemaining),
+                        )}
                       </div>
                     </div>
                   </TooltipContent>
@@ -3053,7 +3067,7 @@ function LaunchpadWidgetAssetCard({
               </div>
               {isDelegation ? (
                 <div className="mt-1 text-xs">
-                  <span className="text-muted-foreground">Score:</span>{" "}
+                  <span className="text-muted-foreground">{l.scoreLabelInline}</span>{" "}
                   <span className="font-semibold tabular-nums text-foreground">
                     {delegationScoreLabel}
                   </span>
@@ -3154,6 +3168,8 @@ function LaunchpadWidgetHeroCarouselCard({
       | null
   ) => void;
 }) {
+  const { t } = useLang();
+  const l = t.routes.launchpad;
   const { application, availability, scoreData, cost, weeklyYield } = row;
   const isDelegation = application._type === "delegations";
   const minerWeeksRemaining = !isDelegation
@@ -3166,7 +3182,7 @@ function LaunchpadWidgetHeroCarouselCard({
     : "GLW";
   const isSoldOut = availability.isSoldOut;
 
-  const title = application.farmName || "Unnamed Farm";
+  const title = application.farmName || l.unnamedFarm;
   const imageSrc = getDialogCardImageSrc(application);
 
   const priceValue = isSoldOut
@@ -3187,7 +3203,7 @@ function LaunchpadWidgetHeroCarouselCard({
     ? `≈ ${(cost / ethPrice).toLocaleString(undefined, {
         maximumFractionDigits: 4,
       })} ETH`
-    : "Stable price";
+    : l.stablePriceLower;
 
   const unitsValue = isSoldOut
     ? formatTimeToSellOut(
@@ -3196,7 +3212,7 @@ function LaunchpadWidgetHeroCarouselCard({
       )
     : `${availability.remaining.toLocaleString()} / ${availability.total.toLocaleString()}`;
 
-  const unitsSubValue = isSoldOut ? "Sell out time" : "Available";
+  const unitsSubValue = isSoldOut ? l.sellOutTime : l.available;
   const unitsRemainingPct = React.useMemo(() => {
     const total = availability.total || 0;
     const remaining = availability.remaining || 0;
@@ -3243,12 +3259,12 @@ function LaunchpadWidgetHeroCarouselCard({
         ).replace(/^\+/, '')} SGCTL + ${formatSignedCompactNumber(
           delegationRewardsBreakdown.emissionGlwPerShare
         )} GLW / wk`
-      : `+${formatSignedCompactNumber(weeklyYield)} GLW / wk`;
+      : l.weeklyGlwPerWeek(formatSignedCompactNumber(weeklyYield));
   const rewardsSub =
     isDelegation && delegationCurrency === "SGCTL"
       ? null
       : glwSpotPrice > 0 && weeklyYield > 0
-      ? `≈ $${formatSignedCompactNumber(weeklyYield * glwSpotPrice)} USD / wk`
+      ? l.weeklyUsdPerWeek(formatSignedCompactNumber(weeklyYield * glwSpotPrice))
       : null;
 
   const rewardScoreValue = React.useMemo(() => {
@@ -3300,7 +3316,7 @@ function LaunchpadWidgetHeroCarouselCard({
                         : "bg-[color:var(--color-miner)]"
                     )}
                   />
-                  {isDelegation ? "Delegation" : "Miner"}
+                  {isDelegation ? l.badgeDelegation : l.badgeMiner}
                 </div>
                 {isDelegation && rewardScoreValue && (
                   <Tooltip>
@@ -3308,7 +3324,7 @@ function LaunchpadWidgetHeroCarouselCard({
                       <div className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/40 bg-white/30 px-2.5 py-1 text-xs font-medium backdrop-blur-3xl shadow-lg cursor-help dark:border-purple-400/30 dark:bg-purple-500/20">
                         <Sparkles className="h-3 w-3 text-purple-700 dark:text-purple-300" />
                         <span className="text-purple-900/80 dark:text-purple-200/80">
-                          Reward Score:
+                          {l.rewardScore}:
                         </span>
                         <span className="font-bold text-purple-900 dark:text-purple-200 tabular-nums">
                           {rewardScoreValue}
@@ -3317,16 +3333,9 @@ function LaunchpadWidgetHeroCarouselCard({
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-[300px]">
                       <div className="text-xs">
-                        <div className="font-semibold mb-1.5">Reward Score</div>
+                        <div className="font-semibold mb-1.5">{l.rewardScore}</div>
                         <div className="text-primary-foreground/80 leading-relaxed">
-                          The Reward Score is a tool that combines both revenue
-                          streams (deposit recovery and GLW inflation) into a
-                          single metric representing expected rewards per dollar
-                          delegated. Higher Reward Scores generally indicate
-                          better delegation opportunities, but do not guarantee
-                          realized performance, since a farm's actual
-                          competitiveness and rewards may shift as new farms
-                          join its region.
+                          {l.rewardScoreLongDescription}
                         </div>
                       </div>
                     </TooltipContent>
@@ -3358,11 +3367,11 @@ function LaunchpadWidgetHeroCarouselCard({
                     label={
                       isSoldOut
                         ? isDelegation
-                          ? "Total Delegated"
-                          : "Total Mined"
+                          ? l.totalDelegated
+                          : l.totalMined
                         : isDelegation
-                        ? "Delegation Amount"
-                        : "Price per Miner"
+                        ? l.delegationAmount
+                        : l.pricePerMiner
                     }
                     value={priceValue}
                     subValue={priceSubValue}
@@ -3378,7 +3387,7 @@ function LaunchpadWidgetHeroCarouselCard({
                 >
                   <div className="px-3 py-2">
                     <div className="text-[9px] font-mono uppercase tracking-widest text-foreground/65 dark:text-white/65">
-                      Units
+                      {l.units}
                     </div>
                     <div className="mt-1.5 text-sm font-semibold text-foreground dark:text-white">
                       {unitsValue}
@@ -3399,12 +3408,12 @@ function LaunchpadWidgetHeroCarouselCard({
                 {!isSoldOut && (
                   <div className="col-span-2 sm:col-span-1">
                     <HeroStatColumn
-                      label="Est. Weekly Rewards"
+                      label={l.estWeeklyRewardsHeader}
                       value={rewardsMain}
                       subValue={rewardsSub}
                     />
                     <div className="px-3 pb-2 text-[9px] text-foreground/40 leading-tight -mt-1 dark:text-white/40">
-                      Weekly earnings are subject to change.
+                      {l.weeklyEarningsNote}
                     </div>
                   </div>
                 )}
@@ -3422,12 +3431,12 @@ function LaunchpadWidgetHeroCarouselCard({
               }}
             >
               {isSoldOut
-                ? "Waitlist"
+                ? l.waitlist
                 : isDelegation
                 ? resolveDelegationCurrency(application) === "SGCTL"
-                  ? "Delegate SGCTL"
-                  : "Delegate GLW"
-                : "Buy Miners"}
+                  ? l.delegateSgctl
+                  : l.delegateGlw
+                : l.buyMiners}
             </Button>
           </div>
         </div>
@@ -3441,7 +3450,7 @@ function LaunchpadWidgetHeroCarouselCard({
             onOpenStats(application, scoreData);
           }}
         >
-          <span>Advanced Stats</span>
+          <span>{l.advancedStats}</span>
           <ArrowUpRight className="ml-1.5 h-3 w-3 opacity-70" />
         </Button>
       )}
@@ -3452,6 +3461,8 @@ function LaunchpadWidgetHeroCarouselCard({
 function LaunchpadMarketplaceDialog({
   onPayDeposit,
 }: Pick<LaunchpadViewProps, "onPayDeposit">) {
+  const { t } = useLang();
+  const l = t.routes.launchpad;
   const { address } = useAccount();
   const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
   type DialogTab = "all" | "delegations" | "miners" | "activity";
@@ -3571,29 +3582,35 @@ function LaunchpadMarketplaceDialog({
   const sortOptions = React.useMemo(() => {
     if (tab === "activity") {
       return [
-        { value: "featured", label: "Featured" },
-        { value: "newest", label: "Newest" },
+        { value: "featured", label: l.sortFeatured },
+        { value: "newest", label: l.sortNewest },
       ] as const;
     }
     if (tab === "delegations") {
       return [
-        { value: "featured", label: "Featured" },
-        { value: "newest", label: "Newest" },
-        { value: "rewardScore", label: "Reward Score" },
+        { value: "featured", label: l.sortFeatured },
+        { value: "newest", label: l.sortNewest },
+        { value: "rewardScore", label: l.sortRewardScore },
       ] as const;
     }
     if (tab === "miners") {
       return [
-        { value: "featured", label: "Featured" },
-        { value: "newest", label: "Newest" },
-        { value: "yieldPer1000", label: "Yield / $1000" },
+        { value: "featured", label: l.sortFeatured },
+        { value: "newest", label: l.sortNewest },
+        { value: "yieldPer1000", label: l.sortYieldPer1000 },
       ] as const;
     }
     return [
-      { value: "featured", label: "Featured" },
-      { value: "newest", label: "Newest" },
+      { value: "featured", label: l.sortFeatured },
+      { value: "newest", label: l.sortNewest },
     ] as const;
-  }, [tab]);
+  }, [
+    l.sortFeatured,
+    l.sortNewest,
+    l.sortRewardScore,
+    l.sortYieldPer1000,
+    tab,
+  ]);
 
   const safeSortBy = React.useMemo(() => {
     const allowed = new Set(sortOptions.map((o) => o.value));
@@ -4011,12 +4028,14 @@ function LaunchpadMarketplaceDialogContent({
       | null
   ) => void;
 }) {
+  const { t } = useLang();
+  const l = t.routes.launchpad;
   return (
     <div className="flex w-full flex-col gap-4 overflow-x-hidden">
-      <h1 className="text-2xl font-bold hidden md:block">Glow Launchpad</h1>
+      <h1 className="text-2xl font-bold hidden md:block">{l.glowLaunchpad}</h1>
       <div className="rounded-2xl border border-border bg-muted/10 px-4 py-3 text-sm text-muted-foreground">
         <span className="text-foreground/90">
-          Unsure where to start? Learn about{" "}
+          {l.helperPrompt}{" "}
         </span>
         <a
           href="https://glow.org/blog/guide-to-delegating-glow"
@@ -4024,16 +4043,16 @@ function LaunchpadMarketplaceDialogContent({
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1 text-foreground hover:underline"
         >
-          Delegating GLW <ExternalLink className="h-3.5 w-3.5" />
+          {l.helperDelegating} <ExternalLink className="h-3.5 w-3.5" />
         </a>{" "}
-        <span className="text-foreground/60">or</span>{" "}
+        <span className="text-foreground/60">{l.helperOr}</span>{" "}
         <a
           href="https://glow.org/blog/guide-to-glow-mining"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1 text-foreground hover:underline"
         >
-          Buying Miners <ExternalLink className="h-3.5 w-3.5" />
+          {l.helperBuyingMiners} <ExternalLink className="h-3.5 w-3.5" />
         </a>
         .
       </div>
@@ -4057,7 +4076,7 @@ function LaunchpadMarketplaceDialogContent({
                   : "border-transparent bg-transparent text-muted-foreground hover:bg-muted/30"
               )}
             >
-              All ({tabCounts.all})
+              {l.tabAllN(String(tabCounts.all))}
             </button>
             <button
               type="button"
@@ -4069,7 +4088,7 @@ function LaunchpadMarketplaceDialogContent({
                   : "border-transparent bg-transparent text-muted-foreground hover:bg-muted/30"
               )}
             >
-              Delegations ({tabCounts.delegations})
+              {l.tabDelegationsN(String(tabCounts.delegations))}
             </button>
             <button
               type="button"
@@ -4081,7 +4100,7 @@ function LaunchpadMarketplaceDialogContent({
                   : "border-transparent bg-transparent text-muted-foreground hover:bg-muted/30"
               )}
             >
-              Miners (USDC) ({tabCounts.miners})
+              {l.tabMinersUsdcN(String(tabCounts.miners))}
             </button>
             {isLive ? (
               <button
@@ -4094,7 +4113,7 @@ function LaunchpadMarketplaceDialogContent({
                     : "border-transparent bg-transparent text-muted-foreground hover:bg-muted/30"
                 )}
               >
-                Activity
+                {l.activity}
               </button>
             ) : null}
           </div>
@@ -4106,11 +4125,11 @@ function LaunchpadMarketplaceDialogContent({
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" size="sm" className="h-10">
                       <Filter className="mr-2 h-4 w-4" />
-                      Filters
+                      {l.filters}
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Region</DropdownMenuLabel>
+                    <DropdownMenuLabel>{l.region}</DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuRadioGroup
                       value={zoneId?.toString() || "all"}
@@ -4119,7 +4138,7 @@ function LaunchpadMarketplaceDialogContent({
                       }
                     >
                       <DropdownMenuRadioItem value="all">
-                        All regions
+                        {l.allRegions}
                       </DropdownMenuRadioItem>
                       {zones.map((z) => (
                         <DropdownMenuRadioItem
@@ -4144,7 +4163,7 @@ function LaunchpadMarketplaceDialogContent({
               >
                 <SelectTrigger className="h-10 w-[190px] bg-background/50">
                   <ArrowDownUp className="mr-2 h-4 w-4 text-muted-foreground" />
-                  <SelectValue placeholder="Sort" />
+                  <SelectValue placeholder={l.sortPlaceholder} />
                 </SelectTrigger>
                 <SelectContent>
                   {sortOptions.map((o) => (
@@ -4180,8 +4199,8 @@ function LaunchpadMarketplaceDialogContent({
         ) : rows.length === 0 ? (
           <LaunchCountdown
             target={getNextLaunchpadDelegationBatchAtET()}
-            title="Launchpad"
-            subtitle="The next batch of farms will be available soon"
+            title={l.title}
+            subtitle={l.nextBatchSoon}
           />
         ) : (
           rows.map((row) => (
@@ -4246,6 +4265,8 @@ function LaunchpadAssetCard({
       | null
   ) => void;
 }) {
+  const { t } = useLang();
+  const l = t.routes.launchpad;
   const { application, availability, scoreData, cost, weeklyYield } = row;
   const isDelegation = application._type === "delegations";
   const minerWeeksRemaining = !isDelegation
@@ -4280,16 +4301,16 @@ function LaunchpadAssetCard({
           "border-[color:var(--color-miner)]/30 text-foreground hover:bg-[color:var(--color-miner)]/10 hover:border-[color:var(--color-miner)]/50",
       };
 
-  const title = application.farmName || "Unnamed Farm";
+  const title = application.farmName || l.unnamedFarm;
   const imageSrc = getDialogCardImageSrc(application);
 
   const costLabel = isSoldOut
     ? isDelegation
-      ? "Total Delegated"
-      : "Total Mined"
+      ? l.totalDelegated
+      : l.totalMined
     : isDelegation
-    ? "Delegation Amount"
-    : "PRICE / MINER";
+    ? l.delegationAmount
+    : l.pricePerMinerShort;
 
   const costMain = isSoldOut
     ? isDelegation
@@ -4305,26 +4326,30 @@ function LaunchpadAssetCard({
     ? delegationCurrency === "GLW" && glwSpotPrice > 0
       ? `≈ $${Math.round(cost * glwSpotPrice).toLocaleString()} USD`
       : "—"
-    : "Stable Price";
+    : l.stablePriceUpper;
 
   const rewardsMain =
     isScoresLoading && weeklyYield === 0
       ? "…"
-      : `+${weeklyYield.toLocaleString(undefined, {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })} GLW/wk`;
+      : l.weeklyGlwPerWeek(
+          weeklyYield.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }),
+        );
 
   const rewardsSub = isDelegation
     ? isScoresLoading
-      ? "Score: …"
-      : `Score: ${
+      ? l.scoreLoading
+      : l.scorePrefix(
           row.rewardScore?.rewardScore
             ? Math.round(row.rewardScore.rewardScore).toLocaleString()
-            : "0"
-        }`
+            : "0",
+        )
     : glwSpotPrice > 0
-    ? `≈ $${Math.round(weeklyYield * glwSpotPrice).toLocaleString()} USD/wk`
+    ? l.weeklyUsdPerWeek(
+        Math.round(weeklyYield * glwSpotPrice).toLocaleString(),
+      )
     : "—";
 
   return (
@@ -4358,7 +4383,7 @@ function LaunchpadAssetCard({
                   accent.badge
                 )}
               >
-                {isDelegation ? "Delegation" : "Miner"}
+                {isDelegation ? l.badgeDelegation : l.badgeMiner}
               </Badge>
             </div>
           </div>
@@ -4387,15 +4412,17 @@ function LaunchpadAssetCard({
                 </div>
                 <div className="mt-1.5 text-xs font-medium text-muted-foreground text-right">
                   {isSoldOut ? (
-                    <>
-                      SOLD OUT IN{" "}
-                      {formatTimeToSellOut(
+                    l.soldOutInPrefix(
+                      formatTimeToSellOut(
                         getListingVisibleStartAtMs(application),
-                        application.activeFraction?.filledAt || null
-                      )}
-                    </>
+                        application.activeFraction?.filledAt || null,
+                      ),
+                    )
                   ) : (
-                    `${availability.remaining} / ${availability.total} Left`
+                    l.leftFractionUpper(
+                      String(availability.remaining),
+                      String(availability.total),
+                    )
                   )}
                 </div>
               </div>
@@ -4420,10 +4447,10 @@ function LaunchpadAssetCard({
                     <div className="rounded-xl border border-border bg-background/30 p-4 cursor-help">
                       <div className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
                         {isDelegation
-                          ? "EST. REWARDS (100 WEEKS)"
-                          : `WEEKLY REWARDS (${formatMinerWeeksLabel(
-                              minerWeeksRemaining
-                            ).toUpperCase()})`}
+                          ? l.estRewards100Weeks
+                          : l.weeklyMinerHeader(
+                              formatMinerWeeksLabel(minerWeeksRemaining),
+                            )}
                         <Info className="h-3.5 w-3.5 opacity-70" />
                       </div>
                       <div
@@ -4452,23 +4479,21 @@ function LaunchpadAssetCard({
                     {isDelegation ? (
                       <div className="space-y-2">
                         <div className="text-xs font-semibold text-primary-foreground">
-                          Estimated rewards
+                          {l.estimatedRewardsLower}
                         </div>
                         <div className="text-[11px] leading-snug text-primary-foreground/80">
-                          Weekly estimate per delegation, paid weekly for 100
-                          weeks. Can decrease as regions fill. See Advanced Stats
-                          for details.
+                          {l.weeklyEstDelegationDesc}
                         </div>
                       </div>
                     ) : (
                       <div className="space-y-2">
                         <div className="text-xs font-semibold text-primary-foreground">
-                          Estimated rewards
+                          {l.estimatedRewardsLower}
                         </div>
                         <div className="text-[11px] leading-snug text-primary-foreground/80">
-                          {`Estimated weekly rewards per miner for ${formatMinerWeeksLabel(
-                            minerWeeksRemaining
-                          )}. These estimates may decrease as new farms join the region and dilute the regional GLW allocation. See Advanced Stats for detailed information.`}
+                          {l.weeklyMinerDesc(
+                            formatMinerWeeksLabel(minerWeeksRemaining),
+                          )}
                         </div>
                       </div>
                     )}
@@ -4490,12 +4515,12 @@ function LaunchpadAssetCard({
             }}
           >
             {isSoldOut
-              ? "Waitlist"
+              ? l.waitlist
               : isDelegation
               ? resolveDelegationCurrency(application) === "SGCTL"
-                ? "Delegate SGCTL"
-                : "Delegate GLW"
-              : "Buy Miners"}
+                ? l.delegateSgctl
+                : l.delegateGlw
+              : l.buyMiners}
           </Button>
 
           {!isSoldOut && (
@@ -4504,7 +4529,7 @@ function LaunchpadAssetCard({
               className="h-11 w-full sm:flex-1 rounded-full"
               onClick={() => onOpenStats(application, scoreData)}
             >
-              Advanced Stats
+              {l.advancedStats}
             </Button>
           )}
         </div>

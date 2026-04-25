@@ -25,11 +25,13 @@ import {
 import { useAccount } from "wagmi";
 import { cn } from "@/lib/utils";
 import { isKolWallet } from "@/lib/kol";
+import { useLang } from "@/lib/i18n";
 
 import { GlowLockup } from "./glow-lockup";
 import { SwapDialog } from "./dialogs/swap-dialog";
 import { TosDialog } from "./tos-dialog";
 import { ThemeToggle } from "./ui/theme-toggle";
+import { LangToggle } from "./lang-toggle";
 import { WalletStatus } from "./wallet-status";
 import { GlowSymbol } from "./glow-symbol";
 
@@ -99,6 +101,7 @@ export interface HeaderHamburgerMenuProps {
 export function HeaderHamburgerMenu({
   triggerClassName,
 }: HeaderHamburgerMenuProps) {
+  const { t } = useLang();
   return (
     <Drawer direction="right" shouldScaleBackground={false}>
       <DrawerTrigger asChild>
@@ -108,7 +111,7 @@ export function HeaderHamburgerMenu({
             triggerClassName,
           )}
           whileTap={{ scale: 0.95 }}
-          aria-label="Open menu"
+          aria-label={t.header.openMenu}
         >
           <Menu className="h-6 w-6" />
         </motion.button>
@@ -122,22 +125,22 @@ export function HeaderHamburgerMenu({
           <div className="flex items-center justify-between">
             <WalletStatus className="h-10" />
             <div className="flex items-center gap-2">
+              <LangToggle />
               <ThemeToggle />
               <DrawerClose asChild>
                 <motion.button
                   className="p-2 rounded-xl hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                   whileTap={{ scale: 0.95 }}
-                  aria-label="Close menu"
+                  aria-label={t.header.closeMenu}
                 >
                   <X className="h-5 w-5" />
                 </motion.button>
               </DrawerClose>
             </div>
           </div>
-          <DrawerTitle className="sr-only">Navigation Menu</DrawerTitle>
+          <DrawerTitle className="sr-only">{t.header.navigationMenuTitle}</DrawerTitle>
           <DrawerDescription className="sr-only">
-            Main navigation menu with links to different sections of the
-            website.
+            {t.header.navigationMenuDescription}
           </DrawerDescription>
         </DrawerHeader>
 
@@ -147,7 +150,7 @@ export function HeaderHamburgerMenu({
               <div className="space-y-2">
                 <div>
                   <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
-                    App
+                    {t.header.sections.app}
                   </div>
                   <div className="ml-4 space-y-1">
                     <DrawerClose asChild>
@@ -163,8 +166,7 @@ export function HeaderHamburgerMenu({
                         }}
                         className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                       >
-                        Glow Leaderboard
-                      </Link>
+                        {t.header.leaderboard.title}                      </Link>
                     </DrawerClose>
                     <DrawerClose asChild>
                       <Link
@@ -179,15 +181,14 @@ export function HeaderHamburgerMenu({
                         }}
                         className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                       >
-                        Protocol Stats
-                      </Link>
+                        {t.header.protocolStats.title}                      </Link>
                     </DrawerClose>
                   </div>
                 </div>
 
                 <div>
                   <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
-                    Impact
+                    {t.header.sections.impact}
                   </div>
                   <div className="ml-4 space-y-1">
                     <DrawerClose asChild>
@@ -197,15 +198,14 @@ export function HeaderHamburgerMenu({
                         rel="noreferrer"
                         className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                       >
-                        Infrastructure projects
-                      </Link>
+                        {t.header.infrastructureProjects.title}                      </Link>
                     </DrawerClose>
                   </div>
                 </div>
 
                 <div>
                   <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
-                    Resources
+                    {t.header.sections.resources}
                   </div>
                   <div className="ml-4 space-y-1">
                     <DrawerClose asChild>
@@ -222,8 +222,7 @@ export function HeaderHamburgerMenu({
                         }}
                         className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                       >
-                        Blog
-                      </Link>
+                        {t.header.blog.title}                      </Link>
                     </DrawerClose>
                     <DrawerClose asChild>
                       <Link
@@ -240,8 +239,7 @@ export function HeaderHamburgerMenu({
                         }}
                         className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                       >
-                        Press
-                      </Link>
+                        {t.header.press.title}                      </Link>
                     </DrawerClose>
                     <DrawerClose asChild>
                       <Link
@@ -258,15 +256,14 @@ export function HeaderHamburgerMenu({
                         }}
                         className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                       >
-                        Branding
-                      </Link>
+                        {t.header.branding.title}                      </Link>
                     </DrawerClose>
                   </div>
                 </div>
 
                 <div>
                   <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
-                    Audits
+                    {t.header.sections.audits}
                   </div>
                   <div className="ml-4 space-y-1">
                     <DrawerClose asChild>
@@ -283,8 +280,7 @@ export function HeaderHamburgerMenu({
                         }}
                         className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                       >
-                        Solar Farms Map
-                      </Link>
+                        {t.header.solarFarmsMap.title}                      </Link>
                     </DrawerClose>
                     <DrawerClose asChild>
                       <Link
@@ -301,8 +297,7 @@ export function HeaderHamburgerMenu({
                         }}
                         className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                       >
-                        Solar Farms List
-                      </Link>
+                        {t.header.solarFarmsList.title}                      </Link>
                     </DrawerClose>
                     <DrawerClose asChild>
                       <Link
@@ -319,15 +314,14 @@ export function HeaderHamburgerMenu({
                         }}
                         className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                       >
-                        Glow Verification Entities
-                      </Link>
+                        {t.header.gves.description}                      </Link>
                     </DrawerClose>
                   </div>
                 </div>
 
                 <div>
                   <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
-                    Data
+                    {t.header.sections.data}
                   </div>
                   <div className="ml-4 space-y-1">
                     <DrawerClose asChild>
@@ -344,8 +338,7 @@ export function HeaderHamburgerMenu({
                         }}
                         className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                       >
-                        Archives
-                      </Link>
+                        {t.header.archives.title}                      </Link>
                     </DrawerClose>
                     <DrawerClose asChild>
                       <Link
@@ -362,8 +355,7 @@ export function HeaderHamburgerMenu({
                         }}
                         className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                       >
-                        Weekly Reports
-                      </Link>
+                        {t.header.weeklyReports.title}                      </Link>
                     </DrawerClose>
                     <DrawerClose asChild>
                       <Link
@@ -380,8 +372,7 @@ export function HeaderHamburgerMenu({
                         }}
                         className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                       >
-                        Rewards
-                      </Link>
+                        {t.header.rewards.title}                      </Link>
                     </DrawerClose>
                   </div>
                 </div>
@@ -399,6 +390,7 @@ export function Header({
 }: {
   withIsScrolled?: boolean;
 }) {
+  const { t } = useLang();
   const { address } = useAccount();
   const showKolLink = isKolWallet(address);
   const [isSwapDialogOpen, setIsSwapDialogOpen] = React.useState(false);
@@ -421,28 +413,24 @@ export function Header({
               <NavigationMenuList>
                 <NavigationMenuItem>
                   <NavigationMenuTrigger className="text-zinc-900 dark:text-zinc-100 transition-colors relative group text-base bg-transparent hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 focus:bg-foreground focus:text-background dark:focus:bg-accent/10 dark:focus:text-zinc-100 data-[state=open]:bg-foreground data-[state=open]:text-background dark:data-[state=open]:bg-accent/10 dark:data-[state=open]:text-zinc-100">
-                    App
+                    {t.header.sections.app}
                   </NavigationMenuTrigger>
                   <NavigationMenuContent>
                     <ul className="grid gap-3 p-6 md:w-[300px]">
-                      <ListItem href="/" title="Home">
-                        Back to the dashboard
-                      </ListItem>
+                      <ListItem href="/" title={t.header.home.title}>
+                        {t.header.home.description}                      </ListItem>
                       <ActionListItem
-                        title="Swap"
-                        description="Buy or swap tokens without leaving the app"
+                        title={t.header.swap.title}
+                        description={t.header.swap.description}
                         onClick={() => setIsSwapDialogOpen(true)}
                       />
-                      <ListItem href="/stats/rewards" title="Glow Leaderboard">
-                        View top wallets and rewards leaderboard
-                      </ListItem>
-                      <ListItem href="/stats" title="Protocol Stats">
-                        Real-time protocol metrics and market data
-                      </ListItem>
+                      <ListItem href="/stats/rewards" title={t.header.leaderboard.title}>
+                        {t.header.leaderboard.description}                      </ListItem>
+                      <ListItem href="/stats" title={t.header.protocolStats.title}>
+                        {t.header.protocolStats.description}                      </ListItem>
                       {showKolLink && (
-                        <ListItem href="/ambassador" title="Ambassador Dashboard">
-                          Commission tracking and performance
-                        </ListItem>
+                        <ListItem href="/ambassador" title={t.header.ambassadorDashboard.title}>
+                          {t.header.ambassadorDashboard.description}                        </ListItem>
                       )}
                     </ul>
                   </NavigationMenuContent>
@@ -454,16 +442,15 @@ export function Header({
               <NavigationMenuList>
                 <NavigationMenuItem>
                   <NavigationMenuTrigger className="text-zinc-900 dark:text-zinc-100 transition-colors relative group text-base bg-transparent hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 focus:bg-foreground focus:text-background dark:focus:bg-accent/10 dark:focus:text-zinc-100 data-[state=open]:bg-foreground data-[state=open]:text-background dark:data-[state=open]:bg-accent/10 dark:data-[state=open]:text-zinc-100">
-                    Impact
+                    {t.header.sections.impact}
                   </NavigationMenuTrigger>
                   <NavigationMenuContent>
                     <ul className="grid gap-3 p-6 md:w-[250px]">
                       <ListItem
                         href="https://impact.glow.org"
-                        title="Infrastructure projects"
+                        title={t.header.infrastructureProjects.title}
                       >
-                        See the list of infrastructure projects
-                      </ListItem>
+                        {t.header.infrastructureProjects.description}                      </ListItem>
                     </ul>
                   </NavigationMenuContent>
                 </NavigationMenuItem>
@@ -474,31 +461,28 @@ export function Header({
               <NavigationMenuList>
                 <NavigationMenuItem>
                   <NavigationMenuTrigger className="text-zinc-900 dark:text-zinc-100 transition-colors relative group text-base bg-transparent hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 focus:bg-foreground focus:text-background dark:focus:bg-accent/10 dark:focus:text-zinc-100 data-[state=open]:bg-foreground data-[state=open]:text-background dark:data-[state=open]:bg-accent/10 dark:data-[state=open]:text-zinc-100">
-                    Resources
+                    {t.header.sections.resources}
                   </NavigationMenuTrigger>
                   <NavigationMenuContent>
                     <ul className="grid gap-3 p-6 md:w-[250px]">
                       <ListItem
                         href="https://glow.org/blog"
-                        title="Blog"
+                        title={t.header.blog.title}
                         target="_blank"
                       >
-                        Latest news and insights
-                      </ListItem>
+                        {t.header.blog.description}                      </ListItem>
                       <ListItem
                         href="https://glow.org/press"
-                        title="Press"
+                        title={t.header.press.title}
                         target="_blank"
                       >
-                        Press releases and media coverage
-                      </ListItem>
+                        {t.header.press.description}                      </ListItem>
                       <ListItem
                         href="https://glow.org/branding"
-                        title="Branding"
+                        title={t.header.branding.title}
                         target="_blank"
                       >
-                        Brand assets and guidelines
-                      </ListItem>
+                        {t.header.branding.description}                      </ListItem>
                     </ul>
                   </NavigationMenuContent>
                 </NavigationMenuItem>
@@ -509,31 +493,28 @@ export function Header({
               <NavigationMenuList>
                 <NavigationMenuItem>
                   <NavigationMenuTrigger className="text-zinc-900 dark:text-zinc-100 transition-colors relative group text-base bg-transparent hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 focus:bg-foreground focus:text-background dark:focus:bg-accent/10 dark:focus:text-zinc-100 data-[state=open]:bg-foreground data-[state=open]:text-background dark:data-[state=open]:bg-accent/10 dark:data-[state=open]:text-zinc-100">
-                    Audits
+                    {t.header.sections.audits}
                   </NavigationMenuTrigger>
                   <NavigationMenuContent>
                     <ul className="grid gap-3 p-6 md:w-[250px]">
                       <ListItem
                         href="https://glow.org/audits"
-                        title="Audits"
+                        title={t.header.solarFarmsMap.title}
                         target="_blank"
                       >
-                        Solar Farms Map
-                      </ListItem>
+                        {t.header.solarFarmsMap.title}                      </ListItem>
                       <ListItem
                         href="https://glow.org/audits?view=list"
-                        title="Audits"
+                        title={t.header.solarFarmsList.title}
                         target="_blank"
                       >
-                        Solar Farms List
-                      </ListItem>
+                        {t.header.solarFarmsList.title}                      </ListItem>
                       <ListItem
                         href="https://glow.org/gves"
-                        title="GVEs"
+                        title={t.header.gves.title}
                         target="_blank"
                       >
-                        Glow Verification Entities
-                      </ListItem>
+                        {t.header.gves.description}                      </ListItem>
                     </ul>
                   </NavigationMenuContent>
                 </NavigationMenuItem>
@@ -544,31 +525,28 @@ export function Header({
               <NavigationMenuList>
                 <NavigationMenuItem>
                   <NavigationMenuTrigger className="text-zinc-900 dark:text-zinc-100 transition-colors relative group text-base bg-transparent hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 focus:bg-foreground focus:text-background dark:focus:bg-accent/10 dark:focus:text-zinc-100 data-[state=open]:bg-foreground data-[state=open]:text-background dark:data-[state=open]:bg-accent/10 dark:data-[state=open]:text-zinc-100">
-                    Data
+                    {t.header.sections.data}
                   </NavigationMenuTrigger>
                   <NavigationMenuContent>
                     <ul className="grid gap-3 p-6 md:w-[300px]">
                       <ListItem
                         href="https://glow.org/archives"
-                        title="Archives"
+                        title={t.header.archives.title}
                         target="_blank"
                       >
-                        Access historical data and records
-                      </ListItem>
+                        {t.header.archives.description}                      </ListItem>
                       <ListItem
                         href="https://glow.org/weekly-reports"
-                        title="Weekly Reports"
+                        title={t.header.weeklyReports.title}
                         target="_blank"
                       >
-                        View detailed weekly performance reports
-                      </ListItem>
+                        {t.header.weeklyReports.description}                      </ListItem>
                       <ListItem
                         href="https://glow.org/rewards"
-                        title="Rewards"
+                        title={t.header.rewards.title}
                         target="_blank"
                       >
-                        View Farm Rewards
-                      </ListItem>
+                        {t.header.rewards.description}                      </ListItem>
                     </ul>
                   </NavigationMenuContent>
                 </NavigationMenuItem>
@@ -577,6 +555,7 @@ export function Header({
           </nav>
 
           <div className="hidden lg:flex items-center gap-2">
+            <LangToggle />
             <ThemeToggle />
             <WalletStatus />
           </div>
@@ -588,7 +567,7 @@ export function Header({
                 <motion.button
                   className="p-2 rounded-xl border border-border/20 dark:border-border/40 bg-background/80 backdrop-blur-sm hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-all duration-300 relative z-50 text-zinc-900 dark:text-zinc-100"
                   whileTap={{ scale: 0.95 }}
-                  aria-label="Open menu"
+                  aria-label={t.header.openMenu}
                 >
                   <Menu className="h-6 w-6" />
                 </motion.button>
@@ -602,22 +581,24 @@ export function Header({
                   <div className="flex items-center justify-between">
                     <WalletStatus className="h-10" />
                     <div className="flex items-center gap-2">
+                      <LangToggle />
                       <ThemeToggle />
                       <DrawerClose asChild>
                         <motion.button
                           className="p-2 rounded-xl hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                           whileTap={{ scale: 0.95 }}
-                          aria-label="Close menu"
+                          aria-label={t.header.closeMenu}
                         >
                           <X className="h-5 w-5" />
                         </motion.button>
                       </DrawerClose>
                     </div>
                   </div>
-                  <DrawerTitle className="sr-only">Navigation Menu</DrawerTitle>
+                  <DrawerTitle className="sr-only">
+                    {t.header.navigationMenuTitle}
+                  </DrawerTitle>
                   <DrawerDescription className="sr-only">
-                    Main navigation menu with links to different sections of the
-                    website.
+                    {t.header.navigationMenuDescription}
                   </DrawerDescription>
                 </DrawerHeader>
 
@@ -627,7 +608,7 @@ export function Header({
                       <div className="space-y-2">
                         <div>
                           <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
-                            App
+                            {t.header.sections.app}
                           </div>
                           <div className="ml-4 space-y-1">
                             <DrawerClose asChild>
@@ -643,8 +624,7 @@ export function Header({
                                 }}
                                 className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                               >
-                                Home
-                              </Link>
+                                {t.header.home.title}                              </Link>
                             </DrawerClose>
                             <DrawerClose asChild>
                               <button
@@ -656,8 +636,7 @@ export function Header({
                                 }}
                                 className="block w-full px-4 py-3 text-left text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                               >
-                                Swap
-                              </button>
+                                {t.header.swap.title}                              </button>
                             </DrawerClose>
                             <DrawerClose asChild>
                               <Link
@@ -672,8 +651,7 @@ export function Header({
                                 }}
                                 className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                               >
-                                Glow Leaderboard
-                              </Link>
+                                {t.header.leaderboard.title}                              </Link>
                             </DrawerClose>
                             <DrawerClose asChild>
                               <Link
@@ -688,8 +666,7 @@ export function Header({
                                 }}
                                 className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                               >
-                                Protocol Stats
-                              </Link>
+                                {t.header.protocolStats.title}                              </Link>
                             </DrawerClose>
                             {showKolLink && (
                               <DrawerClose asChild>
@@ -705,8 +682,7 @@ export function Header({
                                   }}
                                   className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                                 >
-                                  Ambassador Dashboard
-                                </Link>
+                                  {t.header.ambassadorDashboard.title}                                </Link>
                               </DrawerClose>
                             )}
                           </div>
@@ -714,7 +690,7 @@ export function Header({
 
                         <div>
                           <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
-                            Impact
+                            {t.header.sections.impact}
                           </div>
                           <div className="ml-4 space-y-1">
                             <DrawerClose asChild>
@@ -724,15 +700,14 @@ export function Header({
                                 rel="noreferrer"
                                 className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                               >
-                                Infrastructure projects
-                              </Link>
+                                {t.header.infrastructureProjects.title}                              </Link>
                             </DrawerClose>
                           </div>
                         </div>
 
                         <div>
                           <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
-                            Resources
+                            {t.header.sections.resources}
                           </div>
                           <div className="ml-4 space-y-1">
                             <DrawerClose asChild>
@@ -749,8 +724,7 @@ export function Header({
                                 }}
                                 className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                               >
-                                Blog
-                              </Link>
+                                {t.header.blog.title}                              </Link>
                             </DrawerClose>
                             <DrawerClose asChild>
                               <Link
@@ -767,8 +741,7 @@ export function Header({
                                 }}
                                 className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                               >
-                                Press
-                              </Link>
+                                {t.header.press.title}                              </Link>
                             </DrawerClose>
                             <DrawerClose asChild>
                               <Link
@@ -785,15 +758,14 @@ export function Header({
                                 }}
                                 className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                               >
-                                Branding
-                              </Link>
+                                {t.header.branding.title}                              </Link>
                             </DrawerClose>
                           </div>
                         </div>
 
                         <div>
                           <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
-                            Audits
+                            {t.header.sections.audits}
                           </div>
                           <div className="ml-4 space-y-1">
                             <DrawerClose asChild>
@@ -810,8 +782,7 @@ export function Header({
                                 }}
                                 className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                               >
-                                Solar Farms Map
-                              </Link>
+                                {t.header.solarFarmsMap.title}                              </Link>
                             </DrawerClose>
                             <DrawerClose asChild>
                               <Link
@@ -828,8 +799,7 @@ export function Header({
                                 }}
                                 className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                               >
-                                Solar Farms List
-                              </Link>
+                                {t.header.solarFarmsList.title}                              </Link>
                             </DrawerClose>
                             <DrawerClose asChild>
                               <Link
@@ -846,15 +816,14 @@ export function Header({
                                 }}
                                 className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                               >
-                                Glow Verification Entities
-                              </Link>
+                                {t.header.gves.description}                              </Link>
                             </DrawerClose>
                           </div>
                         </div>
 
                         <div>
                           <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
-                            Data
+                            {t.header.sections.data}
                           </div>
                           <div className="ml-4 space-y-1">
                             <DrawerClose asChild>
@@ -871,8 +840,7 @@ export function Header({
                                 }}
                                 className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                               >
-                                Archives
-                              </Link>
+                                {t.header.archives.title}                              </Link>
                             </DrawerClose>
                             <DrawerClose asChild>
                               <Link
@@ -889,8 +857,7 @@ export function Header({
                                 }}
                                 className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                               >
-                                Weekly Reports
-                              </Link>
+                                {t.header.weeklyReports.title}                              </Link>
                             </DrawerClose>
                             <DrawerClose asChild>
                               <Link
@@ -907,8 +874,7 @@ export function Header({
                                 }}
                                 className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                               >
-                                Rewards
-                              </Link>
+                                {t.header.rewards.title}                              </Link>
                             </DrawerClose>
                           </div>
                         </div>

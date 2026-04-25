@@ -74,6 +74,9 @@ import {
 import { useEnsNames } from "@/hooks/useEnsNames";
 import { MetricCard } from "./farms-view";
 import { RewardsSkeleton } from "./view";
+import { useLang, type Strings } from "@/lib/i18n";
+
+type WalletsLeaderboardLabels = Strings["routes"]["walletsLeaderboard"];
 
 const WALLET_LIMIT = 100;
 const FARM_LIMIT = 100;
@@ -130,14 +133,18 @@ function calculateMiningScore(
   }
 }
 
-function copyToClipboard(text: string, label: string) {
+function copyToClipboard(
+  text: string,
+  successMessage: string,
+  failureMessage: string,
+) {
   navigator.clipboard
     .writeText(text)
     .then(() => {
-      toast.success(`${label} copied`);
+      toast.success(successMessage);
     })
     .catch(() => {
-      toast.error("Failed to copy");
+      toast.error(failureMessage);
     });
 }
 
@@ -213,9 +220,10 @@ interface RewardsChartProps {
 interface FarmsChartProps {
   farms: FarmActivity[];
   type: "delegator" | "miner";
+  labels: WalletsLeaderboardLabels;
 }
 
-function FarmsChart({ farms, type }: FarmsChartProps) {
+function FarmsChart({ farms, type, labels }: FarmsChartProps) {
   const chartData = React.useMemo(() => {
     return farms.slice(0, 20).map((farm) => {
       const delegatorRewards = Number(farm.delegatorRewardsDistributed) / 1e18;
@@ -243,7 +251,8 @@ function FarmsChart({ farms, type }: FarmsChartProps) {
 
   const chartConfig = {
     rewards: {
-      label: type === "delegator" ? "Delegator Rewards" : "Miner Rewards",
+      label:
+        type === "delegator" ? labels.delegatorRewards : labels.minerRewards,
       color: type === "delegator" ? "#dcc4ff" : "#ccffd4",
     },
   } satisfies ChartConfig;
@@ -251,7 +260,7 @@ function FarmsChart({ farms, type }: FarmsChartProps) {
   if (chartData.length === 0) {
     return (
       <div className="h-80 flex items-center justify-center text-muted-foreground text-sm">
-        No data available for chart
+        {labels.noDataAvailable}
       </div>
     );
   }
@@ -290,7 +299,9 @@ function FarmsChart({ farms, type }: FarmsChartProps) {
                 const participants =
                   payload?.[0]?.payload?.uniqueParticipants || 0;
                 const participantLabel =
-                  type === "delegator" ? "delegators" : "miners";
+                  type === "delegator"
+                    ? labels.delegatorsLower
+                    : labels.minersLower;
                 return (
                   <div className="mb-2 pb-2 border-b border-border/50">
                     <div className="text-sm font-semibold mb-1">{farmName}</div>
@@ -303,7 +314,9 @@ function FarmsChart({ farms, type }: FarmsChartProps) {
               formatter={(value, name) => {
                 const numValue = Number(value);
                 const rewardsLabel =
-                  type === "delegator" ? "Delegator Rewards" : "Miner Rewards";
+                  type === "delegator"
+                    ? labels.delegatorRewards
+                    : labels.minerRewards;
 
                 if (name === "rewards" || name === rewardsLabel) {
                   const formatted = formatNumber(numValue);
@@ -323,7 +336,9 @@ function FarmsChart({ farms, type }: FarmsChartProps) {
           dataKey="rewards"
           fill="var(--color-rewards)"
           radius={[4, 4, 0, 0]}
-          name={type === "delegator" ? "Delegator Rewards" : "Miner Rewards"}
+          name={
+            type === "delegator" ? labels.delegatorRewards : labels.minerRewards
+          }
         />
       </BarChart>
     </ChartContainer>
@@ -334,12 +349,16 @@ interface DelegationTrendChartProps {
   glwDelegationByEpoch: Record<number, string>;
   circulatingSupply: number;
   currentTotalGlwDelegated?: string;
+  labels: WalletsLeaderboardLabels;
+  currentLabel: string;
 }
 
 function DelegationTrendChart({
   glwDelegationByEpoch,
   circulatingSupply,
   currentTotalGlwDelegated,
+  labels,
+  currentLabel,
 }: DelegationTrendChartProps) {
   const chartData = React.useMemo(() => {
     const epochs = Object.keys(glwDelegationByEpoch)
@@ -375,7 +394,7 @@ function DelegationTrendChart({
         epoch,
         amount,
         percentOfCirculating,
-        displayDate: isCurrent ? "Current" : formattedDate,
+        displayDate: isCurrent ? currentLabel : formattedDate,
         fullDate: isCurrent
           ? new Date().toLocaleDateString("en-US", {
               month: "long",
@@ -396,7 +415,7 @@ function DelegationTrendChart({
 
   const chartConfig = {
     percentOfCirculating: {
-      label: "% of Circulating Supply",
+      label: labels.pctOfCirculatingSupply,
       color: "#dcc4ff",
     },
   } satisfies ChartConfig;
@@ -443,13 +462,13 @@ function DelegationTrendChart({
                 return [
                   <div key="delegation-tooltip" className="space-y-1">
                     <div className="font-semibold">
-                      {numValue.toFixed(2)}% of supply
+                      {labels.pctOfSupply(numValue.toFixed(2))}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {formattedAmount} GLW actively delegated
+                      {formattedAmount} {labels.glwActivelyDelegatedTooltip}
                     </div>
                   </div>,
-                  "Active Delegation",
+                  labels.activeDelegation,
                 ];
               }}
             />
@@ -465,7 +484,7 @@ function DelegationTrendChart({
             fill: "var(--color-percentOfCirculating)",
             strokeWidth: 2,
           }}
-          name="% of Circulating Supply"
+          name={labels.pctOfCirculatingSupply}
         />
       </LineChart>
     </ChartContainer>
@@ -497,6 +516,8 @@ export function WalletsView({
   glwHolderCount,
   circulatingSupply = 0,
 }: WalletsViewProps) {
+  const { t } = useLang();
+  const wl = t.routes.walletsLeaderboard;
   const defaultSortBy: SortField =
     type === "delegator" ? "delegatorRewardsEarned" : "minerRewardsEarned";
 
@@ -740,9 +761,9 @@ export function WalletsView({
   const isInitialLoading = isLoading && !data;
 
   const rewardsLabel =
-    type === "delegator" ? "Delegator Rewards" : "Miner Rewards";
+    type === "delegator" ? wl.delegatorRewards : wl.minerRewards;
   const capitalLabel =
-    type === "delegator" ? "GLW Actively Delegated" : "USDC Spent";
+    type === "delegator" ? wl.glwActivelyDelegatedLabel : wl.usdcSpent;
 
   const analytics = React.useMemo(() => {
     if (!wallets.length) {
@@ -1012,9 +1033,7 @@ export function WalletsView({
   if (isError) {
     return (
       <div className="py-12 text-center">
-        <p className="text-muted-foreground">
-          Unable to load rewards data right now.
-        </p>
+        <p className="text-muted-foreground">{wl.unableToLoadRewards}</p>
       </div>
     );
   }
@@ -1022,10 +1041,11 @@ export function WalletsView({
   if (isEmptyState) {
     return (
       <div className="py-24 text-center space-y-3">
-        <h2 className="text-xl font-semibold">No wallets found</h2>
+        <h2 className="text-xl font-semibold">{wl.noWalletsFound}</h2>
         <p className="text-sm text-muted-foreground">
-          Adjust the filters to explore different segments of Glow{" "}
-          {type === "delegator" ? "delegators" : "miners"}.
+          {type === "delegator"
+            ? wl.adjustFiltersDelegators
+            : wl.adjustFiltersMiners}
         </p>
       </div>
     );
@@ -1041,18 +1061,18 @@ export function WalletsView({
         <MetricCard
           title={
             type === "delegator"
-              ? "Net Delegator Rewards (total)"
-              : `${rewardsLabel} (total)`
+              ? wl.netDelegatorRewardsTotal
+              : wl.rewardsTotal(rewardsLabel)
           }
           value={`${analytics.totalRewardsDisplay} GLW`}
           icon={<TrendingUp className="h-5 w-5" />}
         >
           {type === "delegator" && weekRange ? (
             <p className="text-xs">
-              Avg per wallet: {analytics.averageRewardDisplay} GLW
+              {wl.avgPerWallet(analytics.averageRewardDisplay)}
             </p>
           ) : (
-            <p>Avg per wallet: {analytics.averageRewardDisplay} GLW</p>
+            <p>{wl.avgPerWallet(analytics.averageRewardDisplay)}</p>
           )}
         </MetricCard>
         <MetricCard
@@ -1067,17 +1087,17 @@ export function WalletsView({
           icon={<Zap className="h-5 w-5" />}
         >
           {type === "delegator" ? (
-            <p>Current vault ownership across all wallets</p>
+            <p>{wl.currentVaultOwnership}</p>
           ) : (
-            <p>New capital: ${analytics.newCapitalDisplay || "0.00"}</p>
+            <p>{wl.newCapital(analytics.newCapitalDisplay || "0.00")}</p>
           )}
         </MetricCard>
         {analytics.weeklyRewardsMetric !== undefined && (
           <MetricCard
             title={
               type === "delegator"
-                ? "GLW per Week per 100 GLW Delegated"
-                : "GLW per Week per $100 Miner"
+                ? wl.glwPerWeekPer100Glw
+                : wl.glwPerWeekPer100Miner
             }
             value={
               analytics.weeklyRewardsMetric.toLocaleString("en-US", {
@@ -1093,14 +1113,15 @@ export function WalletsView({
             }
           >
             <p>
-              Average weekly rewards on{" "}
-              {type === "delegator" ? "active delegations" : "miners"}
+              {type === "delegator"
+                ? wl.averageWeeklyRewardsOnDelegations
+                : wl.averageWeeklyRewardsOnMiners}
             </p>
           </MetricCard>
         )}
         {type === "miner" && (
           <MetricCard
-            title="Miners"
+            title={wl.miners}
             value={
               glwHolderCount && glwHolderCount > 0 && totalContributors
                 ? `${((totalContributors / glwHolderCount) * 100).toFixed(1)}%`
@@ -1110,12 +1131,12 @@ export function WalletsView({
           >
             <p>
               {glwHolderCount && glwHolderCount > 0 && totalContributors
-                ? `of total GLW holders`
+                ? wl.ofTotalGlwHolders
                 : newWalletsLastWeek !== null
-                ? `+${newWalletsLastWeek.toLocaleString()} new wallets last week`
+                ? wl.newWalletsLastWeek(newWalletsLastWeek.toLocaleString())
                 : !totalContributors && analytics.newWalletCount > 0
-                ? `${analytics.newWalletCount.toLocaleString()} new this range`
-                : `Showing top ${analytics.walletCount.toLocaleString()}`}
+                ? wl.newThisRange(analytics.newWalletCount.toLocaleString())
+                : wl.showingTop(analytics.walletCount.toLocaleString())}
             </p>
           </MetricCard>
         )}
@@ -1124,10 +1145,9 @@ export function WalletsView({
         <Card className="border-border/60">
           <CardHeader className="pb-4">
             <div className="flex flex-col gap-1">
-              <CardTitle>GLW Delegation as % of Circulating Supply</CardTitle>
+              <CardTitle>{wl.delegationChartTitle}</CardTitle>
               <p className="text-sm text-muted-foreground">
-                Track how much of the circulating GLW supply is delegated over
-                time
+                {wl.delegationChartDesc}
               </p>
             </div>
           </CardHeader>
@@ -1148,6 +1168,8 @@ export function WalletsView({
                 glwDelegationByEpoch={glwDelegationByEpoch}
                 circulatingSupply={circulatingSupply}
                 currentTotalGlwDelegated={networkTotalGlwDelegated}
+                labels={wl}
+                currentLabel={wl.chartCurrent}
               />
             )}
           </CardContent>
@@ -1158,18 +1180,21 @@ export function WalletsView({
         <CardHeader>
           <div className="flex flex-col gap-4">
             <div>
-              <CardTitle>Wallet Leaderboard</CardTitle>
+              <CardTitle>{wl.walletLeaderboard}</CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                Ranked by cumulative GLW earned. Top{" "}
-                {analytics.walletCount.toLocaleString()}{" "}
-                {type === "delegator" ? "delegators" : "miners"} shown. Click
-                column headers to sort.
+                {type === "delegator"
+                  ? wl.rankedByCumulativeDelegators(
+                      analytics.walletCount.toLocaleString(),
+                    )
+                  : wl.rankedByCumulativeMiners(
+                      analytics.walletCount.toLocaleString(),
+                    )}
               </p>
             </div>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by wallet address or ENS name..."
+                placeholder={wl.searchPlaceholder}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9 pr-9"
@@ -1201,7 +1226,7 @@ export function WalletsView({
                   <TableRow>
                     <TableHead className="w-20">
                       <div className="flex items-center gap-1">
-                        <span>Rank</span>
+                        <span>{wl.rank}</span>
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -1210,15 +1235,15 @@ export function WalletsView({
                             <TooltipContent className="max-w-xs">
                               <p className="text-xs">
                                 {type === "delegator"
-                                  ? 'Based on total net rewards in the current period. Top 3 show exact rank, others show percentile (e.g., "Top 5%").'
-                                  : 'Based on cumulative GLW earned. Top 3 show exact rank, others show percentile (e.g., "Top 5%").'}
+                                  ? wl.rankTooltipDelegator
+                                  : wl.rankTooltipMiner}
                               </p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
                       </div>
                     </TableHead>
-                    <TableHead>Wallet</TableHead>
+                    <TableHead>{wl.wallet}</TableHead>
                     {type === "delegator" && (
                       <SortableTableHead
                         field="glwDelegated"
@@ -1237,7 +1262,7 @@ export function WalletsView({
                       onSort={handleSort}
                       className="text-right"
                     >
-                      GLW/Week
+                      {wl.glwPerWeek}
                     </SortableTableHead>
                     <SortableTableHead
                       field={
@@ -1252,7 +1277,7 @@ export function WalletsView({
                     >
                       <div className="flex items-center gap-1">
                         <span>
-                          {type === "delegator" ? "Net Rewards" : "Rewards"}
+                          {type === "delegator" ? wl.netRewards : wl.rewardsCol}
                         </span>
                         {type === "delegator" && (
                           <TooltipProvider>
@@ -1262,9 +1287,7 @@ export function WalletsView({
                               </TooltipTrigger>
                               <TooltipContent className="max-w-xs">
                                 <p className="text-xs">
-                                  Total rewards earned (PD recovery + emissions)
-                                  minus the Protocol Deposit allocated to weeks
-                                  that have passed. Shows your true profit.
+                                  {wl.netRewardsTooltip}
                                 </p>
                               </TooltipContent>
                             </Tooltip>
@@ -1274,7 +1297,7 @@ export function WalletsView({
                     </SortableTableHead>
                     <TableHead className="hidden md:table-cell text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <span>Share</span>
+                        <span>{wl.share}</span>
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -1282,10 +1305,9 @@ export function WalletsView({
                             </TooltipTrigger>
                             <TooltipContent className="max-w-xs">
                               <p className="text-xs">
-                                This wallet's percentage of total gross rewards
-                                distributed to all{" "}
-                                {type === "delegator" ? "delegators" : "miners"}{" "}
-                                in the current period.
+                                {type === "delegator"
+                                  ? wl.shareTooltipDelegators
+                                  : wl.shareTooltipMiners}
                               </p>
                             </TooltipContent>
                           </Tooltip>
@@ -1293,7 +1315,7 @@ export function WalletsView({
                       </div>
                     </TableHead>
                     <TableHead className="hidden sm:table-cell text-right">
-                      Actions
+                      {wl.actions}
                     </TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1347,7 +1369,7 @@ export function WalletsView({
                     const displayRank =
                       rank <= 3
                         ? `#${rank}`
-                        : `Top ${wallet.percentile.toFixed(0)}%`;
+                        : wl.topPercent(wallet.percentile.toFixed(0));
 
                     return (
                       <TableRow key={wallet.walletAddress}>
@@ -1368,7 +1390,7 @@ export function WalletsView({
                               )}
                               {newBadge && (
                                 <Badge variant="secondary" className="text-xs">
-                                  New
+                                  {wl.badgeNew}
                                 </Badge>
                               )}
                             </div>
@@ -1399,7 +1421,11 @@ export function WalletsView({
                               variant="ghost"
                               size="icon"
                               onClick={() =>
-                                copyToClipboard(wallet.walletAddress, "Address")
+                                copyToClipboard(
+                                  wallet.walletAddress,
+                                  wl.toastAddressCopied,
+                                  wl.toastFailedCopy,
+                                )
                               }
                             >
                               <Copy className="h-4 w-4" />
@@ -1418,14 +1444,19 @@ export function WalletsView({
               <div className="text-sm text-muted-foreground">
                 {filteredWallets.length > 0 ? (
                   <>
-                    Showing {(page - 1) * WALLETS_PER_PAGE + 1} to{" "}
-                    {Math.min(page * WALLETS_PER_PAGE, filteredWallets.length)}{" "}
-                    of {filteredWallets.length} wallet
-                    {filteredWallets.length !== 1 ? "s" : ""}
-                    {search && ` (filtered from ${wallets.length})`}
+                    {wl.showingPagination(
+                      ((page - 1) * WALLETS_PER_PAGE + 1).toString(),
+                      Math.min(
+                        page * WALLETS_PER_PAGE,
+                        filteredWallets.length,
+                      ).toString(),
+                      filteredWallets.length.toString(),
+                      filteredWallets.length !== 1 ? "s" : "",
+                    )}
+                    {search && wl.filteredFrom(wallets.length.toString())}
                   </>
                 ) : (
-                  <>No wallets found matching "{search}"</>
+                  <>{wl.noWalletsMatching(search)}</>
                 )}
               </div>
               <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -1436,10 +1467,10 @@ export function WalletsView({
                   disabled={page === 1}
                 >
                   <ChevronLeft className="h-4 w-4 mr-1" />
-                  Previous
+                  {wl.previous}
                 </Button>
                 <div className="sm:hidden text-sm font-medium">
-                  Page {page} of {totalPages}
+                  {wl.pageOf(page.toString(), totalPages.toString())}
                 </div>
                 <div className="hidden sm:flex items-center gap-1">
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map(
@@ -1482,7 +1513,7 @@ export function WalletsView({
                   onClick={() => setPage(page + 1)}
                   disabled={page === totalPages}
                 >
-                  Next
+                  {wl.next}
                   <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>
               </div>

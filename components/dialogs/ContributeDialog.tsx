@@ -25,6 +25,7 @@ import {
 } from "@glowlabs-org/utils/browser";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useGctlApi, useRegions } from "@/hooks";
+import { useLang } from "@/lib/i18n";
 import { ProcessingModal } from "../buy-gctl/processing-modal";
 import {
   Select,
@@ -49,6 +50,8 @@ export function ContributeDialog({
   currentStaked,
   stakeTargetGctl,
 }: ContributeDialogProps) {
+  const { t } = useLang();
+  const c = t.bigDialogs.contribute;
   const { address, isConnected } = useAccount();
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
@@ -139,9 +142,9 @@ export function ContributeDialog({
         setStableBalance(human);
       } catch (error) {
         if (!cancelled) {
-          toast.error("Failed to fetch token balance", {
+          toast.error(c.failedToFetchBalance, {
             description:
-              error instanceof Error ? error.message : "Unknown error",
+              error instanceof Error ? error.message : c.unknownError,
           });
         }
       } finally {
@@ -197,15 +200,15 @@ export function ContributeDialog({
 
   async function handleStakeExisting() {
     if (!isConnected || !address || !signer) {
-      toast.error("Missing required information");
+      toast.error(c.missingInfo);
       return;
     }
     if (!selectedRegionId) {
-      toast.error("Please select a region");
+      toast.error(c.pleaseSelectRegion);
       return;
     }
     if (stakeAmount <= 0) {
-      toast.error("Please enter a valid amount");
+      toast.error(c.enterValidAmount);
       return;
     }
 
@@ -231,7 +234,7 @@ export function ContributeDialog({
         );
 
       if (!signature) {
-        toast.error("Failed to sign message");
+        toast.error(c.failedToSignMessage);
         return;
       }
 
@@ -248,10 +251,10 @@ export function ContributeDialog({
         setContributionSuccess(true);
         setContributedAmount(stakeAmount);
         setContributedCurrency("GCTL");
-        toast.success("Contribution successful!");
+        toast.success(c.contributionSuccess);
         invalidateAllQueries();
       } else {
-        throw new Error("Stake failed");
+        throw new Error(c.stakeFailed);
       }
     } catch (error) {
       toast.error("Failed to stake GCTL");
@@ -260,15 +263,15 @@ export function ContributeDialog({
 
   async function handleMintAndStake() {
     if (!isConnected || !address) {
-      toast.error("Please connect your wallet");
+      toast.error(c.connectWallet);
       return;
     }
     if (!selectedRegionId) {
-      toast.error("Please select a region");
+      toast.error(c.pleaseSelectRegion);
       return;
     }
     if (stakeAmount <= 0) {
-      toast.error("Please enter a valid amount");
+      toast.error(c.enterValidAmount);
       return;
     }
 
@@ -306,7 +309,7 @@ export function ContributeDialog({
       setIsApproving(false);
       setIsMintingSubmitting(false);
       setIsWaitingForReceipt(false);
-      toast.error("Failed to mint & stake");
+      toast.error(c.failedToMintStake);
     }
   }
 
@@ -316,8 +319,8 @@ export function ContributeDialog({
         <DialogHeader className="px-6 pt-8 pb-4 border-b border-border/40">
           <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
             {selectedRegionLabel
-              ? `Stake to ${selectedRegionLabel}`
-              : "Stake GCTL"}
+              ? c.stakeTo(selectedRegionLabel)
+              : c.stakeGctl}
           </DialogTitle>
         </DialogHeader>
 
@@ -342,16 +345,17 @@ export function ContributeDialog({
                   </svg>
                 </div>
                 <h3 className="text-xl font-semibold text-foreground mb-2">
-                  Contribution Successful
+                  {c.successHeading}
                 </h3>
                 <p className="text-sm text-muted-foreground mb-4">
-                  You've successfully contributed{" "}
-                  {contributedAmount.toLocaleString("en-US", {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 2,
-                  })}{" "}
-                  {contributedCurrency}
-                  {selectedRegionLabel ? ` to ${selectedRegionLabel}` : ""}
+                  {c.contributedBody(
+                    contributedAmount.toLocaleString("en-US", {
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 2,
+                    }),
+                    contributedCurrency,
+                    selectedRegionLabel ? ` → ${selectedRegionLabel}` : "",
+                  )}
                 </p>
               </div>
 
@@ -359,7 +363,7 @@ export function ContributeDialog({
               <div className="space-y-4 mb-6 text-left bg-muted/30 dark:bg-muted/50 rounded-xl border border-border/20 dark:border-border/40 p-4">
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground text-sm">
-                    Amount Contributed
+                    {c.amountContributed}
                   </span>
                   <span className="text-foreground text-sm font-medium">
                     {contributedAmount.toLocaleString("en-US", {
@@ -373,7 +377,7 @@ export function ContributeDialog({
                   <>
                     <div className="flex justify-between items-center">
                       <span className="text-muted-foreground text-sm">
-                        Your Impact
+                        {c.yourImpact}
                       </span>
                       <span className="text-foreground text-sm font-medium">
                         {(
@@ -388,7 +392,7 @@ export function ContributeDialog({
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-muted-foreground text-sm">
-                        New Total Progress
+                        {c.newTotalProgress}
                       </span>
                       <span className="text-foreground text-sm font-medium">
                         {(
@@ -416,10 +420,10 @@ export function ContributeDialog({
                   }}
                   className="flex-1"
                 >
-                  Make Another Contribution
+                  {c.makeAnother}
                 </Button>
                 <Button onClick={() => onOpenChange(false)} className="flex-1">
-                  Close
+                  {c.close}
                 </Button>
               </div>
             </div>
@@ -429,7 +433,7 @@ export function ContributeDialog({
               {/* Region selection */}
               <div className="space-y-2 mb-4">
                 <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
-                  Select region
+                  {c.selectRegion}
                 </div>
                 <Select
                   value={selectedRegionId ? String(selectedRegionId) : ""}
@@ -439,8 +443,8 @@ export function ContributeDialog({
                     <SelectValue
                       placeholder={
                         isRegionsLoading
-                          ? "Loading regions..."
-                          : "Choose a region"
+                          ? c.loadingRegions
+                          : c.chooseRegion
                       }
                     />
                   </SelectTrigger>
@@ -459,7 +463,7 @@ export function ContributeDialog({
               {/* Amount selection (remove-liquidity style) */}
               <div className="space-y-4">
                 <h3 className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
-                  Select stake amount
+                  {c.selectStakeAmount}
                 </h3>
 
                 {/* Large Amount Display Input */}
@@ -495,7 +499,7 @@ export function ContributeDialog({
                     </span>
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">
-                    Available:{" "}
+                    {c.availablePrefix}{" "}
                     {(selectedCurrency === "GCTL"
                       ? gctlBalanceNumber
                       : stableBalance ?? 0
@@ -550,7 +554,7 @@ export function ContributeDialog({
                       }}
                       className="px-4"
                     >
-                      {p === 100 ? "Max" : `${p}%`}
+                      {p === 100 ? c.max : `${p}%`}
                     </Button>
                   ))}
                 </div>
@@ -562,7 +566,7 @@ export function ContributeDialog({
                   onClick={() => onOpenChange(false)}
                   disabled={isProcessing || isApproving || isMintingSubmitting}
                 >
-                  Cancel
+                  {c.cancel}
                 </Button>
                 {selectedCurrency === "GCTL" ? (
                   <Button
@@ -573,14 +577,14 @@ export function ContributeDialog({
                       stakeAmount > gctlBalanceNumber
                     }
                   >
-                    {`Stake ${
+                    {c.stakeAction(
                       stakeAmount > 0
-                        ? stakeAmount.toLocaleString("en-US", {
+                        ? `${stakeAmount.toLocaleString("en-US", {
                             minimumFractionDigits: 0,
                             maximumFractionDigits: 2,
-                          })
-                        : ""
-                    } GCTL`}
+                          })} GCTL`
+                        : "GCTL",
+                    )}
                   </Button>
                 ) : (
                   <Button
@@ -594,8 +598,8 @@ export function ContributeDialog({
                     }
                   >
                     {isProcessing || isApproving || isMintingSubmitting
-                      ? "Processing..."
-                      : `Stake ${
+                      ? c.processing
+                      : c.stakeAction(
                           stakeAmount > 0
                             ? stakeAmount.toLocaleString("en-US", {
                                 minimumFractionDigits: 0,
@@ -603,8 +607,8 @@ export function ContributeDialog({
                                 style: "currency",
                                 currency: "USD",
                               })
-                            : ""
-                        }`}
+                            : "",
+                        )}
                   </Button>
                 )}
               </DialogFooter>

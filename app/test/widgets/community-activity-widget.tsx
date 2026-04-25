@@ -19,6 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatUnits } from "viem";
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
+import { useLang, type Strings } from "@/lib/i18n";
 
 interface FarmImageWithSkeletonProps {
   src: string;
@@ -67,7 +68,10 @@ interface AggregatedFarm {
   lastPurchaseDate: Date;
 }
 
-function formatDuration(ms: number): string {
+function formatDuration(
+  ms: number,
+  labels: Strings["widgets"]["communityActivity"]["duration"],
+): string {
   if (ms < 0) ms = 0;
 
   const minutes = Math.floor(ms / (1000 * 60));
@@ -75,15 +79,15 @@ function formatDuration(ms: number): string {
   const days = Math.floor(ms / (1000 * 60 * 60 * 24));
 
   if (days >= 1) {
-    return days === 1 ? "1 day" : `${days} days`;
+    return days === 1 ? labels.oneDay : labels.days(days);
   }
   if (hours >= 1) {
-    return hours === 1 ? "1 hour" : `${hours} hours`;
+    return hours === 1 ? labels.oneHour : labels.hours(hours);
   }
   if (minutes >= 1) {
-    return minutes === 1 ? "1 min" : `${minutes} mins`;
+    return minutes === 1 ? labels.oneMin : labels.mins(minutes);
   }
-  return "<1 min";
+  return labels.underOneMin;
 }
 
 function formatNumber(n: number, decimals = 0): string {
@@ -106,6 +110,7 @@ export default function CommunityActivityWidget({
   className,
   variant = "default",
 }: CommunityActivityWidgetProps) {
+  const { t } = useLang();
   const [isOpen, setIsOpen] = useState(false);
   const isMinimal = variant === "minimal";
 
@@ -250,7 +255,7 @@ export default function CommunityActivityWidget({
         <CardHeader className={cn("pb-3", isMinimal && "px-6 pt-0")}>
           <div className="flex items-center justify-between">
             <CardTitle className="tracking-tight text-lg">
-              Recently Funded Farms
+              {t.widgets.communityActivity.title}
             </CardTitle>
             <Button
               variant="ghost"
@@ -258,7 +263,7 @@ export default function CommunityActivityWidget({
               onClick={() => setIsOpen(true)}
               className="text-xs font-mono text-muted-foreground hover:text-foreground px-2 h-7"
             >
-              See All Activity
+              {t.widgets.communityActivity.seeAllActivity}
               <ChevronRight className="w-3 h-3 ml-1" />
             </Button>
           </div>
@@ -288,7 +293,7 @@ export default function CommunityActivityWidget({
             </div>
           ) : aggregatedFarms.length === 0 ? (
             <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
-              No recently funded farms
+              {t.widgets.communityActivity.noRecentFarms}
             </div>
           ) : (
             <div className="flex-1 flex flex-col gap-3">
@@ -334,13 +339,13 @@ export default function CommunityActivityWidget({
                         {farm.rewardScore !== null && (
                           <>
                             <span className="whitespace-nowrap">
-                              Score <span className="font-mono font-medium text-foreground">{formatNumber(farm.rewardScore, 0)}</span>
+                              {t.widgets.communityActivity.score} <span className="font-mono font-medium text-foreground">{formatNumber(farm.rewardScore, 0)}</span>
                             </span>
                             <span className="text-border">•</span>
                           </>
                         )}
                         <span className="whitespace-nowrap">
-                          <span className="font-mono font-medium text-foreground">{formatDuration(farm.fundingDurationMs)}</span>
+                          <span className="font-mono font-medium text-foreground">{formatDuration(farm.fundingDurationMs, t.widgets.communityActivity.duration)}</span>
                         </span>
                       </div>
                     </div>
@@ -357,7 +362,7 @@ export default function CommunityActivityWidget({
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col overflow-hidden p-0 bg-card border-border/40 rounded-2xl">
           <DialogHeader className="p-6 pb-4 border-b border-border/20">
-            <DialogTitle>Recent Activity</DialogTitle>
+            <DialogTitle>{t.widgets.communityActivity.dialogTitle}</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto p-6 bg-background">
             <SponsoredFarmsActivity

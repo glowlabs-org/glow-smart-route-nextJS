@@ -43,6 +43,7 @@ import { useGctlApi } from "@/hooks";
 import { formatUnits } from "ethers";
 import { formatUnits as formatUnitsViem } from "viem";
 import { Header } from "@/components/header";
+import { useLang } from "@/lib/i18n";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import { SendDialog } from "@/components/send-dialog";
 import { UsdcToTokenDialog } from "@/components/usdc-to-token-dialog";
@@ -154,6 +155,7 @@ function formatDelegatedAmountsByAsset(amounts: DelegatedAmountsByAsset) {
 export type Token = (typeof tokens)[keyof typeof tokens];
 
 export default function View() {
+  const { t } = useLang();
   const { address, isConnected, connector: activeConnector } = useAccount();
   const { disconnect } = useDisconnect();
   const { connectors } = useConnect();
@@ -455,7 +457,7 @@ export default function View() {
   const handleSwapUsdcToUsdg = () => {
     try {
       if (!hasUsdc) {
-        toast.info("No USDC available to swap");
+        toast.info(t.walletView.toastNoUsdc);
         return;
       }
 
@@ -464,13 +466,13 @@ export default function View() {
       trackEvent("wallet_convert_usdc_to_usdg_open");
       setAmountInputDialogOpen(true);
     } catch (error: any) {
-      toast.error(error?.message || "Failed to prepare USDC to USDG swap");
+      toast.error(error?.message || t.walletView.toastUsdcToUsdgFailed);
     }
   };
 
   const handleConfirmAmount = () => {
     if (!inputAmount || Number(inputAmount) <= 0) {
-      toast.error("Please enter a valid amount");
+      toast.error(t.walletView.toastEnterValidAmount);
       return;
     }
 
@@ -479,7 +481,7 @@ export default function View() {
       : "0";
 
     if (Number(inputAmount) > Number(usdcBalanceFormatted)) {
-      toast.error("Amount exceeds USDC balance");
+      toast.error(t.walletView.toastAmountExceedsUsdc);
       return;
     }
 
@@ -505,51 +507,10 @@ export default function View() {
   };
 
   const faqItems: Array<{ q: string; a: React.ReactNode }> = [
-    {
-      q: "What is Glow?",
-      a: (
-        <div>
-          Glow is a crypto-powered protocol that helps fund the construction of
-          real world solar farms. Glow specifically identifies solar
-          opportunities that create the greatest impact per dollar of funding.
-        </div>
-      ),
-    },
-    {
-      q: "What is GLW and why does it matter?",
-      a: (
-        <div>
-          GLW is the core token of the Glow ecosystem. It's the token that solar
-          farms earn as they produce clean energy, and it's also the token that
-          gets used to select which farms get supported by the Glow protocol.
-        </div>
-      ),
-    },
-    {
-      q: 'What does "delegating GLW to solar farms" mean?',
-      a: (
-        <div>
-          To participate in the Glow protocol, a solar farm needs to demonstrate
-          that it can make efficient use of the funding provided by Glow. GLW
-          holders can vouch for the efficiency of a solar farm by delegating
-          their tokens to it. The delegators earn extra GLW tokens for picking
-          efficient farms, but may forfeit tokens if they pick inefficient solar
-          farms. The delegation process is what allows Glow to ensure all of its
-          funding goes to the best possible solar farms.
-        </div>
-      ),
-    },
-    {
-      q: 'What is a "Glow miner"?',
-      a: (
-        <div>
-          A Glow miner works much like a Bitcoin miner. It is part of a Glow
-          solar farm that earns tokens every week as the solar farm produces
-          electricity. A Glow miner can be purchased for USDC, and will produce
-          GLW tokens every week for 99 weeks.
-        </div>
-      ),
-    },
+    { q: t.walletView.faqQ1, a: <div>{t.walletView.faqA1}</div> },
+    { q: t.walletView.faqQ2, a: <div>{t.walletView.faqA2}</div> },
+    { q: t.walletView.faqQ3, a: <div>{t.walletView.faqA3}</div> },
+    { q: t.walletView.faqQ4, a: <div>{t.walletView.faqA4}</div> },
   ];
 
   // Debounced subscription check
@@ -708,14 +669,14 @@ export default function View() {
       trackEvent("wallet_newsletter_submit_blocked", {
         reason: "invalid_email",
       });
-      toast.error("Please enter a valid email.");
+      toast.error(t.walletView.toastEnterValidEmail);
       return;
     }
     if (isAlreadySubscribed) {
       trackEvent("wallet_newsletter_submit_blocked", {
         reason: "already_subscribed",
       });
-      toast.info("You're already subscribed!");
+      toast.info(t.walletView.toastAlreadySubscribed);
       return;
     }
     try {
@@ -733,16 +694,16 @@ export default function View() {
           ok: false,
           status: res.status,
         });
-        throw new Error(data?.error || "Failed to subscribe to newsletter");
+        throw new Error(data?.error || t.walletView.toastSubscribeFailed);
       }
-      toast.success(data?.message || "Successfully subscribed to newsletter");
+      toast.success(data?.message || t.walletView.toastSubscribed);
       trackEvent("wallet_newsletter_submit", { ok: true, status: res.status });
       setHasNewsletterSuccess(true);
       setNewsletterEmail("");
     } catch (err: any) {
-      toast.error(err?.message || "Failed to subscribe. Please try again.");
+      toast.error(err?.message || t.walletView.toastSubscribeError);
       trackEvent("wallet_newsletter_error", {
-        error_message: err?.message || "Failed to subscribe. Please try again.",
+        error_message: err?.message || t.walletView.toastSubscribeError,
       });
     } finally {
       setIsNewsletterSubmitting(false);
@@ -758,13 +719,12 @@ export default function View() {
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6 md:mb-8">
             <div>
               <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
-                Getting started
+                {t.walletView.gettingStarted}
               </h1>
               <p className="text-muted-foreground mt-2 text-base">
-                Build real-world solar. Earn onchain rewards. Make an impact
-                where it matters.
+                {t.walletView.gettingStartedBody1}
                 <br />
-                Let&apos;s get you started.
+                {t.walletView.gettingStartedBody2}
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
@@ -773,7 +733,7 @@ export default function View() {
                   size="default"
                   className="w-full sm:w-auto rounded-full px-5"
                 >
-                  Launchpad
+                  {t.walletView.launchpad}
                 </Button>
               </Link>
               <Link href="/">
@@ -782,7 +742,7 @@ export default function View() {
                   size="default"
                   className="w-full sm:w-auto rounded-full px-5"
                 >
-                  Glow Swap
+                  {t.walletView.glowSwap}
                 </Button>
               </Link>
             </div>
@@ -800,7 +760,7 @@ export default function View() {
                 <div className="relative h-72 md:h-80 xl:h-96">
                   <Image
                     src="/images/sunset.jpg"
-                    alt="Buy Glow"
+                    alt={t.walletView.buyGlowImageAlt}
                     fill
                     className="object-cover"
                     priority
@@ -809,13 +769,11 @@ export default function View() {
                 </div>
                 <div className="absolute inset-0 p-6 flex flex-col justify-between pointer-events-none">
                   <div className="text-white text-sm md:text-lg max-w-sm">
-                    GLW is the fuel of the Glow ecosystem; it powers new solar
-                    farms, drives weekly rewards, and represents your
-                    contribution to clean energy.
+                    {t.walletView.buyGlowBlurb}
                   </div>
                   <div className="flex items-end justify-between">
                     <div className="text-white text-4xl md:text-5xl font-bold">
-                      Buy Glow
+                      {t.walletView.buyGlow}
                     </div>
                   </div>
                 </div>
@@ -835,7 +793,7 @@ export default function View() {
                 <div className="relative h-72 md:h-80 xl:h-96">
                   <Image
                     src="/images/bird.jpg"
-                    alt="Fund Solar"
+                    alt={t.walletView.fundSolarImageAlt}
                     fill
                     className="object-cover"
                     priority
@@ -844,13 +802,11 @@ export default function View() {
                 </div>
                 <div className="absolute inset-0 p-6 flex flex-col justify-between pointer-events-none">
                   <div className="text-white text-sm md:text-lg max-w-sm">
-                    Delegate your GLW to fund new solar farms and earn GLW
-                    weekly. Or purchase a pre-packaged mining position with USDC
-                    and earn GLW weekly.
+                    {t.walletView.fundSolarBlurb}
                   </div>
                   <div className="flex items-end justify-between">
                     <div className="text-white text-4xl md:text-5xl font-bold">
-                      Fund Solar
+                      {t.walletView.fundSolar}
                     </div>
                   </div>
                 </div>
@@ -867,12 +823,9 @@ export default function View() {
           <div className="mt-10 md:mt-14 mb-10 md:mb-14">
             <div className="rounded-3xl glow-gradient p-8 md:p-12 dark:hidden">
               <div className="max-w-[500px] mx-auto text-center text-black">
-                <p className="text-3xl leading-tight">
-                  If everyone in the world owned $20 of GLW, we could eliminate
-                  fossil fuels by 2030.
-                </p>
+                <p className="text-3xl leading-tight">{t.walletView.quoteText}</p>
                 <p className="text-black/60 mt-4 text-base md:text-lg">
-                  David Vorick, CEO of Glow
+                  {t.walletView.quoteAuthor}
                 </p>
                 <div className="mt-8 flex justify-center">
                   {isConnected ? (
@@ -886,7 +839,7 @@ export default function View() {
                       }
                       className="rounded-full h-12 px-6"
                     >
-                      <span className="mr-3">Join us on Discord</span>
+                      <span className="mr-3">{t.walletView.joinDiscord}</span>
                       <span className="inline-flex items-center justify-center h-7 w-7 rounded-full">
                         <DiscordLogoIcon />
                       </span>
@@ -901,12 +854,9 @@ export default function View() {
             </div>
             <div className="hidden dark:block rounded-3xl bg-muted p-8 md:p-12">
               <div className="max-w-[420px] mx-auto text-center">
-                <p className="text-3xl  leading-tight">
-                  If everyone in the world owned $20 of GLW, we could eliminate
-                  fossil fuels by 2030.
-                </p>
+                <p className="text-3xl  leading-tight">{t.walletView.quoteText}</p>
                 <p className="text-muted-foreground mt-4 text-base md:text-lg">
-                  David Vorick, CEO of Glow
+                  {t.walletView.quoteAuthor}
                 </p>
                 <div className="mt-8 flex justify-center">
                   {isConnected ? (
@@ -920,7 +870,7 @@ export default function View() {
                       }
                       className="rounded-full h-12 px-6"
                     >
-                      <span className="mr-3">Join us on Discord</span>
+                      <span className="mr-3">{t.walletView.joinDiscord}</span>
                       <span className="inline-flex items-center justify-center h-7 w-7 rounded-full">
                         <DiscordLogoIcon />
                       </span>
@@ -938,7 +888,7 @@ export default function View() {
           {/* FAQs */}
           <div className="border-t border-border mt-10 md:mt-14" />
           <div className="max-w-screen-md mx-auto mt-10 md:mt-14">
-            <h2 className="text-2xl font-semibold mb-4">FAQs</h2>
+            <h2 className="text-2xl font-semibold mb-4">{t.walletView.faqsHeading}</h2>
             <div className="space-y-3">
               {faqItems.map((item, idx) => (
                 <Collapsible key={idx} className="rounded-2xl border bg-card">
@@ -963,10 +913,10 @@ export default function View() {
           <div className="max-w-screen-xl mx-auto grid grid-cols-1 md:grid-cols-[1fr_minmax(360px,520px)] gap-6 items-center mt-8 md:mt-10">
             <div>
               <h3 className="text-xl font-semibold">
-                Be the first to hear about Glow news.
+                {t.walletView.newsletterHeading}
               </h3>
               <p className="text-muted-foreground mt-1">
-                Product updates, launches, and impact wins.
+                {t.walletView.newsletterSub}
               </p>
             </div>
             <form
@@ -976,7 +926,7 @@ export default function View() {
               <Input
                 type="email"
                 inputMode="email"
-                placeholder="you@example.com"
+                placeholder={t.walletView.newsletterPlaceholder}
                 value={newsletterEmail}
                 onChange={handleNewsletterEmailChange}
                 className="flex-1 bg-background"
@@ -985,7 +935,7 @@ export default function View() {
               />
               {isAlreadySubscribed || hasNewsletterSuccess ? (
                 <span className="shrink-0 text-sm text-green-600 dark:text-green-400 font-medium px-3">
-                  ✓ Subscribed
+                  {t.walletView.newsletterSubscribed}
                 </span>
               ) : (
                 <Button
@@ -994,10 +944,10 @@ export default function View() {
                   disabled={isNewsletterSubmitting || isCheckingSubscription}
                 >
                   {isNewsletterSubmitting
-                    ? "Signing up..."
+                    ? t.walletView.newsletterSigningUp
                     : isCheckingSubscription
-                      ? "Checking..."
-                      : "Sign up"}
+                      ? t.walletView.newsletterChecking
+                      : t.walletView.newsletterSignUp}
                 </Button>
               )}
             </form>
@@ -1032,10 +982,10 @@ export default function View() {
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6 md:mb-8">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
-              Power Wallet
+              {t.walletView.powerWallet}
             </h1>
             <p className="text-muted-foreground mt-2 text-base">
-              Your all-in-one wallet for Glow
+              {t.walletView.powerWalletSub}
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
@@ -1045,7 +995,7 @@ export default function View() {
                 disabled={erc20Loading}
                 className="w-full sm:w-auto"
               >
-                Launchpad
+                {t.walletView.launchpad}
               </Button>
             </Link>
             <Link href="/">
@@ -1055,7 +1005,7 @@ export default function View() {
                 disabled={erc20Loading}
                 className="w-full sm:w-auto"
               >
-                GlowSwap
+                {t.walletView.glowSwap}
               </Button>
             </Link>
           </div>
@@ -1086,7 +1036,7 @@ export default function View() {
                     {hasNetworkIssues && (
                       <div className="flex items-center gap-2 mt-2">
                         <span className="text-xs text-yellow-600 dark:text-yellow-400 font-normal">
-                          Network Issue
+                          {t.walletView.networkIssue}
                         </span>
                         <Button
                           size="sm"
@@ -1098,7 +1048,7 @@ export default function View() {
                           className="h-6 px-2 text-xs"
                         >
                           <RefreshCw className="w-3 h-3 mr-1" />
-                          Retry
+                          {t.walletView.retry}
                         </Button>
                       </div>
                     )}
@@ -1114,7 +1064,7 @@ export default function View() {
                       className="flex-1 sm:flex-initial"
                     >
                       <Send className="w-4 h-4 mr-2" />
-                      Send
+                      {t.walletView.send}
                     </Button>
                     {hasUsdc && (
                       <Button
@@ -1123,7 +1073,7 @@ export default function View() {
                         onClick={handleSwapUsdcToUsdg}
                         className="flex-1 sm:flex-initial"
                       >
-                        Convert to USDG
+                        {t.walletView.convertToUsdg}
                       </Button>
                     )}
                   </div>
@@ -1175,7 +1125,7 @@ export default function View() {
                             className="flex-1 sm:flex-initial"
                           >
                             <Send className="w-4 h-4 mr-2" />
-                            Send
+                            {t.walletView.send}
                           </Button>
                         </>
                       )}
@@ -1257,7 +1207,7 @@ export default function View() {
                           className="flex-1 sm:flex-initial"
                         >
                           <Send className="w-4 h-4 mr-2" />
-                          Send
+                          {t.walletView.send}
                         </Button>
                       )}
                     </div>
@@ -1448,7 +1398,7 @@ export default function View() {
                                 </span>
                               </div>
                               <div className="flex items-center justify-between gap-4 text-sm text-muted-foreground">
-                                <span>Est. Weekly Rewards</span>
+                                <span>{t.walletView.estWeeklyRewards}</span>
                                 <span>
                                   {isRewardScoresLoading ||
                                   isSgctlRewardScoresLoading
@@ -1508,7 +1458,7 @@ export default function View() {
           ) : (
             <Card className="mb-8">
               <CardHeader>
-                <CardTitle className="text-2xl font-bold">Claims</CardTitle>
+                <CardTitle className="text-2xl font-bold">{t.walletView.claims}</CardTitle>
                 <CardDescription>
                   Claimable rewards load when this section comes into view.
                 </CardDescription>
@@ -1700,7 +1650,7 @@ export default function View() {
       >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>GCTL Staking Breakdown by Region</DialogTitle>
+            <DialogTitle>{t.walletView.gctlStakingBreakdown}</DialogTitle>
             <DialogDescription>
               View your GCTL staking distribution across regions
             </DialogDescription>

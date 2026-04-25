@@ -41,6 +41,7 @@ import {
 } from "@glowlabs-org/utils/browser";
 import { formatUnits } from "viem";
 import { DelegationIcon } from "@/components/impact-icons";
+import { useLang } from "@/lib/i18n";
 
 interface ProtocolMetricsWidgetProps {
   className?: string;
@@ -49,6 +50,7 @@ interface ProtocolMetricsWidgetProps {
 export default function ProtocolMetricsWidget({
   className,
 }: ProtocolMetricsWidgetProps) {
+  const { t } = useLang();
   // 1. Data Fetching
   const {
     circulatingSupply,
@@ -221,11 +223,11 @@ export default function ProtocolMetricsWidget({
 
   const chartConfig = {
     count: {
-      label: "Farms",
+      label: t.widgets.protocolMetrics.chartConfigFarmsLabel,
       color: "hsl(var(--primary))",
     },
     valueUsd: {
-      label: "Protocol Deposit ($)",
+      label: t.widgets.protocolMetrics.chartConfigPdLabel,
       color: "#ff8533", // Orange color requested
     },
   } satisfies ChartConfig;
@@ -247,7 +249,7 @@ export default function ProtocolMetricsWidget({
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                  GLW Price
+                  {t.widgets.protocolMetrics.glwPrice}
                 </span>
                 <div className="text-muted-foreground/60 dark:text-muted-foreground/80 group-hover:text-foreground transition-colors">
                   <ArrowRight className="w-4 h-4 -rotate-45" />
@@ -261,7 +263,7 @@ export default function ProtocolMetricsWidget({
                 )}
               </div>
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mt-2">
-                Current spot price
+                {t.widgets.protocolMetrics.currentSpotPrice}
               </div>
             </CardContent>
           </Card>
@@ -272,7 +274,7 @@ export default function ProtocolMetricsWidget({
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                Market Cap
+                {t.widgets.protocolMetrics.marketCap}
               </span>
               <TrendingUp className="w-4 h-4 text-muted-foreground/60 dark:text-muted-foreground/80" />
             </div>
@@ -284,7 +286,7 @@ export default function ProtocolMetricsWidget({
               )}
             </div>
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mt-2">
-              Circulating supply
+              {t.widgets.protocolMetrics.circulatingSupply}
             </div>
           </CardContent>
         </Card>
@@ -294,7 +296,7 @@ export default function ProtocolMetricsWidget({
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                GLW Delegated
+                {t.widgets.protocolMetrics.glwDelegated}
               </span>
               <DelegationIcon className="w-4 h-4 text-muted-foreground/60 dark:text-muted-foreground/80" />
             </div>
@@ -306,7 +308,7 @@ export default function ProtocolMetricsWidget({
               )}
             </div>
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mt-2">
-              of circulating supply
+              {t.widgets.protocolMetrics.ofCirculatingSupply}
             </div>
           </CardContent>
         </Card>
@@ -316,11 +318,11 @@ export default function ProtocolMetricsWidget({
           <Card className="!bg-foreground text-primary-foreground border-transparent h-full hover:bg-primary/90 transition-colors cursor-pointer">
             <CardContent className="p-6 flex flex-col justify-center h-full">
               <div className="text-sm font-mono font-bold flex items-center gap-2">
-                View All Stats{" "}
+                {t.widgets.protocolMetrics.viewAllStats}{" "}
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </div>
               <p className="text-[10px] font-mono uppercase tracking-widest text-primary-foreground/70 mt-2">
-                Deep dive into protocol metrics
+                {t.widgets.protocolMetrics.deepDiveSubtitle}
               </p>
             </CardContent>
           </Card>
@@ -332,10 +334,10 @@ export default function ProtocolMetricsWidget({
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <div>
             <CardTitle className="text-sm font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80 font-semibold">
-              New Solar Farms & Protocol Deposit
+              {t.widgets.protocolMetrics.chartTitle}
             </CardTitle>
             <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mt-1">
-              Onboarded in the last 3 months
+              {t.widgets.protocolMetrics.chartSubtitle}
             </p>
           </div>
           <Badge
@@ -343,7 +345,7 @@ export default function ProtocolMetricsWidget({
             className="flex items-center gap-1.5 border-border/20 dark:border-border/40 text-muted-foreground/60 dark:text-muted-foreground/80 font-mono text-[10px] uppercase tracking-widest"
           >
             <Sun className="w-3 h-3" />
-            Last 3 Months
+            {t.widgets.protocolMetrics.lastThreeMonths}
           </Badge>
         </CardHeader>
         <CardContent>
@@ -378,7 +380,7 @@ export default function ProtocolMetricsWidget({
                   allowDecimals={false}
                   className="text-xs text-muted-foreground"
                   label={{
-                    value: "Farms",
+                    value: t.widgets.protocolMetrics.chartYAxisFarmsLabel,
                     angle: -90,
                     position: "insideLeft",
                     style: {
@@ -399,7 +401,7 @@ export default function ProtocolMetricsWidget({
                   }
                   className="text-xs text-muted-foreground"
                   label={{
-                    value: "PD ($)",
+                    value: t.widgets.protocolMetrics.chartYAxisPdLabel,
                     angle: 90,
                     position: "insideRight",
                     style: {
@@ -420,7 +422,7 @@ export default function ProtocolMetricsWidget({
                       formatter={(value, name) => {
                         if (
                           name === "valueUsd" ||
-                          name === "Protocol Deposit ($)"
+                          name === t.widgets.protocolMetrics.chartConfigPdLabel
                         ) {
                           return [
                             <span
@@ -432,7 +434,7 @@ export default function ProtocolMetricsWidget({
                                 maximumFractionDigits: 2,
                               })}
                             </span>,
-                            "Protocol Deposit",
+                            t.widgets.protocolMetrics.tooltipProtocolDeposit,
                           ];
                         }
                         return [
@@ -442,7 +444,7 @@ export default function ProtocolMetricsWidget({
                           >
                             {value}
                           </span>,
-                          "Farms Onboarded",
+                          t.widgets.protocolMetrics.tooltipFarmsOnboarded,
                         ];
                       }}
                     />
@@ -468,7 +470,7 @@ export default function ProtocolMetricsWidget({
             </ChartContainer>
           ) : (
             <div className="h-[200px] flex items-center justify-center text-muted-foreground/60 dark:text-muted-foreground/80 text-xs font-mono uppercase tracking-widest">
-              No new farms in this period
+              {t.widgets.protocolMetrics.emptyChart}
             </div>
           )}
         </CardContent>

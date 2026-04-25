@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useLang } from "@/lib/i18n";
 
 import { cn } from "@/lib/utils";
 import { getLaunchpadNowMs } from "@/utils/launchpad-now";
@@ -242,6 +243,7 @@ export function CountdownGrid({
   remainingMs: number;
   className?: string;
 }) {
+  const { t } = useLang();
   const { days, hours, minutes, seconds } = React.useMemo(
     () => formatDhms(remainingMs),
     [remainingMs]
@@ -259,7 +261,7 @@ export function CountdownGrid({
           {days}
         </div>
         <div className="text-xs uppercase tracking-wider text-muted-foreground mt-1 font-mono">
-          Days
+          {t.common.countdown.daysLong}
         </div>
       </div>
       <div className="bg-muted/30 border border-border rounded-xl p-4 w-full">
@@ -267,7 +269,7 @@ export function CountdownGrid({
           {hours}
         </div>
         <div className="text-xs uppercase tracking-wider text-muted-foreground mt-1 font-mono">
-          Hours
+          {t.common.countdown.hoursLong}
         </div>
       </div>
       <div className="bg-muted/30 border border-border rounded-xl p-4 w-full">
@@ -275,7 +277,7 @@ export function CountdownGrid({
           {minutes}
         </div>
         <div className="text-xs uppercase tracking-wider text-muted-foreground mt-1 font-mono">
-          Minutes
+          {t.common.countdown.minutesLong}
         </div>
       </div>
       <div className="bg-muted/30 border border-border rounded-xl p-4 w-full">
@@ -283,7 +285,7 @@ export function CountdownGrid({
           {seconds}
         </div>
         <div className="text-xs uppercase tracking-wider text-muted-foreground mt-1 font-mono">
-          Seconds
+          {t.common.countdown.secondsLong}
         </div>
       </div>
     </div>
@@ -301,6 +303,7 @@ export function AnimatedCountdownDhms({
   className?: string;
   showLabels?: boolean;
 }) {
+  const { t } = useLang();
   const { days, hours, minutes, seconds } = React.useMemo(
     () => formatDhms(remainingMs),
     [remainingMs]
@@ -345,7 +348,7 @@ export function AnimatedCountdownDhms({
               labelClass
             )}
           >
-            Days
+            {t.common.countdown.days}
           </span>
         </div>
         <motion.span
@@ -366,7 +369,7 @@ export function AnimatedCountdownDhms({
               labelClass
             )}
           >
-            Hours
+            {t.common.countdown.hours}
           </span>
         </div>
         <motion.span
@@ -391,7 +394,7 @@ export function AnimatedCountdownDhms({
               labelClass
             )}
           >
-            Min
+            {t.common.countdown.min}
           </span>
         </div>
         <motion.span
@@ -416,7 +419,7 @@ export function AnimatedCountdownDhms({
               labelClass
             )}
           >
-            Sec
+            {t.common.countdown.sec}
           </span>
         </div>
       </div>

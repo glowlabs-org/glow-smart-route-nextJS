@@ -32,6 +32,7 @@ import {
   formatNextClaimLabel,
   getClaimableBreakdown,
 } from "@/app/test/widgets/rewards-widget-utils";
+import { useLang } from "@/lib/i18n";
 
 const DEFAULT_INITIAL_DURATION_MS = (4 * 60 * 60 + 12 * 60 + 33) * 1000;
 
@@ -44,6 +45,7 @@ function safeGetCurrentEpoch() {
 }
 
 function RewardsCountdown(props: { initialDurationMs: number }) {
+  const { t } = useLang();
   const { initialDurationMs } = props;
 
   const remainingMs = useCountdownTo({
@@ -74,7 +76,7 @@ function RewardsCountdown(props: { initialDurationMs: number }) {
         <div className="flex flex-col items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground/80 shrink-0">
             <Timer className="h-3.5 w-3.5" />
-            <span>Next Claim</span>
+            <span>{t.widgets.rewardsWidget.nextClaim}</span>
           </div>
           <AnimatedCountdownDhms
             remainingMs={remainingMs}
@@ -102,6 +104,7 @@ export default function RewardsWidget({
   variant = "default",
   readOnly = false,
 }: RewardsWidgetProps) {
+  const { t } = useLang();
   const { isConnecting, isReconnecting } = useAccount();
   const isMinimal = variant === "minimal";
   const hasWallet = Boolean(walletAddress);
@@ -271,7 +274,7 @@ export default function RewardsWidget({
     >
       <CardHeader className="pb-0 pt-4">
         <CardTitle className="text-lg font-semibold tracking-tight text-foreground">
-          Rewards
+          {t.widgets.rewardsWidget.title}
         </CardTitle>
       </CardHeader>
 
@@ -301,7 +304,7 @@ export default function RewardsWidget({
                   —
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Connect to view
+                  {t.widgets.rewardsWidget.connectToView}
                 </div>
               </div>
             )
@@ -315,12 +318,12 @@ export default function RewardsWidget({
                 </div>
               ) : isWidgetError ? (
                 <div className="text-center text-destructive text-sm font-medium">
-                  Unable to load
+                  {t.widgets.rewardsWidget.unableToLoad}
                 </div>
               ) : (
                 <>
                   <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50 mb-2">
-                    Available Now
+                    {t.widgets.rewardsWidget.availableNow}
                   </div>
                   <div className="flex flex-col items-center gap-1 animate-in fade-in zoom-in-95 duration-300">
                     {claimableBreakdown.map((entry) => (
@@ -347,7 +350,7 @@ export default function RewardsWidget({
                     <div className="pt-3">
                       <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40">
                         <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70">
-                          next claim:
+                          {t.widgets.rewardsWidget.nextClaimChip}
                         </span>
                         <span className="text-[11px] font-mono font-medium text-muted-foreground tabular-nums">
                           {nextClaimLabel}
@@ -366,13 +369,13 @@ export default function RewardsWidget({
           {hasWallet && !shouldHide && !readOnly ? (
             <Dialog>
               <DialogTrigger asChild>
-                <Button className="w-full ">See Rewards</Button>
+                <Button className="w-full ">{t.widgets.rewardsWidget.seeRewards}</Button>
               </DialogTrigger>
               <DialogContent
                 className="bg-card rounded-[24px] p-0 sm:max-w-[980px] w-full border border-border/20 dark:border-border/40 overflow-hidden"
                 onInteractOutside={(e) => e.preventDefault()}
               >
-                <DialogTitle className="sr-only">Claim Rewards</DialogTitle>
+                <DialogTitle className="sr-only">{t.widgets.rewardsWidget.dialogSrOnlyTitle}</DialogTitle>
                 <ClaimsPanel
                   variant="dialog"
                   onClaimSuccess={handleClaimSuccess}
@@ -385,7 +388,7 @@ export default function RewardsWidget({
               className="w-full  opacity-50 cursor-not-allowed"
               disabled
             >
-              {readOnly ? "See Rewards" : "No Rewards"}
+              {readOnly ? t.widgets.rewardsWidget.seeRewards : t.widgets.rewardsWidget.noRewards}
             </Button>
           )}
         </div>

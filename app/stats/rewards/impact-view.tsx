@@ -67,6 +67,9 @@ import {
   ImpactPointSourcesIcons,
   type ImpactIndicatorsState,
 } from "@/components/impact-score/impact-indicators";
+import { useLang, type Strings } from "@/lib/i18n";
+
+type ImpactLeaderboardLabels = Strings["routes"]["impactLeaderboard"];
 
 function safeBigIntFromString(value?: string) {
   if (!value) return BigInt(0);
@@ -200,7 +203,11 @@ function SortIcon(props: { dir: "asc" | "desc" }) {
   );
 }
 
-function ConnectWalletRankingEmptyState() {
+function ConnectWalletRankingEmptyState({
+  labels,
+}: {
+  labels: ImpactLeaderboardLabels;
+}) {
   return (
     <div className="rounded-xl border border-dashed border-border/60 bg-background dark:bg-muted/30 p-6 md:p-8">
       <div className="flex flex-col items-center justify-center text-center gap-4">
@@ -208,7 +215,7 @@ function ConnectWalletRankingEmptyState() {
         <div className="flex items-center gap-6 opacity-40">
           <div className="text-center">
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1">
-              Points
+              {labels.pointsLabel}
             </div>
             <div className="font-mono text-2xl font-semibold text-muted-foreground/60 tabular-nums">
               —
@@ -217,7 +224,7 @@ function ConnectWalletRankingEmptyState() {
           <div className="h-8 w-px bg-border/60" />
           <div className="text-center">
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1">
-              Rank
+              {labels.rankLabel}
             </div>
             <div className="font-mono text-2xl font-semibold text-muted-foreground/60 tabular-nums">
               —
@@ -226,7 +233,7 @@ function ConnectWalletRankingEmptyState() {
           <div className="h-8 w-px bg-border/60" />
           <div className="text-center">
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1">
-              Percentile
+              {labels.percentileLabel}
             </div>
             <div className="font-mono text-2xl font-semibold text-muted-foreground/60 tabular-nums">
               —
@@ -237,11 +244,10 @@ function ConnectWalletRankingEmptyState() {
         {/* CTA section */}
         <div className="mt-2 space-y-3">
           <div className="text-sm font-semibold text-foreground">
-            Connect to see your ranking
+            {labels.connectToSeeRanking}
           </div>
           <div className="text-xs text-muted-foreground max-w-[20rem]">
-            View your impact score, track your progress, and compete on the
-            leaderboard.
+            {labels.connectDesc}
           </div>
           <ConnectButton
             variant="default"
@@ -301,8 +307,11 @@ function getNextCacheUpdateAtMs() {
   }
 }
 
-function ImpactHeroSkeleton(props: { remainingMsToCacheUpdate: number }) {
-  const { remainingMsToCacheUpdate } = props;
+function ImpactHeroSkeleton(props: {
+  remainingMsToCacheUpdate: number;
+  labels: ImpactLeaderboardLabels;
+}) {
+  const { remainingMsToCacheUpdate, labels } = props;
 
   return (
     <div className="space-y-4">
@@ -316,7 +325,7 @@ function ImpactHeroSkeleton(props: { remainingMsToCacheUpdate: number }) {
           <Skeleton className="h-9 w-28 rounded-full" />
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background/60 dark:bg-muted/20 px-3 py-2">
             <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-              Next update
+              {labels.nextUpdate}
             </div>
             <AnimatedCountdownDhms
               remainingMs={remainingMsToCacheUpdate}
@@ -333,7 +342,7 @@ function ImpactHeroSkeleton(props: { remainingMsToCacheUpdate: number }) {
             <div className="flex items-start justify-between gap-6">
               <div className="space-y-3">
                 <div className="inline-flex items-center gap-2 text-sm font-semibold">
-                  Current ranking
+                  {labels.currentRanking}
                 </div>
                 <Skeleton className="h-12 w-44 rounded-xl" />
                 <Skeleton className="h-4 w-32 rounded-md" />
@@ -344,7 +353,7 @@ function ImpactHeroSkeleton(props: { remainingMsToCacheUpdate: number }) {
             </div>
 
             <div className="space-y-3">
-              <div className="text-sm font-semibold">Progress</div>
+              <div className="text-sm font-semibold">{labels.progress}</div>
               <div className="relative h-14 rounded-xl border border-border/40 bg-background dark:bg-muted/20 overflow-hidden">
                 <div className="absolute inset-0 bg-[repeating-linear-gradient(135deg,rgba(0,0,0,0.06)_0,rgba(0,0,0,0.06)_10px,transparent_10px,transparent_20px)] dark:bg-[repeating-linear-gradient(135deg,rgba(255,255,255,0.08)_0,rgba(255,255,255,0.08)_10px,transparent_10px,transparent_20px)]" />
                 <div className="absolute top-1/2 -translate-y-1/2 right-4">
@@ -363,7 +372,7 @@ function ImpactHeroSkeleton(props: { remainingMsToCacheUpdate: number }) {
           <CardContent className="px-6 py-6 space-y-4">
             <div className="inline-flex items-center gap-2 text-sm font-semibold">
               <Info className="h-4 w-4" />
-              Active multipliers & bonuses
+              {labels.activeMultipliers}
             </div>
 
             <div className="space-y-2">
@@ -409,6 +418,7 @@ function ImpactHero(props: {
   isRefreshing: boolean;
   address: `0x${string}` | undefined;
   selfScoreQuery: ReturnType<typeof useImpactScoreQuery>;
+  labels: ImpactLeaderboardLabels;
 }) {
   const {
     weekRange,
@@ -421,6 +431,7 @@ function ImpactHero(props: {
     isRefreshing,
     address,
     selfScoreQuery,
+    labels,
   } = props;
 
   const normalizedAddress = address?.toLowerCase() ?? "";
@@ -567,7 +578,10 @@ function ImpactHero(props: {
 
   if (isLeaderboardLoading)
     return (
-      <ImpactHeroSkeleton remainingMsToCacheUpdate={remainingMsToCacheUpdate} />
+      <ImpactHeroSkeleton
+        remainingMsToCacheUpdate={remainingMsToCacheUpdate}
+        labels={labels}
+      />
     );
 
   return (
@@ -575,23 +589,26 @@ function ImpactHero(props: {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1">
           <h2 className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
-            Glow Impact Leaderboard
+            {labels.glowImpactLeaderboard}
           </h2>
           {weekRange ? (
             <div className="text-sm text-muted-foreground font-mono">
-              Weeks {weekRange.startWeek}–{weekRange.endWeek}
+              {labels.weeksRange(
+                String(weekRange.startWeek),
+                String(weekRange.endWeek),
+              )}
             </div>
           ) : null}
         </div>
         <div className="flex items-center gap-2">
           {isRefreshing ? (
             <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground animate-pulse">
-              Updating…
+              {labels.updating}
             </div>
           ) : (
             <div className="inline-flex items-center gap-2 rounded-full border border-border/30 dark:border-border/50 bg-muted/50 dark:bg-muted/60 px-3 py-1.5">
               <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                Next update
+                {labels.nextUpdate}
               </span>
               <AnimatedCountdownDhms
                 remainingMs={remainingMsToCacheUpdate}
@@ -607,11 +624,11 @@ function ImpactHero(props: {
           <CardContent className="px-6 py-6 space-y-4">
             <div className="space-y-2">
               <div className="inline-flex items-center gap-2 text-sm font-semibold">
-                Current ranking
+                {labels.currentRanking}
               </div>
 
               {!address ? (
-                <ConnectWalletRankingEmptyState />
+                <ConnectWalletRankingEmptyState labels={labels} />
               ) : isSelfLoading ? (
                 <div className="rounded-xl border border-dashed border-border/60 bg-background dark:bg-muted/30 p-6">
                   <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
@@ -630,7 +647,7 @@ function ImpactHero(props: {
               ) : selfScoreQuery.isError ? (
                 <div className="rounded-xl border border-dashed border-border/60 bg-background dark:bg-muted/30 p-6 text-center">
                   <div className="text-sm text-muted-foreground">
-                    Unable to load your score.
+                    {labels.unableToLoadYourScore}
                   </div>
                 </div>
               ) : (
@@ -638,12 +655,12 @@ function ImpactHero(props: {
                   <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     <div className="min-w-0 space-y-1">
                       <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                        Points
+                        {labels.points}
                       </div>
                       <div className="font-mono text-3xl md:text-4xl font-semibold tracking-tight tabular-nums">
                         {formatNumber(selfPoints, { maximumFractionDigits: 0 })}{" "}
                         <span className="text-sm text-muted-foreground font-normal">
-                          pts
+                          {labels.pts}
                         </span>
                       </div>
                       <div className="text-xs text-muted-foreground font-mono">
@@ -653,22 +670,25 @@ function ImpactHero(props: {
 
                     <div className="min-w-0 space-y-1 sm:text-right">
                       <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                        Ranking
+                        {labels.ranking}
                       </div>
                       <div className="font-mono text-2xl md:text-3xl font-semibold tracking-tight tabular-nums">
                         {displayRank ? (
                           <>#{displayRank.toLocaleString("en-US")}</>
                         ) : (
                           <>
-                            Below Top{" "}
-                            {formatTopPercentile(listThresholdPercentile)}
+                            {labels.belowTopPercentile(
+                              formatTopPercentile(listThresholdPercentile),
+                            )}
                           </>
                         )}
                       </div>
                       <div className="text-xs text-muted-foreground font-mono">
                         {displayRank ? (
                           <>
-                            Top {formatTopPercentile(selfPercentile)}
+                            {labels.topPercentile(
+                              formatTopPercentile(selfPercentile),
+                            )}
                             {estimatedCurrentRank &&
                             selfGlobalRank &&
                             estimatedCurrentRank < selfGlobalRank ? (
@@ -678,7 +698,7 @@ function ImpactHero(props: {
                             ) : null}
                           </>
                         ) : (
-                          <>Rank not available outside current list</>
+                          <>{labels.rankUnavailable}</>
                         )}
                       </div>
                     </div>
@@ -692,14 +712,13 @@ function ImpactHero(props: {
                 <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
                   <div className="space-y-2">
                     <div className="text-sm font-mono uppercase tracking-wider text-muted-foreground">
-                      Fastest boost
+                      {labels.fastestBoost}
                     </div>
                     <div className="text-lg font-semibold tracking-tight">
-                      Buy GLW to immediately start earning points
+                      {labels.buyGlwHeadline}
                     </div>
                     <div className="text-sm text-muted-foreground max-w-[42rem]">
-                      Buying GLW increases GlowWorth, which adds continuous
-                      worth points to your score.
+                      {labels.buyGlwDesc}
                     </div>
                   </div>
 
@@ -710,7 +729,7 @@ function ImpactHero(props: {
                       className="w-full sm:w-auto font-mono"
                       onClick={() => setIsBuyGlowOpen(true)}
                     >
-                      Buy GLW
+                      {labels.buyGlw}
                     </Button>
                   </div>
                 </div>
@@ -724,7 +743,9 @@ function ImpactHero(props: {
               <div className="space-y-3">
                 {targetRank > 0 && targetRow && targetPoints > 0 ? (
                   <div className="space-y-2">
-                    <div className="text-sm font-semibold">Progress</div>
+                    <div className="text-sm font-semibold">
+                      {labels.progress}
+                    </div>
                     <div className="relative h-14 rounded-xl border border-border/40 bg-background dark:bg-muted/20 overflow-hidden">
                       <div
                         className="absolute inset-y-0 left-0 bg-[#4ADE80]"
@@ -749,16 +770,17 @@ function ImpactHero(props: {
                       <div className="text-sm text-muted-foreground font-mono">
                         {pointsToTarget && pointsToTarget > 0 ? (
                           <>
-                            {new Intl.NumberFormat("en-US", {
-                              maximumFractionDigits: 0,
-                            }).format(pointsToTarget)}{" "}
-                            pts to reach Rank #
-                            {targetRank.toLocaleString("en-US")}
+                            {labels.pointsToReachRank(
+                              new Intl.NumberFormat("en-US", {
+                                maximumFractionDigits: 0,
+                              }).format(pointsToTarget),
+                              targetRank.toLocaleString("en-US"),
+                            )}
                           </>
                         ) : targetRank === 1 ? (
-                          <>You're on track for Rank #1! 🏆</>
+                          <>{labels.onTrackRank1}</>
                         ) : (
-                          <>On track for higher rank</>
+                          <>{labels.onTrackHigher}</>
                         )}
                       </div>
                       {weekRange ? (
@@ -768,7 +790,7 @@ function ImpactHero(props: {
                           className="h-9 rounded-2xl px-4"
                           onClick={() => onOpenBreakdown(address)}
                         >
-                          See details
+                          {labels.seeDetails}
                         </Button>
                       ) : null}
                     </div>
@@ -777,9 +799,11 @@ function ImpactHero(props: {
                     estimatedCurrentRank < selfGlobalRank ? (
                       <div className="text-xs text-muted-foreground font-mono">
                         <span className="text-[color:var(--color-glow-orange)]">
-                          ↑ Projected rank: #{estimatedCurrentRank.toLocaleString("en-US")}
+                          {labels.projectedRank(
+                            estimatedCurrentRank.toLocaleString("en-US"),
+                          )}
                         </span>{" "}
-                        · Official rank updates weekly on Sunday at 01:00 UTC
+                        · {labels.officialRankUpdates}
                       </div>
                     ) : null}
                   </div>
@@ -791,7 +815,7 @@ function ImpactHero(props: {
                       className="h-9 rounded-2xl px-4"
                       onClick={() => onOpenBreakdown(address)}
                     >
-                      See details
+                      {labels.seeDetails}
                     </Button>
                   </div>
                 ) : null}
@@ -801,7 +825,9 @@ function ImpactHero(props: {
             {address && isSelfLoading ? (
               <div className="space-y-3">
                 <div className="space-y-2">
-                  <div className="text-sm font-semibold">Progress</div>
+                  <div className="text-sm font-semibold">
+                    {labels.progress}
+                  </div>
                   <div className="relative h-14 rounded-xl border border-border/40 bg-background dark:bg-muted/20 overflow-hidden">
                     <div className="absolute inset-0 bg-[repeating-linear-gradient(135deg,rgba(0,0,0,0.06)_0,rgba(0,0,0,0.06)_10px,transparent_10px,transparent_20px)] dark:bg-[repeating-linear-gradient(135deg,rgba(255,255,255,0.08)_0,rgba(255,255,255,0.08)_10px,transparent_10px,transparent_20px)]" />
                     <div className="absolute top-1/2 -translate-y-1/2 right-4">
@@ -822,7 +848,7 @@ function ImpactHero(props: {
           <CardContent className="px-6 py-6 space-y-4">
             <div className="inline-flex items-center gap-2 text-sm font-semibold">
               <Info className="h-4 w-4" />
-              Active multipliers & bonuses
+              {labels.activeMultipliers}
             </div>
 
             <div className="space-y-2">
@@ -845,7 +871,7 @@ function ImpactHero(props: {
                       )}
                     />
                     <div className="text-sm font-semibold">
-                      3× Cash Miner Multiplier
+                      {labels.cashMinerMultiplier}
                     </div>
                     {isSelfLoading ? (
                       <Skeleton className="h-5 w-20 rounded-full ml-2" />
@@ -858,12 +884,12 @@ function ImpactHero(props: {
                             : "border-border/60 bg-muted/50 dark:bg-muted/60 text-muted-foreground",
                         )}
                       >
-                        {hasMinerMultiplier ? "ACTIVE" : "INACTIVE"}
+                        {hasMinerMultiplier ? labels.active : labels.inactive}
                       </span>
                     )}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    If active, rollover points are tripled for this week.
+                    {labels.cashMinerDesc}
                   </div>
                 </div>
                 <Button
@@ -872,7 +898,7 @@ function ImpactHero(props: {
                   type="button"
                   onClick={() => setIsLaunchpadOpen(true)}
                 >
-                  Buy Miner
+                  {labels.buyMiner}
                 </Button>
               </div>
 
@@ -895,7 +921,7 @@ function ImpactHero(props: {
                       )}
                     />
                     <div className="text-sm font-semibold">
-                      Steering Power (sGCTL)
+                      {labels.steeringPower}
                     </div>
                     {isSelfLoading ? (
                       <Skeleton className="h-5 w-20 rounded-full ml-2" />
@@ -908,12 +934,12 @@ function ImpactHero(props: {
                             : "border-border/60 bg-muted/50 dark:bg-muted/60 text-muted-foreground",
                         )}
                       >
-                        {hasSteeringStake ? "ACTIVE" : "INACTIVE"}
+                        {hasSteeringStake ? labels.active : labels.inactive}
                       </span>
                     )}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    Earn 3× points per GLW steered with staked GCTL.
+                    {labels.steeringDesc}
                   </div>
                 </div>
                 <Button
@@ -922,7 +948,7 @@ function ImpactHero(props: {
                   type="button"
                   onClick={() => setIsMintAndStakeOpen(true)}
                 >
-                  Stake GCTL
+                  {labels.stakeGctl}
                 </Button>
               </div>
             </div>
@@ -946,7 +972,7 @@ function ImpactHero(props: {
                     )}
                   />
                   <div className="text-sm font-semibold">
-                    Delegate GLW (Emissions + vault bonus)
+                    {labels.delegateGlwHeadline}
                   </div>
                   {isSelfLoading ? (
                     <Skeleton className="h-5 w-20 rounded-full ml-2" />
@@ -959,13 +985,12 @@ function ImpactHero(props: {
                           : "border-border/60 bg-muted/50 dark:bg-muted/60 text-muted-foreground",
                       )}
                     >
-                      {hasDelegations ? "ACTIVE" : "INACTIVE"}
+                      {hasDelegations ? labels.active : labels.inactive}
                     </span>
                   )}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Delegate GLW to start earning Emissions and vault bonus
-                  points.
+                  {labels.delegateGlwDesc}
                 </div>
               </div>
 
@@ -978,7 +1003,7 @@ function ImpactHero(props: {
                   type="button"
                   onClick={() => setIsLaunchpadOpen(true)}
                 >
-                  Delegate GLW
+                  {labels.delegateGlw}
                 </Button>
               )}
             </div>
@@ -1018,6 +1043,8 @@ function ImpactHero(props: {
 }
 
 export function ImpactView() {
+  const { t } = useLang();
+  const il = t.routes.impactLeaderboard;
   const { address } = useAccount();
   const normalizedAddress = address?.toLowerCase() ?? "";
   const PAGE_SIZE = 50;
@@ -1058,7 +1085,7 @@ export function ImpactView() {
     walletAddress: address ?? null,
     weekRange,
     enabled: Boolean(address && weekRange),
-    toastTitle: "Failed to load your Impact Score",
+    toastTitle: il.failedLoadScoreToast,
     summaryOnly: true,
   });
 
@@ -1197,6 +1224,7 @@ export function ImpactView() {
           isRefreshing={isLeaderboardRefreshing}
           address={address}
           selfScoreQuery={selfScoreQuery}
+          labels={il}
         />
       </div>
 
@@ -1204,24 +1232,31 @@ export function ImpactView() {
         <div className="flex flex-col gap-4 px-8 py-6 border-b border-border/20 dark:border-border/40 sm:flex-row sm:items-end sm:justify-between">
           <div className="space-y-1">
             <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
-              Leaderboard
+              {il.leaderboardLower}
             </h3>
             {leaderboardQuery.isLoading ? (
               <Skeleton className="h-4 w-80 rounded-md" />
             ) : weekRange ? (
               <div className="text-sm text-muted-foreground font-mono">
-                Weeks {weekRange.startWeek}–{weekRange.endWeek}
+                {il.weeksRange(
+                  String(weekRange.startWeek),
+                  String(weekRange.endWeek),
+                )}
                 <span className="text-muted-foreground/40"> · </span>
-                Showing {orderedRows.length === 0 ? 0 : `${startIdx + 1}–${endIdx}`} of{" "}
-                {orderedRows.length.toLocaleString("en-US")}
+                {il.showingPagination(
+                  orderedRows.length === 0 ? "0" : String(startIdx + 1),
+                  orderedRows.length === 0 ? "0" : String(endIdx),
+                  orderedRows.length.toLocaleString("en-US"),
+                )}
                 {searchLower
-                  ? ` (filtered from ${allRows.length.toLocaleString("en-US")})`
+                  ? il.filteredFrom(allRows.length.toLocaleString("en-US"))
                   : ""}
                 <span className="text-muted-foreground/40"> · </span>
-                {totalWalletCountDisplay == null
-                  ? "—"
-                  : totalWalletCountDisplay.toLocaleString("en-US")}{" "}
-                wallets
+                {il.nWallets(
+                  totalWalletCountDisplay == null
+                    ? "—"
+                    : totalWalletCountDisplay.toLocaleString("en-US"),
+                )}
               </div>
             ) : null}
           </div>
@@ -1229,7 +1264,7 @@ export function ImpactView() {
           <div className="relative w-full sm:w-[320px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search ENS or 0x…"
+              placeholder={il.searchPlaceholder}
               value={search}
               onChange={(e) => {
                 try {
@@ -1256,7 +1291,7 @@ export function ImpactView() {
                     // ignore
                   }
                 }}
-                aria-label="Clear search"
+                aria-label={il.clearSearch}
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -1363,7 +1398,7 @@ export function ImpactView() {
           </>
         ) : leaderboardQuery.isError ? (
           <div className="p-6 text-sm text-muted-foreground">
-            Unable to load leaderboard.
+            {il.unableToLoadLeaderboard}
           </div>
         ) : (
           <>
@@ -1434,22 +1469,26 @@ export function ImpactView() {
                           <div className="flex items-center gap-2">
                             {isRank1 ? (
                               <span className="text-[10px] font-bold font-mono text-[color:var(--color-glow-black)] dark:text-[color:var(--color-glow-black)] bg-[color:var(--color-glow-yellow)]/80 px-1.5 py-0.5 rounded uppercase tracking-wider">
-                                Rank 1
+                                {il.rankN("1")}
                               </span>
                             ) : isRank2 ? (
                               <span className="text-[10px] font-bold font-mono text-[color:var(--color-glow-black)] dark:text-[color:var(--color-glow-black)] bg-[color:var(--color-glow-green)]/80 px-1.5 py-0.5 rounded uppercase tracking-wider">
-                                Rank 2
+                                {il.rankN("2")}
                               </span>
                             ) : isRank3 ? (
                               <span className="text-[10px] font-bold font-mono text-[color:var(--color-glow-black)] dark:text-[color:var(--color-glow-black)] bg-[color:var(--color-glow-purple)]/80 px-1.5 py-0.5 rounded uppercase tracking-wider">
-                                Rank 3
+                                {il.rankN("3")}
                               </span>
                             ) : (
                               <span className="text-xs font-mono text-muted-foreground tabular-nums">
                                 {globalRank && globalRank <= 3 ? (
                                   <>#{globalRank.toLocaleString("en-US")}</>
                                 ) : (
-                                  <>Top {formatTopPercentile(percentile)}</>
+                                  <>
+                                    {il.topPercentile(
+                                      formatTopPercentile(percentile),
+                                    )}
+                                  </>
                                 )}
                               </span>
                             )}
@@ -1466,7 +1505,7 @@ export function ImpactView() {
                                 variant="outline"
                                 className="ml-1 text-[10px] font-mono uppercase tracking-wider border-[color:var(--color-glow-orange)]/40 bg-[color:var(--color-glow-orange)]/15 text-[color:var(--color-glow-orange)]"
                               >
-                                You
+                                {il.you}
                               </Badge>
                             ) : null}
                           </div>
@@ -1485,10 +1524,10 @@ export function ImpactView() {
                           onClick={(e) => {
                             e.stopPropagation();
                             copyTextToClipboard(row.walletAddress, {
-                              successMessage: "Copied",
+                              successMessage: il.copied,
                             });
                           }}
-                          aria-label="Copy wallet address"
+                          aria-label={il.copyWalletAddress}
                         >
                           <Copy className="h-4 w-4" />
                         </Button>
@@ -1509,13 +1548,13 @@ export function ImpactView() {
                           2,
                         )}
                         <span className="ml-2 text-xs font-mono text-muted-foreground">
-                          pts
+                          {il.pts}
                         </span>
                       </div>
 
                       <div className="mt-2 flex items-center justify-between gap-3 text-xs font-mono text-muted-foreground">
                         <div className="truncate">
-                          Last week:{" "}
+                          {il.lastWeekColon}{" "}
                           <span className="tabular-nums">
                             {row.lastWeekPoints
                               ? formatImpactPoints(row.lastWeekPoints, 2)
@@ -1523,7 +1562,7 @@ export function ImpactView() {
                           </span>
                         </div>
                         <div className="truncate">
-                          Glow:{" "}
+                          {il.glowColon}{" "}
                           <span className="tabular-nums">
                             {formatGlwFromWei(row.glowWorthWei)}
                           </span>{" "}
@@ -1535,13 +1574,13 @@ export function ImpactView() {
                         <div className="space-y-2">
                           <div className="flex items-center justify-between gap-3">
                             <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                              Multipliers
+                              {il.multipliers}
                             </div>
                             <ImpactMultipliersIcons state={indicatorsState} />
                           </div>
                           <div className="flex items-center justify-between gap-3">
                             <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                              Point sources
+                              {il.pointSources}
                             </div>
                             <ImpactPointSourcesIcons
                               state={indicatorsState}
@@ -1566,10 +1605,10 @@ export function ImpactView() {
                 <TableHeader>
                   <TableRow className="bg-muted/40 dark:bg-muted/50 hover:bg-muted/40">
                     <TableHead className="w-20 h-11 px-4 text-xs font-mono uppercase tracking-wider text-muted-foreground rounded-tl-xl">
-                      Rank
+                      {il.rankCol}
                     </TableHead>
                     <TableHead className="h-11 px-3 text-xs font-mono uppercase tracking-wider text-muted-foreground min-w-[220px]">
-                      Wallet
+                      {il.walletCol}
                     </TableHead>
                     <TableHead className="h-11 px-3 text-right w-[180px]">
                       <Button
@@ -1578,7 +1617,7 @@ export function ImpactView() {
                         className="h-8 px-2 font-mono text-xs uppercase tracking-wider text-muted-foreground"
                         onClick={() => handleSortClick("totalPoints")}
                       >
-                        Total Points
+                        {il.totalPoints}
                         {sortKey === "totalPoints" ? (
                           <span className="ml-1 inline-flex">
                             <SortIcon dir={sortDir} />
@@ -1593,7 +1632,7 @@ export function ImpactView() {
                         className="h-8 px-2 font-mono text-xs uppercase tracking-wider text-muted-foreground"
                         onClick={() => handleSortClick("lastWeekPoints")}
                       >
-                        Last week
+                        {il.lastWeekHeader}
                         {sortKey === "lastWeekPoints" ? (
                           <span className="ml-1 inline-flex">
                             <SortIcon dir={sortDir} />
@@ -1608,7 +1647,7 @@ export function ImpactView() {
                         className="h-8 px-2 font-mono text-xs uppercase tracking-wider text-muted-foreground"
                         onClick={() => handleSortClick("glowWorth")}
                       >
-                        Glow Worth
+                        {il.glowWorth}
                         {sortKey === "glowWorth" ? (
                           <span className="ml-1 inline-flex">
                             <SortIcon dir={sortDir} />
@@ -1617,10 +1656,10 @@ export function ImpactView() {
                       </Button>
                     </TableHead>
                     <TableHead className="h-11 px-3 text-xs font-mono uppercase tracking-wider text-muted-foreground hidden lg:table-cell w-[220px] max-w-[260px]">
-                      Point Sources
+                      {il.pointSources}
                     </TableHead>
                     <TableHead className="h-11 px-3 text-xs font-mono uppercase tracking-wider text-muted-foreground hidden md:table-cell w-[140px] max-w-[160px] rounded-tr-xl">
-                      Multipliers
+                      {il.multipliers}
                     </TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1674,19 +1713,19 @@ export function ImpactView() {
                         <TableCell className="font-mono text-xs py-3 px-3">
                           {isRank1 ? (
                             <span className="text-[10px] font-bold font-mono text-[color:var(--color-glow-black)] dark:text-[color:var(--color-glow-black)] bg-[color:var(--color-glow-yellow)]/80 px-1.5 py-0.5 rounded uppercase tracking-wider">
-                              Rank 1
+                              {il.rankN("1")}
                             </span>
                           ) : isRank2 ? (
                             <span className="text-[10px] font-bold font-mono text-[color:var(--color-glow-black)] dark:text-[color:var(--color-glow-black)] bg-[color:var(--color-glow-green)]/80 px-1.5 py-0.5 rounded uppercase tracking-wider">
-                              Rank 2
+                              {il.rankN("2")}
                             </span>
                           ) : isRank3 ? (
                             <span className="text-[10px] font-bold font-mono text-[color:var(--color-glow-black)] dark:text-[color:var(--color-glow-black)] bg-[color:var(--color-glow-purple)]/80 px-1.5 py-0.5 rounded uppercase tracking-wider">
-                              Rank 3
+                              {il.rankN("3")}
                             </span>
                           ) : (
                             <div className="text-muted-foreground">
-                              Top {formatTopPercentile(percentile)}
+                              {il.topPercentile(formatTopPercentile(percentile))}
                             </div>
                           )}
                         </TableCell>
@@ -1738,10 +1777,10 @@ export function ImpactView() {
                               onClick={(e) => {
                                 e.stopPropagation();
                                 copyTextToClipboard(row.walletAddress, {
-                                  successMessage: "Copied",
+                                  successMessage: il.copied,
                                 });
                               }}
-                              aria-label="Copy wallet address"
+                              aria-label={il.copyWalletAddress}
                             >
                               <Copy className="h-4 w-4" />
                             </Button>
@@ -1792,7 +1831,7 @@ export function ImpactView() {
           <div className="flex flex-col gap-3 px-8 py-6 border-t border-border/20 dark:border-border/40">
             <div className="flex items-center justify-between">
               <div className="text-xs text-muted-foreground font-mono">
-                Page {safePage} of {totalPages}
+                {il.pageOf(String(safePage), String(totalPages))}
               </div>
               <Pagination>
                 <PaginationContent>

@@ -13,6 +13,7 @@ import { getEthPriceInUSD } from "@/utils/getEthPriceInUSD";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { useGlowCirculatingSupply } from "@/hooks/useGlowCirculatingSupply";
+import { useLang } from "@/lib/i18n";
 
 interface SwapDialogProps {
   open: boolean;
@@ -29,6 +30,7 @@ export function SwapDialog({
   marketCapUsd,
   ethPriceInUSD,
 }: SwapDialogProps) {
+  const { t } = useLang();
   const shouldFetchMarketData =
     open &&
     (!Number.isFinite(glowPriceUsd ?? NaN) ||
@@ -85,7 +87,7 @@ export function SwapDialog({
       <DialogContent className="sm:max-w-sm p-0 gap-0 overflow-hidden bg-card rounded-[24px] border border-border/40">
         <DialogHeader className="px-6 pt-6 pb-3">
           <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-            Swap Tokens
+            {t.swap.dialogTitle}
           </DialogTitle>
         </DialogHeader>
 
@@ -93,7 +95,7 @@ export function SwapDialog({
           {hasError ? (
             <div className="space-y-3">
               <div className="text-sm text-muted-foreground">
-                Unable to load swap data. Please try again.
+                {t.swap.dialogUnableToLoad}
               </div>
               <Button
                 size="sm"
@@ -103,7 +105,7 @@ export function SwapDialog({
                   await Promise.all([refetchMarketCap(), refetchEthPrice()]);
                 }}
               >
-                Retry
+                {t.swap.dialogRetry}
               </Button>
             </div>
           ) : isLoading || !hasMarketData ? (

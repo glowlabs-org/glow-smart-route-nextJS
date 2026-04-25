@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { RegionRouter } from "@glowlabs-org/utils/browser";
 import { normalizeMinerWeeksRemainingDisplay } from "@/lib/mining-score";
+import { useLang } from "@/lib/i18n";
 
 const regionRouter = RegionRouter(
   process.env.NEXT_PUBLIC_CONTROL_API_URL || ""
@@ -56,6 +57,8 @@ export function MiningStatsDialog({
   application,
   miningScoreData,
 }: MiningStatsDialogProps) {
+  const { t } = useLang();
+  const ms = t.routes.miningStats;
   const { data: activeSummary, isLoading: isActiveSummaryLoading } =
     useActiveRegionsSummary({ enabled: open && Boolean(application) });
   const { regions, isRegionsLoading } = useRegions();
@@ -123,73 +126,74 @@ export function MiningStatsDialog({
     () => [
       {
         id: "cost",
-        label: "Cost",
-        value: costPerMiner > 0 ? `$${formatNumber(costPerMiner, 0)}` : "N/A",
-        tooltip: "Upfront USDC payment for this miner.",
-        secondary: "per miner",
+        label: ms.cost,
+        value:
+          costPerMiner > 0 ? `$${formatNumber(costPerMiner, 0)}` : ms.naValue,
+        tooltip: ms.costTooltip,
+        secondary: ms.perMiner,
       },
       {
         id: "weekly-glw",
-        label: "Estimated GLW per Week",
-        value: weeklyGlwRewards > 0 ? formatNumber(weeklyGlwRewards, 2) : "N/A",
-        tooltip:
-          "Current weekly GLW tokens earned per miner based on farm's allocation and reward split.",
-        secondary: weeklyRewardsUsd ? `≈ $${weeklyRewardsUsd} USD` : undefined,
+        label: ms.estimatedGlwPerWeek,
+        value:
+          weeklyGlwRewards > 0
+            ? formatNumber(weeklyGlwRewards, 2)
+            : ms.naValue,
+        tooltip: ms.weeklyGlwTooltip,
+        secondary: weeklyRewardsUsd ? ms.usdApprox(weeklyRewardsUsd) : undefined,
       },
       {
         id: "duration",
-        label: "Duration",
+        label: ms.duration,
         value: formatNumber(weeksRemaining, 0),
-        tooltip: "Remaining weeks in the farm's GLW emission schedule.",
-        secondary: "weeks",
+        tooltip: ms.durationTooltip,
+        secondary: ms.weeks,
       },
       {
         id: "apr",
-        label: "Estimated APR",
-        value: apr > 0 ? `${formatNumber(apr, 1)}%` : "N/A",
-        tooltip:
-          "Annualized return based on current GLW emissions and price. Assumes no dilution from new regional farms.",
+        label: ms.estimatedApr,
+        value: apr > 0 ? `${formatNumber(apr, 1)}%` : ms.naValue,
+        tooltip: ms.aprTooltip,
         highlight: true,
-        secondary: "Estimate only, changes weekly",
+        secondary: ms.aprFootnote,
       },
     ],
-    [apr, costPerMiner, weeklyGlwRewards, weeklyRewardsUsd, weeksRemaining]
+    [apr, costPerMiner, weeklyGlwRewards, weeklyRewardsUsd, weeksRemaining, ms]
   );
 
   const regionCards = React.useMemo<StatCardConfig[]>(
     () => [
       {
         id: "region-name",
-        label: "Region",
-        value: zoneName || "N/A",
+        label: ms.region,
+        value: zoneName || ms.naValue,
       },
       {
         id: "regional-glw",
-        label: "Weekly GLW",
+        label: ms.weeklyGlw,
         value:
           regionSummary?.glwPerWeek != null
             ? formatNumber(regionSummary.glwPerWeek, 0)
-            : "N/A",
-        tooltip:
-          "Total weekly GLW allocated to this region based on GCTL staking.",
+            : ms.naValue,
+        tooltip: ms.regionalGlwTooltip,
       },
       {
         id: "active-farms",
-        label: "Active Farms",
+        label: ms.activeFarms,
         value:
           region?.solarFarmCount != null
             ? formatNumber(region.solarFarmCount, 0)
-            : "N/A",
-        tooltip: "Currently operational farms in this region.",
+            : ms.naValue,
+        tooltip: ms.activeFarmsTooltip,
       },
       {
         id: "farms-on-deck",
-        label: "Farms Pipeline",
+        label: ms.farmsPipeline,
         value:
           regionDetails?.solarFarmApplications != null
             ? formatNumber(farmsOnDeck, 0)
-            : "N/A",
-        tooltip: "Farms in pipeline awaiting completion.",
+            : ms.naValue,
+        tooltip: ms.farmsPipelineTooltip,
       },
     ],
     [
@@ -198,6 +202,7 @@ export function MiningStatsDialog({
       regionDetails?.solarFarmApplications,
       regionSummary?.glwPerWeek,
       zoneName,
+      ms,
     ]
   );
 
@@ -210,10 +215,10 @@ export function MiningStatsDialog({
         <div className="border-b border-border/40 pb-6 pt-8 px-6">
           <div className="flex flex-col items-center text-center space-y-2">
             <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-              Mining Advanced Stats
+              {ms.title}
             </DialogTitle>
             <div className="text-[10px] font-mono text-muted-foreground/50 dark:text-muted-foreground/70 uppercase tracking-wider mt-2">
-              Fractional mining position for {zoneName ?? "this"} solar farm
+              {ms.subtitle(zoneName ?? "")}
             </div>
           </div>
         </div>
@@ -224,11 +229,10 @@ export function MiningStatsDialog({
             <section className="space-y-3">
               <div>
                 <h3 className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
-                  Opportunity snapshot
+                  {ms.snapshotHeading}
                 </h3>
                 <p className="text-sm text-muted-foreground/80 mt-1">
-                  Key metrics for this pre-packaged mining position earning GLW
-                  from an active solar farm.
+                  {ms.snapshotDesc}
                 </p>
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -241,11 +245,10 @@ export function MiningStatsDialog({
             <section className="space-y-3">
               <div>
                 <h3 className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
-                  Region context
+                  {ms.regionHeading}
                 </h3>
                 <p className="text-sm text-muted-foreground/80 mt-1">
-                  Regional GLW allocation and network activity supporting this
-                  farm's token emissions.
+                  {ms.regionDesc}
                 </p>
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -257,15 +260,8 @@ export function MiningStatsDialog({
 
             <section>
               <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4 text-xs text-muted-foreground">
-                <strong>Pre-packaged mining positions:</strong> Each mining
-                position represents fractional claims to GLW token emissions from
-                active solar farms. Returns are based on current network
-                conditions including regional GLW allocations, farm deposit size,
-                and predetermined reward splits. Actual returns may vary as new
-                farms join the region and dilute per-farm token allocations. GLW
-                price appreciation is not guaranteed. Mining positions earn token
-                streams over {weeksRemaining} weeks from live solar
-                infrastructure.
+                <strong>{ms.prePackagedHeader}</strong>
+                {ms.prePackagedDesc(String(weeksRemaining))}
               </div>
             </section>
           </div>
@@ -287,7 +283,9 @@ function StatCard({
   highlight,
   loading,
 }: StatCardProps) {
-  const isRegionName = label === "Region";
+  const { t } = useLang();
+  const ms = t.routes.miningStats;
+  const isRegionName = label === ms.region;
 
   return (
     <div
@@ -305,7 +303,7 @@ function StatCard({
             <TooltipTrigger
               className="text-muted-foreground/70"
               type="button"
-              aria-label={`${label} details`}
+              aria-label={ms.detailsAriaLabel(label)}
             >
               <HelpCircle className="h-3.5 w-3.5" />
             </TooltipTrigger>

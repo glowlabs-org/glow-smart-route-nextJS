@@ -20,6 +20,7 @@ import { REFERRAL_LAUNCH_LABEL } from "@/lib/referral-launch";
 import { parseReferralError } from "@/lib/referral-errors";
 import { toast } from "sonner";
 import { storeReferralAttribution } from "@/lib/referral-attribution";
+import { useLang } from "@/lib/i18n";
 
 interface ValidateCodeResponse {
   valid: boolean;
@@ -49,6 +50,8 @@ const heroPanelClassName =
   "order-1 lg:order-2 h-[36svh] min-h-[280px] sm:h-[42svh] lg:h-auto lg:flex-1 p-3 sm:p-4 lg:p-8 lg:min-h-screen";
 
 export default function ReferralLandingPage() {
+  const { t } = useLang();
+  const r = t.referralLanding;
   const params = useParams();
   const router = useRouter();
   const code = params.code as string;
@@ -107,14 +110,14 @@ export default function ReferralLandingPage() {
     if (!ownCodeQuery.data?.shareableLink) return;
     navigator.clipboard.writeText(ownCodeQuery.data.shareableLink);
     setIsOwnLinkCopied(true);
-    toast.success("Your referral link copied!");
+    toast.success(r.toastReferralLinkCopied);
     trackEvent("referral_success_copy_own_link", {
       code,
       wallet: address,
       own_code: ownCodeQuery.data.code,
     });
     setTimeout(() => setIsOwnLinkCopied(false), 2000);
-  }, [ownCodeQuery.data, code, address]);
+  }, [ownCodeQuery.data, code, address, r.toastReferralLinkCopied]);
 
   const validateQuery = useQuery({
     queryKey: ["validate-referral-code", code],
@@ -229,16 +232,16 @@ export default function ReferralLandingPage() {
               <GlowSymbol className="h-6 w-6 sm:h-7 sm:w-7" />
             </div>
             <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">
-              Referral Program Launching Soon
+              {r.programLaunchingSoon}
             </h1>
             <p className="text-sm text-muted-foreground">
-              Referrals open on {REFERRAL_LAUNCH_LABEL}.
+              {r.referralsOpenOn(REFERRAL_LAUNCH_LABEL)}
             </p>
             <Button
               className="w-full"
               onClick={() => handleGoToDashboard("launch_soon")}
             >
-              Go to Dashboard
+              {r.goToDashboard}
             </Button>
           </div>
         </div>
@@ -265,11 +268,11 @@ export default function ReferralLandingPage() {
               <div className="flex flex-1 flex-col justify-center gap-6 sm:gap-7 lg:max-w-md lg:gap-0">
                 <div className="space-y-3 sm:space-y-4">
                   <div className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.22em] text-[#4ade80]">
-                    You&apos;re In
+                    {r.youreIn}
                   </div>
 
                   <h1 className="max-w-[12ch] text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-4xl">
-                    Referral Linked to{" "}
+                    {r.referralLinkedTo}{" "}
                     <span className="text-[color:var(--color-glow-orange)]">
                       {referrerDisplayName}
                     </span>
@@ -277,8 +280,8 @@ export default function ReferralLandingPage() {
 
                   <p className="max-w-sm text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
                     {isChangeSuccess
-                      ? "Your boost stays on its original schedule. The +100 bonus points will unlock after you reach 100 points."
-                      : "Your 12-week boost starts now. Earn 10% more points each week, and unlock +100 bonus points after you reach 100 points."}
+                      ? r.changeSuccessBody
+                      : r.newSuccessBody}
                   </p>
                 </div>
 
@@ -298,7 +301,7 @@ export default function ReferralLandingPage() {
                     className="h-12 sm:h-14 w-full sm:max-w-xs"
                     onClick={() => handleGoToDashboard("success")}
                   >
-                    Go to Dashboard
+                    {r.goToDashboardSuccess}
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </div>
@@ -315,12 +318,11 @@ export default function ReferralLandingPage() {
                       <Users className="w-4 h-4 text-primary" />
                     </div>
                     <p className="text-sm font-semibold text-foreground">
-                      Start your own network
+                      {r.startYourOwnNetwork}
                     </p>
                   </div>
                   <p className="text-xs sm:text-sm text-muted-foreground mb-4 leading-relaxed">
-                    Invite friends and earn up to 20% of their Impact Points.
-                    They&apos;ll get the same bonuses you just unlocked.
+                    {r.inviteFriendsBody}
                   </p>
                   {ownCodeQuery.isLoading ? (
                     <Skeleton className="h-10 w-full sm:max-w-xs" />
@@ -338,12 +340,12 @@ export default function ReferralLandingPage() {
                         {isOwnLinkCopied ? (
                           <>
                             <Check className="w-4 h-4" />
-                            Copied!
+                            {r.copied}
                           </>
                         ) : (
                           <>
                             <Copy className="w-4 h-4" />
-                            Copy Your Link
+                            {r.copyYourLink}
                           </>
                         )}
                       </Button>
@@ -353,7 +355,7 @@ export default function ReferralLandingPage() {
               </div>
 
               <div className="mt-6 text-xs leading-5 text-muted-foreground/60 sm:text-sm lg:mt-0">
-                Start earning points to unlock your activation bonus.
+                {r.startEarningPoints}
               </div>
             </div>
 
@@ -362,7 +364,7 @@ export default function ReferralLandingPage() {
               <div className="relative h-full w-full rounded-xl sm:rounded-2xl overflow-hidden">
                 <Image
                   src="/images/referral-hero.jpg"
-                  alt="Solar panels with worker"
+                  alt={r.heroAlt}
                   fill
                   className="object-cover object-center"
                   priority
@@ -384,15 +386,15 @@ export default function ReferralLandingPage() {
                         +10%
                       </div>
                       <div className="mt-1 sm:mt-2 text-xs sm:text-sm lg:text-base font-semibold text-[#4ade80]">
-                        Active Now
+                        {r.badgeActiveNow}
                       </div>
                       <div className="text-[10px] sm:text-xs lg:text-sm text-white/80 hidden sm:block">
-                        Boosting your points
+                        {r.badgeBoostingPoints1}
                         <br />
-                        for 12 weeks
+                        {r.badgeBoostingPoints2}
                       </div>
                       <div className="text-[10px] text-white/80 sm:hidden">
-                        12 weeks
+                        {r.badgeBoostingPointsMobile}
                       </div>
                     </div>
 
@@ -401,15 +403,15 @@ export default function ReferralLandingPage() {
                         +100
                       </div>
                       <div className="mt-1 sm:mt-2 text-xs sm:text-sm lg:text-base font-semibold text-white/80">
-                        Pending
+                        {r.badgePending}
                       </div>
                       <div className="text-[10px] sm:text-xs lg:text-sm text-white/80 hidden sm:block">
-                        Unlocks after your first
+                        {r.badgeUnlocksAfter1}
                         <br />
-                        100 points
+                        {r.badgeUnlocksAfter2}
                       </div>
                       <div className="text-[10px] text-white/80 sm:hidden">
-                        At 100 pts
+                        {r.badgeAt100PtsMobile}
                       </div>
                     </div>
                   </div>
@@ -433,7 +435,7 @@ export default function ReferralLandingPage() {
               <div className="flex flex-1 flex-col justify-center gap-6 sm:gap-7 lg:max-w-md lg:gap-0">
                 <div className="space-y-3 sm:space-y-4">
                   <div className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                    Personal Invitation
+                    {r.personalInvitation}
                   </div>
 
                   <h1 className="max-w-[11ch] text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-4xl">
@@ -441,16 +443,14 @@ export default function ReferralLandingPage() {
                       <Skeleton className="h-8 w-44 bg-muted sm:h-10 sm:w-64" />
                     ) : (
                       <>
-                        Join{" "}
+                        {r.joinPrefix}{" "}
                         <span className="text-foreground">{referrerDisplayName}</span>
                       </>
                     )}
                   </h1>
 
                   <p className="max-w-sm text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
-                    I&apos;m supporting scaling solar where it&apos;s needed most and
-                    earning rewards for doing so, and now you can too. Sign up
-                    below and let&apos;s build a brighter future together.
+                    {r.inviterMessage}
                   </p>
                 </div>
 
@@ -460,7 +460,7 @@ export default function ReferralLandingPage() {
                   rel="noopener noreferrer"
                   className="inline-flex w-fit items-center gap-1.5 text-xs sm:text-sm text-muted-foreground transition-colors hover:text-foreground"
                 >
-                  Learn how it works
+                  {r.learnHowItWorks}
                   <ExternalLink className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                 </a>
 
@@ -476,7 +476,7 @@ export default function ReferralLandingPage() {
                     </div>
                   ) : isValidationLoading ? (
                     <Button disabled className="h-12 sm:h-14 w-full sm:max-w-xs">
-                      Checking link...
+                      {r.checkingLink}
                     </Button>
                   ) : hasValidationError ? (
                     <Button
@@ -486,11 +486,11 @@ export default function ReferralLandingPage() {
                         validateQuery.refetch();
                       }}
                     >
-                      Retry Verification
+                      {r.retryVerification}
                     </Button>
                   ) : isValid === false ? (
                     <Button disabled className="h-12 sm:h-14 w-full sm:max-w-xs">
-                      Invalid Link
+                      {r.invalidLink}
                     </Button>
                   ) : canChangeReferrer ? (
                     <Button
@@ -499,10 +499,10 @@ export default function ReferralLandingPage() {
                       disabled={isChanging || isAutoLinking}
                     >
                       {isChanging
-                        ? "Changing..."
+                        ? r.changing
                         : isAutoLinking
-                          ? "Linking..."
-                          : "Switch to This Referrer"}
+                          ? r.linking
+                          : r.switchToThisReferrer}
                       {!isChanging && !isAutoLinking && (
                         <ArrowRight className="ml-2 h-4 w-4" />
                       )}
@@ -513,7 +513,7 @@ export default function ReferralLandingPage() {
                         className="h-12 sm:h-14 w-full"
                         onClick={() => handleGoToDashboard("already_linked")}
                       >
-                        Go to Dashboard
+                        {r.goToDashboard}
                         <ArrowRight className="ml-2 h-4 w-4" />
                       </Button>
                       <Button
@@ -527,10 +527,10 @@ export default function ReferralLandingPage() {
                           disconnect();
                         }}
                       >
-                        Try Different Wallet
+                        {r.tryDifferentWallet}
                       </Button>
                       <p className="text-xs text-muted-foreground/60 text-center">
-                        This wallet is already linked to a referrer
+                        {r.walletAlreadyLinked}
                       </p>
                     </div>
                   ) : (
@@ -545,10 +545,10 @@ export default function ReferralLandingPage() {
                       }
                     >
                       {isAutoLinking
-                        ? "Linking..."
+                        ? r.linking
                         : isLinking
-                          ? "Verifying..."
-                          : "Claim Bonus"}
+                          ? r.verifying
+                          : r.claimBonus}
                       {!isLinking && !isAutoLinking && (
                         <ArrowRight className="ml-2 h-4 w-4" />
                       )}
@@ -559,17 +559,17 @@ export default function ReferralLandingPage() {
 
               <div className="mt-6 text-xs leading-5 text-muted-foreground/60 sm:text-sm">
                 {!isConnected
-                  ? "Connect wallet to verify eligibility"
+                  ? r.connectWalletToVerify
                   : isEligibilityLoading
-                    ? "Checking eligibility..."
+                    ? r.checkingEligibility
                     : isAutoLinking
-                      ? "Linking your stored referral automatically..."
+                      ? r.linkingStored
                     : canClaim === false
-                      ? claimReason || "You're not eligible to claim right now."
+                      ? claimReason || r.notEligible
                       : hasValidationError
-                        ? "Unable to verify this referral right now."
+                        ? r.unableToVerify
                         : canChangeReferrer
-                          ? "You can switch referrers while your referral is pending."
+                          ? r.canSwitchPending
                           : null}
               </div>
             </div>
@@ -579,7 +579,7 @@ export default function ReferralLandingPage() {
               <div className="relative h-full w-full rounded-xl sm:rounded-2xl overflow-hidden">
                 <Image
                   src="/images/referral-hero.jpg"
-                  alt="Solar panels with worker"
+                  alt={r.heroAlt}
                   fill
                   className="object-cover object-center"
                   priority
@@ -601,15 +601,15 @@ export default function ReferralLandingPage() {
                         +10%
                       </div>
                       <div className="mt-1 sm:mt-2 text-xs sm:text-sm lg:text-base font-semibold">
-                        Impact Points Bonus
+                        {r.badgeImpactPointsBonus}
                       </div>
                       <div className="text-[10px] sm:text-xs lg:text-sm text-white/80 hidden sm:block">
-                        Added to your base points
+                        {r.badgeAddedToBase1}
                         <br />
-                        for 12 weeks
+                        {r.badgeAddedToBase2}
                       </div>
                       <div className="text-[10px] text-white/80 sm:hidden">
-                        12 weeks
+                        {r.badgeBoostingPointsMobile}
                       </div>
                     </div>
 
@@ -618,15 +618,15 @@ export default function ReferralLandingPage() {
                         +100
                       </div>
                       <div className="mt-1 sm:mt-2 text-xs sm:text-sm lg:text-base font-semibold">
-                        Bonus Points
+                        {r.badgeBonusPoints}
                       </div>
                       <div className="text-[10px] sm:text-xs lg:text-sm text-white/80 hidden sm:block">
-                        Unlocked after your first
+                        {r.badgeUnlocksAfter1}
                         <br />
-                        100 post-link points
+                        {r.badgeUnlocksAfter2}
                       </div>
                       <div className="text-[10px] text-white/80 sm:hidden">
-                        At 100 points
+                        {r.badgeAt100Points}
                       </div>
                     </div>
                   </div>

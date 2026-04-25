@@ -127,6 +127,7 @@ import {
 } from "@/components/ui/collapsible";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/lib/i18n";
 
 // ToS content version and hash generation - MUST match backend exactly
 const TOS_VERSION = "1.0";
@@ -211,6 +212,7 @@ const tosEIP712Types = {
 };
 
 export function TosDialog() {
+  const { t } = useLang();
   const { isConnected, address, connector } = useAccount();
   const queryClient = useQueryClient();
   const connectedChainId = useChainId();
@@ -275,12 +277,12 @@ export function TosDialog() {
   const buildWrongNetworkError = React.useCallback(
     (detectedChainId?: number): TosError => ({
       type: "wrong_network",
-      title: "Wrong Network",
-      message: `Your wallet is connected to ${getNetworkLabel(detectedChainId)}.`,
-      suggestion: `Please switch to ${expectedNetworkLabel} to sign the Terms of Service.`,
+      title: t.tos.wrongNetworkAlertTitle,
+      message: t.tos.wrongNetworkErrorMessage(getNetworkLabel(detectedChainId)),
+      suggestion: t.tos.wrongNetworkErrorSuggestion(expectedNetworkLabel),
       canRetry: true,
     }),
-    [expectedNetworkLabel, getNetworkLabel]
+    [expectedNetworkLabel, getNetworkLabel, t.tos]
   );
 
   const showWrongNetworkAlert =
@@ -363,12 +365,12 @@ export function TosDialog() {
 
   const handleAcceptTos = async () => {
     if (!address) {
-      toast.error("Please ensure your wallet is connected");
+      toast.error(t.tos.toastWalletRequired);
       return;
     }
 
     if (isSignerLoading || !signer) {
-      toast.error("Wallet is initializing, please try again in a moment");
+      toast.error(t.tos.toastWalletInitializing);
       return;
     }
 
@@ -491,7 +493,7 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
       }
 
       if (!signature) {
-        toast.error("Failed to sign message");
+        toast.error(t.tos.toastFailedToSign);
 
         // Log signature failure to Sentry
         if (typeof window !== "undefined") {
@@ -710,8 +712,8 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
       setIsOpen(false);
       toast.success(
         tosResponse?.autoLink?.linked
-          ? "Terms accepted and referral linked"
-          : "Terms of Service accepted successfully"
+          ? t.tos.toastTermsAcceptedWithReferral
+          : t.tos.toastTermsAccepted
       );
     } catch (error) {
       const parsedError = parseTosApiError(error);
@@ -720,13 +722,13 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
 
       // Show toast for user rejection (common case)
       if (parsedError.type === "signature_rejected") {
-        toast.error("Signature required", {
-          description: "Please approve the signature request in your wallet.",
+        toast.error(t.tos.toastSignatureRequired, {
+          description: t.tos.toastSignatureRequiredDescription,
         });
       } else if (parsedError.type === "smart_wallet") {
         // For smart wallet errors, show a more helpful toast
-        toast.error("Smart wallet issue detected", {
-          description: "See the error details below for help.",
+        toast.error(t.tos.toastSmartWalletIssue, {
+          description: t.tos.toastSmartWalletIssueDescription,
         });
       }
 
@@ -791,11 +793,11 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
       await switchChain({ chainId });
       await resolveActiveWalletChainId();
       setError(null);
-      toast.success(`Switched to ${expectedNetworkLabel}`);
+      toast.success(t.wallet.switchedTo(expectedNetworkLabel));
     } catch (switchError) {
       console.error("Failed to switch network for ToS signing:", switchError);
-      toast.error("Failed to switch network", {
-        description: "Please switch networks in your wallet and try again.",
+      toast.error(t.tos.toastFailedToSwitchNetwork, {
+        description: t.tos.toastFailedToSwitchNetworkDescription,
       });
     }
   };
@@ -832,16 +834,12 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
       >
         <DialogHeader className="p-6 pb-2 border-b-0">
           <DialogTitle className="text-xl md:text-2xl font-bold">
-            Welcome to Glow
+            {t.tos.dialogTitle}
           </DialogTitle>
         </DialogHeader>
 
         <div className="px-6 py-2 space-y-4">
-          <p className="text-muted-foreground">
-            In order to interact with GLW and use the Glow Application, you must
-            accept our Terms of Service. This ensures a safe and compliant
-            environment for all users.
-          </p>
+          <p className="text-muted-foreground">{t.tos.intro}</p>
 
           <Collapsible open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
             <CollapsibleTrigger asChild>
@@ -849,7 +847,7 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
                 variant="ghost"
                 className="flex w-full justify-between p-4 font-medium hover:bg-muted/50 h-auto"
               >
-                <span>Read Full Terms of Service</span>
+                <span>{t.tos.readFullTos}</span>
                 <ChevronDown
                   className={cn(
                     "h-4 w-4 transition-transform duration-200",
@@ -1147,18 +1145,18 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
                   <div className="mt-3 p-2 bg-background/50 rounded text-xs space-y-1">
                     <p className="font-medium flex items-center gap-1">
                       <Wallet className="h-3 w-3" />
-                      Smart Wallet Tips:
+                      {t.tos.smartWalletTipsLabel}
                     </p>
                     <ul className="list-disc list-inside space-y-0.5 opacity-90">
-                      <li>Ensure your wallet is fully deployed on-chain</li>
-                      <li>For multisig wallets, all required signers must approve</li>
-                      <li>Try using the wallet's built-in browser if available</li>
+                      {t.tos.smartWalletTips.map((tip) => (
+                        <li key={tip}>{tip}</li>
+                      ))}
                     </ul>
                   </div>
                 )}
                 {retryCount >= 2 && (
                   <p className="text-xs opacity-75 mt-2">
-                    Still having trouble? Try disconnecting your wallet and reconnecting, or use a different wallet.
+                    {t.tos.stillHavingTrouble}
                   </p>
                 )}
               </AlertDescription>
@@ -1168,13 +1166,11 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
           {showWrongNetworkAlert && (
             <Alert variant="destructive" className="border-red-500/50 bg-red-500/10">
               <AlertCircle className="h-4 w-4" />
-              <AlertTitle className="font-semibold">Wrong Network</AlertTitle>
+              <AlertTitle className="font-semibold">{t.tos.wrongNetworkAlertTitle}</AlertTitle>
               <AlertDescription className="mt-2 space-y-2">
-                <p>
-                  Your wallet is connected to {connectedNetworkLabel}.
-                </p>
+                <p>{t.tos.wrongNetworkAlertConnected(connectedNetworkLabel)}</p>
                 <p className="text-sm opacity-90">
-                  Please switch to {expectedNetworkLabel} to continue.
+                  {t.tos.wrongNetworkAlertSuggestion(expectedNetworkLabel)}
                 </p>
               </AlertDescription>
             </Alert>
@@ -1183,13 +1179,9 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
           <div className="p-3 bg-muted/40 dark:bg-muted/50 rounded-lg border border-border/30 dark:border-border/40">
             <p className="text-sm text-muted-foreground">
               <strong className="text-glow-orange">
-                Digital Signature Required:
+                {t.tos.digitalSignatureRequiredLabel}
               </strong>{" "}
-              By clicking{" "}
-              <strong className="text-glow-orange">"Sign & Accept"</strong>, you
-              will be prompted to sign a message with your wallet. This
-              signature serves as your legally binding acceptance of these Terms
-              of Service.
+              {t.tos.digitalSignatureRequiredBody}
             </p>
           </div>
         </div>
@@ -1200,7 +1192,7 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
             onClick={handleDecline}
             disabled={isSigning}
           >
-            Decline & Disconnect
+            {t.tos.declineAndDisconnect}
           </Button>
           <Button
             onClick={isWrongNetwork ? handleSwitchNetwork : handleAcceptTos}
@@ -1210,27 +1202,27 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
             {isSigning ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Signing...
+                {t.tos.signing}
               </>
             ) : isSwitchingChain ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Switching...
+                {t.tos.switching}
               </>
             ) : isSignerLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Connecting...
+                {t.tos.connecting}
               </>
             ) : isWrongNetwork ? (
-              `Switch to ${expectedNetworkLabel}`
+              t.wallet.switchTo(expectedNetworkLabel)
             ) : error?.canRetry ? (
               <>
                 <RefreshCw className="mr-2 h-4 w-4" />
-                Try Again
+                {t.tos.tryAgain}
               </>
             ) : (
-              "Sign & Accept"
+              t.tos.signAndAccept
             )}
           </Button>
         </DialogFooter>

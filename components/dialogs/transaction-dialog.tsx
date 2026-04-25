@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { GlowSymbolAnimated } from "@/components/glow-symbol-animated";
 import { cn } from "@/lib/utils";
 import { GlwWorthIcon, SteeringIcon } from "@/components/impact-icons";
+import { useLang } from "@/lib/i18n";
 
 export interface TransactionDetail {
   label: string;
@@ -100,13 +101,13 @@ export function TransactionDialog({
   isError,
   contentClassName,
   bodyClassName,
-  title = "Review & Confirm",
-  successTitle = "Transaction Successful",
-  errorTitle = "Transaction Failed",
-  processingTitle = "Processing Transaction",
-  description = "Please review the details before confirming",
-  processingDescription = "Please wait while we process your transaction",
-  errorDescription = "We were unable to process your transaction. Please try again or contact support.",
+  title,
+  successTitle,
+  errorTitle,
+  processingTitle,
+  description,
+  processingDescription,
+  errorDescription,
   transactionDetails,
   successDetails,
   txHash,
@@ -124,13 +125,28 @@ export function TransactionDialog({
   processingMaxSeconds = 60,
   onConfirm,
   confirmDisabled,
-  confirmLabel = "Confirm",
-  cancelLabel = "Cancel",
+  confirmLabel,
+  cancelLabel,
 }: TransactionDialogProps) {
+  const { t } = useLang();
+  const tdStrings = t.transactionDialog;
+  const resolvedTitle = title ?? tdStrings.defaultTitle;
+  const resolvedSuccessTitle = successTitle ?? tdStrings.defaultSuccessTitle;
+  const resolvedErrorTitle = errorTitle ?? tdStrings.defaultErrorTitle;
+  const resolvedProcessingTitle =
+    processingTitle ?? tdStrings.defaultProcessingTitle;
+  const resolvedDescription = description ?? tdStrings.defaultDescription;
+  const resolvedProcessingDescription =
+    processingDescription ?? tdStrings.defaultProcessingDescription;
+  const resolvedErrorDescription =
+    errorDescription ?? tdStrings.defaultErrorDescription;
+  const resolvedConfirmLabel = confirmLabel ?? tdStrings.confirm;
+  const resolvedCancelLabel = cancelLabel ?? tdStrings.cancel;
+
   function copyTxHash() {
     if (txHash) {
       navigator.clipboard.writeText(txHash);
-      toast.success("Transaction ID copied to clipboard");
+      toast.success(tdStrings.toastTxCopied);
     }
   }
 
@@ -192,7 +208,11 @@ export function TransactionDialog({
       >
         <DialogHeader className="sr-only">
           <DialogTitle>
-            {isSuccess ? successTitle : isError ? errorTitle : title}
+            {isSuccess
+              ? resolvedSuccessTitle
+              : isError
+              ? resolvedErrorTitle
+              : resolvedTitle}
           </DialogTitle>
         </DialogHeader>
 
@@ -223,7 +243,7 @@ export function TransactionDialog({
                   </svg>
                 </div>
                 <div className="text-3xl font-semibold text-foreground tracking-tight mb-1">
-                  {successTitle}
+                  {resolvedSuccessTitle}
                 </div>
                 {showImpactScoreBoost && (
                   <div className="mt-4 flex flex-col items-center gap-2">
@@ -235,7 +255,7 @@ export function TransactionDialog({
                       ) : (
                         <TrendingUp className="h-3.5 w-3.5" />
                       )}
-                      Impact Score Boosted
+                      {tdStrings.impactScoreBoosted}
                     </div>
                     {impactScoreBoostMessage && (
                       <div className="text-xs text-muted-foreground max-w-[260px] mx-auto">
@@ -258,7 +278,7 @@ export function TransactionDialog({
                       <div className="pt-3 border-t border-border/20 dark:border-border/40">
                         <div className="flex justify-between items-center">
                           <span className="text-muted-foreground text-sm">
-                            Transaction
+                            {tdStrings.transactionLabel}
                           </span>
                           <div className="flex items-center gap-2">
                             <span className="text-foreground text-sm font-mono">
@@ -295,7 +315,7 @@ export function TransactionDialog({
                     className="flex-1"
                     variant="outline"
                   >
-                    Close
+                    {tdStrings.close}
                   </Button>
                 </div>
               ) : (
@@ -304,7 +324,7 @@ export function TransactionDialog({
                   className="w-full"
                   variant="outline"
                 >
-                  Close
+                  {tdStrings.close}
                 </Button>
               )}
             </div>
@@ -317,10 +337,10 @@ export function TransactionDialog({
                       <X className="w-10 h-10 text-destructive" />
                     </div>
                     <div className="text-2xl font-bold text-destructive mb-2 text-center">
-                      {errorTitle}
+                      {resolvedErrorTitle}
                     </div>
                     <div className="text-muted-foreground text-sm max-w-sm break-all whitespace-pre-wrap mx-auto text-center">
-                      {errorDescription}
+                      {resolvedErrorDescription}
                     </div>
                   </div>
 
@@ -328,7 +348,7 @@ export function TransactionDialog({
                     <div className="space-y-4 text-left">
                       <div className="flex justify-between items-center">
                         <span className="text-muted-foreground text-sm">
-                          Transaction ID
+                          {tdStrings.transactionId}
                         </span>
                         <div className="flex items-center space-x-2">
                           <span className="text-foreground text-sm font-mono">
@@ -344,7 +364,7 @@ export function TransactionDialog({
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-muted-foreground text-sm">
-                          Explorer
+                          {tdStrings.explorer}
                         </span>
                         <a
                           href={`https://etherscan.io/tx/${txHash}`}
@@ -352,7 +372,7 @@ export function TransactionDialog({
                           rel="noopener noreferrer"
                           className="flex items-center space-x-1 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
                         >
-                          <span>View on Etherscan</span>
+                          <span>{tdStrings.viewOnEtherscan}</span>
                           <ExternalLink className="w-3 h-3" />
                         </a>
                       </div>
@@ -362,7 +382,7 @@ export function TransactionDialog({
               )}
 
               <Button onClick={() => onOpenChange(false)} className="w-full">
-                Close
+                {tdStrings.close}
               </Button>
             </div>
           ) : (
@@ -375,10 +395,12 @@ export function TransactionDialog({
                   </div>
                 )}
                 <div className="text-2xl font-bold text-foreground mb-2">
-                  {isSubmitting ? processingTitle : title}
+                  {isSubmitting ? resolvedProcessingTitle : resolvedTitle}
                 </div>
                 <div className="text-muted-foreground text-sm">
-                  {isSubmitting ? processingDescription : description}
+                  {isSubmitting
+                    ? resolvedProcessingDescription
+                    : resolvedDescription}
                 </div>
               </div>
 
@@ -386,7 +408,7 @@ export function TransactionDialog({
               {isSubmitting && (
                 <div className="inline-flex items-center px-4 py-2 bg-muted/50 border border-border/40 rounded-full mb-8">
                   <span className="text-foreground text-sm font-medium animate-pulse">
-                    Submitting transaction...
+                    {tdStrings.submitting}
                   </span>
                 </div>
               )}
@@ -396,10 +418,9 @@ export function TransactionDialog({
                 <div className="mb-8">
                   <div className="inline-flex items-center px-4 py-2 bg-muted/50 border border-border/40 rounded-full mb-6">
                     <span className="text-foreground text-sm font-medium">
-                      ETA:{" "}
                       {processingCountdown > 0
-                        ? `${processingCountdown}s`
-                        : "Processing should complete soon"}
+                        ? tdStrings.eta(processingCountdown)
+                        : tdStrings.processingShouldComplete}
                     </span>
                   </div>
                   <div>
@@ -410,8 +431,9 @@ export function TransactionDialog({
                       />
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {Math.round(processingProgressPercentage)}% complete •
-                      Checking status every 5s
+                      {tdStrings.percentComplete(
+                        Math.round(processingProgressPercentage),
+                      )}
                     </div>
                   </div>
                 </div>
@@ -428,12 +450,12 @@ export function TransactionDialog({
                     <div className="pt-3 border-t border-border/20 dark:border-border/40">
                       <div className="flex justify-between items-center">
                         <span className="text-muted-foreground text-sm">
-                          Network Fee
+                          {tdStrings.networkFee}
                         </span>
                         {isNetworkFeeLoading ? (
                           <span className="text-xs text-muted-foreground flex items-center gap-1">
                             <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-                            Calculating...
+                            {tdStrings.calculating}
                           </span>
                         ) : (
                           <span className="text-foreground text-sm font-mono">
@@ -456,7 +478,7 @@ export function TransactionDialog({
                         onClick={() => onOpenChange(false)}
                         className="flex-1"
                       >
-                        {cancelLabel}
+                        {resolvedCancelLabel}
                       </Button>
                       {onConfirm && (
                         <Button
@@ -464,7 +486,7 @@ export function TransactionDialog({
                           disabled={confirmDisabled}
                           className="flex-1"
                         >
-                          {confirmLabel}
+                          {resolvedConfirmLabel}
                         </Button>
                       )}
                     </>
@@ -474,7 +496,7 @@ export function TransactionDialog({
 
               {isSubmitting && (
                 <div className="text-xs text-muted-foreground mt-4">
-                  Please do not close this window or refresh the page
+                  {tdStrings.doNotClose}
                 </div>
               )}
             </div>

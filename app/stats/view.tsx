@@ -25,6 +25,7 @@ import { MintedEventsTab } from "@/components/buy-gctl/minted-events-tab";
 import { StakedEventsTab } from "@/components/buy-gctl/staked-events-tab";
 import { useGctlApi, useRegions, useFractionsSummary } from "@/hooks";
 import { parseFractionsSummary } from "@/lib/fractions";
+import { useLang } from "@/lib/i18n";
 
 function SectionHeader({ title }: { title: string }) {
   return (
@@ -35,6 +36,8 @@ function SectionHeader({ title }: { title: string }) {
 }
 
 export default function StatsView() {
+  const { t } = useLang();
+  const s = t.routes.stats;
   const [isDelegationDialogOpen, setIsDelegationDialogOpen] =
     React.useState(false);
   const [isMinerDialogOpen, setIsMinerDialogOpen] = React.useState(false);
@@ -93,21 +96,21 @@ export default function StatsView() {
       <div className="max-w-screen-2xl mx-auto px-4 py-6 sm:px-6 sm:py-8 lg:px-12 lg:py-10">
         <div className="flex flex-col gap-8">
           <section className="flex flex-col gap-8">
-            <SectionHeader title="Market Tickers" />
+            <SectionHeader title={s.marketTickers2} />
             <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
               <MarketTickers shouldLoad={true} />
             </div>
           </section>
 
           <section className="flex flex-col gap-8 pt-20">
-            <SectionHeader title="Economy Overview" />
+            <SectionHeader title={s.economyOverview} />
             <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
               <EconomyOverview shouldLoad={true} />
             </div>
           </section>
 
           <section className="flex flex-col gap-8 pt-20">
-            <SectionHeader title="Protocol Activity" />
+            <SectionHeader title={s.protocolActivity2} />
             <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
               <ProtocolActivity
                 shouldLoad={true}
@@ -132,14 +135,14 @@ export default function StatsView() {
           </section>
 
           <section className="flex flex-col gap-8 pt-20">
-            <SectionHeader title="GCTL Staking by Region" />
+            <SectionHeader title={s.gctlStakingByRegion} />
             <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
               <RegionsStaking shouldLoad={true} />
             </div>
           </section>
 
           <section className="flex flex-col gap-8 pt-20 pb-20">
-            <SectionHeader title="Protocol Events" />
+            <SectionHeader title={s.protocolEvents} />
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
               {/* GCTL Minting Card */}
               <Card className="overflow-hidden bg-card border-border/20 dark:border-border/40 !py-0 !gap-0">
@@ -147,10 +150,10 @@ export default function StatsView() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-sm font-semibold text-foreground">
-                        GCTL Minting
+                        {s.gctlMinting}
                       </h3>
                       <p className="mt-0.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
-                        Token creation events
+                        {s.tokenCreationEvents}
                       </p>
                     </div>
                     <Badge
@@ -166,7 +169,7 @@ export default function StatsView() {
                   <div className="space-y-4">
                     <div className="mb-4 flex items-center justify-between">
                       <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
-                        Recent Activity
+                        {s.recentActivity}
                       </span>
                       <div className="flex items-center gap-3">
                         <Badge
@@ -174,7 +177,7 @@ export default function StatsView() {
                           className="text-[10px] font-mono uppercase tracking-widest border-border/30 text-muted-foreground/60"
                         >
                           <Activity className="mr-1 h-3 w-3" />
-                          Live
+                          {s.live}
                         </Badge>
                         {mintedEvents.length > 10 && (
                           <Button
@@ -183,7 +186,7 @@ export default function StatsView() {
                             className="h-7 text-xs font-medium text-muted-foreground hover:text-foreground"
                             onClick={() => setIsMintedDialogOpen(true)}
                           >
-                            See All
+                            {s.seeAll}
                           </Button>
                         )}
                       </div>
@@ -203,10 +206,10 @@ export default function StatsView() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-sm font-semibold text-foreground">
-                        GCTL Staking
+                        {s.gctlStaking}
                       </h3>
                       <p className="mt-0.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
-                        Stake & unstake events
+                        {s.stakeUnstakeEvents}
                       </p>
                     </div>
                     <Badge
@@ -222,7 +225,7 @@ export default function StatsView() {
                   <div className="space-y-4">
                     <div className="mb-4 flex items-center justify-between">
                       <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
-                        Recent Activity
+                        {s.recentActivity}
                       </span>
                       <div className="flex items-center gap-3">
                         <Badge
@@ -230,7 +233,7 @@ export default function StatsView() {
                           className="text-[10px] font-mono uppercase tracking-widest border-border/30 text-muted-foreground/60"
                         >
                           <Activity className="mr-1 h-3 w-3" />
-                          Live
+                          {s.live}
                         </Badge>
                         {stakedEvents.length > 10 && (
                           <Button
@@ -239,7 +242,7 @@ export default function StatsView() {
                             className="h-7 text-xs font-medium text-muted-foreground hover:text-foreground"
                             onClick={() => setIsStakedDialogOpen(true)}
                           >
-                            See All
+                            {s.seeAll}
                           </Button>
                         )}
                       </div>
@@ -267,10 +270,10 @@ export default function StatsView() {
           <div className="border-b border-border/20 dark:border-border/40 pb-6 pt-8 px-6">
             <DialogHeader>
               <DialogTitle className="text-sm font-semibold text-foreground">
-                Delegation History
+                {s.delegationHistory}
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground/60 mt-1">
-                All delegation and undelegation events across all farms
+                {s.delegationHistoryDesc}
               </DialogDescription>
             </DialogHeader>
           </div>
@@ -308,10 +311,10 @@ export default function StatsView() {
           <div className="border-b border-border/20 dark:border-border/40 pb-6 pt-8 px-6">
             <DialogHeader>
               <DialogTitle className="text-sm font-semibold text-foreground">
-                Purchase History
+                {s.minersHistory}
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground/60 mt-1">
-                All miner purchases across the platform
+                {s.minersHistoryDesc}
               </DialogDescription>
             </DialogHeader>
           </div>
@@ -354,10 +357,10 @@ export default function StatsView() {
           <div className="border-b border-border/20 dark:border-border/40 pb-6 pt-8 px-6">
             <DialogHeader>
               <DialogTitle className="text-sm font-semibold text-foreground">
-                GCTL Minting History
+                {s.mintedHistory}
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground/60 mt-1">
-                All GCTL minting events
+                {s.mintedHistoryDesc}
               </DialogDescription>
             </DialogHeader>
           </div>
@@ -376,10 +379,10 @@ export default function StatsView() {
           <div className="border-b border-border/20 dark:border-border/40 pb-6 pt-8 px-6">
             <DialogHeader>
               <DialogTitle className="text-sm font-semibold text-foreground">
-                GCTL Staking History
+                {s.stakedHistory}
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground/60 mt-1">
-                All GCTL staking and unstaking events
+                {s.stakedHistoryDesc}
               </DialogDescription>
             </DialogHeader>
           </div>

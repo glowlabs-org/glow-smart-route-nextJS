@@ -19,6 +19,81 @@ import { useEthGasPreflight } from "@/hooks/useEthGasPreflight";
 import { useSmartAccountCheck } from "@/hooks/useSmartAccountCheck";
 import { addresses } from "@/web3/constants/addresses";
 import { formatUnits, parseUnits } from "viem";
+import { useLang, type Strings } from "@/lib/i18n";
+
+type SwapLabels = Strings["swap"];
+
+const buildPendingStatesUsdg = (s: SwapLabels): PendingState[] => [
+  {
+    code: "REQUESTING_GLOW_APPROVAL",
+    message: s.stepRequestingGlowApproval,
+    validated: false,
+    pending: false,
+  },
+  {
+    code: "APPROVING_GLOW",
+    message: s.stepApprovingGlow,
+    validated: false,
+    pending: false,
+  },
+  {
+    code: "SWAPPING_GLOW_TO_USDG",
+    message: s.stepSwappingGlowToUsdg,
+    validated: false,
+    pending: false,
+  },
+  {
+    code: "DONE",
+    message: s.stepSwapDoneToUsdg,
+    validated: false,
+    pending: false,
+  },
+];
+
+const buildPendingStatesUsdc = (s: SwapLabels): PendingState[] => [
+  {
+    code: "REQUESTING_GLOW_APPROVAL",
+    message: s.stepRequestingGlowApproval,
+    validated: false,
+    pending: false,
+  },
+  {
+    code: "APPROVING_GLOW",
+    message: s.stepApprovingGlow,
+    validated: false,
+    pending: false,
+  },
+  {
+    code: "SWAPPING_GLOW_TO_USDG",
+    message: s.stepSwappingGlowToUsdg,
+    validated: false,
+    pending: false,
+  },
+  {
+    code: "REQUESTING_USDG_APPROVAL",
+    message: s.stepRequestingUsdgApproval,
+    validated: false,
+    pending: false,
+  },
+  {
+    code: "APPROVING_USDG",
+    message: s.stepApprovingUsdg,
+    validated: false,
+    pending: false,
+  },
+  {
+    code: "REDEEMING_USDG_FOR_USDC",
+    message: s.stepRedeemingUsdgForUsdc,
+    validated: false,
+    pending: false,
+  },
+  {
+    code: "DONE",
+    message: s.stepSwapDoneToUsdc,
+    validated: false,
+    pending: false,
+  },
+];
 
 // Upper-bound gas units per leg of the multi-step flow. Used by the pre-flight
 // gas check to warn users with too little ETH BEFORE they sign, so they don't
@@ -54,81 +129,11 @@ type GlowToUsdcState =
   | "ERROR";
 
 const getDefaultPendingStates = (
-  targetToken: "USDC" | "USDG"
+  targetToken: "USDC" | "USDG",
+  s: SwapLabels,
 ): PendingState[] => {
-  if (targetToken === "USDG") {
-    return [
-      {
-        code: "REQUESTING_GLOW_APPROVAL",
-        message: "Requesting GLOW approval",
-        validated: false,
-        pending: false,
-      },
-      {
-        code: "APPROVING_GLOW",
-        message: "Approving GLOW",
-        validated: false,
-        pending: false,
-      },
-      {
-        code: "SWAPPING_GLOW_TO_USDG",
-        message: "Swapping GLOW to USDG",
-        validated: false,
-        pending: false,
-      },
-      {
-        code: "DONE",
-        message: "Successfully swapped GLOW to USDG",
-        validated: false,
-        pending: false,
-      },
-    ];
-  }
-
-  return [
-    {
-      code: "REQUESTING_GLOW_APPROVAL",
-      message: "Requesting GLOW approval",
-      validated: false,
-      pending: false,
-    },
-    {
-      code: "APPROVING_GLOW",
-      message: "Approving GLOW",
-      validated: false,
-      pending: false,
-    },
-    {
-      code: "SWAPPING_GLOW_TO_USDG",
-      message: "Swapping GLOW to USDG",
-      validated: false,
-      pending: false,
-    },
-    {
-      code: "REQUESTING_USDG_APPROVAL",
-      message: "Requesting USDG approval",
-      validated: false,
-      pending: false,
-    },
-    {
-      code: "APPROVING_USDG",
-      message: "Approving USDG",
-      validated: false,
-      pending: false,
-    },
-    {
-      code: "REDEEMING_USDG_FOR_USDC",
-      message: "Redeeming USDG for USDC",
-      validated: false,
-      pending: false,
-    },
-    {
-      code: "DONE",
-      message: "Successfully converted GLOW to USDC",
-      validated: false,
-      pending: false,
-    },
-  ];
+  if (targetToken === "USDG") return buildPendingStatesUsdg(s);
+  return buildPendingStatesUsdc(s);
 };
 
 export const GlowToUsdcDialog: FC<{
@@ -146,6 +151,8 @@ export const GlowToUsdcDialog: FC<{
   slippageTolerance,
   targetToken = "USDC",
 }) => {
+  const { t } = useLang();
+  const s = t.swap;
   const [isPending, setIsPending] = React.useState(false);
   const [isSuccess, setIsSuccess] = React.useState(false);
   const [isError, setIsError] = React.useState(false);
@@ -153,8 +160,8 @@ export const GlowToUsdcDialog: FC<{
   const [txHash, setTxHash] = React.useState<string | null>(null);
   const [networkCostUSD, setNetworkCostUSD] = React.useState<string>("");
   const [isNetworkCostLoading, setIsNetworkCostLoading] = React.useState(false);
-  const [pendingStates, setPendingStates] = React.useState<PendingState[]>(
-    getDefaultPendingStates(targetToken)
+  const [pendingStates, setPendingStates] = React.useState<PendingState[]>(() =>
+    getDefaultPendingStates(targetToken, s),
   );
   const [currentState, setCurrentState] =
     React.useState<GlowToUsdcState>("NONE");
@@ -204,7 +211,7 @@ export const GlowToUsdcDialog: FC<{
 
   const handleSwapGlowToTarget = async () => {
     if (isSmartAccount) {
-      const msg = smartAccountCheck.reason ?? "Smart account not supported.";
+      const msg = smartAccountCheck.reason ?? s.smartAccountNotSupported;
       setCurrentState("ERROR");
       setIsError(true);
       setErrorMessage(msg);
@@ -212,8 +219,7 @@ export const GlowToUsdcDialog: FC<{
       return;
     }
     if (hasInsufficientGas) {
-      const msg =
-        "Insufficient ETH for gas. Add more ETH to your wallet and try again.";
+      const msg = s.insufficientGasError;
       setCurrentState("ERROR");
       setIsError(true);
       setErrorMessage(msg);
@@ -234,8 +240,8 @@ export const GlowToUsdcDialog: FC<{
       if (!estimateRes.ok) {
         setCurrentState("ERROR");
         setIsError(true);
-        setErrorMessage("Failed to estimate USDG output");
-        toast.error("Failed to estimate USDG output");
+        setErrorMessage(s.failedEstimateUsdg);
+        toast.error(s.failedEstimateUsdg);
         setIsPending(false);
         return;
       }
@@ -302,9 +308,9 @@ export const GlowToUsdcDialog: FC<{
       setCurrentState("ERROR");
       setIsPending(false);
       setIsError(true);
-      setErrorMessage(error?.message || "Transaction failed");
+      setErrorMessage(error?.message || s.transactionFailed);
       setTxHash(error?.txHash ?? null);
-      toast.error(error?.message || "Transaction failed");
+      toast.error(error?.message || s.transactionFailed);
     }
   };
 
@@ -368,7 +374,7 @@ export const GlowToUsdcDialog: FC<{
   // Reset once when the dialog closes
   useEffect(() => {
     if (!isOpen) {
-      setPendingStates(getDefaultPendingStates(targetToken));
+      setPendingStates(getDefaultPendingStates(targetToken, s));
       setCurrentState("NONE");
       setIntermediateUsdgAmount("");
       resetUniswapPurchaseState();
@@ -386,7 +392,7 @@ export const GlowToUsdcDialog: FC<{
   // Update pending states only when open and the target token changes
   useEffect(() => {
     if (isOpen) {
-      setPendingStates(getDefaultPendingStates(targetToken));
+      setPendingStates(getDefaultPendingStates(targetToken, s));
     }
   }, [isOpen, targetToken]);
 
@@ -413,14 +419,14 @@ export const GlowToUsdcDialog: FC<{
   // Transaction details for review
   const transactionDetails: TransactionDetail[] = [
     {
-      label: "You Pay",
+      label: s.youPayLabel,
       value: Number(amountToSell).toLocaleString("en-US", {
         maximumFractionDigits: 6,
       }),
       unit: "GLOW",
     },
     {
-      label: "You Receive",
+      label: s.youReceiveLabel,
       value: Number(estimatedOutputAmount)
         ? formatPrice(estimatedOutputAmount, 6)
         : "0.00",
@@ -431,7 +437,7 @@ export const GlowToUsdcDialog: FC<{
   // Success details
   const successDetails: TransactionDetail[] = [
     {
-      label: "Sent",
+      label: s.sentLabel,
       value: Number(amountToSell).toLocaleString("en-US", {
         maximumFractionDigits: 2,
       }),
@@ -440,7 +446,7 @@ export const GlowToUsdcDialog: FC<{
     ...(intermediateUsdgAmount && targetToken === "USDC"
       ? [
           {
-            label: "Via",
+            label: s.viaLabel,
             value: Number(intermediateUsdgAmount).toLocaleString("en-US", {
               maximumFractionDigits: 6,
             }),
@@ -449,7 +455,7 @@ export const GlowToUsdcDialog: FC<{
         ]
       : []),
     {
-      label: "Received",
+      label: s.receivedLabel,
       value: (
         <span className="text-[#4ADE80] font-mono font-medium">
           {formatPrice(estimatedOutputAmount, 6)}
@@ -467,7 +473,7 @@ export const GlowToUsdcDialog: FC<{
         <div className="bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 rounded-xl p-4">
           <div className="flex items-center justify-between text-left">
             <div>
-              <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest mb-1">You pay</div>
+              <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest mb-1">{s.youPay}</div>
               <div className="text-2xl font-semibold">
                 {Number(amountToSell).toLocaleString("en-US", {
                   maximumFractionDigits: 6,
@@ -491,7 +497,7 @@ export const GlowToUsdcDialog: FC<{
           <div className="flex items-center justify-between">
             <div>
               <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest mb-1">
-                You receive
+                {s.youReceive}
               </div>
               <div className="text-2xl font-semibold">
                 {Number(estimatedOutputAmount)
@@ -511,7 +517,7 @@ export const GlowToUsdcDialog: FC<{
         <div className="bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 rounded-xl p-4 space-y-3">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
-              Transaction Progress
+              {s.transactionProgress}
             </span>
           </div>
           <div className="space-y-2">
@@ -565,11 +571,11 @@ export const GlowToUsdcDialog: FC<{
         onClick={() => onOpenChange(false)}
         className="flex-1"
       >
-        Cancel
+        {s.cancel}
       </Button>
       <Button
         onClick={() => {
-          setPendingStates(getDefaultPendingStates(targetToken));
+          setPendingStates(getDefaultPendingStates(targetToken, s));
           setCurrentState("NONE");
           resetUniswapPurchaseState();
           setIsError(false);
@@ -578,7 +584,7 @@ export const GlowToUsdcDialog: FC<{
         }}
         className="flex-1"
       >
-        Try Again
+        {s.tryAgain}
       </Button>
     </div>
   ) : !isPending && !isTransactionSuccessful ? (
@@ -590,12 +596,17 @@ export const GlowToUsdcDialog: FC<{
       )}
       {!isSmartAccount && hasInsufficientGas && (
         <div className="rounded-md bg-amber-50 border border-amber-200 text-amber-900 text-xs px-3 py-2">
-          Not enough ETH to cover the full{" "}
-          {targetToken === "USDG" ? "swap" : "swap + redemption"}. Add{" "}
-          {gasShortfallEth
-            ? `~${Number(gasShortfallEth).toFixed(5)} ETH`
-            : "more ETH"}{" "}
-          to this wallet and try again.
+          {targetToken === "USDG"
+            ? s.notEnoughEthSwap(
+                gasShortfallEth
+                  ? `~${Number(gasShortfallEth).toFixed(5)} ETH`
+                  : "ETH",
+              )
+            : s.notEnoughEthRedemption(
+                gasShortfallEth
+                  ? `~${Number(gasShortfallEth).toFixed(5)} ETH`
+                  : "ETH",
+              )}
         </div>
       )}
       <div className="flex gap-3">
@@ -604,14 +615,14 @@ export const GlowToUsdcDialog: FC<{
           onClick={() => onOpenChange(false)}
           className="flex-1"
         >
-          Cancel
+          {s.cancel}
         </Button>
         <Button
           onClick={handleSwapGlowToTarget}
           className="flex-1"
           disabled={isPreflightBlocked || isPreflightChecking}
         >
-          {isPreflightChecking ? "Checking…" : "Approve and Swap"}
+          {isPreflightChecking ? s.checking : s.approveAndSwap}
         </Button>
       </div>
     </div>
@@ -624,18 +635,15 @@ export const GlowToUsdcDialog: FC<{
       isSubmitting={isPending}
       isSuccess={isTransactionSuccessful}
       isError={isError}
-      title="Review Swap"
+      title={s.reviewSwap}
       successTitle={`+${Number(estimatedOutputAmount).toLocaleString("en-US", {
         maximumFractionDigits: 6,
       })} ${targetToken}`}
-      errorTitle="Swap Failed"
-      processingTitle="Processing Swap"
-      description="Review your transaction details before confirming"
-      processingDescription="Please wait while we process your swap"
-      errorDescription={
-        errorMessage ||
-        "We were unable to complete your swap. Please try again."
-      }
+      errorTitle={s.swapFailed}
+      processingTitle={s.processingSwap}
+      description={s.reviewSwapDescription}
+      processingDescription={s.processingSwapDescription}
+      errorDescription={errorMessage || s.swapErrorFallback}
       transactionDetails={transactionDetails}
       successDetails={successDetails}
       txHash={txHash}
@@ -643,7 +651,7 @@ export const GlowToUsdcDialog: FC<{
       isNetworkFeeLoading={isNetworkCostLoading}
       reviewContent={reviewContent}
       footer={customFooter}
-      confirmLabel="Approve and Swap"
+      confirmLabel={s.approveAndSwap}
     />
   );
 };

@@ -29,6 +29,7 @@ import {
   CompletedFarmsDialog,
   type CompletedFarmItem,
 } from "@/components/dialogs/completed-farms-dialog";
+import { useLang } from "@/lib/i18n";
 
 interface CompletedFarmRow {
   id: string;
@@ -134,6 +135,8 @@ function FarmsSkeleton() {
 }
 
 function CompletedTimelineRow({ row }: { row: CompletedFarmRow }) {
+  const { t } = useLang();
+  const s = t.routes.stats;
   const paymentLabel = formatPayment(row.paymentAmount, row.paymentCurrency);
   const solarPanelsLabel =
     typeof row.solarPanelsQuantity === "number" &&
@@ -194,12 +197,12 @@ function CompletedTimelineRow({ row }: { row: CompletedFarmRow }) {
         ) : null}
         {row.auditUrl ? (
           <Badge variant="secondary" className="gap-1 text-xs">
-            See audit
+            {s.seeAudit}
             <ExternalLink className="h-3 w-3 opacity-60 transition-opacity group-hover:opacity-100" />
           </Badge>
         ) : (
           <Badge variant="outline" className="text-xs text-muted-foreground/60">
-            Audit pending
+            {s.auditPending}
           </Badge>
         )}
       </div>
@@ -230,6 +233,8 @@ export function LifetimeFarms({
   isGlwDataLoading = false,
   withChart = false,
 }: LifetimeFarmsProps) {
+  const { t } = useLang();
+  const s = t.routes.stats;
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const { farms: completedFarms, isLoading: completedLoading } =
     useCompletedFarms({ enabled: shouldLoad });
@@ -428,10 +433,10 @@ export function LifetimeFarms({
             <div className="flex items-center justify-between gap-4">
               <div>
                 <h3 className="text-sm font-semibold text-foreground">
-                  Lifetime Farms Onboarded
+                  {s.lifetimeFarmsOnboarded}
                 </h3>
                 <p className="mt-0.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
-                  Solar farms brought online
+                  {s.solarFarmsBroughtOnline}
                 </p>
               </div>
             </div>
@@ -524,18 +529,18 @@ export function LifetimeFarms({
           <div className="pb-8 grid grid-cols-1 md:grid-cols-2 gap-8 border-b border-border/20 dark:border-border/40">
             <div>
               <div className="mb-2 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
-                Total Onboarded
+                {s.totalOnboarded}
               </div>
               <div className="text-5xl font-bold tracking-tight text-foreground">
                 {totalFarms.toLocaleString()}
               </div>
               <p className="mt-2 text-xs text-muted-foreground/60">
-                Lifetime farms with completed audits
+                {s.lifetimeFarmsCompleted}
               </p>
             </div>
             <div>
               <div className="mb-2 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
-                Total GLW Delegated
+                {s.totalGlwDelegated}
               </div>
               <div className="text-5xl font-bold tracking-tight text-foreground">
                 {isGlwDataLoading || totalGlwDelegated === undefined
@@ -544,7 +549,7 @@ export function LifetimeFarms({
                 <span className="text-xl text-muted-foreground/60">GLW</span>
               </div>
               <p className="mt-2 text-xs text-muted-foreground/60">
-                Delegated to solar farms
+                {s.delegatedToSolar}
               </p>
             </div>
           </div>
@@ -558,7 +563,7 @@ export function LifetimeFarms({
                   className="h-7 text-xs font-medium text-muted-foreground hover:text-foreground"
                   onClick={() => setIsDialogOpen(true)}
                 >
-                  See All
+                  {s.seeAll}
                 </Button>
               )}
             </div>
@@ -568,7 +573,7 @@ export function LifetimeFarms({
                   <Sun className="h-8 w-8 text-muted-foreground" />
                 </div>
                 <p className="mb-1 text-sm font-medium text-foreground">
-                  No completed farms yet
+                  {s.noCompletedFarms}
                 </p>
                 <p className="mx-auto max-w-sm px-4 text-sm text-muted-foreground">
                   Completed farms will appear here once audits are finalized.

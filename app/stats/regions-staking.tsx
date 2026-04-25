@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useCompletedFarms } from "@/hooks/useCompletedFarms";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
+import { useLang } from "@/lib/i18n";
 import { formatUnits } from "viem";
 
 interface RegionData {
@@ -33,6 +34,8 @@ interface RegionsStakingProps {
 }
 
 export function RegionsStaking({ shouldLoad = true }: RegionsStakingProps) {
+  const { t } = useLang();
+  const s = t.routes.stats;
   const { toast } = useToast();
   const {
     data: activeSummary,
@@ -129,13 +132,13 @@ export function RegionsStaking({ shouldLoad = true }: RegionsStakingProps) {
       ) : isError ? (
         <div className="text-center py-16">
           <p className="text-xs text-muted-foreground/60">
-            Unable to load regional staking data right now.
+            {s.unableToLoadRegional}
           </p>
         </div>
       ) : !regions || regions.length === 0 ? (
         <div className="text-center py-16">
           <p className="text-xs text-muted-foreground/60">
-            No regions available at this time.
+            {s.noRegionsAvailable}
           </p>
         </div>
       ) : (
@@ -179,7 +182,7 @@ export function RegionsStaking({ shouldLoad = true }: RegionsStakingProps) {
                   <div className="grid grid-cols-2 gap-3 mb-6">
                     <div className="bg-muted/30 dark:bg-muted/50 rounded-xl p-4 border border-border/20 dark:border-border/40">
                       <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 mb-1">
-                        Staked GCTL
+                        {s.stakedGctl}
                       </div>
                       <div className="text-lg font-bold tracking-tight tabular-nums text-foreground">
                         {region.stakedGctl.toLocaleString(undefined, {
@@ -189,7 +192,7 @@ export function RegionsStaking({ shouldLoad = true }: RegionsStakingProps) {
                     </div>
                     <div className="bg-muted/30 dark:bg-muted/50 rounded-xl p-4 border border-border/20 dark:border-border/40">
                       <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 mb-1">
-                        Share of total
+                        {s.shareOfTotal}
                       </div>
                       <div className="text-lg font-bold tracking-tight tabular-nums text-foreground">
                         {totalStakedGctl === 0
@@ -202,7 +205,7 @@ export function RegionsStaking({ shouldLoad = true }: RegionsStakingProps) {
                     </div>
                     <div className="bg-muted/30 dark:bg-muted/50 rounded-xl p-4 border border-border/20 dark:border-border/40">
                       <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 mb-1">
-                        Total PDs
+                        {s.totalPds}
                       </div>
                       <div className="text-lg font-bold tracking-tight tabular-nums text-foreground">
                         $

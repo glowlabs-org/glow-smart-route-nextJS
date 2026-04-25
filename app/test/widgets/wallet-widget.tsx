@@ -13,6 +13,7 @@ import { QUERY_KEYS } from "@/hooks/query-keys";
 import { trackEvent } from "@/lib/telemetry";
 import { GlowSymbol } from "@/components/glow-symbol";
 import { useWalletPortfolio } from "./use-wallet-portfolio";
+import { useLang } from "@/lib/i18n";
 
 const TOKEN_ICON_SRC_BY_SYMBOL = {
   ETH: "/images/tokens/eth.svg",
@@ -120,6 +121,7 @@ export default function WalletWidget({
   walletAddress,
   variant = "default",
 }: WalletWidgetProps) {
+  const { t } = useLang();
   const chainId = useChainId();
   const queryClient = useQueryClient();
   const isMinimal = variant === "minimal";
@@ -181,7 +183,7 @@ export default function WalletWidget({
         <CardHeader className="py-0 px-6">
           <div className="flex items-center justify-center">
             <div className="text-sm md:text-lg font-semibold tracking-tight text-foreground">
-              Your Wallet
+              {t.widgets.walletWidget.title}
             </div>
           </div>
         </CardHeader>
@@ -225,7 +227,7 @@ export default function WalletWidget({
               setIsSwapOpen(true);
             }}
           >
-            Swap
+            {t.widgets.walletWidget.swap}
           </Button>
           <Button
             variant="outline"
@@ -240,7 +242,7 @@ export default function WalletWidget({
               setIsSendOpen(true);
             }}
           >
-            Send
+            {t.widgets.walletWidget.send}
           </Button>
         </div>
       </CardContent>

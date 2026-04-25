@@ -52,6 +52,7 @@ import {
 import { filterPublicLaunchpadApplications } from "@/utils/launchpad";
 import { DepositDialog } from "./deposit-dialog";
 import { MiningStatsDialog } from "./mining-stats-dialog";
+import { useLang } from "@/lib/i18n";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { GlowSymbol } from "@/components/glow-symbol";
@@ -75,6 +76,8 @@ function OwnedFractionsDisplay({
   application: AuctionApplication;
   walletAddress: string;
 }) {
+  const { t } = useLang();
+  const mc = t.routes.miningCenter;
   const { summary, isLoading } = useFractionSplits({
     walletAddress,
     fractionId: application.activeFraction?.id || null,
@@ -88,7 +91,7 @@ function OwnedFractionsDisplay({
           className="text-sm text-muted-foreground mb-2"
           style={{ fontFamily: "Söhne, sans-serif", fontWeight: 400 }}
         >
-          Your miners
+          {mc.yourMiners}
         </div>
         <div className="space-y-2">
           <div className="h-5 w-40 bg-muted rounded" />
@@ -132,6 +135,8 @@ function OwnedFractionsBadge({
   application: AuctionApplication;
   walletAddress: string;
 }) {
+  const { t } = useLang();
+  const mc = t.routes.miningCenter;
   const { summary, isLoading } = useFractionSplits({
     walletAddress,
     fractionId: application.activeFraction?.id || null,
@@ -155,7 +160,7 @@ function OwnedFractionsBadge({
           fontWeight: 400,
         }}
       >
-        Your miners
+        {mc.yourMiners}
       </div>
       <div
         className="text-sm font-semibold text-white"
@@ -189,6 +194,8 @@ function FilterBar({
   onSortChange,
   onSortOrderChange,
 }: FilterBarProps) {
+  const { t } = useLang();
+  const mc = t.routes.miningCenter;
   return (
     <div className="space-y-6 md:space-y-8">
       {/* Zone Filter */}
@@ -207,10 +214,10 @@ function FilterBar({
           onValueChange={(v) => onZoneChange(v === "all" ? null : v)}
         >
           <SelectTrigger className="w-full h-11 bg-background border-border/60 hover:border-border transition-colors">
-            <SelectValue placeholder="All zones" />
+            <SelectValue placeholder={mc.allZones} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All zones</SelectItem>
+            <SelectItem value="all">{mc.allZones}</SelectItem>
             {zones.map((zone: any) => (
               <SelectItem key={zone.id} value={zone.id.toString()}>
                 {zone.name}
@@ -231,15 +238,15 @@ function FilterBar({
             fontWeight: 600,
           }}
         >
-          Order
+          {mc.order}
         </label>
         <Select value={selectedSortOrder} onValueChange={onSortOrderChange}>
           <SelectTrigger className="w-full h-11 bg-background border-border/60 hover:border-border transition-colors">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="desc">Descending</SelectItem>
-            <SelectItem value="asc">Ascending</SelectItem>
+            <SelectItem value="desc">{mc.descending}</SelectItem>
+            <SelectItem value="asc">{mc.ascending}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -260,6 +267,8 @@ interface MiningCenterViewProps {
 }
 
 function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
+  const { t } = useLang();
+  const mc = t.routes.miningCenter;
   const [zoneParam, setZoneParam] = useQueryState("zone");
   const [sortParam, setSortParam] = useQueryState("sort", {
     defaultValue: "pricePerMiner",
@@ -391,7 +400,7 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
                     fontWeight: 300,
                   }}
                 >
-                  Filter
+                  {mc.filter}
                 </h3>
                 <p
                   className="text-sm text-muted-foreground"
@@ -400,7 +409,7 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
                     fontWeight: 400,
                   }}
                 >
-                  Refine your search
+                  {mc.refineSearch}
                 </p>
               </div>
               <FilterBar {...filterBarProps} />
@@ -421,7 +430,7 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
                       fontWeight: 300,
                     }}
                   >
-                    Filter
+                    {mc.filter}
                   </DrawerTitle>
                   <DrawerClose asChild>
                     <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -436,7 +445,7 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
                     fontWeight: 400,
                   }}
                 >
-                  Refine your search
+                  {mc.refineSearch}
                 </p>
               </DrawerHeader>
               <div className="overflow-y-auto p-6">
@@ -505,15 +514,15 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
                   Error loading mining center applications: {error?.message}
                 </p>
                 <p className="text-muted-foreground text-xs mt-1">
-                  Please try again later
+                  {mc.pleaseTryAgain}
                 </p>
               </div>
             ) : applications.length === 0 ? (
               <>
                 <LaunchCountdown
                   target={getNextMiningCenterBatchAtET()}
-                  title="Mining Center"
-                  subtitle="The next batch of miners will be available soon"
+                  title={mc.title}
+                  subtitle={mc.subtitle}
                   onComplete={handleCountdownComplete}
                 />
               </>
@@ -620,7 +629,7 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
                             ) : (
                               <div className="w-full h-64 lg:h-full bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
                                 <span className="text-gray-400">
-                                  No images available
+                                  {mc.noImagesAvailable}
                                 </span>
                               </div>
                             )}
@@ -670,7 +679,7 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
                                       fontWeight: 600,
                                     }}
                                   >
-                                    Miners Available
+                                    {mc.minersAvailable}
                                   </div>
                                 </div>
                               </div>
@@ -687,7 +696,7 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
                                         fontWeight: 400,
                                       }}
                                     >
-                                      Weekly Rewards per miner
+                                      {mc.weeklyRewardsPerMiner}
                                     </div>
                                     <div className="group relative">
                                       <HelpCircle className="w-3.5 h-3.5 text-gray-400 cursor-help" />
@@ -796,7 +805,7 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
                                   fontWeight: 400,
                                 }}
                               >
-                                Price per miner
+                                {mc.pricePerMiner}
                               </div>
                               <div
                                 className="text-4xl md:text-5xl xl:text-6xl 2xl:text-7xl text-black dark:text-white"
@@ -848,11 +857,11 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
                                 }}
                               >
                                 {application.activeFraction?.isFilled
-                                  ? "Fully Funded"
+                                  ? mc.fullyFunded
                                   : (application.activeFraction
                                       ?.remainingSteps || 0) <= 0
-                                  ? "No Miners Available"
-                                  : "Buy Miners"}
+                                  ? mc.noMinersAvailable
+                                  : mc.buyMiners}
                               </span>
                             </Button>
                             <Button
@@ -872,7 +881,7 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
                                   fontWeight: 400,
                                 }}
                               >
-                                Advanced Stats
+                                {mc.advancedStats}
                               </span>
                             </Button>
                           </div>

@@ -26,6 +26,7 @@ import { useWalletClient } from "wagmi";
 import { publicClient } from "@/web3/web3/clients/publicClient";
 import { useRefundableFractions, type RefundableFraction } from "@/hooks";
 import { usePolling } from "@/utils/use-polling";
+import { useLang } from "@/lib/i18n";
 
 interface RefundClaimsPanelProps {
   walletAddress: string | undefined;
@@ -38,6 +39,7 @@ export function RefundClaimsPanel({
   onClaimSuccess,
   variant = "page",
 }: RefundClaimsPanelProps) {
+  const { t } = useLang();
   const { data: walletClient } = useWalletClient();
   const [processingRefunds, setProcessingRefunds] = React.useState<Set<string>>(
     new Set()
@@ -93,8 +95,8 @@ export function RefundClaimsPanel({
     onSuccess: (data) => {
       setProcessingRefunds(new Set());
       // Show success toast when refund is confirmed removed
-      toast.success("Refund claimed successfully!", {
-        description: "Your GLW tokens have been refunded to your wallet",
+      toast.success(t.dialogs.refundClaims.refunded, {
+        description: t.dialogs.refundClaims.refundedDesc,
       });
       if (onClaimSuccess) {
         onClaimSuccess();
@@ -103,9 +105,8 @@ export function RefundClaimsPanel({
     onError: (error) => {
       console.error("Polling timeout:", error);
       setProcessingRefunds(new Set());
-      toast.warning("Refund processing is taking longer than expected", {
-        description:
-          "Your refund may still be processing. Please check your wallet.",
+      toast.warning(t.dialogs.refundClaims.slowPipeline, {
+        description: t.dialogs.refundClaims.slowPipelineDesc,
       });
     },
   });
@@ -113,7 +114,7 @@ export function RefundClaimsPanel({
   // Handle individual refund claim
   async function handleClaimRefund(refundableFraction: RefundableFraction) {
     if (!walletClient) {
-      toast.error("Please connect your wallet");
+      toast.error(t.dialogs.refundClaims.connectWallet);
       return;
     }
 
@@ -128,10 +129,10 @@ export function RefundClaimsPanel({
       );
 
       // Show initial transaction submitted toast
-      toast.info("Refund transaction submitted", {
-        description: `Transaction: ${txHash}`,
+      toast.info(t.dialogs.refundClaims.submitted, {
+        description: t.dialogs.refundClaims.submittedDesc(txHash),
         action: {
-          label: "View",
+          label: t.dialogs.refundClaims.viewAction,
           onClick: () =>
             window.open(`https://etherscan.io/tx/${txHash}`, "_blank"),
         },
@@ -141,8 +142,8 @@ export function RefundClaimsPanel({
       startPolling();
     } catch (error: any) {
       console.error("Failed to claim refund:", error);
-      toast.error("Failed to claim refund", {
-        description: error?.message || "Please try again",
+      toast.error(t.dialogs.refundClaims.failed, {
+        description: error?.message || t.dialogs.refundClaims.tryAgain,
       });
 
       // Remove from processing on error
@@ -157,16 +158,18 @@ export function RefundClaimsPanel({
   // Handle claim all refunds
   async function handleClaimAllRefunds() {
     if (!walletClient) {
-      toast.error("Please connect your wallet");
+      toast.error(t.dialogs.refundClaims.connectWallet);
       return;
     }
 
     if (refundableFractions.length === 0) {
-      toast.info("No refunds available to claim");
+      toast.info(t.dialogs.refundClaims.noRefunds);
       return;
     }
 
-    toast.info(`Processing ${refundableFractions.length} refund claims...`);
+    toast.info(
+      t.dialogs.refundClaims.processingCount(refundableFractions.length),
+    );
 
     for (const refundableFraction of refundableFractions) {
       try {
@@ -200,10 +203,10 @@ export function RefundClaimsPanel({
           <div className="flex-1">
             <CardTitle className="flex items-center gap-2 text-2xl font-bold">
               <AlertTriangle className="w-6 h-6 text-orange-500" />
-              Available Refunds
+              {t.dialogs.refundClaims.availableRefunds}
             </CardTitle>
             <CardDescription className="mt-2 text-base">
-              Claim refunds from expired or cancelled listings
+              {t.dialogs.refundClaims.description}
             </CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -218,11 +221,11 @@ export function RefundClaimsPanel({
                 {isPolling ? (
                   <>
                     <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    Confirming...
+                    {t.dialogs.refundClaims.confirming}
                   </>
                 ) : (
                   <>
-                    Claim All
+                    {t.dialogs.refundClaims.claimAll}
                     <Badge variant="secondary" className="ml-2">
                       {refundableFractions.length}
                     </Badge>
@@ -240,7 +243,7 @@ export function RefundClaimsPanel({
               <RefreshCw
                 className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`}
               />
-              Refresh
+              {t.dialogs.refundClaims.refresh}
             </Button>
           </div>
         </div>
@@ -267,7 +270,7 @@ export function RefundClaimsPanel({
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold flex flex-wrap items-center gap-2 mb-1">
-                      <span>Quantity</span>
+                      <span>{t.dialogs.refundClaims.quantity}</span>
                       <Badge
                         variant={
                           refundableFraction.fraction.status === "expired"
@@ -279,12 +282,12 @@ export function RefundClaimsPanel({
                         {refundableFraction.fraction.status === "expired" ? (
                           <>
                             <Clock className="w-3 h-3 mr-1" />
-                            Expired
+                            {t.dialogs.refundClaims.expired}
                           </>
                         ) : (
                           <>
                             <XCircle className="w-3 h-3 mr-1" />
-                            Cancelled
+                            {t.dialogs.refundClaims.cancelled}
                           </>
                         )}
                       </Badge>
@@ -317,10 +320,12 @@ export function RefundClaimsPanel({
                       processingRefunds.has(refundableFraction.fraction.id)) ? (
                       <>
                         <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                        {isPolling ? "Confirming..." : "Processing..."}
+                        {isPolling
+                          ? t.dialogs.refundClaims.confirming
+                          : t.dialogs.refundClaims.processing}
                       </>
                     ) : (
-                      "Claim"
+                      t.dialogs.refundClaims.claim
                     )}
                   </Button>
                 </div>
@@ -333,15 +338,19 @@ export function RefundClaimsPanel({
             <div className="flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0" />
               <div className="text-sm text-muted-foreground">
-                <div className="font-semibold mb-2">About Refunds</div>
+                <div className="font-semibold mb-2">
+                  {t.dialogs.refundClaims.aboutTitle}
+                </div>
                 <div className="leading-relaxed">
-                  Total refundable:{" "}
+                  {t.dialogs.refundClaims.totalRefundable}{" "}
                   <span className="font-medium text-foreground">
-                    {formatRefundAmount(summary.totalRefundableAmount)} GLW
-                  </span>{" "}
-                  from {summary.totalRefundableFractions} failed listings (
-                  {summary.byStatus.expired} expired,{" "}
-                  {summary.byStatus.cancelled} cancelled).
+                    {t.dialogs.refundClaims.aboutDescription(
+                      formatRefundAmount(summary.totalRefundableAmount),
+                      summary.totalRefundableFractions,
+                      summary.byStatus.expired,
+                      summary.byStatus.cancelled,
+                    )}
+                  </span>
                 </div>
               </div>
             </div>

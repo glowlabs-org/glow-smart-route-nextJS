@@ -85,7 +85,7 @@ export interface SolarCollectorModel {
     farmName: string;
     regionId: number;
     wattsCaptured: number;
-    whenLabel: string;
+    timestamp: string;
     farmSizeWatts: number;
   } | null;
 
@@ -99,22 +99,33 @@ export interface SolarCollectorModel {
   wattsByRegion: Record<number, number>;
 }
 
-function formatWhenLabel(timestamp: string): string {
+export interface WhenLabels {
+  whenToday: string;
+  whenYesterday: string;
+  whenDaysAgo: (n: number) => string;
+  whenLastWeek: string;
+  whenWeeksAgo: (n: number) => string;
+}
+
+export function formatWhenLabel(
+  timestamp: string,
+  labels: WhenLabels,
+  bcp47: string = "en-US",
+): string {
   const date = new Date(timestamp);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-  if (diffDays === 0) return "Today";
-  if (diffDays === 1) return "Yesterday";
-  if (diffDays < 7) return `${diffDays} Days Ago`;
-  if (diffDays < 14) return "Last Week";
+  if (diffDays === 0) return labels.whenToday;
+  if (diffDays === 1) return labels.whenYesterday;
+  if (diffDays < 7) return labels.whenDaysAgo(diffDays);
+  if (diffDays < 14) return labels.whenLastWeek;
 
   const weeksAgo = Math.floor(diffDays / 7);
-  if (weeksAgo < 5) return `${weeksAgo} Weeks Ago`;
+  if (weeksAgo < 5) return labels.whenWeeksAgo(weeksAgo);
 
-  // Format as "Jan 10"
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return date.toLocaleDateString(bcp47, { month: "short", day: "numeric" });
 }
 
 function calculateImpact(totalWatts: number) {
@@ -304,7 +315,7 @@ export function useSolarCollectorQuery(args: {
           farmName: data.recentDrop.farmName || "Unknown Farm",
           regionId: data.recentDrop.regionId,
           wattsCaptured: data.recentDrop.wattsCaptured,
-          whenLabel: formatWhenLabel(data.recentDrop.timestamp),
+          timestamp: data.recentDrop.timestamp,
           farmSizeWatts: data.recentDrop.farmSizeWatts,
         }
       : null;

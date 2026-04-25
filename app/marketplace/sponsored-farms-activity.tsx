@@ -30,6 +30,9 @@ import type { FarmImagesBatchResponse } from "@glowlabs-org/utils/browser";
 import { Button } from "@/components/ui/button";
 import { CashMinerIcon, DelegationIcon } from "@/components/impact-icons";
 import { FallbackImage } from "@/components/ui/fallback-image";
+import { useLang, type Strings } from "@/lib/i18n";
+
+type SponsoredFarmsLabels = Strings["routes"]["sponsoredFarmsActivity"];
 
 function formatAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -64,31 +67,35 @@ function formatCompactNumber(value: number, maximumFractionDigits: number) {
   }
 }
 
-function formatTimeAgoShort(timestampMs: number, nowMs: number) {
+function formatTimeAgoShort(
+  timestampMs: number,
+  nowMs: number,
+  labels: SponsoredFarmsLabels,
+) {
   const diffMs = nowMs - timestampMs;
   if (!Number.isFinite(diffMs)) return "—";
-  if (diffMs < 45_000) return "now";
+  if (diffMs < 45_000) return labels.timeNow;
 
   const diffSeconds = Math.floor(diffMs / 1000);
-  if (diffSeconds < 60) return `${diffSeconds}s ago`;
+  if (diffSeconds < 60) return labels.timeSecondsAgo(String(diffSeconds));
 
   const diffMinutes = Math.floor(diffSeconds / 60);
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  if (diffMinutes < 60) return labels.timeMinutesAgo(String(diffMinutes));
 
   const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffHours < 24) return labels.timeHoursAgo(String(diffHours));
 
   const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffDays < 7) return labels.timeDaysAgo(String(diffDays));
 
   const diffWeeks = Math.floor(diffDays / 7);
-  if (diffWeeks < 4) return `${diffWeeks}w ago`;
+  if (diffWeeks < 4) return labels.timeWeeksAgo(String(diffWeeks));
 
   const diffMonths = Math.floor(diffDays / 30);
-  if (diffMonths < 12) return `${diffMonths}mo ago`;
+  if (diffMonths < 12) return labels.timeMonthsAgo(String(diffMonths));
 
   const diffYears = Math.floor(diffDays / 365);
-  return `${diffYears}y ago`;
+  return labels.timeYearsAgo(String(diffYears));
 }
 
 function getKpiGridClassName(params: {
@@ -130,6 +137,8 @@ export function SponsoredFarmsActivity({
   onViewAllClick,
   showKpis = true,
 }: SponsoredFarmsActivityProps) {
+  const { t } = useLang();
+  const sf = t.routes.sponsoredFarmsActivity;
   const isWidget = variant === "widget";
 
   const {
@@ -314,25 +323,25 @@ export function SponsoredFarmsActivity({
               <TableHeader>
                 <TableRow>
                   <TableHead className="text-right min-w-[120px]">
-                    Total
+                    {sf.headerTotal}
                   </TableHead>
                   <TableHead className="text-right min-w-[100px]">
-                    Amount
+                    {sf.headerAmount}
                   </TableHead>
-                  <TableHead className="min-w-[120px]">Date</TableHead>
+                  <TableHead className="min-w-[120px]">{sf.headerDate}</TableHead>
                   {showRewardScore && (
                     <TableHead className="text-right min-w-[120px]">
-                      Reward Score
+                      {sf.headerRewardScore}
                     </TableHead>
                   )}
                   <TableHead className="min-w-[100px] hidden md:table-cell">
-                    Farm
+                    {sf.headerFarm}
                   </TableHead>
                   <TableHead className="min-w-[100px] hidden md:table-cell">
-                    Type
+                    {sf.headerType}
                   </TableHead>
                   <TableHead className="min-w-[100px] hidden lg:table-cell">
-                    Wallet
+                    {sf.headerWallet}
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -377,10 +386,10 @@ export function SponsoredFarmsActivity({
       <div className={cn(isWidget ? "w-full min-w-0" : "", className)}>
         <div className="text-center py-8">
           <p className="text-destructive text-sm">
-            Error loading purchase activity: {error?.message}
+            {sf.errorLoading(error?.message ?? "")}
           </p>
           <p className="text-muted-foreground text-xs mt-1">
-            Please try again later
+            {sf.pleaseTryAgain}
           </p>
         </div>
       </div>
@@ -392,10 +401,10 @@ export function SponsoredFarmsActivity({
       <div className={cn(isWidget ? "w-full min-w-0" : "", className)}>
         <div className="text-center py-8">
           <p className="text-muted-foreground text-sm">
-            No purchase activity found.
+            {sf.noPurchaseActivity}
           </p>
           <p className="text-muted-foreground text-xs mt-1">
-            Recent share purchases will appear here
+            {sf.recentPurchasesAppear}
           </p>
         </div>
       </div>
@@ -410,7 +419,7 @@ export function SponsoredFarmsActivity({
           {showRewardScore && (
           <div className={cn("rounded-xl p-3 min-w-0", isWidget ? "bg-muted/30 border border-border/60" : "bg-muted dark:bg-muted/30 md:p-4")}>
             <div className={cn("text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1.5 min-w-0 truncate whitespace-nowrap", !isWidget && kpiLabelClassName)}>
-              {isWidget ? "Avg Score" : "Avg Reward Score"}
+              {isWidget ? sf.avgScore : sf.avgRewardScore}
             </div>
             <div className={cn("font-semibold text-foreground tabular-nums min-w-0", isWidget ? "text-xl leading-none" : kpiValueClassName)}>
               {(() => {
@@ -432,7 +441,7 @@ export function SponsoredFarmsActivity({
             </div>
             {isWidget && (
               <div className="mt-0.5 text-[10px] text-muted-foreground">
-                reward score
+                {sf.rewardScoreSuffix}
               </div>
             )}
           </div>
@@ -441,10 +450,10 @@ export function SponsoredFarmsActivity({
           <div className="bg-muted dark:bg-muted/30 rounded-xl p-3 md:p-4 min-w-0">
             <div className={kpiLabelClassName}>
               {fractionType === "mining-center"
-                ? "Buyers"
+                ? sf.buyers
                 : fractionType === "launchpad"
-                ? "Delegators"
-                : "Contributors"}
+                ? sf.delegators
+                : sf.contributors}
             </div>
             <div className={kpiValueClassName}>
               {fractionType === "mining-center"
@@ -461,8 +470,8 @@ export function SponsoredFarmsActivity({
         <div className={cn("rounded-xl p-3 min-w-0", isWidget ? "bg-muted/30 border border-border/60" : "bg-muted dark:bg-muted/30 md:p-4")}>
           <div className={cn("text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1.5 min-w-0 truncate whitespace-nowrap", !isWidget && kpiLabelClassName)}>
             {fractionType === "mining-center"
-              ? isWidget ? "USDC Spent" : "Total USDC Spent"
-              : isWidget ? "GLW Delegated" : "Total GLW Delegated"}
+              ? isWidget ? sf.usdcSpent : sf.totalUsdcSpent
+              : isWidget ? sf.glwDelegated : sf.totalGlwDelegated}
           </div>
           <div className={cn("flex items-baseline gap-1.5", isWidget ? "font-semibold text-foreground tabular-nums min-w-0 text-xl leading-none" : kpiValueClassName)}>
             {fractionType === "mining-center" ? (
@@ -501,42 +510,42 @@ export function SponsoredFarmsActivity({
           </div>
           {isWidget && (
             <div className="mt-0.5 text-[10px] text-muted-foreground">
-              total volume
+              {sf.totalVolumeSuffix}
             </div>
           )}
         </div>
         {fractionType === "mining-center" ? (
           <div className={cn("rounded-xl p-3 min-w-0", isWidget ? "bg-muted/30 border border-border/60" : "bg-muted dark:bg-muted/30 md:p-4")}>
             <div className={cn("text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1.5 min-w-0 truncate whitespace-nowrap", !isWidget && kpiLabelClassName)}>
-              Miners
+              {sf.miners}
             </div>
             <div className={cn("font-semibold text-foreground tabular-nums min-w-0", isWidget ? "text-xl leading-none" : kpiValueClassName)}>
               {formatNumber(summary.uniqueFractions, 0)}
             </div>
             {isWidget && (
               <div className="mt-0.5 text-[10px] text-muted-foreground">
-                purchased
+                {sf.purchasedSuffix}
               </div>
             )}
           </div>
         ) : fractionType === "launchpad" ? (
           <div className={cn("rounded-xl p-3 min-w-0", isWidget ? "bg-muted/30 border border-border/60" : "bg-muted dark:bg-muted/30 md:p-4")}>
             <div className={cn("text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1.5 min-w-0 truncate whitespace-nowrap", !isWidget && kpiLabelClassName)}>
-              Farms
+              {sf.farms}
             </div>
             <div className={cn("font-semibold text-foreground tabular-nums min-w-0", isWidget ? "text-xl leading-none" : kpiValueClassName)}>
               {formatNumber(summary.uniqueFractions, 0)}
             </div>
             {isWidget && (
               <div className="mt-0.5 text-[10px] text-muted-foreground">
-                funded
+                {sf.fundedSuffix}
               </div>
             )}
           </div>
         ) : (
           <div className={cn("rounded-xl p-3 min-w-0", isWidget ? "bg-muted/30 border border-border/60" : "bg-muted dark:bg-muted/30 md:p-4")}>
             <div className={cn("text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1.5 min-w-0 truncate whitespace-nowrap", !isWidget && kpiLabelClassName)}>
-              {isWidget ? "Miners USDC" : "USDC Spent by Miners"}
+              {isWidget ? sf.minersUsdc : sf.usdcSpentByMiners}
             </div>
             <div
               className={cn("flex items-baseline gap-1.5", isWidget ? "font-semibold text-foreground tabular-nums min-w-0 text-xl leading-none" : kpiValueClassName)}
@@ -557,7 +566,7 @@ export function SponsoredFarmsActivity({
             </div>
             {isWidget && (
               <div className="mt-0.5 text-[10px] text-muted-foreground">
-                miner volume
+                {sf.minerVolumeSuffix}
               </div>
             )}
           </div>
@@ -580,7 +589,7 @@ export function SponsoredFarmsActivity({
             );
 
             const purchaseAtMs = new Date(purchase.purchaseDate).getTime();
-            const purchaseDate = formatTimeAgoShort(purchaseAtMs, nowMs);
+            const purchaseDate = formatTimeAgoShort(purchaseAtMs, nowMs, sf);
 
             const ensName = ensNames[purchase.buyer];
             const buyerDisplay = ensName || shortAddress(purchase.buyer);
@@ -639,7 +648,7 @@ export function SponsoredFarmsActivity({
                             : "border-delegation-purple/90 bg-delegation-purple/25 text-delegation-purple"
                         )}
                       >
-                        {isMiningCenter ? "Miner" : "Delegation"}
+                        {isMiningCenter ? sf.badgeMiner : sf.badgeDelegation}
                       </span>
                     </div>
                     <span className="font-mono font-medium tabular-nums text-foreground text-sm whitespace-nowrap shrink-0">
@@ -680,7 +689,7 @@ export function SponsoredFarmsActivity({
                 decimals
               );
               const purchaseAtMs = new Date(purchase.purchaseDate).getTime();
-              const purchaseDate = formatTimeAgoShort(purchaseAtMs, nowMs);
+              const purchaseDate = formatTimeAgoShort(purchaseAtMs, nowMs, sf);
               const ensName = ensNames[purchase.buyer];
               const buyerDisplay = ensName || formatAddress(purchase.buyer);
               const isMiningCenter = purchase.fractionType === "mining-center";
@@ -737,7 +746,7 @@ export function SponsoredFarmsActivity({
                           : "border-delegation-purple/50 bg-delegation-purple/15 text-delegation-purple"
                       )}
                     >
-                      {isMiningCenter ? "Miner" : "Delegation"}
+                      {isMiningCenter ? sf.badgeMiner : sf.badgeDelegation}
                     </div>
                   </div>
                   <div className="flex items-center justify-between text-xs pt-2 border-t border-border/50 mt-1">
@@ -764,19 +773,19 @@ export function SponsoredFarmsActivity({
               <TableHeader>
                 <TableRow>
                   <TableHead className="text-left min-w-[120px]">
-                    Total
+                    {sf.headerTotal}
                   </TableHead>
-                  <TableHead className="text-right w-[6ch]">Amount</TableHead>
-                  <TableHead className="text-left w-[8ch]">Date</TableHead>
+                  <TableHead className="text-right w-[6ch]">{sf.headerAmount}</TableHead>
+                  <TableHead className="text-left w-[8ch]">{sf.headerDate}</TableHead>
                   {showRewardScore && (
                     <TableHead className="text-center min-w-[120px]">
-                      Reward Score
+                      {sf.headerRewardScore}
                     </TableHead>
                   )}
-                  <TableHead className="min-w-[100px]">Farm</TableHead>
-                  <TableHead className="min-w-[100px]">Type</TableHead>
+                  <TableHead className="min-w-[100px]">{sf.headerFarm}</TableHead>
+                  <TableHead className="min-w-[100px]">{sf.headerType}</TableHead>
                   <TableHead className="min-w-[100px] hidden lg:table-cell">
-                    Wallet
+                    {sf.headerWallet}
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -793,7 +802,7 @@ export function SponsoredFarmsActivity({
                   const purchaseAtMs = new Date(
                     purchase.purchaseDate
                   ).getTime();
-                  const purchaseDate = formatTimeAgoShort(purchaseAtMs, nowMs);
+                  const purchaseDate = formatTimeAgoShort(purchaseAtMs, nowMs, sf);
                   const ensName = ensNames[purchase.buyer];
                   const buyerDisplay = ensName || formatAddress(purchase.buyer);
                   const auditUrl = purchase.farmId
@@ -855,8 +864,8 @@ export function SponsoredFarmsActivity({
                           )}
                         >
                           {purchase.fractionType === "mining-center"
-                            ? "Miner"
-                            : "Delegator"}
+                            ? sf.badgeMiner
+                            : sf.badgeDelegator}
                         </div>
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">
@@ -880,7 +889,7 @@ export function SponsoredFarmsActivity({
             onClick={onViewAllClick}
             className="w-full sm:w-auto"
           >
-            See All Activity
+            {sf.seeAllActivity}
           </Button>
         </div>
       )}

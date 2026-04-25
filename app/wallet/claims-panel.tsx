@@ -60,6 +60,7 @@ import { getCurrentEpoch, GENESIS_TIMESTAMP } from "@/utils/getCurrentEpoch";
 import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-warning-dialog";
 import { trackEvent } from "@/lib/telemetry";
 import { formatRewardPipelineDate } from "@/utils/reward-pipeline";
+import { useLang, getBcp47, type Strings } from "@/lib/i18n";
 
 // Currency configurations - neutral containers, colored icons only when active
 const CURRENCY_CONFIG = {
@@ -232,6 +233,7 @@ function WeekClaimButton({
   size = "sm",
   weekData,
 }: WeekClaimButtonProps) {
+  const { t } = useLang();
   const {
     userProof,
     nonce,
@@ -248,7 +250,7 @@ function WeekClaimButton({
         week: weekData.week,
         reason: "not_connected",
       });
-      toast.info("Connect your wallet to claim rewards.");
+      toast.info(t.claims.toastConnectWallet);
       return;
     }
 
@@ -257,7 +259,7 @@ function WeekClaimButton({
         week: weekData.week,
         reason: "no_proof",
       });
-      toast.error("No rewards found for your address in this week");
+      toast.error(t.claims.toastNoProof);
       return;
     }
 
@@ -275,7 +277,7 @@ function WeekClaimButton({
         week: weekData.week,
         reason: "no_rewards",
       });
-      toast.info("No rewards available to claim for this selection");
+      toast.info(t.claims.toastNoRewardsSelection);
       return;
     }
 
@@ -302,6 +304,7 @@ function WeekClaimButton({
     nonce,
     onInitiateClaim,
     protocolClaimed,
+    t.claims,
     userProof,
     weekData,
   ]);
@@ -329,14 +332,14 @@ function WeekClaimButton({
   const countdownLabel = React.useMemo(() => {
     if (!showCountdown) {
       const days = Math.ceil(remainingMs / (24 * 3600 * 1000));
-      return days === 1 ? "1 day" : `${days} days`;
+      return days === 1 ? t.claims.dayOne : t.claims.days(days);
     }
 
     const totalSeconds = Math.floor(remainingMs / 1000);
     const totalHours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
-    return `${totalHours}h ${minutes}m`;
-  }, [remainingMs, showCountdown]);
+    return t.claims.hoursMinutes(totalHours, minutes);
+  }, [remainingMs, showCountdown, t.claims]);
 
   const isDisabled =
     isClaimingThisWeek ||
@@ -350,14 +353,14 @@ function WeekClaimButton({
 
   const buttonLabel = React.useMemo(() => {
     if (!isConnected) {
-      return "Connect Wallet";
+      return t.wallet.connectWallet;
     }
 
     if (isClaimingThisWeek) {
       return (
         <>
           <Clock className="w-4 h-4 mr-2 animate-spin" />
-          Claiming...
+          {t.claims.claimingInProgress}
         </>
       );
     }
@@ -366,7 +369,7 @@ function WeekClaimButton({
       return (
         <>
           <CheckCircle className="w-4 h-4 mr-2" />
-          Claimed
+          {t.claims.claimed}
         </>
       );
     }
@@ -375,13 +378,13 @@ function WeekClaimButton({
       return (
         <>
           <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-          Loading proof...
+          {t.claims.loadingProof}
         </>
       );
     }
 
     if (!userProof) {
-      return <>No rewards</>;
+      return <>{t.claims.noRewards}</>;
     }
 
     if (remainingMs > 0) {
@@ -389,8 +392,8 @@ function WeekClaimButton({
         <>
           <Clock className="w-4 h-4 mr-2" />
           {claimType === "v2Only"
-            ? `PD in ${countdownLabel}`
-            : `Claim in ${countdownLabel}`}
+            ? t.claims.pdIn(countdownLabel)
+            : t.claims.claimIn(countdownLabel)}
         </>
       );
     }
@@ -398,7 +401,7 @@ function WeekClaimButton({
     if (claimType === "v2Only") {
       return (
         <>
-          Claim PD
+          {t.claims.claimPd}
           <ChevronRight className="w-4 h-4 ml-2" />
         </>
       );
@@ -406,7 +409,7 @@ function WeekClaimButton({
 
     return (
       <>
-        Claim Emissions
+        {t.claims.claimEmissions}
         <ChevronRight className="w-4 h-4 ml-2" />
       </>
     );
@@ -418,6 +421,8 @@ function WeekClaimButton({
     isConnected,
     isProofLoading,
     remainingMs,
+    t.claims,
+    t.wallet.connectWallet,
     userProof,
   ]);
 
@@ -469,6 +474,7 @@ function ClaimButtonsWrapper({
   protocolClaimed,
   weekData,
 }: ClaimButtonsWrapperProps) {
+  const { t, lang } = useLang();
   const [isChecking, setIsChecking] = React.useState(false);
   const isClaimingThisWeek = isClaimingWeek === weekData.week;
 
@@ -562,7 +568,7 @@ function ClaimButtonsWrapper({
       <div className="w-full md:ml-4 md:w-44">
         <Button size="default" className="w-full" disabled>
           <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-          Checking...
+          {t.claims.checking}
         </Button>
       </div>
     );
@@ -573,7 +579,7 @@ function ClaimButtonsWrapper({
       <div className="w-full md:ml-4 md:w-44">
         <Button size="default" className="w-full" variant="secondary" disabled>
           <CheckCircle className="w-4 h-4 mr-2" />
-          Claimed
+          {t.claims.claimed}
         </Button>
       </div>
     );
@@ -607,14 +613,14 @@ function ClaimButtonsWrapper({
       (GENESIS_TIMESTAMP + (weekData.week + pendingWeeksToWait) * weekSeconds) *
       1000;
     const claimableDateLabel = new Date(claimableTs).toLocaleDateString(
-      "en-US",
+      getBcp47(lang),
       { month: "short", day: "numeric" }
     );
     return (
       <div className="w-full md:ml-4 md:w-44">
         <Button size="default" className="w-full" disabled>
           <Shield className="w-4 h-4 mr-2" />
-          Claimable {claimableDateLabel}
+          {t.claims.claimableOn(claimableDateLabel)}
         </Button>
       </div>
     );
@@ -663,6 +669,7 @@ function WeekRewardsContent({
   onInitiateClaim,
   onClaimSuccess,
 }: WeekRewardsContentProps) {
+  const { t, lang } = useLang();
   const { userProof, nonce } = useMerkleProofs(weekData.week, address);
   const { claimWeekRewards } = useRewardsKernelWrapper();
   const [claimingRewardType, setClaimingRewardType] = React.useState<
@@ -693,8 +700,9 @@ function WeekRewardsContent({
     return formatRewardPipelineDate(claimableTimestamp, {
       month: "short",
       day: "numeric",
+      locale: getBcp47(lang),
     });
-  }, [weekData.week]);
+  }, [weekData.week, lang]);
 
   const handleClaimReward = React.useCallback(
     async (reward: ClaimableReward, isInflation: boolean) => {
@@ -703,7 +711,7 @@ function WeekRewardsContent({
           week: weekData.week,
           reason: "missing_proof_or_address",
         });
-        toast.error("No proof found for this week");
+        toast.error(t.claims.toastNoProof);
         return;
       }
 
@@ -736,9 +744,12 @@ function WeekRewardsContent({
 
         if (txHash) {
           toast.success(
-            `Successfully claimed ${
-              isInflation ? "emission" : "protocol deposit"
-            } rewards for week ${weekData.week}`
+            t.claims.toastClaimSuccess(
+              isInflation
+                ? t.claims.emissionRewardsWord
+                : t.claims.protocolDepositWord,
+              weekData.week
+            )
           );
           trackEvent("wallet_claim_single_reward_result", {
             week: weekData.week,
@@ -778,11 +789,9 @@ function WeekRewardsContent({
         }
 
         toast.error(
-          `Failed to claim ${
-            isInflation ? "emission" : "protocol deposit"
-          } rewards`,
+          t.claims.toastUnableToComplete,
           {
-            description: error?.message || "Unknown error",
+            description: error?.message || t.claims.toastUnknownError,
           }
         );
         trackEvent("wallet_claim_single_reward_result", {
@@ -795,7 +804,7 @@ function WeekRewardsContent({
         setClaimingRewardType(null);
       }
     },
-    [address, userProof, nonce, weekData.week, claimWeekRewards, onClaimSuccess]
+    [address, userProof, nonce, weekData.week, claimWeekRewards, onClaimSuccess, t.claims]
   );
 
   return (
@@ -805,9 +814,7 @@ function WeekRewardsContent({
         hasProtocolRewards &&
         !isPdFinalized && (
           <div className="rounded-xl border border-border/20 bg-muted/30 px-3 py-2 text-xs text-muted-foreground dark:border-border/40 dark:bg-muted/50">
-            Emissions for this week are already claimed. Protocol deposits are
-            still moving through the posting and finalization pipeline and
-            should unlock around {protocolUnlockDateLabel}.
+            {t.claims.pendingNoticeBody(protocolUnlockDateLabel)}
           </div>
         )}
       {weekData.rewards.map((reward, idx) => {
@@ -823,10 +830,10 @@ function WeekRewardsContent({
           ? !glwClaimed && isGlwFinalized
           : !protocolClaimed && isPdFinalized && !isEpoch121PdDelayed;
         const rewardLabel = isInflation
-          ? "Emission Rewards"
+          ? t.claims.emissionRewards
           : reward.currency === "SGCTL"
-          ? "Protocol Deposit · credited to staked balance"
-          : "Protocol Deposit";
+          ? t.claims.protocolDepositWithCredit
+          : t.claims.protocolDepositLabel;
 
         return (
           <div
@@ -885,10 +892,16 @@ function WeekRewardsContent({
                 (isInflation ? "inflation" : "protocolDeposit") ? (
                   <>
                     <RefreshCw className="w-3 h-3 mr-2 animate-spin" />
-                    Claiming...
+                    {t.claims.claimingInProgress}
                   </>
                 ) : (
-                  <>Claim {isInflation ? "Emissions" : "PD"}</>
+                  <>
+                    {t.claims.claimButton(
+                      isInflation
+                        ? t.claims.claimEmissionsShort
+                        : t.claims.claimPdShort
+                    )}
+                  </>
                 )}
               </Button>
             )}
@@ -1020,33 +1033,21 @@ function TotalsSummaryCard({
 }
 
 function RewardTypesInfo() {
+  const { t } = useLang();
   return (
     <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
       <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
-        Reward Types
+        {t.claims.rewardTypesTitle}
       </div>
       <div className="mt-3 space-y-3 text-sm text-foreground/80 dark:text-foreground/70">
-        <div>
-          <span className="font-semibold text-foreground">
-            Emission Rewards:
-          </span>{" "}
-          GLW earned by solar farms and split between Glow Miners and Glow
-          Delegators.
-        </div>
-        <div>
-          <span className="font-semibold text-foreground">
-            Protocol Deposits:
-          </span>{" "}
-          Rewards from Glow&apos;s redistribution mechanism, where
-          high-performing farms earn back deposits plus surplus captured from
-          underperforming competitors.
-        </div>
+        {t.claims.rewardTypesBody}
       </div>
     </div>
   );
 }
 
 function ClaimsAboutInfo() {
+  const { t } = useLang();
   return (
     <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
       <div className="flex items-start gap-3">
@@ -1055,25 +1056,10 @@ function ClaimsAboutInfo() {
         </div>
         <div className="space-y-1">
           <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
-            Security &amp; Finality
+            {t.claims.aboutClaimsTitle}
           </div>
           <div className="text-sm text-foreground/80 dark:text-foreground/70">
-            Each reward batch follows the same pipeline: the protocol week
-            closes on Sunday, the control backend generates the batch on
-            Thursday, auditors review and post it on-chain on Friday, and then
-            the finalization window completes before claims open. That buffer
-            gives the protocol team time to pause distributions if an exploit
-            or anomaly is ever detected, protecting all participants. Week 96
-            and earlier are available on the{" "}
-            <a
-              href="https://hub.glow.org"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-semibold text-foreground underline hover:no-underline transition-colors"
-            >
-              Hub Dashboard
-            </a>{" "}
-            for V1 Solar Farms.
+            {t.claims.aboutClaimsBody}
           </div>
         </div>
       </div>
@@ -1086,6 +1072,7 @@ function PendingRewardsNotice({
 }: {
   pendingWeeks: WeeklyClaimableRewards[];
 }) {
+  const { t, lang } = useLang();
   if (pendingWeeks.length === 0) return null;
 
   const earliestPending = pendingWeeks.reduce(
@@ -1103,11 +1090,12 @@ function PendingRewardsNotice({
   const dateLabel = formatRewardPipelineDate(claimableTimestamp, {
     month: "short",
     day: "numeric",
+    locale: getBcp47(lang),
   });
   const pendingLabel =
     pendingWeeks.length === 1
-      ? "1 reward week in the pipeline"
-      : `${pendingWeeks.length} reward weeks in the pipeline`;
+      ? t.claims.pendingWeeksOne
+      : t.claims.pendingWeeksMany(pendingWeeks.length);
 
   return (
     <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
@@ -1118,9 +1106,7 @@ function PendingRewardsNotice({
         <div className="space-y-1">
           <div className="text-sm font-medium text-foreground">{pendingLabel}</div>
           <div className="text-sm text-foreground/80 dark:text-foreground/70">
-            These rewards are still moving through review and finalization. Your
-            next claim should open around{" "}
-            <span className="font-semibold text-foreground">{dateLabel}</span>.
+            {t.claims.pendingNoticeBody(dateLabel)}
           </div>
         </div>
       </div>
@@ -1129,6 +1115,7 @@ function PendingRewardsNotice({
 }
 
 function InflationClaimReassuranceNotice({ show }: { show: boolean }) {
+  const { t } = useLang();
   if (!show) return null;
 
   return (
@@ -1139,13 +1126,10 @@ function InflationClaimReassuranceNotice({ show }: { show: boolean }) {
         </div>
         <div className="space-y-1">
           <div className="text-sm font-medium text-foreground">
-            Your emission rewards are safe
+            {t.claims.inflationReassuranceTitle}
           </div>
           <div className="text-sm text-foreground/80 dark:text-foreground/70">
-            If emissions are not claimable today, it can be because your prior
-            claim already included more than one week of emission rewards. This
-            does not mean anything is missing. You have not lost rewards, and
-            claims should return to the normal weekly rhythm on the next cycle.
+            {t.claims.inflationReassuranceBody}
           </div>
         </div>
       </div>
@@ -1158,6 +1142,7 @@ export function ClaimsPanel({
   variant = "dialog",
   className,
 }: ClaimsPanelProps = {}) {
+  const { t } = useLang();
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const [v1ClaimedWeeks, setV1ClaimedWeeks] = React.useState<Set<number>>(
@@ -1613,7 +1598,7 @@ export function ClaimsPanel({
       if (!hasError) {
         setClaimDialogStatus("success");
         if (allSkipped) {
-          setClaimDialogInfo("Rewards already claimed or unavailable.");
+          setClaimDialogInfo(t.claims.toastRewardsAlreadyClaimed);
         }
         if (hasSuccess && onClaimSuccess) {
           onClaimSuccess();
@@ -1629,8 +1614,8 @@ export function ClaimsPanel({
         setClaimDialogStatus("error");
         setClaimDialogError(
           hasSuccess
-            ? "Some rewards failed to claim. You can retry the remaining items."
-            : "We were unable to complete your claim. Please try again."
+            ? t.claims.toastSomeFailed
+            : t.claims.toastUnableToComplete
         );
 
         trackEvent("wallet_claim_result", {
@@ -1661,8 +1646,7 @@ export function ClaimsPanel({
 
       setClaimDialogStatus("error");
       setClaimDialogError(
-        error?.message ||
-          "We were unable to complete your claim. Please try again."
+        error?.message || t.claims.toastUnableToComplete
       );
       trackEvent("wallet_claim_result", {
         week: activeClaim.weekData.week,
@@ -1680,16 +1664,17 @@ export function ClaimsPanel({
     updateStageStatus,
     refetch,
     onClaimSuccess,
+    t.claims,
   ]);
 
   const handleClaimAllProtocolDeposits = React.useCallback(async () => {
     if (!address || !isConnected) {
-      toast.info("Connect your wallet to claim rewards.");
+      toast.info(t.claims.toastConnectWallet);
       return;
     }
 
     if (claimableProtocolWeeks.length === 0) {
-      toast.info("No protocol deposit rewards available to claim.");
+      toast.info(t.claims.toastNoProtocolAvailable);
       return;
     }
 
@@ -1742,7 +1727,7 @@ export function ClaimsPanel({
       );
 
       if (weeklyData.length === 0) {
-        toast.info("No claimable protocol deposit proofs were found.");
+        toast.info(t.claims.toastNoClaimableProofs);
         return;
       }
 
@@ -1762,8 +1747,8 @@ export function ClaimsPanel({
       }
     } catch (error: any) {
       console.error("Claim all protocol deposits error:", error);
-      toast.error("Failed to prepare claim-all transaction", {
-        description: error?.message || "Unknown error",
+      toast.error(t.claims.toastUnableToComplete, {
+        description: error?.message || t.claims.toastUnknownError,
       });
     } finally {
       setIsPreparingClaimAll(false);
@@ -1776,6 +1761,7 @@ export function ClaimsPanel({
     claimAllProtocolDepositsInOneTx,
     refetch,
     onClaimSuccess,
+    t.claims,
   ]);
 
   const transactionDetails = React.useMemo<TransactionDetail[]>(() => {
@@ -2207,11 +2193,11 @@ export function ClaimsPanel({
           {isPreparingClaimAll || isClaimingAll ? (
             <>
               <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-              Claiming Protocol Deposits...
+              {t.claims.claimingProtocolDeposits}
             </>
           ) : (
             <>
-              Claim All Protocol Deposits
+              {t.claims.claimAllProtocolDeposits}
               <Badge variant="secondary" className="ml-2 font-mono text-xs">
                 {claimableProtocolWeeks.length}
               </Badge>
@@ -2222,14 +2208,14 @@ export function ClaimsPanel({
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <TotalsSummaryCard
-          title="Total Claimable"
+          title={t.claims.totalClaimable}
           subtitle={totalClaimableLabel}
           totals={actualClaimableTotals}
           icon={<Gift className="h-4 w-4" />}
           className={cn(!hasClaimableRewards && "opacity-70")}
         />
         <TotalsSummaryCard
-          title="Total Claimed"
+          title={t.claims.totalClaimed}
           subtitle={totalClaimedLabel}
           totals={claimedTotals}
           icon={<CheckCircle className="h-4 w-4" />}
@@ -2243,7 +2229,7 @@ export function ClaimsPanel({
 
       <div className="space-y-3">
         <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-          Weekly Breakdown
+          {t.claims.weeklyBreakdown}
         </div>
         <div className="space-y-3">
           {weeklyBreakdown.map((weekData) => {
@@ -2284,7 +2270,7 @@ export function ClaimsPanel({
                     <div className="flex items-center gap-3 sm:gap-4">
                       <div className="space-y-1">
                         <div className="text-sm font-medium text-foreground md:text-base">
-                          Week {weekData.week}
+                          {t.claims.weekLabel(weekData.week)}
                         </div>
                         <div className="text-[10px] font-mono text-muted-foreground/50 dark:text-muted-foreground/70">
                           {formatWeekDate(weekData.week)}
@@ -2303,7 +2289,7 @@ export function ClaimsPanel({
                         {isClaimed ? (
                           <>
                             <CheckCircle className="mr-1 h-3 w-3" />
-                            Claimed
+                            {t.claims.claimed}
                           </>
                         ) : glwClaimed &&
                           !protocolClaimed &&
@@ -2311,17 +2297,17 @@ export function ClaimsPanel({
                           !isPdFinalized ? (
                           <>
                             <Sparkles className="mr-1 h-3 w-3" />
-                            Emissions Claimed
+                            {t.claims.emissionsClaimed}
                           </>
                         ) : isWeekFullyUnlocked ? (
                           <>
                             <Sparkles className="mr-1 h-3 w-3" />
-                            Ready to Claim
+                            {t.claims.readyToClaim}
                           </>
                         ) : (
                           <>
                             <Shield className="mr-1 h-3 w-3" />
-                            Finalizing
+                            {t.claims.finalizing}
                           </>
                         )}
                       </Badge>
@@ -2394,7 +2380,9 @@ export function ClaimsPanel({
           <div className="border-b border-border/40 pb-6 pt-8 px-6">
             <div className="flex flex-col items-center text-center space-y-2">
               <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
-                {isEverythingClaimed ? "Farm Rewards" : "Claimable Rewards"}
+                {isEverythingClaimed
+                  ? t.claims.heroFarmRewardsLabel
+                  : t.claims.heroClaimableLabel}
               </div>
               {/* Hero amount */}
               <div className="flex items-baseline gap-2">
@@ -2414,10 +2402,8 @@ export function ClaimsPanel({
               </div>
               <div className="text-sm text-muted-foreground">
                 {isEverythingClaimed
-                  ? "All rewards have been claimed"
-                  : `${totalClaimableWeeks} week${
-                      totalClaimableWeeks !== 1 ? "s" : ""
-                    } ready to claim`}
+                  ? t.claims.heroAllClaimed
+                  : t.claims.heroWeeksReadyToClaim(totalClaimableWeeks)}
               </div>
             </div>
           </div>
@@ -2443,16 +2429,16 @@ export function ClaimsPanel({
               <div className="flex-1 min-w-0">
                 <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80 mb-1">
                   {isEverythingClaimed
-                    ? "Rewards History"
-                    : "Rewards Available"}
+                    ? t.claims.cardRewardsHistory
+                    : t.claims.cardRewardsAvailable}
                 </div>
                 <CardTitle className="text-xl md:text-2xl text-foreground">
-                  Farm Rewards
+                  {t.claims.cardTitleFarmRewards}
                 </CardTitle>
                 <CardDescription className="mt-2 text-sm text-muted-foreground">
                   {isEverythingClaimed
-                    ? "Your farm rewards history"
-                    : "Claim your earned rewards from solar farm delegations"}
+                    ? t.claims.cardDescriptionAllClaimed
+                    : t.claims.cardDescriptionClaimable}
                 </CardDescription>
               </div>
             </div>
@@ -2467,12 +2453,12 @@ export function ClaimsPanel({
         isSubmitting={claimDialogStatus === "processing"}
         isSuccess={claimDialogStatus === "success"}
         isError={claimDialogStatus === "error"}
-        title="Review Claim"
-        successTitle="Claim Complete"
-        errorTitle="Claim Failed"
-        processingTitle="Processing Claim"
-        description="Review your rewards before confirming the claim."
-        processingDescription="Please wait while we process your claim."
+        title={t.claims.reviewClaimTitle}
+        successTitle={t.claims.claimCompleteTitle}
+        errorTitle={t.claims.claimFailedTitle}
+        processingTitle={t.claims.processingClaimTitle}
+        description={t.claims.reviewClaimDescription}
+        processingDescription={t.claims.processingClaimDescription}
         errorDescription={errorDescription}
         transactionDetails={transactionDetails}
         reviewContent={reviewContent}
@@ -2481,8 +2467,8 @@ export function ClaimsPanel({
         showProcessingProgress
         onConfirm={activeClaim ? handleConfirmClaim : undefined}
         confirmDisabled={!activeClaim || claimDialogStatus === "processing"}
-        confirmLabel="Confirm Claim"
-        cancelLabel="Cancel"
+        confirmLabel={t.claims.confirmClaim}
+        cancelLabel={t.claims.cancel}
       />
       <SmartAccountWarningDialog
         open={showSmartAccountWarning}

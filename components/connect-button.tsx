@@ -6,6 +6,7 @@ import * as React from "react";
 import { useEffect, useRef } from "react";
 import * as Sentry from "@sentry/nextjs";
 import { getAppKitClient } from "@/lib/wagmi-config";
+import { useLang } from "@/lib/i18n";
 
 const CONNECT_PENDING_SENTRY_TIMEOUT_MS = 12_000;
 const CONNECT_SHOW_WATCHDOG_TIMEOUT_MS = 15_000;
@@ -43,6 +44,7 @@ export const ConnectButton = ({
   onConnect?: () => void;
   minimal?: boolean;
 }) => {
+  const { t } = useLang();
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const {
@@ -304,7 +306,7 @@ export const ConnectButton = ({
             )}
           >
             <Wallet className={clsx(minimal ? "mr-0" : "mr-2 h-4 w-4")} />
-            {!minimal && "Connect Wallet"}
+            {!minimal && t.wallet.connectWallet}
           </Button>
         ) : isWrongNetwork ? (
           <Button
@@ -338,7 +340,7 @@ export const ConnectButton = ({
             )}
           >
             <Loader2 className={clsx(minimal ? "mr-0" : "mr-2 h-4 w-4")} />
-            {!minimal && "Wrong Network"}
+            {!minimal && t.wallet.wrongNetwork}
           </Button>
         ) : (
           <Button
@@ -372,7 +374,7 @@ export const ConnectButton = ({
             )}
           >
             {!minimal ? (
-              address ? `${address.slice(0, 6)}...${address.slice(-4)}` : "Connected"
+              address ? `${address.slice(0, 6)}...${address.slice(-4)}` : t.wallet.connected
             ) : (
               <div className="h-2 w-2 rounded-full bg-green-500" />
             )}

@@ -62,6 +62,7 @@ import {
 import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-warning-dialog";
 import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
 import { getAppKitClient } from "@/lib/wagmi-config";
+import { useLang } from "@/lib/i18n";
 
 const ONE_E18 = 1_000_000_000_000_000_000n;
 const POINTS_PER_GLW_WORTH_SCALED6 = 1_000n;
@@ -215,6 +216,7 @@ export function BuyGlowDialog({
   defaultUsdcAmount,
   onSuccess,
 }: BuyGlowDialogProps) {
+  const { t } = useLang();
   const queryClient = useQueryClient();
   const [phase, setPhase] = React.useState<Phase>("input");
   const [payToken, setPayToken] = React.useState<PayToken>("USDC");
@@ -647,18 +649,18 @@ export function BuyGlowDialog({
 
   const handleBuyGlow = React.useCallback(async () => {
     if (!inputAmount || Number(inputAmount) <= 0 || !smartAmounts) {
-      toast.error("Please enter a valid amount");
+      toast.error(t.buyGlow.toastEnterAmount);
       return;
     }
 
     if (!isConnected) {
-      toast.error("Connect your wallet to continue");
+      toast.error(t.buyGlow.toastConnectRequired);
       trackEvent("buy_glw_connect_required", { source });
       return;
     }
 
     if (inputAmount !== lastEstimatedAmount) {
-      toast.error("Price estimate is updating. Please wait and try again.");
+      toast.error(t.buyGlow.toastEstimateUpdating);
       return;
     }
 
@@ -679,7 +681,7 @@ export function BuyGlowDialog({
           DECIMALS_BY_TOKEN.USDC as number,
         );
         if (requestedWei > usdcBalanceWei)
-          throw new Error("Insufficient USDC balance");
+          throw new Error(t.buyGlow.errorInsufficientUsdc);
 
         usdcAmountToSwapToUsdg = requestedWei;
       }
@@ -690,7 +692,7 @@ export function BuyGlowDialog({
           DECIMALS_BY_TOKEN.USDG as number,
         );
         if (requestedWei > usdgBalanceWei)
-          throw new Error("Insufficient USDG balance");
+          throw new Error(t.buyGlow.errorInsufficientUsdg);
 
         includeUsdcToUsdgSwap = false;
       }
@@ -709,8 +711,8 @@ export function BuyGlowDialog({
       if (payToken === "ETH") {
         steps.push({
           id: "SWAP_ETH_TO_USDC",
-          title: "Swap ETH → USDC",
-          description: "Converting ETH to USDC via Uniswap",
+          title: t.buyGlow.stepSwapEthToUsdcTitle,
+          description: t.buyGlow.stepSwapEthToUsdcDescription,
           tokenFrom: "ETH",
           tokenTo: "USDC",
           status: "idle",
@@ -720,8 +722,8 @@ export function BuyGlowDialog({
       if (includeUsdcToUsdgSwap) {
         steps.push({
           id: "SWAP_USDC_TO_USDG",
-          title: "Swap USDC → USDG",
-          description: "Converting USDC to USDG",
+          title: t.buyGlow.stepSwapUsdcToUsdgTitle,
+          description: t.buyGlow.stepSwapUsdcToUsdgDescription,
           tokenFrom: "USDC",
           tokenTo: "USDG",
           status: "idle",
@@ -730,8 +732,8 @@ export function BuyGlowDialog({
 
       steps.push({
         id: "SWAP_USDG_TO_GLOW_ON_UNISWAP",
-        title: "Swap USDG → GLW",
-        description: "Converting USDG to GLW via Uniswap",
+        title: t.buyGlow.stepSwapUsdgToGlwTitle,
+        description: t.buyGlow.stepSwapUsdgToGlwDescription,
         tokenFrom: "USDG",
         tokenTo: "GLW",
         status: "idle",
@@ -740,8 +742,8 @@ export function BuyGlowDialog({
       if (hasBondingOutputInitial) {
         steps.push({
           id: "PURCHASING_GLOW",
-          title: "Purchase from Bonding Curve",
-          description: "Purchasing GLW from bonding curve",
+          title: t.buyGlow.stepBondingTitle,
+          description: t.buyGlow.stepBondingDescription,
           tokenFrom: "USDG",
           tokenTo: "GLW",
           status: "idle",
@@ -750,8 +752,8 @@ export function BuyGlowDialog({
 
       steps.push({
         id: "DONE",
-        title: "Confirm Transaction",
-        description: "Waiting for blockchain confirmation",
+        title: t.buyGlow.stepConfirmTitle,
+        description: t.buyGlow.stepConfirmDescription,
         status: "idle",
       });
 
@@ -771,7 +773,7 @@ export function BuyGlowDialog({
 
       if (payToken === "ETH") {
         if (!isEthPayEnabled)
-          throw new Error("ETH pay is only supported on mainnet or sepolia.");
+          throw new Error(t.buyGlow.errorEthPayNotSupported);
 
         updateStepStatus("SWAP_ETH_TO_USDC", "waiting_signature");
         const swapEthRes = await swapEthToUsdc({
@@ -973,7 +975,7 @@ export function BuyGlowDialog({
       updateStepStatus("DONE", "completed");
 
       setPhase("success");
-      toast.success("Successfully purchased GLW!");
+      toast.success(t.buyGlow.toastPurchaseSuccess);
       // USD ticket-size bucket for cohort analysis. Revenue is owned by the
       // backend pol/revenue sync.
       const payUsd =
@@ -995,7 +997,7 @@ export function BuyGlowDialog({
     } catch (error: any) {
       console.error("Purchase failed:", error);
 
-      const msg = error?.message || "Transaction failed";
+      const msg = error?.message || t.buyGlow.toastTransactionFailed;
 
       const currentSteps = stepsRef.current;
       const activeStep = currentSteps.find(
@@ -1016,7 +1018,7 @@ export function BuyGlowDialog({
       const isUserRejected =
         msg.includes("User rejected") || msg.includes("user rejected");
       if (isUserRejected) {
-        toast.error("Transaction rejected");
+        toast.error(t.buyGlow.toastTransactionRejected);
       } else {
         toast.error(msg);
       }
@@ -1051,6 +1053,7 @@ export function BuyGlowDialog({
     usdcToUsdgLastTxHashRef,
     uniswapLastTxHashRef,
     source,
+    t.buyGlow,
   ]);
 
   const handleClose = React.useCallback(() => {
@@ -1154,11 +1157,10 @@ export function BuyGlowDialog({
             <div className="mt-3 flex flex-col items-center gap-2">
               <div className="inline-flex items-center gap-1.5 rounded-full bg-[#4ADE80]/10 px-3 py-1.5 text-xs font-medium text-[#4ADE80]">
                 <TrendingUp className="h-3 w-3" />
-                Impact Score Boosted
+                {t.buyGlow.impactBoostedBadge}
               </div>
               <div className="text-xs text-muted-foreground max-w-[260px] mx-auto">
-                You've increased your Glow Worth. You are now earning passive
-                Impact Points on this balance.
+                {t.buyGlow.impactBoostedBody}
               </div>
             </div>
           </div>
@@ -1166,7 +1168,7 @@ export function BuyGlowDialog({
           {/* Transaction Details */}
           <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4 text-left space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-muted-foreground text-sm">Sent</span>
+              <span className="text-muted-foreground text-sm">{t.buyGlow.sentLabel}</span>
               <div className="text-right">
                 <span className="text-foreground text-sm font-mono">
                   {Number(inputAmount).toLocaleString("en-US", {
@@ -1180,7 +1182,7 @@ export function BuyGlowDialog({
             </div>
 
             <div className="flex justify-between items-center">
-              <span className="text-muted-foreground text-sm">Received</span>
+              <span className="text-muted-foreground text-sm">{t.buyGlow.receivedLabel}</span>
               <div className="text-right">
                 <span className="text-[#4ADE80] text-sm font-mono font-medium">
                   {Number(estimatedGlw).toLocaleString("en-US", {
@@ -1195,7 +1197,7 @@ export function BuyGlowDialog({
               <div className="pt-3 border-t border-border/20 dark:border-border/40">
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground text-sm">
-                    Transaction
+                    {t.buyGlow.transactionLabel}
                   </span>
                   <div className="flex items-center gap-2">
                     <span className="text-foreground text-sm font-mono">
@@ -1222,7 +1224,7 @@ export function BuyGlowDialog({
           </div>
 
           <Button variant="outline" onClick={handleClose} className="w-full">
-            Close
+            {t.buyGlow.close}
           </Button>
         </div>
       );
@@ -1263,7 +1265,7 @@ export function BuyGlowDialog({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
             >
-              {hasError ? "Transaction Failed" : "Processing Purchase"}
+              {hasError ? t.buyGlow.failedTitle : t.buyGlow.processingTitle}
             </motion.div>
             <motion.div
               className="text-muted-foreground text-sm"
@@ -1271,9 +1273,7 @@ export function BuyGlowDialog({
               animate={{ opacity: 1 }}
               transition={{ delay: 0.2 }}
             >
-              {hasError
-                ? "There was an error processing your transaction."
-                : "Please wait while we process your transaction."}
+              {hasError ? t.buyGlow.failedBody : t.buyGlow.processingBody}
             </motion.div>
           </div>
 
@@ -1313,10 +1313,10 @@ export function BuyGlowDialog({
                 onClick={handleClose}
                 className="flex-1"
               >
-                Close
+                {t.buyGlow.close}
               </Button>
               <Button onClick={handleRetry} className="flex-1">
-                Try Again
+                {t.buyGlow.tryAgain}
               </Button>
             </motion.div>
           )}
@@ -1329,10 +1329,10 @@ export function BuyGlowDialog({
       <>
         <div className="px-6 pt-8 pb-4 border-b border-border/40">
           <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-            Buy GLW
+            {t.buyGlow.title}
           </DialogTitle>
           <div className="text-sm text-muted-foreground mt-2">
-            Swap stablecoins or ETH for GLW tokens
+            {t.buyGlow.subtitle}
           </div>
         </div>
 
@@ -1344,7 +1344,7 @@ export function BuyGlowDialog({
                 htmlFor="buy-amount"
                 className="text-xs font-medium text-muted-foreground uppercase tracking-wider"
               >
-                You pay
+                {t.buyGlow.youPay}
               </Label>
               <div className="flex items-center gap-2">
                 {isConnected && (
@@ -1398,7 +1398,7 @@ export function BuyGlowDialog({
                             : BigInt(0);
                         handleInputChange(formatEthMaxFromWei(maxSpendWei));
                       } catch (e: any) {
-                        toast.error(e?.message || "Failed to compute max ETH amount");
+                        toast.error(e?.message || t.buyGlow.toastFailedComputeMaxEth);
                       }
                       return;
                     }
@@ -1407,7 +1407,7 @@ export function BuyGlowDialog({
                   }}
                   className="h-6 px-2.5 text-xs font-semibold rounded-full"
                 >
-                  MAX
+                  {t.buyGlow.max}
                 </Button>
               </div>
             </div>
@@ -1447,16 +1447,17 @@ export function BuyGlowDialog({
               Number(inputAmount) > 0 &&
               ethPrice > 0 && (
                 <div className="mt-2 text-sm text-muted-foreground">
-                  ≈ $
-                  {(Number(inputAmount) * ethPrice).toLocaleString("en-US", {
-                    maximumFractionDigits: 2,
-                  })}
+                  {t.buyGlow.approximateUsd(
+                    (Number(inputAmount) * ethPrice).toLocaleString("en-US", {
+                      maximumFractionDigits: 2,
+                    }),
+                  )}
                 </div>
               )}
 
             {isBalanceInsufficient && (
               <div className="mt-2 text-xs text-destructive font-medium">
-                Insufficient balance
+                {t.buyGlow.insufficientBalance}
               </div>
             )}
           </div>
@@ -1467,7 +1468,7 @@ export function BuyGlowDialog({
             <div className="relative flex justify-between items-center">
               <div>
                 <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-0.5">
-                  You receive
+                  {t.buyGlow.youReceive}
                 </div>
                 <div className="flex items-baseline gap-1.5">
                   <AnimatePresence mode="popLayout">
@@ -1494,7 +1495,7 @@ export function BuyGlowDialog({
               </div>
               {pricePerGlw && (
                 <div className="text-right text-xs text-muted-foreground font-mono">
-                  ${pricePerGlw.toFixed(4)}/GLW
+                  {t.buyGlow.pricePerGlw(pricePerGlw.toFixed(4))}
                 </div>
               )}
             </div>
@@ -1503,15 +1504,15 @@ export function BuyGlowDialog({
           {/* Payment Method Selection */}
           <div className="flex flex-col gap-2">
             <label className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
-              Payment Method
+              {t.buyGlow.paymentMethod}
             </label>
             <div className="space-y-2">
               <PaymentOption
-                label="USD Coin (USDC)"
+                label={t.buyGlow.usdcLabel}
                 balance={
                   isConnected
                     ? `${formatLocaleAmount(usdcBalanceFormatted, 2)} USDC`
-                    : "Connect wallet"
+                    : t.buyGlow.connectWalletBalance
                 }
                 icon={<TokenIcon symbol="USDC" />}
                 selected={payToken === "USDC"}
@@ -1519,11 +1520,11 @@ export function BuyGlowDialog({
                 isLoading={isConnected && isBalancesLoading}
               />
               <PaymentOption
-                label="USD Glow (USDG)"
+                label={t.buyGlow.usdgLabel}
                 balance={
                   isConnected
                     ? `${formatLocaleAmount(usdgBalanceFormatted, 2)} USDG`
-                    : "Connect wallet"
+                    : t.buyGlow.connectWalletBalance
                 }
                 icon={<TokenIcon symbol="USDG" />}
                 selected={payToken === "USDG"}
@@ -1532,14 +1533,14 @@ export function BuyGlowDialog({
               />
               {isEthPayEnabled && (
                 <PaymentOption
-                  label="Ethereum (ETH)"
+                  label={t.buyGlow.ethLabel}
                   balance={
                     isConnected
                       ? `${toFixedTruncate(
                           Number(ethBalanceFormatted || "0"),
                           4,
                         )} ETH`
-                      : "Connect wallet"
+                      : t.buyGlow.connectWalletBalance
                   }
                   icon={<TokenIcon symbol="ETH" />}
                   selected={payToken === "ETH"}
@@ -1572,7 +1573,7 @@ export function BuyGlowDialog({
               className="w-full h-12 rounded-xl text-base font-medium"
             >
               <Wallet className="mr-2 h-4 w-4" />
-              Connect Wallet
+              {t.buyGlow.connectWallet}
             </Button>
           ) : (
             <Button
@@ -1590,7 +1591,7 @@ export function BuyGlowDialog({
               {isEstimating && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
-              Buy GLW
+              {t.buyGlow.buyGlw}
             </Button>
           )}
         </div>
@@ -1607,12 +1608,12 @@ export function BuyGlowDialog({
         <DialogHeader className="sr-only">
           <DialogTitle>
             {phase === "success"
-              ? "Purchase Successful"
+              ? t.buyGlow.toastPurchaseSuccess
               : phase === "error"
-                ? "Purchase Failed"
+                ? t.buyGlow.failedTitle
                 : phase === "processing"
-                  ? "Processing Purchase"
-                  : "Buy GLW"}
+                  ? t.buyGlow.processingTitle
+                  : t.buyGlow.title}
           </DialogTitle>
         </DialogHeader>
 

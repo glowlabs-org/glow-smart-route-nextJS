@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useLang } from "@/lib/i18n";
 
 export interface CompletedFarmItem {
   id: string;
@@ -32,10 +33,13 @@ interface CompletedFarmsDialogProps {
 }
 
 function FarmRow({ farm }: { farm: CompletedFarmItem }) {
+  const { t } = useLang();
   const solarPanelsLabel =
     typeof farm.solarPanelsQuantity === "number" &&
     Number.isFinite(farm.solarPanelsQuantity)
-      ? `${farm.solarPanelsQuantity.toLocaleString()} panels`
+      ? t.dialogs.completedFarms.panels(
+          farm.solarPanelsQuantity.toLocaleString(),
+        )
       : null;
 
   const content = (
@@ -57,7 +61,7 @@ function FarmRow({ farm }: { farm: CompletedFarmItem }) {
             <>
               <span className="text-muted-foreground/40">·</span>
               <span className="whitespace-nowrap text-muted-foreground/60">
-                {farm.netCCProduction} cc/week
+                {t.dialogs.completedFarms.ccPerWeek(farm.netCCProduction)}
               </span>
             </>
           )}
@@ -83,12 +87,12 @@ function FarmRow({ farm }: { farm: CompletedFarmItem }) {
         )}
         {farm.auditUrl ? (
           <Badge variant="secondary" className="gap-1 text-xs">
-            See audit
+            {t.dialogs.completedFarms.seeAudit}
             <ExternalLink className="h-3 w-3 opacity-60 group-hover:opacity-100" />
           </Badge>
         ) : (
           <Badge variant="outline" className="text-xs text-muted-foreground/60">
-            Audit pending
+            {t.dialogs.completedFarms.auditPending}
           </Badge>
         )}
       </div>
@@ -122,16 +126,17 @@ export function CompletedFarmsDialog({
   onOpenChange,
   farms,
 }: CompletedFarmsDialogProps) {
+  const { t } = useLang();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 max-h-[80vh] flex flex-col">
         <div className="border-b border-border/20 dark:border-border/40 pb-6 pt-8 px-6">
           <DialogHeader>
             <DialogTitle className="text-sm font-semibold text-foreground">
-              Completed Farms
+              {t.dialogs.completedFarms.title}
             </DialogTitle>
             <p className="mt-0.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
-              {farms.length} farms brought online
+              {t.dialogs.completedFarms.farmsBrought(farms.length)}
             </p>
           </DialogHeader>
         </div>

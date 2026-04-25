@@ -15,6 +15,9 @@ import { Button } from "./ui/button";
 import { useUSDGRedemption } from "@/hooks/useUSDGRedemption";
 import { toFixedTruncate } from "@/utils/toFixedTruncate";
 import { parseUnits } from "viem";
+import { useLang, type Strings } from "@/lib/i18n";
+
+type SwapLabels = Strings["swap"];
 
 type PendingState = {
   code: string;
@@ -23,28 +26,28 @@ type PendingState = {
   pending: boolean;
 };
 
-const defaultPendingStates: PendingState[] = [
+const buildDefaultPendingStates = (s: SwapLabels): PendingState[] => [
   {
     code: "REQUESTING_USDG_APPROVAL",
-    message: "Requesting USDG approval",
+    message: s.stepRequestingUsdgApproval,
     validated: false,
     pending: false,
   },
   {
     code: "APPROVING_USDG",
-    message: "Approving USDG for redemption",
+    message: s.stepApprovingUsdgRedeem,
     validated: false,
     pending: false,
   },
   {
     code: "REDEEMING_USDG_FOR_USDC",
-    message: "Redeeming USDG for USDC",
+    message: s.stepRedeemingUsdgForUsdc,
     validated: false,
     pending: false,
   },
   {
     code: "DONE",
-    message: "Successfully redeemed USDC",
+    message: s.stepDoneRedeemed,
     validated: false,
     pending: false,
   },
@@ -55,9 +58,12 @@ export const UsdgToUsdcRedemptionDialog: FC<{
   amountToRedeem: string;
   onOpenChange: (open: boolean) => void;
 }> = ({ isOpen, onOpenChange, amountToRedeem }) => {
+  const { t } = useLang();
+  const s = t.swap;
   const [isPending, setIsPending] = React.useState(false);
-  const [pendingStates, setPendingStates] =
-    React.useState<PendingState[]>(defaultPendingStates);
+  const [pendingStates, setPendingStates] = React.useState<PendingState[]>(() =>
+    buildDefaultPendingStates(s),
+  );
   const [currentState, setCurrentState] = React.useState<
     | "NONE"
     | "REQUESTING_USDG_APPROVAL"
@@ -106,7 +112,7 @@ export const UsdgToUsdcRedemptionDialog: FC<{
       setCurrentState("ERROR");
       setErrorStates();
       setIsPending(false);
-      toast.error(error?.message || "Transaction failed");
+      toast.error(error?.message || s.transactionFailed);
     }
   };
 
@@ -114,7 +120,7 @@ export const UsdgToUsdcRedemptionDialog: FC<{
     // Reset states when modal opens
     setCurrentState("NONE");
     setPendingStates(
-      defaultPendingStates.map((state) => ({
+      buildDefaultPendingStates(s).map((state) => ({
         ...state,
         validated: false,
         pending: false,
@@ -154,7 +160,7 @@ export const UsdgToUsdcRedemptionDialog: FC<{
         className="bg-card rounded-[24px] p-0 md:max-w-sm w-full border border-border/40 overflow-hidden gap-0"
       >
         <DialogHeader className="sr-only">
-          <DialogTitle>Redeem USDG</DialogTitle>
+          <DialogTitle>{s.redeemUsdg}</DialogTitle>
         </DialogHeader>
         <div className="px-6 py-8 text-center">
           {isTransactionSuccessful ? (
@@ -170,29 +176,29 @@ export const UsdgToUsdcRedemptionDialog: FC<{
                   +{toFixedTruncate(Number(amountToRedeem), 2)} USDC
                 </div>
                 <div className="text-xs font-mono text-muted-foreground/60 uppercase tracking-widest">
-                  Redeemed from USDG
+                  {s.redeemedFromUsdg}
                 </div>
               </div>
 
               {/* Transaction Details */}
               <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4 text-left space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground text-sm">From</span>
+                  <span className="text-muted-foreground text-sm">{s.fromLabel}</span>
                   <span className="text-foreground text-sm font-mono">
-                    USDG Balance
+                    {s.usdgBalance}
                   </span>
                 </div>
 
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground text-sm">To</span>
+                  <span className="text-muted-foreground text-sm">{s.toLabel}</span>
                   <span className="text-foreground text-sm font-mono">
-                    USDC Wallet
+                    {s.usdcWallet}
                   </span>
                 </div>
 
                 <div className="flex justify-between items-center pt-3 border-t border-border/20 dark:border-border/40">
                   <span className="text-muted-foreground text-sm">
-                    Amount Redeemed
+                    {s.amountRedeemed}
                   </span>
                   <span className="text-foreground text-sm font-mono">
                     {toFixedTruncate(Number(amountToRedeem), 2)} USDG
@@ -201,7 +207,7 @@ export const UsdgToUsdcRedemptionDialog: FC<{
 
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground text-sm">
-                    Amount Received
+                    {s.amountReceived}
                   </span>
                   <span className="text-[#4ADE80] text-sm font-mono font-medium">
                     {toFixedTruncate(Number(amountToRedeem), 2)} USDC
@@ -210,10 +216,10 @@ export const UsdgToUsdcRedemptionDialog: FC<{
 
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground text-sm">
-                    Exchange Rate
+                    {s.exchangeRate}
                   </span>
                   <span className="text-foreground text-sm font-mono">
-                    1:1
+                    {s.exchangeRateOneToOne}
                   </span>
                 </div>
               </div>
@@ -223,7 +229,7 @@ export const UsdgToUsdcRedemptionDialog: FC<{
                 onClick={() => onOpenChange(false)}
                 className="w-full"
               >
-                Close
+                {s.close}
               </Button>
             </div>
           ) : (
@@ -231,10 +237,10 @@ export const UsdgToUsdcRedemptionDialog: FC<{
               {/* Header */}
               <div className="mb-6">
                 <h2 className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80 mb-2">
-                  Redeem USDG
+                  {s.redeemUsdg}
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  Exchange your USDG for USDC at a 1:1 rate
+                  {s.redeemDescription}
                 </p>
               </div>
 
@@ -244,7 +250,7 @@ export const UsdgToUsdcRedemptionDialog: FC<{
                   <div className="bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 rounded-xl p-5">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
-                        You redeem
+                        {s.youRedeem}
                       </span>
                     </div>
                     <div className="flex items-center gap-3">
@@ -268,7 +274,7 @@ export const UsdgToUsdcRedemptionDialog: FC<{
                   <div className="bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 rounded-xl p-5">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
-                        You receive
+                        {s.youReceive}
                       </span>
                     </div>
                     <div className="flex items-center gap-3">
@@ -288,9 +294,9 @@ export const UsdgToUsdcRedemptionDialog: FC<{
                 {/* Exchange Rate Info */}
                 <div className="bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 rounded-xl p-4 flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">
-                    Exchange Rate
+                    {s.exchangeRate}
                   </span>
-                  <span className="text-sm font-mono text-foreground">1 USDG = 1 USDC</span>
+                  <span className="text-sm font-mono text-foreground">{s.exchangeRateValue}</span>
                 </div>
               </div>
 
@@ -299,7 +305,7 @@ export const UsdgToUsdcRedemptionDialog: FC<{
                   {/* Status Badge */}
                   <div className="inline-flex items-center px-4 py-2 bg-muted/50 border border-border/40 rounded-full mb-4">
                     <span className="text-foreground text-sm font-medium animate-pulse">
-                      Processing redemption...
+                      {s.processingRedemption}
                     </span>
                   </div>
 
@@ -355,7 +361,7 @@ export const UsdgToUsdcRedemptionDialog: FC<{
                     {isPending && (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     )}
-                    Approve and Redeem
+                    {s.approveAndRedeem}
                   </Button>
                 </div>
               ) : null}
@@ -367,7 +373,7 @@ export const UsdgToUsdcRedemptionDialog: FC<{
                     onClick={() => {
                       setCurrentState("NONE");
                       setPendingStates(
-                        defaultPendingStates.map((state) => ({
+                        buildDefaultPendingStates(s).map((state) => ({
                           ...state,
                           validated: false,
                           pending: false,
@@ -378,7 +384,7 @@ export const UsdgToUsdcRedemptionDialog: FC<{
                     }}
                     className="w-full"
                   >
-                    Try Again
+                    {s.tryAgain}
                   </Button>
                 </div>
               ) : null}

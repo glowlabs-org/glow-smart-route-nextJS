@@ -22,6 +22,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Info } from "lucide-react";
+import { useLang } from "@/lib/i18n";
 
 interface RestakeAssistantProps {
   isOpen: boolean;
@@ -78,6 +79,8 @@ export function RestakeAssistant({
   onClose,
   regionYields,
 }: RestakeAssistantProps) {
+  const { t } = useLang();
+  const s = t.dialogs.restake;
   const [selectedFromRegion, setSelectedFromRegion] = useState<string>("");
   const [selectedToRegion, setSelectedToRegion] = useState<string>("");
   const [restakePercentage, setRestakePercentage] = useState(0);
@@ -167,8 +170,8 @@ export function RestakeAssistant({
     if (!selectedFromRegion || !selectedToRegion) return;
     const amount = restakeAmount;
     if (amount <= 0) return;
-    toast.success(`Restaking ${restakeAmount.toLocaleString()} GCTL`, {
-      description: `${selectedFromRegion} → ${selectedToRegion}`,
+    toast.success(s.toastSuccess(restakeAmount.toLocaleString()), {
+      description: s.toastSuccessDesc(selectedFromRegion, selectedToRegion),
     });
     onClose();
   };
@@ -177,7 +180,7 @@ export function RestakeAssistant({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="text-base">Restake GCTL</DialogTitle>
+          <DialogTitle className="text-base">{s.title}</DialogTitle>
         </DialogHeader>
 
         <div className="mt-6 space-y-6">
@@ -185,14 +188,14 @@ export function RestakeAssistant({
           <div>
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-medium text-muted-foreground">
-                From region (your staked)
+                {s.fromRegion}
               </h3>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowAllRegions(!showAllRegions)}
               >
-                {showAllRegions ? "Show Top 3" : "Show Top"}
+                {showAllRegions ? s.showTop3 : s.showTop}
               </Button>
             </div>
             <div className="border rounded-lg overflow-hidden">
@@ -204,8 +207,8 @@ export function RestakeAssistant({
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-12"></TableHead>
-                      <TableHead>Region</TableHead>
-                      <TableHead>Your Stake</TableHead>
+                      <TableHead>{s.region}</TableHead>
+                      <TableHead>{s.yourStake}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -240,7 +243,7 @@ export function RestakeAssistant({
           {/* To Region (all) */}
           <div>
             <h3 className="text-sm font-medium text-muted-foreground mb-2">
-              To region
+              {s.toRegion}
             </h3>
             <div className="border rounded-lg overflow-hidden">
               <RadioGroup
@@ -251,9 +254,9 @@ export function RestakeAssistant({
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-12"></TableHead>
-                      <TableHead>Region</TableHead>
-                      <TableHead>Yield %</TableHead>
-                      <TableHead>Unbinded Credits</TableHead>
+                      <TableHead>{s.region}</TableHead>
+                      <TableHead>{s.yieldPct}</TableHead>
+                      <TableHead>{s.unbindedCredits}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -282,7 +285,7 @@ export function RestakeAssistant({
               selectedToRegion &&
               selectedFromRegion === selectedToRegion && (
                 <div className="text-xs text-orange-600 mt-2">
-                  From and To regions must be different
+                  {s.regionsMustDiffer}
                 </div>
               )}
           </div>
@@ -290,7 +293,7 @@ export function RestakeAssistant({
           {/* Restake Configuration */}
           <div className="space-y-4">
             <div className="text-sm font-medium text-muted-foreground">
-              Select restake amount
+              {s.selectRestakeAmount}
             </div>
             <div className="text-center py-2">
               <div className="text-5xl font-bold tabular-nums">
@@ -317,34 +320,32 @@ export function RestakeAssistant({
                   className="px-4"
                   disabled={!selectedFromRegion}
                 >
-                  {p === 100 ? "Max" : `${p}%`}
+                  {p === 100 ? s.max : `${p}%`}
                 </Button>
               ))}
             </div>
             <div className="text-xs text-muted-foreground text-center">
-              {selectedFromRegion ? (
-                <>
-                  Restaking {restakeAmount.toLocaleString()} GCTL of{" "}
-                  {maxStakeForSelected.toLocaleString()} GCTL
-                </>
-              ) : (
-                <>Select a from region to continue</>
-              )}
+              {selectedFromRegion
+                ? s.restakingOfGctl(
+                    restakeAmount.toLocaleString(),
+                    maxStakeForSelected.toLocaleString(),
+                  )
+                : s.selectFromRegion}
             </div>
           </div>
 
           {selectedFromRegion && selectedToRegion && restakePercentage > 0 && (
             <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-              <div className="text-sm font-medium">Preview</div>
+              <div className="text-sm font-medium">{s.preview}</div>
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">From → To</span>
+                  <span className="text-muted-foreground">{s.fromTo}</span>
                   <span className="font-medium">
                     {selectedFromRegion} → {selectedToRegion}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Amount</span>
+                  <span className="text-muted-foreground">{s.amount}</span>
                   <span className="font-medium">
                     {restakeAmount.toLocaleString()} GCTL
                   </span>
@@ -357,7 +358,7 @@ export function RestakeAssistant({
             <div className="flex items-start gap-2">
               <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5" />
               <div className="text-xs text-blue-600 dark:text-blue-400">
-                Restaking drips 1% per week.
+                {s.infoBlurb}
               </div>
             </div>
           </div>
@@ -365,10 +366,10 @@ export function RestakeAssistant({
 
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={onClose}>
-            Cancel
+            {s.cancel}
           </Button>
           <Button onClick={onSubmitRestake} disabled={restakeDisabled}>
-            Restake
+            {s.restake}
           </Button>
         </DialogFooter>
       </DialogContent>

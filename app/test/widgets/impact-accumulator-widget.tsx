@@ -12,6 +12,7 @@ import { ConnectButton } from "@/components/connect-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/telemetry";
+import { useLang } from "@/lib/i18n";
 
 import { useWalletPortfolio } from "./use-wallet-portfolio";
 import { Button } from "@/components/ui/button";
@@ -26,12 +27,13 @@ interface ImpactAccumulatorWidgetProps {
 }
 
 function ImpactAccumulatorSkeleton() {
+  const { t } = useLang();
   return (
     <Card className="h-full overflow-hidden flex flex-col gap-2 bg-transparent border-transparent pt-0 w-full">
       <CardHeader className="py-0 px-4">
         <div className="flex items-center justify-between gap-3">
           <div className="text-sm md:text-lg font-semibold tracking-tight text-foreground">
-            My Power Plant
+            {t.widgets.impactAccumulator.titleSkeleton}
           </div>
           <Skeleton className="h-7 w-24 rounded-full" />
         </div>
@@ -72,6 +74,7 @@ export default function ImpactAccumulatorWidget({
   variant = "default",
   readOnly = false,
 }: ImpactAccumulatorWidgetProps) {
+  const { t } = useLang();
   const chainId = useChainId();
   const isMinimal = variant === "minimal";
   const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
@@ -131,7 +134,7 @@ export default function ImpactAccumulatorWidget({
           <div className="flex items-center gap-2">
             <BatteryCharging className="h-5 w-5 text-green-500" />
             <div className="text-sm md:text-lg font-semibold tracking-tight text-foreground">
-              IMPACT ACCUMULATOR
+              {t.widgets.impactAccumulator.title}
             </div>
           </div>
 
@@ -149,7 +152,7 @@ export default function ImpactAccumulatorWidget({
               className="h-8 inline-flex items-center gap-2 rounded-full px-3 text-[11px] font-mono tracking-wider border border-border hover:bg-muted/50 transition-colors"
             >
               <ArrowUpRight className="h-3.5 w-3.5" />
-              <span>View Assets</span>
+              <span>{t.widgets.impactAccumulator.viewAssets}</span>
             </a>
           </div>
         </div>
@@ -171,7 +174,7 @@ export default function ImpactAccumulatorWidget({
             <div>
               <div className="flex items-center gap-1.5 mb-1 text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
                 <Zap className="h-3.5 w-3.5 text-yellow-500" />
-                <span>Live Capacity</span>
+                <span>{t.widgets.impactAccumulator.liveCapacity}</span>
               </div>
               <div className="flex items-baseline gap-2">
                 <div className="font-mono text-4xl sm:text-5xl font-bold tracking-tight text-foreground tabular-nums leading-none drop-shadow-sm">
@@ -194,14 +197,14 @@ export default function ImpactAccumulatorWidget({
             <div>
               <div className="flex items-center gap-1.5 mb-1 text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
                 <Sun className="h-3.5 w-3.5 text-orange-500" />
-                <span>Infrastructure Equivalent</span>
+                <span>{t.widgets.impactAccumulator.infrastructureEquivalent}</span>
               </div>
               <div className="flex items-center gap-3">
                 <span className="font-mono text-2xl sm:text-5xl font-semibold text-foreground tabular-nums leading-none">
                   <NumberTicker value={mockData.totalPanels} />
                 </span>
                 <span className="font-mono text-lg sm:text-xl font-medium text-muted-foreground/70">
-                  Panels
+                  {t.widgets.impactAccumulator.panelsUnit}
                 </span>
               </div>
             </div>
@@ -218,7 +221,7 @@ export default function ImpactAccumulatorWidget({
             <div className="flex justify-between items-center text-sm relative z-10">
               <span className="font-bold text-foreground font-mono text-xs uppercase tracking-wider flex items-center gap-2">
                 <Sun className="h-4 w-4 text-green-500" />
-                Progress to Panel #{mockData.nextPanelNumber}
+                {t.widgets.impactAccumulator.progressToPanel(mockData.nextPanelNumber)}
               </span>
               <span className="font-mono font-black text-lg text-green-600 dark:text-green-400 tabular-nums">
                 <NumberTicker
@@ -243,10 +246,10 @@ export default function ImpactAccumulatorWidget({
           {!readOnly && (
             <div className="flex  gap-2">
               <Button variant="default" className="w-full">
-                Get more panels
+                {t.widgets.impactAccumulator.getMorePanels}
               </Button>
               <Button variant="outline" className="w-full">
-                Boost your points
+                {t.widgets.impactAccumulator.boostYourPoints}
               </Button>
             </div>
           )}
@@ -267,10 +270,10 @@ export default function ImpactAccumulatorWidget({
             />
             <div className="rounded-xl border border-border bg-background/95 p-4 text-center max-w-xs mx-auto shadow-sm backdrop-blur-sm">
               <div className="mt-1 text-sm font-medium text-foreground">
-                Connect your wallet to see your impact.
+                {t.widgets.impactAccumulator.connectPrompt}
               </div>
               <p className="text-xs text-muted-foreground mt-1 mb-3">
-                Start accumulating real solar infrastructure.
+                {t.widgets.impactAccumulator.connectBody}
               </p>
               <div>
                 <ConnectButton className="w-full" variant="default" />

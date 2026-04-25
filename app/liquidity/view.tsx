@@ -36,8 +36,11 @@ import Decimal from "decimal.js";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import { useWalletClient } from "wagmi";
 import { ConnectButton } from "@/components/connect-button";
+import { useLang } from "@/lib/i18n";
 
 export function PositionsView() {
+  const { t } = useLang();
+  const liq = t.routes.liquidity;
   const {
     positions,
     now,
@@ -134,6 +137,8 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
   quoteOtherAmount,
   wouldAddLiquidityLikelyFail,
 }: AddLiquidityPanelProps) {
+  const { t } = useLang();
+  const liq = t.routes.liquidity;
   const [glw, setGlw] = React.useState<string>("");
   const [usdg, setUsdg] = React.useState<string>("");
   const [matchRatio] = React.useState<boolean>(true);
@@ -150,7 +155,7 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
 
   React.useEffect(() => {
     refreshBalances();
-  }, [signer]);
+  }, [refreshBalances, signer]);
 
   const glwBalanceNumber = useMemo(() => {
     if (!glowBalance) return 0;
@@ -240,14 +245,14 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
     isAmountMissing || isGlwOverBalance || isUsdgOverBalance;
   const actionLabel =
     isGlwOverBalance && isUsdgOverBalance
-      ? "Insufficient funds"
+      ? liq.insufficientFunds
       : isGlwOverBalance
-      ? "Insufficient GLW balance"
+      ? liq.insufficientTokenBalance("GLW")
       : isUsdgOverBalance
-      ? "Insufficient USDG balance"
+      ? liq.insufficientTokenBalance("USDG")
       : isAmountMissing
-      ? "Enter amounts"
-      : "Review";
+      ? liq.enterAmounts
+      : liq.review;
 
   function handleAdd() {
     if (isActionDisabled) return;
@@ -257,13 +262,11 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
       glwNum <= 0 ||
       usdgNum <= 0
     ) {
-      toast.error("Enter valid GLW and USDG amounts");
+      toast.error(liq.enterValidAmounts);
       return;
     }
     if (wouldAddLiquidityLikelyFail({ glw: glwNum, usdg: usdgNum })) {
-      setPreflightError(
-        "Pool reserves changed. Your amounts likely fail slippage. Adjust amounts to match pool ratio."
-      );
+      setPreflightError(liq.poolReservesChanged);
       return;
     }
     setPreflightError(null);
@@ -275,9 +278,9 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
       <div className="p-6 ">
         <div className="flex items-center justify-between gap-3">
           <div className="flex-1">
-            <h3 className="text-xl font-semibold">Add Liquidity</h3>
+            <h3 className="text-xl font-semibold">{liq.addLiquidity}</h3>
             <p className="text-sm text-muted-foreground mt-1">
-              Add liquidity to the GLW/USDG pool and start earning rewards
+              {liq.addLiquiditySubtitle}
             </p>
           </div>
         </div>
@@ -286,14 +289,14 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
         <div className="group relative bg-muted/30 rounded-3xl p-4 lg:p-6 border border-border hover:border-border/60 transition-all duration-300">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs lg:text-sm font-medium text-muted-foreground">
-              Input
+              {liq.input}
             </span>
             <span
               className={`text-xs lg:text-sm flex items-center gap-1 ${
                 isGlwOverBalance ? "text-destructive" : "text-muted-foreground"
               }`}
             >
-              Balance:{" "}
+              {liq.balanceLabel}{" "}
               <NumberTicker
                 value={glwBalanceNumber}
                 decimalPlaces={0}
@@ -329,14 +332,14 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
         <div className="group relative bg-muted/30 rounded-3xl p-4 lg:p-6 border border-border hover:border-border/60 transition-all duration-300">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs lg:text-sm font-medium text-muted-foreground">
-              Input
+              {liq.input}
             </span>
             <span
               className={`text-xs lg:text-sm flex items-center gap-1 ${
                 isUsdgOverBalance ? "text-destructive" : "text-muted-foreground"
               }`}
             >
-              Balance:{" "}
+              {liq.balanceLabel}{" "}
               <NumberTicker
                 value={usdgBalanceNumber}
                 decimalPlaces={0}
@@ -374,11 +377,10 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
           <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4">
             <div className="flex flex-col gap-2">
               <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
-                GLW Incentive Program Ended
+                {liq.glwIncentiveProgramEnded}
               </p>
               <p className="text-xs text-muted-foreground">
-                The GLW incentive program ended on November 25, 2025. You can
-                still add liquidity to earn exchange fees.
+                {liq.glwIncentiveEndedNotice}
               </p>
             </div>
           </div>
@@ -389,7 +391,7 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
           <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
             <div className="flex items-start gap-3">
               <div className="flex-1">
-                <p className="text-sm font-medium">Need more USDG?</p>
+                <p className="text-sm font-medium">{liq.needMoreUsdg}</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   You have {usdcBalanceNumber.toFixed(2)} USDC available. Swap
                   USDC to USDG to continue.
@@ -399,7 +401,7 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
                 href="/"
                 className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
               >
-                Go to Swap
+                {liq.goToSwap}
                 <ArrowRight className="w-3 h-3" />
               </Link>
             </div>
@@ -453,6 +455,8 @@ const RewardsSummaryCard = React.memo(function RewardsSummaryCard({
   totalFeeRewardsLPValue,
   isLoading,
 }: RewardsSummaryCardProps) {
+  const { t } = useLang();
+  const liq = t.routes.liquidity;
   const isAfterCutoff = Date.now() > GLW_INCENTIVES_END_TIME;
   const isBeforeIncentivesStart = Date.now() < GLW_INCENTIVES_START_TIME;
 
@@ -460,12 +464,13 @@ const RewardsSummaryCard = React.memo(function RewardsSummaryCard({
     <div className="bg-background backdrop-blur-xl rounded-3xl border border-border overflow-hidden">
       <div className="p-6">
         <div className="flex items-center gap-2 mb-4">
-          <h3 className="text-xl font-semibold">Rewards Summary</h3>
+          <h3 className="text-xl font-semibold">{liq.rewardsSummary}</h3>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="bg-muted/30 rounded-xl border border-border p-4">
             <div className="text-xs text-muted-foreground mb-2">
-              GLW Incentives{isAfterCutoff ? " (Program Ended)" : ""}
+              {liq.glwIncentives}
+              {isAfterCutoff ? liq.programEndedSuffix : ""}
             </div>
             <div className="flex items-baseline gap-2">
               {isLoading ? (
@@ -486,7 +491,7 @@ const RewardsSummaryCard = React.memo(function RewardsSummaryCard({
           </div>
           <div className="bg-muted/30 rounded-xl border border-border p-4">
             <div className="text-xs text-muted-foreground mb-2">
-              Exchange Fee Rewards
+              {liq.exchangeFeeRewards}
             </div>
             <div className="flex items-baseline gap-2">
               {isLoading ? (
@@ -499,7 +504,7 @@ const RewardsSummaryCard = React.memo(function RewardsSummaryCard({
                     })}
                   </span>
                   <span className="text-muted-foreground font-medium text-sm">
-                    Liquidity
+                    {liq.liquidity}
                   </span>
                 </>
               )}
@@ -547,12 +552,14 @@ const PositionsList = React.memo(function PositionsList({
   isLoading,
   onOpenRemove,
 }: PositionsListProps) {
+  const { t } = useLang();
+  const liq = t.routes.liquidity;
   return (
     <div className="bg-background backdrop-blur-xl rounded-3xl border border-border overflow-hidden">
       <div className="p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <h3 className="text-lg font-semibold">Your Positions</h3>
+            <h3 className="text-lg font-semibold">{liq.yourPositions}</h3>
           </div>
           {positions.length > 0 && (
             <Button
@@ -562,8 +569,8 @@ const PositionsList = React.memo(function PositionsList({
               className="h-9 sm:h-10"
             >
               <Minus className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Remove Liquidity</span>
-              <span className="sm:hidden">Remove</span>
+              <span className="hidden sm:inline">{liq.removeLiquidity}</span>
+              <span className="sm:hidden">{liq.remove}</span>
             </Button>
           )}
         </div>
@@ -576,10 +583,10 @@ const PositionsList = React.memo(function PositionsList({
         ) : positions.length === 0 ? (
           <div className="text-center py-8">
             <p className="text-muted-foreground text-sm">
-              No active positions yet
+              {liq.noActivePositions}
             </p>
             <p className="text-muted-foreground text-xs mt-1">
-              Add liquidity to start earning rewards
+              {liq.addLiquidityToStart}
             </p>
           </div>
         ) : (
@@ -629,6 +636,8 @@ const PositionCard = React.memo(function PositionCard({
   feesLP,
   getLoyaltyMultiplier,
 }: PositionCardProps) {
+  const { t } = useLang();
+  const liq = t.routes.liquidity;
   // Calculate time components more accurately
   const totalMs = Math.max(0, now - position.createdAt);
   const totalSeconds = Math.floor(totalMs / 1000);
@@ -672,7 +681,7 @@ const PositionCard = React.memo(function PositionCard({
           </div>
           <div className="text-right">
             <div className="text-xs text-muted-foreground tracking-wider">
-              Est. APY
+              {liq.estApy}
             </div>
             <HoverCard>
               <HoverCardTrigger asChild>
@@ -699,10 +708,10 @@ const PositionCard = React.memo(function PositionCard({
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">
                       {isAfterCutoff
-                        ? "Incentive APY (ended)"
+                        ? liq.incentiveApyEnded
                         : isIncentivesActive
-                        ? "Incentive APY"
-                        : "Incentive APY (coming)"}
+                        ? liq.incentiveApyActive
+                        : liq.incentiveApyComing}
                     </span>
                     <span
                       className={`font-medium ${
@@ -717,7 +726,7 @@ const PositionCard = React.memo(function PositionCard({
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Fees APY</span>
+                    <span className="text-muted-foreground">{liq.feesApy}</span>
                     <span className="font-medium">
                       {feesApy >= 0 ? "+" : ""}
                       {feesApy.toLocaleString("en-US", {
@@ -730,7 +739,9 @@ const PositionCard = React.memo(function PositionCard({
                   <div className="border-t pt-2">
                     <div className="flex items-center justify-between text-sm">
                       <span className="font-medium">
-                        {isIncentivesActive ? "Combined APY" : "Current APY"}
+                        {isIncentivesActive
+                          ? liq.combinedApy
+                          : liq.currentApy}
                       </span>
                       <span className="text-primary font-semibold">
                         =
@@ -742,7 +753,7 @@ const PositionCard = React.memo(function PositionCard({
                     </div>
                     {!isIncentivesActive && (
                       <div className="text-xs text-muted-foreground mt-1">
-                        (Fees only until incentives start)
+                        ({liq.feesOnlyUntilStart})
                       </div>
                     )}
                   </div>
@@ -760,7 +771,7 @@ const PositionCard = React.memo(function PositionCard({
         <div className="grid grid-cols-2 gap-3 mt-3">
           <div className="rounded-md border p-3">
             <div className="flex items-center justify-between">
-              <div className="text-xs text-muted-foreground">GLW rewards</div>
+              <div className="text-xs text-muted-foreground">{liq.glwRewards}</div>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger className="text-xs text-muted-foreground">
@@ -768,7 +779,7 @@ const PositionCard = React.memo(function PositionCard({
                   </TooltipTrigger>
                   <TooltipContent className="text-xs max-w-xs">
                     {isAfterCutoff
-                      ? "The GLW incentive program ended on November 25, 2025. Rewards shown are final and will be distributed after the v2 launch when epochs finalize. The v2 launch date is not yet defined."
+                      ? liq.glwIncentiveEndedNotice
                       : "GLW incentives are distributed after the v2 launch when epochs finalize. Amounts shown accrue in real time but are not immediately claimable. The v2 launch date is not yet defined."}
                   </TooltipContent>
                 </Tooltip>
@@ -781,11 +792,11 @@ const PositionCard = React.memo(function PositionCard({
           </div>
           <div className="rounded-md border p-3">
             <div className="text-xs text-muted-foreground">
-              Exchange fee rewards
+              {liq.exchangeFeeRewardsLower}
             </div>
             <div className="font-medium tabular-nums flex items-baseline gap-1">
               <span className="font-medium">{feesLP.toFixed(2)}</span>
-              <span>Liquidity</span>
+              <span>{liq.liquidity}</span>
             </div>
           </div>
         </div>
@@ -824,12 +835,14 @@ const CompositionBar = React.memo(function CompositionBar({
   glwAmount,
   usdgAmount,
 }: CompositionBarProps) {
+  const { t } = useLang();
+  const liq = t.routes.liquidity;
   const pctGLW = 0.5;
   const pctUSDG = 0.5;
   return (
     <div className="mt-3 rounded-md border p-3">
       <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-        <span>Current pool value</span>
+        <span>{liq.currentPoolValue}</span>
         {/* <span>
           {(pctGLW * 100).toFixed(2)}% GLW · {(pctUSDG * 100).toFixed(2)}% USDG
         </span> */}

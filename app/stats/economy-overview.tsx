@@ -14,12 +14,15 @@ import { useEndowmentLPPosition } from "@/hooks/useEndowmentLPPosition";
 import { useTotalActivelyDelegated } from "@/hooks";
 import { formatUnits } from "viem";
 import { DelegationIcon } from "@/components/impact-icons";
+import { useLang } from "@/lib/i18n";
 
 interface EconomyOverviewProps {
   shouldLoad?: boolean;
 }
 
 export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
+  const { t } = useLang();
+  const s = t.routes.stats;
   const {
     circulatingSupply,
     marketCap,
@@ -116,14 +119,14 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
     <div>
       <div className="mb-8">
         <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80 mb-6">
-          GLW Supply & Liquidity
+          {s.supplyAndLiquidity}
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card className="bg-muted/30 dark:bg-muted/50 border-border/20 dark:border-border/40 !py-0 !gap-0">
             <CardContent className="!p-8">
               <div className="flex items-center justify-between mb-4">
                 <div className="text-sm text-muted-foreground">
-                  GLW Circulating Market Cap
+                  {s.marketCap}
                 </div>
                 <TrendingUp className="w-4 h-4 text-muted-foreground" />
               </div>
@@ -133,7 +136,7 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
                   : `$${(marketCap / 1_000_000).toFixed(1)}M`}
               </div>
               <div className="text-xs text-muted-foreground">
-                Circulating:{" "}
+                {s.circulatingPrefix}{" "}
                 {isGlwDataLoading
                   ? "--"
                   : `${circulatingSupply.toLocaleString(undefined, {
@@ -147,7 +150,7 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
             <CardContent className="!p-8">
               <div className="flex items-center justify-between mb-4">
                 <div className="text-sm text-muted-foreground">
-                  % of GLW Actively Delegated
+                  {s.pctDelegated}
                 </div>
                 <DelegationIcon className="w-4 h-4 text-muted-foreground" />
               </div>
@@ -157,14 +160,14 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
               <div className="text-xs text-muted-foreground">
                 {isGlwDataLoading
                   ? "--"
-                  : `${totalGlwDelegated.toLocaleString(undefined, {
-                      maximumFractionDigits: 0,
-                    })} actively delegated / ${circulatingSupply.toLocaleString(
-                      undefined,
-                      {
+                  : s.activelyDelegatedOf(
+                      totalGlwDelegated.toLocaleString(undefined, {
                         maximumFractionDigits: 0,
-                      },
-                    )} circulating`}
+                      }),
+                      circulatingSupply.toLocaleString(undefined, {
+                        maximumFractionDigits: 0,
+                      }),
+                    )}
               </div>
             </CardContent>
           </Card>
@@ -173,7 +176,7 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
             <CardContent className="!p-8">
               <div className="flex items-center justify-between mb-4">
                 <div className="text-sm text-muted-foreground">
-                  USDC Liquidity (Uniswap)
+                  {s.usdcLiquidityUniswap}
                 </div>
                 <DollarSign className="w-4 h-4 text-muted-foreground" />
               </div>
@@ -187,9 +190,11 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
               <div className="text-xs text-muted-foreground">
                 {isGlwDataLoading
                   ? "--"
-                  : `Pool GLW: ${poolReserves.glw.toLocaleString(undefined, {
-                      maximumFractionDigits: 0,
-                    })}`}
+                  : s.poolGlw(
+                      poolReserves.glw.toLocaleString(undefined, {
+                        maximumFractionDigits: 0,
+                      }),
+                    )}
               </div>
             </CardContent>
           </Card>
@@ -198,7 +203,7 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
             <CardContent className="!p-8">
               <div className="flex items-center justify-between mb-4">
                 <div className="text-sm text-muted-foreground">
-                  Liquidity Provided by Glow Endowment
+                  {s.endowmentLiquidity}
                 </div>
                 <Coins className="w-4 h-4 text-muted-foreground" />
               </div>
@@ -206,17 +211,17 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
                 {isEndowmentLoading
                   ? "--"
                   : endowmentLpBalance === 0
-                    ? "No LP tokens"
+                    ? s.noLpTokens
                     : `${endowmentUsdg.toLocaleString(undefined, {
                         maximumFractionDigits: 0,
                       })} USDC`}
               </div>
               <div className="text-xs text-muted-foreground">
-                and{" "}
-                {endowmentGlw.toLocaleString(undefined, {
-                  maximumFractionDigits: 0,
-                })}{" "}
-                GLW
+                {s.andGlw(
+                  endowmentGlw.toLocaleString(undefined, {
+                    maximumFractionDigits: 0,
+                  }),
+                )}
               </div>
             </CardContent>
           </Card>
@@ -225,14 +230,14 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
 
       <div className="mb-8">
         <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80 mb-6">
-          GCTL Supply & Participation
+          {s.gctlOverview}
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card className="bg-muted/30 dark:bg-muted/50 border-border/20 dark:border-border/40 !py-0 !gap-0">
             <CardContent className="!p-8">
               <div className="flex items-center justify-between mb-4">
                 <div className="text-sm text-muted-foreground">
-                  Number of GCTL Tokens
+                  {s.numberOfGctl}
                 </div>
                 <Coins className="w-4 h-4 text-muted-foreground" />
               </div>
@@ -244,7 +249,7 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
                     })}
               </div>
               <div className="text-xs text-muted-foreground">
-                Minted to date
+                {s.mintedToDate}
               </div>
             </CardContent>
           </Card>
@@ -265,7 +270,7 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
                     })}`}
               </div>
               <div className="text-xs text-muted-foreground">
-                Based on mint price
+                {s.basedOnMint}
               </div>
             </CardContent>
           </Card>
@@ -313,7 +318,7 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
                 {isGctlDataLoading ? "--" : gctlHoldersCount.toLocaleString()}
               </div>
               <div className="text-xs text-muted-foreground">
-                Active participants
+                {s.activeParticipants}
               </div>
             </CardContent>
           </Card>

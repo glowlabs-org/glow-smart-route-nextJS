@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/telemetry";
+import { useLang } from "@/lib/i18n";
 
 interface NewsletterWidgetProps {
   className?: string;
@@ -25,6 +26,7 @@ export default function NewsletterWidget({
   className,
   variant = "default",
 }: NewsletterWidgetProps) {
+  const { t } = useLang();
   const [email, setEmail] = React.useState("");
   const [status, setStatus] = React.useState<"idle" | "loading" | "success">(
     "idle"
@@ -58,11 +60,11 @@ export default function NewsletterWidget({
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Failed to subscribe");
+        throw new Error(data.error || t.widgets.newsletter.fallbackError);
       }
 
       setStatus("success");
-      toast.success("Welcome to the inner circle!");
+      toast.success(t.widgets.newsletter.toastSuccess);
       setEmail("");
       trackEvent("dashboard_newsletter_subscribe_success", {
         source,
@@ -84,7 +86,7 @@ export default function NewsletterWidget({
         error_name: error instanceof Error ? error.name : "unknown",
       });
       toast.error(
-        error instanceof Error ? error.message : "Something went wrong"
+        error instanceof Error ? error.message : t.widgets.newsletter.toastGenericError
       );
       setStatus("idle");
     }
@@ -121,17 +123,16 @@ export default function NewsletterWidget({
               <Sparkles className="h-4 w-4 text-[color:var(--color-glow-orange)]" />
             </div>
             <span className="text-xs font-mono font-semibold tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80 uppercase">
-              Newsletter
+              {t.widgets.newsletter.kicker}
             </span>
           </div>
 
           <div className="space-y-2">
             <h3 className="text-xl font-semibold text-foreground tracking-tight">
-              Stay in the loop.
+              {t.widgets.newsletter.title}
             </h3>
             <p className="text-sm text-muted-foreground/80 dark:text-muted-foreground leading-relaxed max-w-[90%]">
-              Join our monthly newsletter for Glow&apos;s latest updates on
-              solar innovation, protocol developments, and impact stories.
+              {t.widgets.newsletter.description}
             </p>
           </div>
         </div>
@@ -141,14 +142,14 @@ export default function NewsletterWidget({
           {status === "success" ? (
             <div className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-600/20 dark:border-emerald-500/30 animate-in fade-in zoom-in duration-300">
               <CheckCircle2 className="h-5 w-5" />
-              <span className="font-mono font-semibold text-sm uppercase tracking-wide">You're on the list!</span>
+              <span className="font-mono font-semibold text-sm uppercase tracking-wide">{t.widgets.newsletter.successMessage}</span>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="relative">
               <div className="group/input relative flex items-center">
                 <Input
                   type="email"
-                  placeholder="name@example.com"
+                  placeholder={t.widgets.newsletter.placeholder}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={status === "loading"}
@@ -174,7 +175,7 @@ export default function NewsletterWidget({
                         className={cn("h-5 w-5", email && "animate-pulse-slow")}
                       />
                     )}
-                    <span className="sr-only">Subscribe</span>
+                    <span className="sr-only">{t.widgets.newsletter.subscribeAria}</span>
                   </Button>
                 </div>
               </div>

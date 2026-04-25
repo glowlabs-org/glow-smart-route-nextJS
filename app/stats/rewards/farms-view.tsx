@@ -66,6 +66,9 @@ import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { useGlowPrices } from "@/hooks/useGlowPrices";
 import { calculateFarmEfficiency } from "@glowlabs-org/utils/browser";
 import Decimal from "decimal.js";
+import { useLang, type Strings } from "@/lib/i18n";
+
+type FarmsLeaderboardLabels = Strings["routes"]["farmsLeaderboard"];
 
 function RewardsSkeleton() {
   return (
@@ -175,16 +178,18 @@ interface FarmsRewardsChartProps {
     totalRewardsUsd?: number;
   }>;
   glwPrice: number | null;
+  labels: FarmsLeaderboardLabels;
 }
 
-function FarmsRewardsChart({ farms, glwPrice }: FarmsRewardsChartProps) {
+function FarmsRewardsChart({ farms, glwPrice, labels }: FarmsRewardsChartProps) {
   const chartData = React.useMemo(() => {
     return farms
       .filter((farm) => (farm.totalRewardsUsd ?? 0) > 0)
       .slice(0, 20)
       .map((farm, index) => {
         const totalRewardsUsd = farm.totalRewardsUsd ?? 0;
-        const farmName = farm.name || `Farm ${farm.farmId.slice(0, 8)}`;
+        const farmName =
+          farm.name || labels.farmFallback(farm.farmId.slice(0, 8));
 
         return {
           farm: farmName.length > 20 ? `${farmName.slice(0, 17)}...` : farmName,
@@ -201,7 +206,7 @@ function FarmsRewardsChart({ farms, glwPrice }: FarmsRewardsChartProps) {
 
   const chartConfig = {
     totalRewardsUsd: {
-      label: "Total Rewards (USD)",
+      label: labels.totalRewardsUsd,
       color: "#ff8533",
     },
   } satisfies ChartConfig;
@@ -209,7 +214,7 @@ function FarmsRewardsChart({ farms, glwPrice }: FarmsRewardsChartProps) {
   if (chartData.length === 0) {
     return (
       <div className="h-80 flex items-center justify-center text-muted-foreground text-sm">
-        No data available for chart
+        {labels.noDataAvailable}
       </div>
     );
   }
@@ -264,7 +269,7 @@ function FarmsRewardsChart({ farms, glwPrice }: FarmsRewardsChartProps) {
 
                 if (
                   name === "totalRewardsUsd" ||
-                  name === "Total Rewards (USD)"
+                  name === labels.totalRewardsUsd
                 ) {
                   const formatted = formatNumber(numValue);
                   const glwRewards = payload?.payload?.glwRewards ?? 0;
@@ -285,7 +290,7 @@ function FarmsRewardsChart({ farms, glwPrice }: FarmsRewardsChartProps) {
                         )}
                       </div>
                     </div>,
-                    "Total Rewards (USD)",
+                    labels.totalRewardsUsd,
                   ];
                 }
                 return [String(value), String(name)];
@@ -297,7 +302,7 @@ function FarmsRewardsChart({ farms, glwPrice }: FarmsRewardsChartProps) {
           dataKey="totalRewardsUsd"
           fill="var(--color-totalRewardsUsd)"
           radius={[4, 4, 0, 0]}
-          name="Total Rewards (USD)"
+          name={labels.totalRewardsUsd}
         />
       </BarChart>
     </ChartContainer>
@@ -362,6 +367,7 @@ interface RegionFilterProps {
   regions: { id: number; name: string }[];
   regionUsdTotals: Map<number, number>;
   className?: string;
+  labels: FarmsLeaderboardLabels;
 }
 
 function RegionFilter({
@@ -370,6 +376,7 @@ function RegionFilter({
   regions,
   regionUsdTotals,
   className,
+  labels,
 }: RegionFilterProps) {
   return (
     <Select
@@ -379,11 +386,11 @@ function RegionFilter({
       }
     >
       <SelectTrigger className={className}>
-        <SelectValue placeholder="Select region" />
+        <SelectValue placeholder={labels.selectRegion} />
       </SelectTrigger>
       <SelectContent>
         <SelectItem value="all">
-          All Regions
+          {labels.allRegions}
           {regionUsdTotals.size > 0 && (
             <span className="ml-2 text-xs text-muted-foreground">
               ($
@@ -393,7 +400,7 @@ function RegionFilter({
                   0
                 )
               )}
-              /week )
+              {labels.perWeek} )
             </span>
           )}
         </SelectItem>
@@ -412,7 +419,7 @@ function RegionFilter({
                 <span className="ml-2 text-xs text-muted-foreground">
                   ($
                   {formatNumber(usdTotal)}
-                  /week)
+                  {labels.perWeek})
                 </span>
               </SelectItem>
             );
@@ -428,6 +435,8 @@ interface FarmsViewProps {
 }
 
 export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
+  const { t } = useLang();
+  const fl = t.routes.farmsLeaderboard;
   const [sortBy, setSortBy] = React.useState<SortField>("efficiency");
   const [sortDirection, setSortDirection] = React.useState<"asc" | "desc">(
     "desc"
@@ -733,9 +742,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
   if (isEfficiencyError) {
     return (
       <div className="py-12 text-center">
-        <p className="text-muted-foreground">
-          Unable to load farms data right now.
-        </p>
+        <p className="text-muted-foreground">{fl.unableToLoad}</p>
       </div>
     );
   }
@@ -751,9 +758,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
         <DialogContent className="max-w-5xl max-h-[85vh] sm:max-h-[85vh] h-full sm:h-auto sm:rounded-lg overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>{selectedFarmForDialog?.farmName}</DialogTitle>
-            <DialogDescription>
-              V2 weekly rewards breakdown and farm statistics
-            </DialogDescription>
+            <DialogDescription>{fl.v2WeeklyBreakdown}</DialogDescription>
           </DialogHeader>
 
           {isDialogWeeklyRewardsLoading ? (
@@ -767,7 +772,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                 <Card>
                   <CardContent>
                     <p className="text-xs text-muted-foreground mb-1.5">
-                      Weeks Active
+                      {fl.weeksActive}
                     </p>
                     <p className="font-mono font-bold text-xl">
                       {dialogWeeklyRewardsData.summary.weeksActive}
@@ -777,7 +782,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                 <Card>
                   <CardContent>
                     <p className="text-xs text-muted-foreground mb-1.5">
-                      Total GLW Emissions
+                      {fl.totalGlwEmissions}
                     </p>
                     <p className="font-mono font-semibold text-sm">
                       {formatRewardValue(
@@ -791,7 +796,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                 <Card>
                   <CardContent>
                     <p className="text-xs text-muted-foreground mb-1.5">
-                      Total PD Rewards
+                      {fl.totalPdRewards}
                     </p>
                     <p className="font-mono font-semibold text-sm">
                       {(() => {
@@ -820,7 +825,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                 <Card>
                   <CardContent>
                     <p className="text-xs text-muted-foreground mb-1.5">
-                      Protocol Deposit
+                      {fl.protocolDeposit}
                     </p>
                     <p className="font-mono font-semibold text-sm">
                       $
@@ -839,13 +844,17 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b bg-muted/50">
-                        <th className="text-left p-3 font-medium">Week</th>
-                        <th className="text-left p-3 font-medium">Currency</th>
-                        <th className="text-right p-3 font-medium">
-                          GLW Emissions
+                        <th className="text-left p-3 font-medium">
+                          {fl.weekHeader}
+                        </th>
+                        <th className="text-left p-3 font-medium">
+                          {fl.currencyHeader}
                         </th>
                         <th className="text-right p-3 font-medium">
-                          PD Rewards Distributed
+                          {fl.glwEmissions}
+                        </th>
+                        <th className="text-right p-3 font-medium">
+                          {fl.pdRewardsDistributed}
                         </th>
                       </tr>
                     </thead>
@@ -859,7 +868,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                             className="border-b last:border-0 hover:bg-muted/30"
                           >
                             <td className="p-3 font-semibold">
-                              Week {reward.weekNumber}
+                              {fl.weekN(String(reward.weekNumber))}
                             </td>
                             <td className="p-3">
                               <Badge variant="outline" className="text-xs">
@@ -887,7 +896,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                     <tfoot>
                       <tr className="border-t bg-muted/50 font-semibold">
                         <td className="p-3" colSpan={2}>
-                          Total
+                          {fl.total}
                         </td>
                         <td className="p-3 text-right font-mono">
                           {formatRewardValue(
@@ -927,7 +936,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
             </div>
           ) : (
             <div className="py-8 text-center text-muted-foreground">
-              No weekly rewards data available for this farm
+              {fl.noRewardsForFarm}
             </div>
           )}
         </DialogContent>
@@ -935,13 +944,14 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
 
       <div className="space-y-8">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-          <span className="text-sm font-medium">Region:</span>
+          <span className="text-sm font-medium">{fl.region}:</span>
           <RegionFilter
             selectedRegionId={selectedRegionId}
             onRegionChange={setSelectedRegionId}
             regions={regions}
             regionUsdTotals={regionUsdTotals}
             className="w-full sm:w-[280px]"
+            labels={fl}
           />
         </div>
 
@@ -949,39 +959,41 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
           <MetricCard
             title={
               selectedRegionId === "all"
-                ? "Total Farms"
-                : `Farms in ${
+                ? fl.totalFarms
+                : fl.farmsIn(
                     regions.find((r) => r.id === selectedRegionId)?.name ||
-                    "Region"
-                  }`
+                      fl.regionFallback(String(selectedRegionId)),
+                  )
             }
             value={farms.length.toLocaleString()}
             icon={<Activity className="h-5 w-5" />}
           >
             <p>
               {selectedRegionId === "all"
-                ? `All farms tracked (${rewardsBreakdown.farmsWithData} with recent rewards)`
-                : `Farms in region (${rewardsBreakdown.farmsWithData} with recent rewards)`}
+                ? fl.allFarmsTracked(
+                    String(rewardsBreakdown.farmsWithData),
+                  )
+                : fl.farmsInRegionWithRewards(
+                    String(rewardsBreakdown.farmsWithData),
+                  )}
             </p>
           </MetricCard>
 
           <MetricCard
-            title="Last Week Rewards"
+            title={fl.lastWeekRewards}
             value={`$${formatNumber(totalLastWeekRewardsUsd)}`}
             icon={<TrendingUp className="h-5 w-5" />}
           >
             <p>
-              {selectedRegionId === "all"
-                ? `Distributed to ${rewardsBreakdown.farmsWithData} farms with recent data`
-                : `Distributed to ${rewardsBreakdown.farmsWithData} farms with recent data`}
+              {fl.distributedToFarms(String(rewardsBreakdown.farmsWithData))}
             </p>
           </MetricCard>
 
           <MetricCard
             title={
               selectedRegionId === "all"
-                ? "Network Efficiency"
-                : "Avg. Region Efficiency"
+                ? fl.networkEfficiency
+                : fl.avgRegionEfficiency
             }
             value={(() => {
               if (selectedRegionId !== "all") {
@@ -1023,13 +1035,13 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
           >
             <p>
               {selectedRegionId === "all"
-                ? "Weighted by total protocol deposits across all farms"
-                : "Carbon credits per $100k deposit/week"}
+                ? fl.weightedByDeposits
+                : fl.creditsPer100k}
             </p>
           </MetricCard>
 
           <MetricCard
-            title="Top Farm Efficiency"
+            title={fl.topFarmEfficiency}
             value={
               farms.length > 0
                 ? Math.max(...farms.map((f) => f.efficiencyScore)).toFixed(2)
@@ -1037,14 +1049,14 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
             }
             icon={<LineChart className="h-5 w-5" />}
           >
-            <p>Highest performing farm</p>
+            <p>{fl.highestPerforming}</p>
           </MetricCard>
         </div>
 
         {rewardsBreakdown.breakdown.size > 1 && (
           <div>
             <h3 className="text-sm font-semibold mb-3 text-muted-foreground">
-              Last Week Rewards by Asset
+              {fl.lastWeekRewardsByAsset}
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {Array.from(rewardsBreakdown.breakdown.entries())
@@ -1052,11 +1064,11 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                 .map(([currency, data]) => (
                   <MetricCard
                     key={currency}
-                    title={`${currency} Rewards`}
+                    title={fl.rewardsCardTitle(currency)}
                     value={formatNumber(data.amount)}
                     icon={<Coins className="h-5 w-5" />}
                   >
-                    <p>${formatNumber(data.usdValue)} USD value</p>
+                    <p>{fl.usdValue(formatNumber(data.usdValue))}</p>
                   </MetricCard>
                 ))}
             </div>
@@ -1067,14 +1079,14 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
           <CardHeader>
             <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
               <div>
-                <CardTitle>Weekly Rewards Overview</CardTitle>
+                <CardTitle>{fl.weeklyRewardsOverview}</CardTitle>
                 <p className="text-sm text-muted-foreground mt-1">
                   {selectedRegionId === "all"
-                    ? "Top 20 farms with recent rewards activity, ranked by total rewards distributed (USD)."
-                    : `Top 20 farms with recent rewards in ${
+                    ? fl.overviewDescAll
+                    : fl.overviewDescRegion(
                         regions.find((r) => r.id === selectedRegionId)?.name ||
-                        "this region"
-                      }, ranked by total rewards (USD).`}
+                          fl.regionFallback(String(selectedRegionId)),
+                      )}
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -1092,12 +1104,14 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                   }
                 >
                   <SelectTrigger className="w-full sm:w-[200px]">
-                    <SelectValue placeholder="Sort by" />
+                    <SelectValue placeholder={fl.sortByPlaceholder} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="efficiency">Efficiency Score</SelectItem>
+                    <SelectItem value="efficiency">
+                      {fl.efficiencyScore}
+                    </SelectItem>
                     <SelectItem value="totalRewardsUsd">
-                      Total Rewards (USD)
+                      {fl.totalRewardsUsd}
                     </SelectItem>
                   </SelectContent>
                 </Select>
@@ -1108,21 +1122,25 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
             {isEfficiencyFetching || isBatchWeeklyRewardsFetching ? (
               <Skeleton className="h-80 w-full" />
             ) : (
-              <FarmsRewardsChart farms={farms} glwPrice={glwSpotPrice} />
+              <FarmsRewardsChart
+                farms={farms}
+                glwPrice={glwSpotPrice}
+                labels={fl}
+              />
             )}
           </CardContent>
         </Card>
 
         <Card className="border-border/60">
           <CardHeader>
-            <CardTitle>Farm Leaderboard</CardTitle>
+            <CardTitle>{fl.farmLeaderboard}</CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
               {selectedRegionId === "all"
-                ? "Ranked by efficiency score. All farms shown with rewards and carbon credit metrics."
-                : `${
+                ? fl.farmLeaderboardDescAll
+                : fl.farmLeaderboardDescRegion(
                     regions.find((r) => r.id === selectedRegionId)?.name ||
-                    "Region"
-                  } farms ranked by efficiency score.`}
+                      fl.regionFallback(String(selectedRegionId)),
+                  )}
             </p>
           </CardHeader>
           <CardContent>
@@ -1139,17 +1157,14 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                     <TableRow>
                       <TableHead className="w-20">
                         <div className="flex items-center gap-1">
-                          <span>Rank</span>
+                          <span>{fl.rank}</span>
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
                               </TooltipTrigger>
                               <TooltipContent className="max-w-xs">
-                                <p className="text-xs">
-                                  Based on efficiency score. Top 3 show exact
-                                  rank, others show percentile (e.g., "Top 5%").
-                                </p>
+                                <p className="text-xs">{fl.rankTooltip}</p>
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
@@ -1161,7 +1176,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                         sortDirection={sortDirection}
                         onSort={handleSort}
                       >
-                        Farm Name
+                        {fl.farmName}
                       </SortableTableHead>
                       <SortableTableHead
                         field="region"
@@ -1170,7 +1185,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                         onSort={handleSort}
                         className="hidden sm:table-cell"
                       >
-                        Region
+                        {fl.region}
                       </SortableTableHead>
                       <SortableTableHead
                         field="efficiency"
@@ -1179,7 +1194,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                         onSort={handleSort}
                         className="text-right"
                       >
-                        Efficiency
+                        {fl.efficiency}
                       </SortableTableHead>
                       <SortableTableHead
                         field="glwRewards"
@@ -1188,7 +1203,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                         onSort={handleSort}
                         className="text-right"
                       >
-                        GLW/Week
+                        {fl.glwPerWeek}
                       </SortableTableHead>
                       <SortableTableHead
                         field="totalRewardsUsd"
@@ -1197,7 +1212,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                         onSort={handleSort}
                         className="text-right"
                       >
-                        PD Rewards
+                        {fl.pdRewards}
                       </SortableTableHead>
                       <SortableTableHead
                         field="protocolDeposit"
@@ -1206,7 +1221,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                         onSort={handleSort}
                         className="hidden md:table-cell text-right"
                       >
-                        Protocol Deposit
+                        {fl.protocolDeposit}
                       </SortableTableHead>
                       <SortableTableHead
                         field="weeklyImpactAssets"
@@ -1215,9 +1230,9 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                         onSort={handleSort}
                         className="hidden lg:table-cell text-right"
                       >
-                        Carbon Credits
+                        {fl.carbonCredits}
                       </SortableTableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead className="text-right">{fl.actions}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1225,7 +1240,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                       const displayRank =
                         farm.rank <= 3
                           ? `#${farm.rank}`
-                          : `Top ${farm.percentile.toFixed(0)}%`;
+                          : fl.topPercent(farm.percentile.toFixed(0));
 
                       return (
                         <TableRow
@@ -1241,7 +1256,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                                 farmId: farm.farmId,
                                 farmName:
                                   farm.name ||
-                                  `Farm ${farm.farmId.slice(0, 8)}`,
+                                  fl.farmFallback(farm.farmId.slice(0, 8)),
                               });
                             }
                           }}
@@ -1252,7 +1267,8 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                           <TableCell>
                             <div className="space-y-0.5">
                               <div className="font-medium text-sm">
-                                {farm.name || `Farm ${farm.farmId.slice(0, 8)}`}
+                                {farm.name ||
+                                  fl.farmFallback(farm.farmId.slice(0, 8))}
                               </div>
                               <div className="font-mono text-xs text-muted-foreground">
                                 {farm.farmId.slice(0, 8)}...
@@ -1263,7 +1279,8 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                           <TableCell className="hidden sm:table-cell">
                             <Badge variant="secondary" className="text-xs">
                               {regions.find((r) => r.id === farm.regionId)
-                                ?.name || `Region ${farm.regionId}`}
+                                ?.name ||
+                                fl.regionFallback(String(farm.regionId))}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right">
@@ -1328,12 +1345,12 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                                     farmId: farm.farmId,
                                     farmName:
                                       farm.name ||
-                                      `Farm ${farm.farmId.slice(0, 8)}`,
+                                      fl.farmFallback(farm.farmId.slice(0, 8)),
                                   });
                                 }
                               }}
                             >
-                              View Details
+                              {fl.viewDetails}
                             </Button>
                           </TableCell>
                         </TableRow>

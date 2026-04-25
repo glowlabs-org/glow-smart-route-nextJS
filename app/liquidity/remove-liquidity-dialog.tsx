@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { useLiquidityPositions } from "@/hooks/useLiquidityPositions";
 import { toast } from "sonner";
+import { useLang } from "@/lib/i18n";
 
 interface RemoveLiquidityDialogProps {
   open: boolean;
@@ -19,6 +20,8 @@ export function RemoveLiquidityDialog({
   open,
   onOpenChange,
 }: RemoveLiquidityDialogProps) {
+  const { t } = useLang();
+  const ld = t.routes.liquidityDialogs;
   const [percentage, setPercentage] = React.useState(0);
 
   // Transaction states
@@ -153,10 +156,10 @@ export function RemoveLiquidityDialog({
       setIsSubmitting(false);
       setIsError(true);
       setErrorMessage(
-        error instanceof Error ? error.message : "Failed to remove liquidity"
+        error instanceof Error ? error.message : ld.removeToastFailed
       );
       setTxHash(null);
-      toast.error("Failed to remove liquidity");
+      toast.error(ld.removeToastFailed);
     }
   }
 
@@ -166,18 +169,18 @@ export function RemoveLiquidityDialog({
   // Transaction details for review state
   const transactionDetails: TransactionDetail[] = [
     {
-      label: "Withdrawal Percentage",
+      label: ld.detailWithdrawalPercentage,
       value: `${percentage}%`,
     },
     {
-      label: "USDG to Receive",
+      label: ld.detailUsdgToReceive,
       value: isQuoting
         ? "..."
         : quotedOut.usdg.toLocaleString("en-US", { maximumFractionDigits: 0 }),
       unit: "USDG",
     },
     {
-      label: "GLW to Receive",
+      label: ld.detailGlwToReceive,
       value: isQuoting
         ? "..."
         : quotedOut.glw.toLocaleString("en-US", { maximumFractionDigits: 0 }),
@@ -188,13 +191,13 @@ export function RemoveLiquidityDialog({
   // Success state details
   const successDetails: TransactionDetail[] = [
     {
-      label: "USDG Removed",
+      label: ld.detailUsdgRemoved,
       value: removedAmounts.usdg.toLocaleString("en-US", {
         maximumFractionDigits: 2,
       }),
     },
     {
-      label: "GLW Removed",
+      label: ld.detailGlwRemoved,
       value: removedAmounts.glw.toLocaleString("en-US", {
         maximumFractionDigits: 6,
       }),
@@ -208,7 +211,7 @@ export function RemoveLiquidityDialog({
       {isSubmitting ? null : (
         <div className="space-y-4">
           <h3 className="text-sm font-medium text-muted-foreground">
-            Select withdrawal amount
+            {ld.selectWithdrawalAmount}
           </h3>
 
           {/* Large Percentage Display */}
@@ -264,7 +267,7 @@ export function RemoveLiquidityDialog({
               className="px-4"
               disabled={isSubmitting}
             >
-              Max
+              {t.dialogs.unstake.max}
             </Button>
           </div>
         </div>
@@ -273,7 +276,7 @@ export function RemoveLiquidityDialog({
       {/* You will receive */}
       <div className="space-y-4">
         <h3 className="text-sm font-medium text-muted-foreground">
-          You will receive
+          {ld.youWillReceive}
         </h3>
 
         <div className="space-y-2">
@@ -316,16 +319,13 @@ export function RemoveLiquidityDialog({
       isSubmitting={isSubmitting || removeLiquidityMutation.isPending}
       isSuccess={isSuccess}
       isError={isError}
-      title="Remove Liquidity"
-      successTitle="Liquidity Removed"
-      errorTitle="Transaction Failed"
-      processingTitle="Processing Withdrawal"
-      description="Select the percentage of liquidity to remove"
-      processingDescription="Please wait while we remove your liquidity from the pool"
-      errorDescription={
-        errorMessage ||
-        "We were unable to process your withdrawal. Please try again."
-      }
+      title={ld.removeTitle}
+      successTitle={ld.removeSuccessTitle}
+      errorTitle={ld.transactionFailed}
+      processingTitle={ld.processingWithdrawal}
+      description={ld.removeDescription}
+      processingDescription={ld.removeProcessingDescription}
+      errorDescription={errorMessage || ld.removeGenericError}
       transactionDetails={transactionDetails}
       successDetails={successDetails}
       txHash={txHash}
@@ -334,8 +334,8 @@ export function RemoveLiquidityDialog({
       reviewContent={customReviewContent}
       onConfirm={handleConfirm}
       confirmDisabled={percentage <= 0 || isQuoting}
-      confirmLabel="Confirm"
-      cancelLabel="Cancel"
+      confirmLabel={ld.confirm}
+      cancelLabel={ld.cancel}
     />
   );
 }

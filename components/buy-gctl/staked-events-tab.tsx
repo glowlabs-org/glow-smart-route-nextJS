@@ -3,6 +3,9 @@ import { Clock, ArrowUpRight, Zap } from "lucide-react";
 import { formatUnits } from "viem";
 import { Region, StakedEvent } from "@glowlabs-org/utils/browser";
 import { cn } from "@/lib/utils";
+import { useLang, type Strings } from "@/lib/i18n";
+
+type EventTabsLabels = Strings["routes"]["eventTabs"];
 
 interface StakedEventsTabProps {
   stakedEvents: StakedEvent[];
@@ -13,7 +16,13 @@ interface StakedEventsTabProps {
 }
 
 // Timer component for staked events
-const StakedTimer = ({ stakedAt }: { stakedAt: string }) => {
+const StakedTimer = ({
+  stakedAt,
+  labels,
+}: {
+  stakedAt: string;
+  labels: EventTabsLabels;
+}) => {
   const [elapsed, setElapsed] = useState<string>("");
 
   useEffect(() => {
@@ -27,13 +36,13 @@ const StakedTimer = ({ stakedAt }: { stakedAt: string }) => {
       const days = Math.floor(hours / 24);
 
       if (days > 0) {
-        setElapsed(`${days}d ${hours % 24}h ago`);
+        setElapsed(labels.daysHoursAgo(String(days), String(hours % 24)));
       } else if (hours > 0) {
-        setElapsed(`${hours}h ${minutes % 60}m ago`);
+        setElapsed(labels.hoursMinutesAgo(String(hours), String(minutes % 60)));
       } else if (minutes > 0) {
-        setElapsed(`${minutes}m ago`);
+        setElapsed(labels.minutesAgo(String(minutes)));
       } else {
-        setElapsed("Just now");
+        setElapsed(labels.justNow);
       }
     };
 
@@ -41,7 +50,7 @@ const StakedTimer = ({ stakedAt }: { stakedAt: string }) => {
     const interval = setInterval(updateElapsed, 60000); // Update every minute
 
     return () => clearInterval(interval);
-  }, [stakedAt]);
+  }, [stakedAt, labels]);
 
   return (
     <div className="flex items-center space-x-1 text-xs text-muted-foreground">
@@ -58,6 +67,8 @@ export function StakedEventsTab({
   isRegionsLoading,
   maxItems,
 }: StakedEventsTabProps) {
+  const { t } = useLang();
+  const et = t.routes.eventTabs;
   const displayedEvents = maxItems ? stakedEvents.slice(0, maxItems) : stakedEvents;
 
   if (dataLoading || isRegionsLoading) {
@@ -86,10 +97,10 @@ export function StakedEventsTab({
           <Zap className="w-6 h-6 text-muted-foreground/60" />
         </div>
         <h3 className="text-sm font-semibold text-foreground mb-1">
-          No staking events
+          {et.noStakingEventsTitle}
         </h3>
         <p className="text-xs text-muted-foreground/60 max-w-sm mx-auto">
-          Staking and unstaking transactions will appear here
+          {et.noStakingEventsDesc}
         </p>
       </div>
     );
@@ -110,7 +121,8 @@ export function StakedEventsTab({
             )
           : "—";
 
-        const regionName = region?.name || `Region #${event.regionId || "?"}`;
+        const regionName =
+          region?.name || et.regionFallback(String(event.regionId || "?"));
         const walletShort = event.wallet
           ? `${event.wallet.slice(0, 6)}...${event.wallet.slice(-4)}`
           : "—";
@@ -134,7 +146,7 @@ export function StakedEventsTab({
                     !isStake && !isUnstake && "text-muted-foreground"
                   )}
                 >
-                  {isStake ? "Staked" : isUnstake ? "Unstaked" : "Event"}
+                  {isStake ? et.staked : isUnstake ? et.unstaked : et.event}
                 </span>
                 <span className="text-lg font-bold tabular-nums text-foreground">
                   {amount}
@@ -172,7 +184,7 @@ export function StakedEventsTab({
                         day: "numeric",
                       })}
                     </span>
-                    <StakedTimer stakedAt={event.ts} />
+                    <StakedTimer stakedAt={event.ts} labels={et} />
                   </>
                 )}
               </div>

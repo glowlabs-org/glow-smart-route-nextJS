@@ -13,6 +13,7 @@ import { DelegatorsView } from "./delegators-view";
 import { MinersView } from "./miners-view";
 import { ImpactView } from "./impact-view";
 import { CashMinerIcon, ImpactStreakIcon } from "@/components/impact-icons";
+import { useLang } from "@/lib/i18n";
 
 interface RewardsTabConfig {
   value: "impact" | "farms" | "delegator" | "miner";
@@ -20,33 +21,6 @@ interface RewardsTabConfig {
   description: string;
   Icon: React.ComponentType<{ className?: string }>;
 }
-
-const REWARDS_TABS: RewardsTabConfig[] = [
-  {
-    value: "impact",
-    label: "Impact",
-    description: "Weekly impact score + leaderboard",
-    Icon: ImpactStreakIcon,
-  },
-  {
-    value: "delegator",
-    label: "Delegators",
-    description: "Delegation activity & rankings",
-    Icon: Users,
-  },
-  {
-    value: "miner",
-    label: "Miners",
-    description: "Miner multiplier status & rankings",
-    Icon: CashMinerIcon,
-  },
-  {
-    value: "farms",
-    label: "Farms",
-    description: "Solar farms & sponsorship performance",
-    Icon: SunIcon,
-  },
-] as const;
 
 export function RewardsSkeleton() {
   return (
@@ -86,6 +60,39 @@ export function RewardsSkeleton() {
 }
 
 export default function RewardsView() {
+  const { t } = useLang();
+  const s = t.routes.stats;
+
+  const REWARDS_TABS: RewardsTabConfig[] = React.useMemo(
+    () => [
+      {
+        value: "impact",
+        label: s.tabImpact,
+        description: s.tabImpactDesc,
+        Icon: ImpactStreakIcon,
+      },
+      {
+        value: "delegator",
+        label: s.tabDelegators,
+        description: s.tabDelegatorsDesc,
+        Icon: Users,
+      },
+      {
+        value: "miner",
+        label: s.tabMiners,
+        description: s.tabMinersDesc,
+        Icon: CashMinerIcon,
+      },
+      {
+        value: "farms",
+        label: s.tabFarms,
+        description: s.tabFarmsDesc,
+        Icon: SunIcon,
+      },
+    ],
+    [s]
+  );
+
   const [type, setType] = useQueryState(
     "type",
     parseAsString.withDefault("impact")
@@ -108,7 +115,7 @@ export default function RewardsView() {
         <div className="flex flex-col gap-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
-              Leaderboard
+              {s.rewardsLeaderboard}
             </h1>
 
             <Tabs

@@ -11,6 +11,7 @@ import { LaunchpadView } from "@/app/marketplace/launchpad-view";
 import type { TaggedAuctionApplication } from "@/app/marketplace/launchpad-view";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { useLang } from "@/lib/i18n";
 
 export interface LaunchpadDialogProps {
   open: boolean;
@@ -18,6 +19,7 @@ export interface LaunchpadDialogProps {
 }
 
 export function LaunchpadDialog({ open, onOpenChange }: LaunchpadDialogProps) {
+  const { t } = useLang();
   const [depositOpen, setDepositOpen] = React.useState(false);
   const [selectedApplicationForDeposit, setSelectedApplicationForDeposit] =
     React.useState<TaggedAuctionApplication | null>(null);
@@ -52,7 +54,7 @@ export function LaunchpadDialog({ open, onOpenChange }: LaunchpadDialogProps) {
     <>
       <Dialog open={open} onOpenChange={handleLaunchpadOpenChange}>
         <DialogContent className="p-0 gap-0 sm:max-w-6xl w-full h-[85vh] overflow-hidden rounded-[24px] bg-card border border-border/40">
-          <DialogTitle className="sr-only">Launchpad</DialogTitle>
+          <DialogTitle className="sr-only">{t.dialogs.launchpad.title}</DialogTitle>
           <ScrollArea className="h-[85vh]">
             <LaunchpadView variant="dialog" onPayDeposit={handlePayDeposit} />
           </ScrollArea>

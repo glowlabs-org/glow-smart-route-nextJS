@@ -97,6 +97,9 @@ import {
   formatRewardPipelineDate,
   type PendingRewardPipelinePhase,
 } from "@/utils/reward-pipeline";
+import { useLang, type Strings } from "@/lib/i18n";
+
+type MyFarmsLabels = Strings["widgets"]["myFarms"];
 
 const fmtGlw = (n: number) =>
   new Intl.NumberFormat("en-US", {
@@ -416,10 +419,7 @@ type PendingTimelineCopy = {
   steps: PendingTimelineStep[];
 };
 
-const FIRST_FUNDS_TOOLTIP_COPY =
-  "Rewards are posted after the protocol week closes on Sunday and auditors review the batch. Funds then stay locked for a 3-week on-chain finalization window before the first claim opens.";
-
-function FirstFundsInfo(props: { className?: string }) {
+function FirstFundsInfo(props: { className?: string; labels: MyFarmsLabels }) {
   return (
     <TooltipProvider delayDuration={0}>
       <Tooltip>
@@ -430,31 +430,35 @@ function FirstFundsInfo(props: { className?: string }) {
               "inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground/70 transition-colors hover:text-foreground",
               props.className,
             )}
-            aria-label="Why first funds are delayed"
+            aria-label={props.labels.firstFundsAria}
           >
             <HelpCircle className="h-3.5 w-3.5" />
           </button>
         </TooltipTrigger>
         <TooltipContent side="top" className="max-w-[260px] text-xs leading-relaxed">
-          {FIRST_FUNDS_TOOLTIP_COPY}
+          {props.labels.firstFundsTooltip}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );
 }
 
-function getPendingStartPositionLabel(farm: FarmCardData) {
-  if (farm.type === "miner") return "miner";
-  if (farm.type === "delegation") return "delegation";
-  return "position";
+function getPendingStartPositionLabel(
+  farm: FarmCardData,
+  labels: MyFarmsLabels,
+) {
+  if (farm.type === "miner") return labels.positionMiner;
+  if (farm.type === "delegation") return labels.positionDelegation;
+  return labels.positionGeneric;
 }
 
 function getPendingStartTimelineCopy(params: {
   positionLabel: string;
   purchaseDate: string | null | undefined;
+  labels: MyFarmsLabels;
 }
 ): PendingTimelineCopy | null {
-  const { positionLabel, purchaseDate } = params;
+  const { positionLabel, purchaseDate, labels } = params;
   if (!purchaseDate) return null;
 
   const timeline = buildPendingRewardTimeline({ purchaseDate });
@@ -466,27 +470,25 @@ function getPendingStartTimelineCopy(params: {
     year: "numeric",
   });
 
-  const normalizedPositionLabel = positionLabel.toLowerCase();
-  const ownershipLabel = `Your ${normalizedPositionLabel} is confirmed`;
   const isClaimable = timeline.phase === "claimable";
 
   const statusLabel =
     timeline.phase === "epoch"
-      ? ownershipLabel
+      ? labels.statusOwnership(positionLabel)
       : timeline.phase === "audit"
-        ? `Your ${normalizedPositionLabel} starts earning now`
+        ? labels.statusStartsEarning(positionLabel)
         : timeline.phase === "finalization"
-          ? `Your ${normalizedPositionLabel} is earning`
-          : `Your ${normalizedPositionLabel} is claimable`;
+          ? labels.statusEarning(positionLabel)
+          : labels.statusClaimable(positionLabel);
 
   const helperLabel =
     timeline.phase === "epoch"
-      ? `Rewards start after Sunday close. Claiming opens after posting and finalization.`
+      ? labels.helperEpoch
       : timeline.phase === "audit"
-        ? `Rewards are being prepared and audited before they are posted on-chain.`
+        ? labels.helperAudit
         : timeline.phase === "finalization"
-          ? `Rewards are posted on-chain. The 3-week protection window is still running.`
-          : `Your first batch is available now in Rewards.`;
+          ? labels.helperFinalization
+          : labels.helperClaimable;
 
   const phaseOrder: PendingRewardPipelinePhase[] = [
     "epoch",
@@ -500,45 +502,47 @@ function getPendingStartTimelineCopy(params: {
     isClaimReady: isClaimable,
     badgeLabel:
       timeline.phase === "epoch"
-        ? "Owned"
+        ? labels.badgeOwned
         : timeline.phase === "claimable"
-          ? "Claim Ready"
-          : "Earning Soon",
+          ? labels.badgeClaimReady
+          : labels.badgeEarningSoon,
     statusLabel,
     helperLabel,
-    timelineLabel: isClaimable ? "Funds available" : "First funds available",
-    timelineValue: isClaimable ? "Now" : claimableLabel,
+    timelineLabel: isClaimable
+      ? labels.timelineLabelFundsAvailable
+      : labels.timelineLabelFirstFunds,
+    timelineValue: isClaimable ? labels.timelineValueNow : claimableLabel,
     nextMilestoneLabel:
       timeline.phase === "epoch"
-        ? "Starts earning"
+        ? labels.nextMilestoneStartsEarning
         : timeline.phase === "claimable"
-          ? "Funds available"
-          : "Started earning",
+          ? labels.nextMilestoneFundsAvailable
+          : labels.nextMilestoneStartedEarning,
     nextMilestoneValue:
       timeline.phase === "epoch"
         ? epochEndLabel
         : timeline.phase === "claimable"
-          ? "Now"
+          ? labels.timelineValueNow
           : postedLabel,
     progressPercent: timeline.progressPercent,
     steps: [
       {
         key: "epoch",
-        label: "Week closes",
+        label: labels.stepWeekCloses,
         dateLabel: epochEndLabel,
         isActive: timeline.phase === "epoch",
         isComplete: currentPhaseIndex > 0,
       },
       {
         key: "audit",
-        label: "Audited & posted",
+        label: labels.stepAudited,
         dateLabel: postedLabel,
         isActive: timeline.phase === "audit",
         isComplete: currentPhaseIndex > 1,
       },
       {
         key: "claim",
-        label: "First funds available",
+        label: labels.stepFirstFunds,
         dateLabel: claimableLabel,
         isActive:
           timeline.phase === "finalization" || timeline.phase === "claimable",
@@ -663,6 +667,7 @@ function PendingTimelinePanel(props: {
   timeline: PendingTimelineCopy;
   compact?: boolean;
 }) {
+  const { t } = useLang();
   const { timeline, compact = false } = props;
 
   return (
@@ -675,7 +680,7 @@ function PendingTimelinePanel(props: {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
-            What Happens Next
+            {t.widgets.myFarms.whatHappensNext}
           </div>
           <div
             className={cn(
@@ -689,7 +694,7 @@ function PendingTimelinePanel(props: {
         <div className="text-right shrink-0">
           <div className="flex items-center justify-end gap-1 text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
             <span>{timeline.timelineLabel}</span>
-            <FirstFundsInfo />
+            <FirstFundsInfo labels={t.widgets.myFarms} />
           </div>
           <div
             className={cn(
@@ -749,6 +754,7 @@ function PendingTimelineCompact(props: {
   timeline: PendingTimelineCopy;
   compact?: boolean;
 }) {
+  const { t } = useLang();
   const { timeline, compact = false } = props;
 
   return (
@@ -774,7 +780,7 @@ function PendingTimelineCompact(props: {
         </div>
         <div className="min-w-0 text-right">
           <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
-            {timeline.isClaimReady ? "Next step" : timeline.timelineLabel}
+            {timeline.isClaimReady ? t.widgets.myFarms.nextStep : timeline.timelineLabel}
           </div>
           <div
             className={cn(
@@ -782,7 +788,7 @@ function PendingTimelineCompact(props: {
               compact ? "text-[11px]" : "text-xs",
             )}
           >
-            {timeline.isClaimReady ? "Open Rewards" : timeline.timelineValue}
+            {timeline.isClaimReady ? t.widgets.myFarms.openRewards : timeline.timelineValue}
           </div>
         </div>
       </div>
@@ -793,6 +799,7 @@ function PendingTimelineCompact(props: {
 function PendingTimelineModalPanel(props: {
   timeline: PendingTimelineCopy;
 }) {
+  const { t } = useLang();
   const { timeline } = props;
 
   return (
@@ -805,7 +812,7 @@ function PendingTimelineModalPanel(props: {
                 <Clock className="w-4 h-4 text-[color:var(--color-miner-contrast)]" />
               </div>
               <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                Status
+                {t.widgets.myFarms.modalStatusLabel}
               </div>
             </div>
             <div className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground">
@@ -817,8 +824,8 @@ function PendingTimelineModalPanel(props: {
           </div>
           <div className="shrink-0 rounded-xl border border-border/20 dark:border-border/40 bg-card px-4 py-3">
             <div className="flex items-center gap-1 text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-              <span>First Funds Available</span>
-              <FirstFundsInfo />
+              <span>{t.widgets.myFarms.stepFirstFunds}</span>
+              <FirstFundsInfo labels={t.widgets.myFarms} />
             </div>
             <div className="mt-2 text-xl font-semibold text-foreground">
               {timeline.timelineValue}
@@ -829,7 +836,7 @@ function PendingTimelineModalPanel(props: {
         <div className="grid gap-3 md:grid-cols-3">
           <div className="rounded-xl border border-border/20 dark:border-border/40 bg-card px-4 py-3">
             <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-              Starts Earning
+              {t.widgets.myFarms.modalStartsEarning}
             </div>
             <div className="mt-2 text-lg font-semibold text-foreground">
               {timeline.steps[0]?.dateLabel}
@@ -837,7 +844,7 @@ function PendingTimelineModalPanel(props: {
           </div>
           <div className="rounded-xl border border-border/20 dark:border-border/40 bg-card px-4 py-3">
             <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-              Audited &amp; Posted
+              {t.widgets.myFarms.modalAuditedPosted}
             </div>
             <div className="mt-2 text-lg font-semibold text-foreground">
               {timeline.steps[1]?.dateLabel}
@@ -845,8 +852,8 @@ function PendingTimelineModalPanel(props: {
           </div>
           <div className="rounded-xl border border-border/20 dark:border-border/40 bg-card px-4 py-3">
             <div className="flex items-center gap-1 text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-              <span>First Funds Available</span>
-              <FirstFundsInfo />
+              <span>{t.widgets.myFarms.stepFirstFunds}</span>
+              <FirstFundsInfo labels={t.widgets.myFarms} />
             </div>
             <div className="mt-2 text-lg font-semibold text-foreground">
               {timeline.steps[2]?.dateLabel}
@@ -859,10 +866,12 @@ function PendingTimelineModalPanel(props: {
 }
 
 function FarmMosaicCard({ farm, onClick }: FarmMosaicCardProps) {
+  const { t } = useLang();
   const isPendingStart = Boolean(farm.isPendingStart);
   const pendingTimeline = getPendingStartTimelineCopy({
-    positionLabel: getPendingStartPositionLabel(farm),
+    positionLabel: getPendingStartPositionLabel(farm, t.widgets.myFarms),
     purchaseDate: farm.pendingPurchaseDate,
+    labels: t.widgets.myFarms,
   });
 
   return (
@@ -885,7 +894,7 @@ function FarmMosaicCard({ farm, onClick }: FarmMosaicCardProps) {
           <div className="absolute top-2 right-2 z-10">
             <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold font-mono uppercase tracking-wider border bg-background/90 text-foreground border-border/40">
               <Clock className="w-2.5 h-2.5" />
-              {pendingTimeline?.badgeLabel ?? "Pending"}
+              {pendingTimeline?.badgeLabel ?? t.widgets.myFarms.badgePending}
             </div>
           </div>
         )}
@@ -919,14 +928,16 @@ function FarmCard({
   isCompact = false,
   showAuditButton = false,
 }: FarmCardProps) {
+  const { t } = useLang();
   const isInProgress = farm.type === "in-progress";
   const isMiner = farm.type === "miner";
   const isDelegation = farm.type === "delegation";
   const isOther = farm.type === "other";
   const isPendingStart = Boolean(farm.isPendingStart);
   const pendingTimeline = getPendingStartTimelineCopy({
-    positionLabel: getPendingStartPositionLabel(farm),
+    positionLabel: getPendingStartPositionLabel(farm, t.widgets.myFarms),
     purchaseDate: farm.pendingPurchaseDate,
+    labels: t.widgets.myFarms,
   });
   const inProgressIsMiningCenter =
     isInProgress && farm.inProgressKind === "mining-center";
@@ -985,7 +996,7 @@ function FarmCard({
           ) : (
             <DelegationIcon className={"w-5 h-5"} />
           )}
-          {inProgressIsMiningCenter ? "Miner" : "Delegation"}
+          {inProgressIsMiningCenter ? t.widgets.myFarms.typeMiner : t.widgets.myFarms.typeDelegation}
         </div>
       );
     }
@@ -998,7 +1009,7 @@ function FarmCard({
           )}
         >
           <CashMinerIcon className={"w-5 h-5"} />
-          Miner
+          {t.widgets.myFarms.typeMiner}
         </div>
       );
     }
@@ -1011,7 +1022,7 @@ function FarmCard({
           )}
         >
           <DelegationIcon className={"w-5 h-5"} />
-          Delegation
+          {t.widgets.myFarms.typeDelegation}
         </div>
       );
     }
@@ -1023,7 +1034,7 @@ function FarmCard({
         )}
       >
         <Gift className={isCompact ? "w-2.5 h-2.5" : "w-3 h-3"} />
-        Rewards
+        {t.widgets.myFarms.typeRewards}
       </div>
     );
   };
@@ -1091,7 +1102,7 @@ function FarmCard({
                 <ExternalLink
                   className={isCompact ? "w-2.5 h-2.5" : "w-3 h-3"}
                 />
-                See audit
+                {t.widgets.myFarms.seeAudit}
               </a>
             )}
           </div>
@@ -1133,7 +1144,7 @@ function FarmCard({
               )}
             >
               <span className="text-muted-foreground font-medium">
-                Funding Progress
+                {t.widgets.myFarms.fundingProgress}
               </span>
               <span className="font-mono font-bold">
                 {Math.round(farm.inProgressPercent ?? 0)}%
@@ -1156,7 +1167,7 @@ function FarmCard({
                     isCompact ? "text-[9px]" : "text-[10px]",
                   )}
                 >
-                  {inProgressIsMiningCenter ? "Cost" : "Delegated"}
+                  {inProgressIsMiningCenter ? t.widgets.myFarms.costLabel : t.widgets.myFarms.delegatedLabel}
                 </div>
                 <div className={cn("font-mono font-bold", isCompact ? "text-xs" : "text-sm")}>
                   {delegatedOrCostLabel}
@@ -1169,7 +1180,7 @@ function FarmCard({
                     isCompact ? "text-[9px]" : "text-[10px]",
                   )}
                 >
-                  Est. Weekly
+                  {t.widgets.myFarms.estWeekly}
                 </div>
                 <div
                   className={cn(
@@ -1198,7 +1209,7 @@ function FarmCard({
                   isCompact ? "text-[10px]" : "text-xs",
                 )}
               >
-                {!isCompact && "View Details"}{" "}
+                {!isCompact && t.widgets.myFarms.viewDetails}{" "}
                 <ChevronRight
                   className={cn(isCompact ? "w-2.5 h-2.5" : "w-3 h-3")}
                 />
@@ -1224,7 +1235,7 @@ function FarmCard({
                     isCompact ? "text-[9px]" : "text-[10px]",
                   )}
                 >
-                  {isPendingStart ? "Status" : "Active"}
+                  {isPendingStart ? t.widgets.myFarms.statusLabel : t.widgets.myFarms.active}
                 </div>
                 <div
                   className={cn(
@@ -1233,8 +1244,8 @@ function FarmCard({
                   )}
                 >
                   {isPendingStart
-                    ? pendingTimeline?.statusLabel ?? "Processing purchase"
-                    : `${farm.weeksActive} / ${farm.totalWeeks} wks`}
+                    ? pendingTimeline?.statusLabel ?? t.widgets.myFarms.processing
+                    : t.widgets.myFarms.wksFormat(farm.weeksActive, farm.totalWeeks)}
                 </div>
               </div>
               {!isCompact && hasLastWeekRewards && (
@@ -1245,7 +1256,7 @@ function FarmCard({
                       "text-[10px]",
                     )}
                   >
-                    Last Week
+                    {t.widgets.myFarms.lastWeek}
                   </div>
                   <div className="font-mono font-medium text-sm">
                     {lastWeekLabel}
@@ -1261,9 +1272,9 @@ function FarmCard({
                 >
                   {isPendingStart
                     ? isClaimReadyPending
-                      ? "Rewards"
-                      : "Est. Weekly"
-                    : "Earned"}
+                      ? t.widgets.myFarms.typeRewards
+                      : t.widgets.myFarms.estWeekly
+                    : t.widgets.myFarms.earned}
                 </div>
                 <div
                   className={cn(
@@ -1281,8 +1292,8 @@ function FarmCard({
                 >
                   {isPendingStart
                     ? isClaimReadyPending
-                      ? "Ready to claim"
-                      : estimatedWeeklyLabel ?? "Calculating"
+                      ? t.widgets.myFarms.readyToClaim
+                      : estimatedWeeklyLabel ?? t.widgets.myFarms.calculating
                     : getFarmEarnedLabel(farm)}
                 </div>
                 {isCompact && !isPendingStart && hasLastWeekRewards && (
@@ -1292,7 +1303,7 @@ function FarmCard({
                       isCompact && "text-[9px]",
                     )}
                   >
-                    Last week:{" "}
+                    {t.widgets.myFarms.lastWeekPrefix}{" "}
                     <span className="font-semibold text-foreground">
                       {lastWeekLabel}
                     </span>
@@ -1316,17 +1327,20 @@ function FarmCard({
                   )}
                 >
                   <span>
-                    {`${isOther ? "Timeline" : isMiner ? "Cost" : "Delegated"}: ${
-                      isOther
-                        ? `${farm.weeksActive} / ${farm.totalWeeks} wks`
-                        : isMiner
-                          ? fmtUsd(farm.initialCost)
-                          : formatDelegatedAmountsByAsset({
+                    {isOther
+                      ? t.widgets.myFarms.timelineText(
+                          farm.weeksActive,
+                          farm.totalWeeks,
+                        )
+                      : isMiner
+                        ? t.widgets.myFarms.costText(fmtUsd(farm.initialCost))
+                        : t.widgets.myFarms.delegatedText(
+                            formatDelegatedAmountsByAsset({
                               amounts: farm.delegatedAmountsByAsset,
                               fallbackAmount: farm.initialCost,
                               fallbackAsset: farm.protocolDepositAsset,
-                            })
-                    }`}
+                            }),
+                          )}
                   </span>
                   <span
                     className={cn(
@@ -1334,7 +1348,7 @@ function FarmCard({
                       isProfitable ? "text-emerald-500" : "text-foreground",
                     )}
                   >
-                    {`${roiPercent.toFixed(0)}% Progress`}
+                    {t.widgets.myFarms.progressText(Math.round(roiPercent))}
                   </span>
                 </div>
                 <Progress
@@ -1360,7 +1374,7 @@ function FarmCard({
                   isCompact ? "text-[10px]" : "text-xs",
                 )}
               >
-                {!isCompact && "View Details"}{" "}
+                {!isCompact && t.widgets.myFarms.viewDetails}{" "}
                 <ChevronRight
                   className={cn(isCompact ? "w-2.5 h-2.5" : "w-3 h-3")}
                 />
@@ -1386,6 +1400,7 @@ function FarmDetailDialog({
   onOpenChange,
   glwSpotPrice,
 }: FarmDetailDialogProps) {
+  const { t } = useLang();
   if (!farm) return null;
 
   const isInProgress = farm.type === "in-progress";
@@ -1393,8 +1408,9 @@ function FarmDetailDialog({
   const isOther = farm.type === "other";
   const isPendingStart = Boolean(farm.isPendingStart);
   const pendingTimeline = getPendingStartTimelineCopy({
-    positionLabel: getPendingStartPositionLabel(farm),
+    positionLabel: getPendingStartPositionLabel(farm, t.widgets.myFarms),
     purchaseDate: farm.pendingPurchaseDate,
+    labels: t.widgets.myFarms,
   });
   const inProgressIsMiningCenter =
     isInProgress && farm.inProgressKind === "mining-center";
@@ -1449,7 +1465,7 @@ function FarmDetailDialog({
           estimatedUserWeeklyPd: farm.estimatedUserWeeklyPd,
           estimatedUserWeeklyPdAsset:
             farm.estimatedUserWeeklyPdAsset ?? farm.protocolDepositAsset,
-        }) ?? "Calculating"
+        }) ?? t.widgets.myFarms.calculating
       );
     }
     if (isMiner) return `${fmtGlw(farm.inflationGlw)} GLW`;
@@ -1475,12 +1491,12 @@ function FarmDetailDialog({
             onClick={() => onOpenChange(false)}
           >
             <X className="h-4 w-4" />
-            <span className="sr-only">Close</span>
+            <span className="sr-only">{t.widgets.myFarms.closeAria}</span>
           </Button>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pr-8">
             <div className="space-y-2">
               <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                Farm Overview
+                {t.widgets.myFarms.farmOverview}
               </div>
               <DialogTitle className="text-3xl font-semibold tracking-tight text-foreground">
                 {farm.farmName}
@@ -1498,19 +1514,19 @@ function FarmDetailDialog({
               {farm.type === "miner" && (
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 text-foreground">
                   <CashMinerIcon className="w-4 h-4 text-[color:var(--color-miner)]" />
-                  Miner
+                  {t.widgets.myFarms.typeMiner}
                 </div>
               )}
               {farm.type === "delegation" && (
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 text-foreground">
                   <DelegationIcon className="w-4 h-4 text-delegation-purple" />
-                  Delegation
+                  {t.widgets.myFarms.typeDelegation}
                 </div>
               )}
               {farm.type === "other" && (
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 text-foreground">
                   <Gift className="w-3.5 h-3.5 text-emerald-700 dark:text-[color:var(--color-glow-green)]" />
-                  Rewards
+                  {t.widgets.myFarms.typeRewards}
                 </div>
               )}
               {farm.type === "in-progress" && (
@@ -1524,7 +1540,7 @@ function FarmDetailDialog({
                   ) : (
                     <DelegationIcon className="w-4 h-4 text-delegation-purple" />
                   )}
-                  In Progress
+                  {t.widgets.myFarms.typeInProgress}
                 </div>
               )}
             </div>
@@ -1624,8 +1640,8 @@ function FarmDetailDialog({
                       </div>
                       <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
                         {isMiner || inProgressIsMiningCenter
-                          ? "Initial Cost"
-                          : "Total Delegated"}
+                          ? t.widgets.myFarms.initialCost
+                          : t.widgets.myFarms.totalDelegated}
                       </div>
                     </div>
                     <div className="text-2xl sm:text-3xl font-semibold font-mono tracking-tight leading-tight whitespace-normal break-words text-foreground">
@@ -1658,8 +1674,8 @@ function FarmDetailDialog({
                       </div>
                       <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
                         {isInProgress || isPendingStart
-                          ? "Est. Weekly Rewards"
-                          : "Lifetime Earnings"}
+                          ? t.widgets.myFarms.estWeeklyRewards
+                          : t.widgets.myFarms.lifetimeEarnings}
                       </div>
                     </div>
                     {!isInProgress && !isPendingStart && !isOther && (
@@ -1701,7 +1717,7 @@ function FarmDetailDialog({
                           <Clock className="w-4 h-4" />
                         </div>
                         <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                          Timeline
+                          {t.widgets.myFarms.timelineCard}
                         </div>
                       </div>
                       <div className="text-xs font-mono font-medium text-muted-foreground bg-card border border-border/20 dark:border-border/40 px-2 py-0.5 rounded-lg">
@@ -1713,11 +1729,11 @@ function FarmDetailDialog({
                         <div className="text-2xl font-semibold font-mono tracking-tight">
                           {farm.weeksActive}
                           <span className="text-muted-foreground/60 text-sm ml-1 font-normal">
-                            wks
+                            {t.widgets.myFarms.wksUnit}
                           </span>
                         </div>
                         <div className="text-sm font-mono text-muted-foreground/60">
-                          {farm.totalWeeks} wks total
+                          {t.widgets.myFarms.timelineTotal(farm.totalWeeks)}
                         </div>
                       </div>
                       <Progress
@@ -1749,7 +1765,7 @@ function FarmDetailDialog({
                         )}
                       </div>
                       <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                        Funding Progress
+                        {t.widgets.myFarms.fundingProgress}
                       </div>
                     </div>
                     <div className="space-y-2">
@@ -1780,7 +1796,7 @@ function FarmDetailDialog({
             {!isInProgress && !isPendingStart && (
               <div className="space-y-4">
                 <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 px-1">
-                  Rewards Breakdown
+                  {t.widgets.myFarms.rewardsBreakdown}
                 </h3>
                 <Card className="bg-muted/30 border-border/20 overflow-hidden py-0">
                   <div className="divide-y divide-border/20">
@@ -1792,16 +1808,16 @@ function FarmDetailDialog({
                           </div>
                           <div>
                             <div className="font-medium text-sm">
-                              Protocol Deposit
+                              {t.widgets.myFarms.protocolDeposit}
                             </div>
                             <div className="text-xs text-muted-foreground">
                               {isOther
-                                ? `Recovered in ${
+                                ? t.widgets.myFarms.protocolDepositRecoveredIn(
                                     formatProtocolDepositAsset(
-                                      farm.protocolDepositAsset
-                                    ) ?? "—"
-                                  }`
-                                : "Recovered capital"}
+                                      farm.protocolDepositAsset,
+                                    ) ?? "—",
+                                  )
+                                : t.widgets.myFarms.protocolDepositRecoveredCapital}
                             </div>
                           </div>
                         </div>
@@ -1817,9 +1833,9 @@ function FarmDetailDialog({
                           <EmissionsIcon className="w-5 h-5" />
                         </div>
                         <div>
-                          <div className="font-medium text-sm">Emissions</div>
+                          <div className="font-medium text-sm">{t.widgets.myFarms.emissions}</div>
                           <div className="text-xs text-muted-foreground">
-                            Production rewards
+                            {t.widgets.myFarms.emissionsProduction}
                           </div>
                         </div>
                       </div>
@@ -1829,7 +1845,7 @@ function FarmDetailDialog({
                     </div>
 
                     <div className="flex items-center justify-between p-4 bg-muted/20">
-                      <div className="font-bold text-sm">Total Value</div>
+                      <div className="font-bold text-sm">{t.widgets.myFarms.totalValue}</div>
                       <div className="text-right font-mono font-bold text-lg">
                         {earnedLabel}
                       </div>
@@ -1845,7 +1861,7 @@ function FarmDetailDialog({
               farm.weeklyBreakdown.length > 0 && (
                 <div className="space-y-4">
                   <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 px-1">
-                    Weekly History
+                    {t.widgets.myFarms.weeklyHistory}
                   </h3>
                   <div className="rounded-xl border border-border/20 bg-muted/30 overflow-hidden">
                     <div className="custom-scrollbar">
@@ -1941,6 +1957,7 @@ interface MyFarmsGridSectionProps {
 export default function MyFarmsGridSection({
   walletAddress,
 }: MyFarmsGridSectionProps) {
+  const { t } = useLang();
   const { isConnected } = useAccount();
   const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
   const source = "my_farms_grid_section";
@@ -2182,13 +2199,13 @@ export default function MyFarmsGridSection({
       const regionName = (() => {
         if (!farmMetadata) return "—";
         const region = regions.find((r) => r.id === farmMetadata.regionId);
-        return region?.name || `Region ${farmMetadata.regionId}`;
+        return region?.name || t.widgets.myFarms.fallbackRegion(farmMetadata.regionId);
       })();
 
       const displayName =
         farmMetadata?.name ||
         farmNameByFarmId.get(farm.farmId) ||
-        `Farm ${farm.farmId.substring(0, 8)}`;
+        t.widgets.myFarms.fallbackFarmName(farm.farmId.substring(0, 8));
 
       const imageUrls =
         farmMetadata?.afterInstallPictures?.map((p) => p.url) || [];
@@ -2621,7 +2638,7 @@ export default function MyFarmsGridSection({
       ...miningCenterInProgressWithEstimates,
     ].forEach((item) => {
       const app = item.application;
-      const zoneName = app?.zone?.name || "Launchpad";
+      const zoneName = app?.zone?.name || t.widgets.myFarms.fallbackZone;
       const launchpadDelegationCurrency =
         item.fractionType === "launchpad"
           ? item.delegationCurrency ?? resolveDelegationCurrency(app)
@@ -2629,7 +2646,7 @@ export default function MyFarmsGridSection({
       const launchpadCurrency = launchpadDelegationCurrency ?? "USDC";
       const rowFarmId = app?.farmId ?? item.applicationId;
       const displayName =
-        app?.farmName || `Farm ${item.applicationId.substring(0, 8)}`;
+        app?.farmName || t.widgets.myFarms.fallbackFarmName(item.applicationId.substring(0, 8));
       const imageUrls = app?.afterInstallPictures?.map((p) => p.url) || [];
       if (imageUrls.length === 0) {
         imageUrls.push("/images/sections/residential.jpg");
@@ -2850,8 +2867,8 @@ export default function MyFarmsGridSection({
           {!isRewardsError && <GlowSymbol className="w-10 h-10 opacity-20" />}
           <p className="text-sm font-mono uppercase tracking-wider">
             {isRewardsError
-              ? "Unable to load farms"
-              : "No farms found for this wallet"}
+              ? t.widgets.myFarms.unableToLoad
+              : t.widgets.myFarms.noFarmsFound}
           </p>
         </div>
       </Card>
@@ -2863,7 +2880,7 @@ export default function MyFarmsGridSection({
       <div className="flex flex-row items-center justify-between gap-2 sm:gap-4 mb-6">
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider hidden sm:block">
-            Sort by
+            {t.widgets.myFarms.sortBy}
           </span>
           <Select
             value={sortBy}
@@ -2878,13 +2895,13 @@ export default function MyFarmsGridSection({
             }}
           >
             <SelectTrigger className="w-[120px] sm:w-[160px] h-9 text-xs sm:text-sm">
-              <SelectValue placeholder="Sort by..." />
+              <SelectValue placeholder={t.widgets.myFarms.sortPlaceholder} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="default">Default</SelectItem>
-              <SelectItem value="date">Newest</SelectItem>
-              <SelectItem value="alphabetical">Name (A-Z)</SelectItem>
-              <SelectItem value="size">Size (Highest)</SelectItem>
+              <SelectItem value="default">{t.widgets.myFarms.sortDefault}</SelectItem>
+              <SelectItem value="date">{t.widgets.myFarms.sortNewest}</SelectItem>
+              <SelectItem value="alphabetical">{t.widgets.myFarms.sortAlphabetical}</SelectItem>
+              <SelectItem value="size">{t.widgets.myFarms.sortSize}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -2905,7 +2922,7 @@ export default function MyFarmsGridSection({
             }}
           >
             <LayoutGrid className="w-3.5 h-3.5 md:mr-1.5" />
-            <span className="hidden md:inline">Default</span>
+            <span className="hidden md:inline">{t.widgets.myFarms.viewDefault}</span>
           </Button>
           <Button
             variant={viewMode === "compact" ? "secondary" : "ghost"}
@@ -2922,7 +2939,7 @@ export default function MyFarmsGridSection({
             }}
           >
             <Grid3x3 className="w-3.5 h-3.5 md:mr-1.5" />
-            <span className="hidden md:inline">Compact</span>
+            <span className="hidden md:inline">{t.widgets.myFarms.viewCompact}</span>
           </Button>
           <Button
             variant={viewMode === "mosaic" ? "secondary" : "ghost"}
@@ -2939,7 +2956,7 @@ export default function MyFarmsGridSection({
             }}
           >
             <ImageIcon className="w-3.5 h-3.5 md:mr-1.5" />
-            <span className="hidden md:inline">Mosaic</span>
+            <span className="hidden md:inline">{t.widgets.myFarms.viewMosaic}</span>
           </Button>
           <Button
             variant={viewMode === "list" ? "secondary" : "ghost"}
@@ -2956,7 +2973,7 @@ export default function MyFarmsGridSection({
             }}
           >
             <List className="w-3.5 h-3.5 md:mr-1.5" />
-            <span className="hidden md:inline">List</span>
+            <span className="hidden md:inline">{t.widgets.myFarms.viewList}</span>
           </Button>
         </div>
       </div>
@@ -2967,25 +2984,25 @@ export default function MyFarmsGridSection({
             <TableHeader>
               <TableRow className="hover:bg-transparent border-border/20 dark:border-border/40">
                 <TableHead className="w-[300px] text-[10px] uppercase tracking-wider font-mono font-bold">
-                  Item
+                  {t.widgets.myFarms.listItem}
                 </TableHead>
                 <TableHead className="text-[10px] uppercase tracking-wider font-mono font-bold">
-                  Status
+                  {t.widgets.myFarms.listStatus}
                 </TableHead>
                 <TableHead className="text-[10px] uppercase tracking-wider font-mono font-bold text-right">
-                  Active
+                  {t.widgets.myFarms.listActive}
                 </TableHead>
                 <TableHead className="text-[10px] uppercase tracking-wider font-mono font-bold text-right">
-                  Cost
+                  {t.widgets.myFarms.listCost}
                 </TableHead>
                 <TableHead className="text-[10px] uppercase tracking-wider font-mono font-bold text-right">
-                  Earned
+                  {t.widgets.myFarms.listEarned}
                 </TableHead>
                 <TableHead className="text-[10px] uppercase tracking-wider font-mono font-bold text-right">
-                  Last Week
+                  {t.widgets.myFarms.listLastWeek}
                 </TableHead>
                 <TableHead className="text-[10px] uppercase tracking-wider font-mono font-bold text-right">
-                  Progress
+                  {t.widgets.myFarms.listProgress}
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -2996,8 +3013,9 @@ export default function MyFarmsGridSection({
                 const isDelegation = farm.type === "delegation";
                 const isPendingStart = Boolean(farm.isPendingStart);
                 const pendingTimeline = getPendingStartTimelineCopy({
-                  positionLabel: getPendingStartPositionLabel(farm),
+                  positionLabel: getPendingStartPositionLabel(farm, t.widgets.myFarms),
                   purchaseDate: farm.pendingPurchaseDate,
+                  labels: t.widgets.myFarms,
                 });
                 const inProgressIsMiningCenter =
                   isInProgress && farm.inProgressKind === "mining-center";
@@ -3059,11 +3077,11 @@ export default function MyFarmsGridSection({
                               : "border-delegation-purple/30 bg-delegation-purple/10 text-delegation-purple",
                           )}
                         >
-                          In Progress
+                          {t.widgets.myFarms.listInProgressStatus}
                         </div>
                       ) : isPendingStart ? (
                         <div className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-bold font-mono uppercase tracking-wider border bg-muted/50 text-muted-foreground border-border/40">
-                          {pendingTimeline?.badgeLabel ?? "Pending"}
+                          {pendingTimeline?.badgeLabel ?? t.widgets.myFarms.listPending}
                         </div>
                       ) : (
                         <div
@@ -3077,19 +3095,19 @@ export default function MyFarmsGridSection({
                           )}
                         >
                           {isMiner
-                            ? "Miner"
+                            ? t.widgets.myFarms.typeMiner
                             : isDelegation
-                              ? "Delegation"
-                              : "Rewards"}
+                              ? t.widgets.myFarms.typeDelegation
+                              : t.widgets.myFarms.typeRewards}
                         </div>
                       )}
                     </TableCell>
                     <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
                       {isPendingStart
-                        ? pendingTimeline?.statusLabel ?? "Processing"
+                        ? pendingTimeline?.statusLabel ?? t.widgets.myFarms.listProcessing
                         : isInProgress
                           ? "—"
-                          : `${farm.weeksActive} / ${farm.totalWeeks} wks`}
+                          : t.widgets.myFarms.wksFormat(farm.weeksActive, farm.totalWeeks)}
                     </TableCell>
                     <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
                       {isInProgress
@@ -3141,7 +3159,7 @@ export default function MyFarmsGridSection({
                                 estimatedUserWeeklyPdAsset:
                                   farm.estimatedUserWeeklyPdAsset ??
                                   farm.protocolDepositAsset,
-                              }) ?? "Calculating"
+                              }) ?? t.widgets.myFarms.calculating
                             : getFarmEarnedLabel(farm)}
                         </span>
                       )}
@@ -3170,7 +3188,7 @@ export default function MyFarmsGridSection({
                         </div>
                       ) : isPendingStart ? (
                         <span className="text-muted-foreground text-xs font-mono">
-                          {pendingTimeline?.timelineValue ?? "Pending"}
+                          {pendingTimeline?.timelineValue ?? t.widgets.myFarms.listPending}
                         </span>
                       ) : (
                         <span

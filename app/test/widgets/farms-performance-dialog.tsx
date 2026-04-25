@@ -76,6 +76,9 @@ import {
   resolveLaunchpadSplitCurrency,
   type DelegationAmountsByAsset,
 } from "@/utils/wallet-launchpad";
+import { useLang, type Strings } from "@/lib/i18n";
+
+type FarmsPerfLabels = Strings["bigDialogs"]["farmsPerformance"];
 
 // --- HELPER: FORMATTERS ---
 const fmtGlw = (n: number) =>
@@ -358,18 +361,21 @@ function parseProtocolDepositTokenAmount(
   return parseDelegationAmountFromBaseUnits(value, delegationCurrency);
 }
 
-function getPendingPhaseLabel(phase: ReturnType<typeof buildPendingRewardTimeline>["phase"]) {
+function getPendingPhaseLabel(
+  phase: ReturnType<typeof buildPendingRewardTimeline>["phase"],
+  labels: FarmsPerfLabels,
+) {
   switch (phase) {
     case "epoch":
-      return "Week Closing";
+      return labels.phaseWeekClosing;
     case "audit":
-      return "Audit Review";
+      return labels.phaseAuditReview;
     case "finalization":
-      return "Finalizing";
+      return labels.phaseFinalizing;
     case "claimable":
-      return "Claim Ready";
+      return labels.phaseClaimReady;
     default:
-      return "Pending";
+      return labels.phasePending;
   }
 }
 
@@ -378,26 +384,31 @@ function getPendingNextMilestone(params: {
   epochEndsAtMs: number;
   auditPostedAtMs: number;
   claimableAtMs: number;
+  labels: FarmsPerfLabels;
 }) {
-  const { phase, epochEndsAtMs, auditPostedAtMs, claimableAtMs } = params;
+  const { phase, epochEndsAtMs, auditPostedAtMs, claimableAtMs, labels } =
+    params;
 
   if (phase === "epoch") {
     return {
-      label: "Week closes",
+      label: labels.milestoneWeekCloses,
       date: formatRewardPipelineDate(epochEndsAtMs),
     };
   }
   if (phase === "audit") {
     return {
-      label: "Audited & posted",
+      label: labels.milestoneAuditedPosted,
       date: formatRewardPipelineDate(auditPostedAtMs),
     };
   }
   return {
-    label: phase === "claimable" ? "Funds available" : "First funds available",
+    label:
+      phase === "claimable"
+        ? labels.milestoneFundsAvailable
+        : labels.milestoneFirstFundsAvailable,
     date:
       phase === "claimable"
-        ? "Now"
+        ? labels.nowLabel
         : formatRewardPipelineDate(claimableAtMs, {
             month: "short",
             day: "numeric",
@@ -406,10 +417,7 @@ function getPendingNextMilestone(params: {
   };
 }
 
-const FIRST_FUNDS_TOOLTIP_COPY =
-  "Rewards are posted after the protocol week closes on Sunday and auditors review the batch. Funds then stay locked for a 3-week on-chain finalization window before the first claim opens.";
-
-function FirstFundsInfo(props: { className?: string }) {
+function FirstFundsInfo(props: { className?: string; labels: FarmsPerfLabels }) {
   return (
     <ShadTooltip>
       <TooltipTrigger asChild>
@@ -419,13 +427,13 @@ function FirstFundsInfo(props: { className?: string }) {
             "inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground/70 transition-colors hover:text-foreground",
             props.className
           )}
-          aria-label="Why first funds are delayed"
+          aria-label={props.labels.firstFundsAriaLabel}
         >
           <HelpCircle className="h-3.5 w-3.5" />
         </button>
       </TooltipTrigger>
       <TooltipContent side="top" className="max-w-[260px] text-xs leading-relaxed">
-        {FIRST_FUNDS_TOOLTIP_COPY}
+        {props.labels.firstFundsTooltip}
       </TooltipContent>
     </ShadTooltip>
   );
@@ -433,6 +441,8 @@ function FirstFundsInfo(props: { className?: string }) {
 
 // --- COMPONENT: THE FARM ROW ---
 const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
+  const { t } = useLang();
+  const fp = t.bigDialogs.farmsPerformance;
   const [isExpanded, setIsExpanded] = React.useState(false);
 
   const isInProgress = data.type === "in-progress";
@@ -472,8 +482,8 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
     return buildPendingRewardTimeline({ purchaseDate: data.purchaseDate });
   }, [data.purchaseDate, isPendingStart]);
   const pendingPhaseLabel = pendingTimeline
-    ? getPendingPhaseLabel(pendingTimeline.phase)
-    : "Pending";
+    ? getPendingPhaseLabel(pendingTimeline.phase, fp)
+    : fp.pending;
   const isClaimReadyPending = pendingTimeline?.phase === "claimable";
   const pendingNextMilestone = pendingTimeline
     ? getPendingNextMilestone({
@@ -481,6 +491,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
         epochEndsAtMs: pendingTimeline.epochEndsAtMs,
         auditPostedAtMs: pendingTimeline.auditPostedAtMs,
         claimableAtMs: pendingTimeline.claimableAtMs,
+        labels: fp,
       })
     : null;
   const pendingStartsEarningLabel = pendingTimeline
@@ -491,7 +502,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
     : null;
   const pendingClaimingStartsLabel = pendingTimeline
     ? pendingTimeline.phase === "claimable"
-      ? "Now"
+      ? fp.nowLabel
       : formatRewardPipelineDate(pendingTimeline.claimableAtMs, {
           month: "short",
           day: "numeric",
@@ -680,7 +691,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
             <div className="mt-4 grid gap-2 grid-cols-2">
               <div className="text-center">
                 <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
-                  {isOther ? "Cost" : isMiner ? "Cost" : "Delegated"}
+                  {isOther ? fp.cost : isMiner ? fp.cost : fp.delegated}
                 </div>
                 <div className="flex items-baseline justify-center gap-1">
                   {isOther ? (
@@ -700,9 +711,9 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                 <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
                   {isPendingStart && data.estimatedUserWeeklyGlw
                     ? isClaimReadyPending
-                      ? "Rewards"
-                      : "Est. Weekly"
-                    : "Earned"}
+                      ? fp.rewards
+                      : fp.estWeekly
+                    : fp.earned}
                 </div>
                 <div className="flex items-baseline justify-center gap-1">
                   <span
@@ -717,7 +728,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                   >
                     {isPendingStart
                       ? isClaimReadyPending
-                        ? "Ready to claim"
+                        ? fp.readyToClaim
                         : estimatedWeeklyLabel
                       : isMiner
                       ? fmtGlw(totalEarnedGlw)
@@ -770,7 +781,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
             {isExpanded && (
               <div className="mt-4 pt-4 border-t border-border/30 dark:border-border/40 space-y-3">
                 <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                  {isPendingStart ? "Reward Pipeline" : "Breakdown"}
+                  {isPendingStart ? fp.rewardPipeline : fp.breakdown}
                 </div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm font-mono">
                   {!isMiner && !isPendingStart && (
@@ -791,16 +802,16 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                   {isPendingStart ? (
                     <>
                       <span className="text-muted-foreground">
-                        {isMiner ? "Cost" : "Delegated"}
+                        {isMiner ? fp.cost : fp.delegated}
                       </span>
                       <span className="text-right text-foreground">
                         {isMiner ? fmtUsd(data.initialCost) : delegatedLabel}
                       </span>
                       <span className="text-muted-foreground">
-                        {isClaimReadyPending ? "Rewards" : "Est. weekly"}
+                        {isClaimReadyPending ? fp.rewards : fp.estWeeklyLower}
                       </span>
                       <span className="text-right text-[color:var(--color-miner-contrast)]">
-                        {isClaimReadyPending ? "Ready to claim" : estimatedWeeklyLabel}
+                        {isClaimReadyPending ? fp.readyToClaim : estimatedWeeklyLabel}
                       </span>
                       <div className="col-span-2 h-px bg-border/30 dark:bg-border/40" />
                       <span className="text-muted-foreground">Rewards start</span>
@@ -834,7 +845,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                     </span>
                     <span className="text-muted-foreground">First funds available</span>
                     <span className="flex items-center justify-end gap-1 text-right text-foreground">
-                      <FirstFundsInfo />
+                      <FirstFundsInfo labels={fp} />
                       <span>{pendingClaimingStartsLabel ?? "—"}</span>
                     </span>
                   </div>
@@ -964,7 +975,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
               <>
                 <div className="text-center min-w-[70px]">
                   <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
-                    {isOther ? "Cost" : isMiner ? "Cost" : "Delegated"}
+                    {isOther ? fp.cost : isMiner ? fp.cost : fp.delegated}
                   </div>
                   <div className="flex items-baseline justify-center gap-1">
                     {isOther ? (
@@ -983,8 +994,8 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                 <div className="text-center min-w-[70px]">
                   <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
                     {isPendingStart && data.estimatedUserWeeklyGlw
-                      ? "Est. Weekly"
-                      : "Earned"}
+                      ? fp.estWeekly
+                      : fp.earned}
                   </div>
                   <div className="flex items-baseline justify-center gap-1">
                     <span
@@ -1039,13 +1050,13 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                 {/* LEFT: BREAKDOWN */}
                 <div>
                   <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-3">
-                    {isPendingStart ? "Reward Pipeline" : "Breakdown"}
+                    {isPendingStart ? fp.rewardPipeline : fp.breakdown}
                   </div>
                   <div className="space-y-2 text-sm font-mono">
                     {!isOther && (
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">
-                          {isMiner ? "Cost" : "Delegated"}
+                          {isMiner ? fp.cost : fp.delegated}
                         </span>
                         <span className="text-foreground">
                           {isMiner
@@ -1061,7 +1072,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                           <span className="text-muted-foreground">
                             {isOther
                               ? `PD (${data.protocolDepositAsset ?? "—"})`
-                              : "Recovered"}
+                              : fp.recovered}
                           </span>
                         </div>
                         <span className="text-delegation-purple dark:text-delegation-purple">
@@ -1147,7 +1158,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                             First funds available
                           </span>
                           <span className="flex items-center gap-1 text-foreground">
-                            <FirstFundsInfo />
+                            <FirstFundsInfo labels={fp} />
                             <span>{pendingClaimingStartsLabel ?? "—"}</span>
                           </span>
                         </div>
@@ -1213,6 +1224,8 @@ export function FarmsPerformanceDialogContent({
   walletAddress,
   initialFilter = "all",
 }: FarmsPerformanceDialogContentProps) {
+  const { t } = useLang();
+  const fp = t.bigDialogs.farmsPerformance;
   const [filter, setFilter] = React.useState<FilterValue>(initialFilter);
 
   // Sync internal filter state when initialFilter prop changes
@@ -2104,8 +2117,8 @@ export function FarmsPerformanceDialogContent({
               <div className="py-16 flex flex-col items-center justify-center gap-3 text-center">
                 <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
                   {filter === "in-progress"
-                    ? "Unable to load in-progress delegations"
-                    : "Unable to load farm performance"}
+                    ? fp.unableToLoadInProgress
+                    : fp.unableToLoadFarms}
                 </div>
                 {filter !== "in-progress" ? (
                   <Button
@@ -2129,8 +2142,8 @@ export function FarmsPerformanceDialogContent({
             ) : visibleRowsWithInProgress.length === 0 ? (
               <div className="py-16 text-center text-xs font-mono text-muted-foreground uppercase tracking-wider">
                 {filter === "in-progress"
-                  ? "No in-progress delegations found for this wallet"
-                  : "No farms found for this wallet"}
+                  ? fp.noInProgressFound
+                  : fp.noFarmsFound}
               </div>
             ) : (
               <>

@@ -55,6 +55,7 @@ import { useReferralLaunch } from "@/hooks/use-referral-launch";
 import { useMemo, useState } from "react";
 import { trackEvent } from "@/lib/telemetry";
 import { getImpactScoreDialogTotalPoints } from "@/components/dialogs/impact-score-breakdown-utils";
+import { useLang } from "@/lib/i18n";
 
 // --- Types & Interfaces ---
 
@@ -280,6 +281,8 @@ function SourceRow({
   activeIconBg?: string; // bg color class for icon container when active (10% opacity)
   hoverColor?: string; // hover text + border color class for CTA button
 }) {
+  const { t } = useLang();
+  const s = t.bigDialogs.impactBreakdown;
   const hasValue = value !== "0" && value !== "—";
 
   return (
@@ -301,7 +304,7 @@ function SourceRow({
             {label}
           </span>
           <span className="text-[10px] text-muted-foreground truncate">
-            {subValue || "Passive income"}
+            {subValue || s.passiveIncome}
           </span>
         </div>
       </div>
@@ -315,7 +318,7 @@ function SourceRow({
                 +{value}
               </div>
               <div className="text-[10px] text-muted-foreground">
-                {weeklyRate ? `+${weeklyRate}/wk` : "Finalized"}
+                {weeklyRate ? s.weeklyRate(weeklyRate) : s.finalized}
               </div>
             </>
           ) : weeklyRate ? (
@@ -356,6 +359,8 @@ function SourceRow({
 export function ImpactScoreBreakdownDialogContent(
   props: ImpactScoreBreakdownDialogContentProps,
 ) {
+  const { t } = useLang();
+  const s = t.bigDialogs.impactBreakdown;
   const { impactScore, title, showCurrentWeekProjection, walletAddress } =
     props;
   const { address } = useAccount();
@@ -504,15 +509,15 @@ export function ImpactScoreBreakdownDialogContent(
   const referralSubValue = isOwnWallet
     ? hasReferrals
       ? pendingReferees > 0
-        ? `${activeReferees} active · ${pendingReferees} pending`
-        : `${activeReferees} active referrals`
-      : "No referrals yet"
-    : "Private referral data";
+        ? s.activePendingReferrals(activeReferees, pendingReferees)
+        : s.activeReferrals(activeReferees)
+      : s.noReferralsYet
+    : s.privateReferralData;
   const referralCtaLabel = isOwnWallet
     ? hasReferrals || hasReferralPoints
-      ? "Manage"
-      : "Share"
-    : "Manage";
+      ? s.manage
+      : s.share
+    : s.manage;
 
   // Weekly GLW amounts for point calculations
   // Use projection if available, otherwise fall back to latest week's data
@@ -634,10 +639,10 @@ export function ImpactScoreBreakdownDialogContent(
 
   const regionLabels: Record<number, string> = useMemo(() => {
     const labels: Record<number, string> = {
-      1: "Clean Grid Project (CGP)",
-      2: "Utah (UT)",
-      3: "Missouri (MO)",
-      4: "Colorado (CO)",
+      1: s.subRegionCleanGrid,
+      2: s.subRegionUtah,
+      3: s.subRegionMissouri,
+      4: s.subRegionColorado,
     };
     if (regions) {
       regions.forEach((r) => {
@@ -647,7 +652,7 @@ export function ImpactScoreBreakdownDialogContent(
       });
     }
     return labels;
-  }, [regions]);
+  }, [regions, s]);
 
   const regionalChartData = useMemo(() => {
     if (!impactScore.regionBreakdown) return [];
@@ -687,7 +692,7 @@ export function ImpactScoreBreakdownDialogContent(
         <div className="border-b border-border/40 pb-6 pt-8 px-6">
           <div className="flex flex-col items-center text-center space-y-2">
             <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
-              {title || "Current Impact"}
+              {title || s.currentImpact}
             </DialogTitle>
 
             <div className="flex flex-col items-center">
@@ -695,7 +700,7 @@ export function ImpactScoreBreakdownDialogContent(
                 {totalScore}
               </div>
               <div className="text-[10px] font-mono text-muted-foreground/50 uppercase tracking-wider mt-2">
-                Updated weekly
+                {s.updatedWeekly}
               </div>
             </div>
           </div>
@@ -707,7 +712,7 @@ export function ImpactScoreBreakdownDialogContent(
             <div className="space-y-3">
               <div className="flex items-center justify-between px-1">
                 <h3 className="text-xs font-mono text-muted-foreground/60 uppercase tracking-widest">
-                  Active Multipliers
+                  {s.activeMultipliers}
                 </h3>
               </div>
 
@@ -716,10 +721,10 @@ export function ImpactScoreBreakdownDialogContent(
                   <div className="flex items-center justify-between">
                     <div className="flex flex-col gap-0.5">
                       <span className="text-sm font-medium text-foreground">
-                        All Time Bonus from Multipliers
+                        {s.allTimeBonus}
                       </span>
                       <span className="text-[10px] text-muted-foreground">
-                        Included in point sources below
+                        {s.includedBelow}
                       </span>
                     </div>
                     <span className="text-xl font-mono font-semibold text-foreground">
@@ -732,8 +737,8 @@ export function ImpactScoreBreakdownDialogContent(
               <div className="grid grid-cols-2 gap-3">
                 <MultiplierCard
                   icon={CashMinerIcon}
-                  title="Miner Bonus"
-                  description="Buy a miner this week to activate."
+                  title={s.minerBonus}
+                  description={s.minerBonusDesc}
                   multiplierValue="3.0"
                   isActive={hasMiner}
                   onClick={() => {
@@ -756,8 +761,8 @@ export function ImpactScoreBreakdownDialogContent(
                 />
                 <MultiplierCard
                   icon={ImpactStreakIcon}
-                  title="Streak"
-                  description="Grow delegation or buy a miner weekly."
+                  title={s.streak}
+                  description={s.streakDesc}
                   multiplierValue={(1 + (streakMultiplier || 0)).toFixed(2)}
                   isActive={hasStreak}
                   onClick={() => {
@@ -786,21 +791,21 @@ export function ImpactScoreBreakdownDialogContent(
             {/* SECTION 2: POINT SOURCES */}
             <div className="space-y-3">
               <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">
-                Point Sources
+                {s.pointSources}
               </h3>
 
               <div className="space-y-2">
                 <SourceRow
                   icon={SteeringIcon}
-                  label="Steering Power"
-                  subValue="Staked GCTL (3x Pts)"
+                  label={s.steeringPower}
+                  subValue={s.steeringSubValue}
                   value={steeringPoints}
                   weeklyRate={pendingSteeringPoints}
                   ctaLabel={
                     isOwnWallet
                       ? steeringPoints === "0"
-                        ? "Stake"
-                        : "Boost"
+                        ? s.stake
+                        : s.boost
                       : undefined
                   }
                   onCta={
@@ -823,19 +828,19 @@ export function ImpactScoreBreakdownDialogContent(
 
                 <SourceRow
                   icon={EmissionsIcon}
-                  label="Emissions"
+                  label={s.emissions}
                   subValue={
                     formattedEmissionsGlw
-                      ? `${formattedEmissionsGlw} GLW × 1 pt/wk`
-                      : "GLW Emissions Rewards"
+                      ? s.emissionsSubValue(formattedEmissionsGlw)
+                      : s.emissionsFallback
                   }
                   value={emissionPoints}
                   weeklyRate={emissionsWeeklyRate}
                   ctaLabel={
                     isOwnWallet
                       ? emissionPoints === "0"
-                        ? "Earn"
-                        : "Add"
+                        ? s.earn
+                        : s.add
                       : undefined
                   }
                   onCta={
@@ -858,19 +863,19 @@ export function ImpactScoreBreakdownDialogContent(
 
                 <SourceRow
                   icon={VaultIcon}
-                  label="Delegation"
+                  label={s.delegation}
                   subValue={
                     formattedDelegatedGlw
-                      ? `${formattedDelegatedGlw} GLW × 0.005 pts/wk`
-                      : "Vault Bonus"
+                      ? s.delegationSubValue(formattedDelegatedGlw)
+                      : s.delegationFallback
                   }
                   value={vaultPoints}
                   weeklyRate={delegationWeeklyRate}
                   ctaLabel={
                     isOwnWallet
                       ? vaultPoints === "0"
-                        ? "Delegate"
-                        : "Add"
+                        ? s.delegate
+                        : s.add
                       : undefined
                   }
                   onCta={
@@ -893,15 +898,15 @@ export function ImpactScoreBreakdownDialogContent(
 
                 <SourceRow
                   icon={GlwWorthIcon}
-                  label="Glow Worth"
+                  label={s.glowWorth}
                   subValue={
                     formattedGlwWorth
-                      ? `${formattedGlwWorth} GLW × 0.001 pts/wk`
-                      : "Holding GLW"
+                      ? s.glowWorthSubValue(formattedGlwWorth)
+                      : s.glowWorthFallback
                   }
                   value={worthPoints}
                   weeklyRate={glowWorthWeeklyRate}
-                  ctaLabel={isOwnWallet ? "Buy" : undefined}
+                  ctaLabel={isOwnWallet ? s.buy : undefined}
                   onCta={
                     isOwnWallet
                       ? () => {
@@ -923,7 +928,7 @@ export function ImpactScoreBreakdownDialogContent(
                 {showReferralNetwork && (
                   <SourceRow
                     icon={ReferralIcon}
-                    label="Referral Network"
+                    label={s.referralNetwork}
                     subValue={referralSubValue}
                     value={referralPoints}
                     weeklyRate={referralWeeklyRate}
@@ -944,7 +949,7 @@ export function ImpactScoreBreakdownDialogContent(
                 impactScore?.referral?.asReferee?.activationBonus?.pending) && (
               <div className="space-y-3">
                 <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">
-                  Referral Bonuses
+                  {s.referralBonuses}
                 </h3>
                 <div className="space-y-2">
                   {impactScore.referral.asReferee.bonusIsActive && (
@@ -955,15 +960,16 @@ export function ImpactScoreBreakdownDialogContent(
                         </div>
                         <div className="flex flex-col">
                           <span className="text-sm font-medium text-foreground">
-                            +10% Referral Bonus
+                            {s.referralBonus10}
                           </span>
                           <div className="flex items-center gap-2">
                             <span className="text-[10px] text-muted-foreground">
-                              {
-                                impactScore.referral.asReferee
-                                  .bonusWeeksRemaining
-                              }{" "}
-                              weeks remaining
+                              {s.weeksRemaining(
+                                String(
+                                  impactScore.referral.asReferee
+                                    .bonusWeeksRemaining,
+                                ),
+                              )}
                             </span>
                             {referralStatus?.referrer?.canChangeReferrer && (
                               <button
@@ -971,7 +977,7 @@ export function ImpactScoreBreakdownDialogContent(
                                 onClick={() => setIsChangeReferrerOpen(true)}
                                 className="text-[10px] font-medium text-foreground hover:underline"
                               >
-                                Change
+                                {s.change}
                               </button>
                             )}
                           </div>
@@ -982,11 +988,11 @@ export function ImpactScoreBreakdownDialogContent(
                           +{referralBonusPoints} pts
                         </div>
                         <div className="text-[10px] text-muted-foreground">
-                          Total Earned
+                          {s.totalEarned}
                         </div>
                         {hasReferralBonusProjected && (
                           <div className="text-[10px] text-muted-foreground mt-1">
-                            +{referralBonusProjectedPoints} pts projected this week
+                            {s.projectedThisWeek(referralBonusProjectedPoints)}
                           </div>
                         )}
                       </div>
@@ -1001,10 +1007,10 @@ export function ImpactScoreBreakdownDialogContent(
                         </div>
                         <div className="flex flex-col">
                           <span className="text-sm font-medium text-foreground">
-                            Activation Bonus
+                            {s.activationBonus}
                           </span>
                           <span className="text-[10px] text-muted-foreground">
-                            One-time award (≥100 pts)
+                            {s.activationAwardedDesc}
                           </span>
                         </div>
                       </div>
@@ -1013,7 +1019,7 @@ export function ImpactScoreBreakdownDialogContent(
                           +100 pts
                         </div>
                         <div className="text-[10px] text-muted-foreground">
-                          Awarded
+                          {s.awarded}
                         </div>
                       </div>
                     </div>
@@ -1027,10 +1033,10 @@ export function ImpactScoreBreakdownDialogContent(
                         </div>
                         <div className="flex flex-col">
                           <span className="text-sm font-medium text-foreground">
-                            Activation Bonus
+                            {s.activationBonus}
                           </span>
                           <span className="text-[10px] text-muted-foreground">
-                            Threshold met — activates at week end
+                            {s.activationPendingDesc}
                           </span>
                         </div>
                       </div>
@@ -1039,7 +1045,7 @@ export function ImpactScoreBreakdownDialogContent(
                           +100 pts
                         </div>
                         <div className="text-[10px] text-muted-foreground">
-                          Pending
+                          {s.pending}
                         </div>
                       </div>
                     </div>
@@ -1053,7 +1059,7 @@ export function ImpactScoreBreakdownDialogContent(
               <div className="space-y-4">
                 <div className="flex items-center justify-center gap-2 px-1">
                   <h3 className="text-xs font-mono text-muted-foreground/60 uppercase tracking-widest">
-                    Regional Points Distribution
+                    {s.regionalPointsDist}
                   </h3>
                 </div>
                 <div className="relative">
@@ -1075,7 +1081,7 @@ export function ImpactScoreBreakdownDialogContent(
                                   })}
                                 </span>
                                 <span className="text-[10px] font-mono text-muted-foreground uppercase">
-                                  Points
+                                  {s.pointsUnit}
                                 </span>
                               </div>
                             )}
@@ -1110,7 +1116,7 @@ export function ImpactScoreBreakdownDialogContent(
             <div className="space-y-3">
               <div className="space-y-3 px-1">
                 <h3 className="text-xs font-mono text-muted-foreground/60 uppercase tracking-widest">
-                  How Scores Update
+                  {s.howScoresUpdate}
                 </h3>
 
                 <div className="space-y-2 text-xs">
@@ -1118,14 +1124,14 @@ export function ImpactScoreBreakdownDialogContent(
                     <div className="flex items-start gap-2">
                       <div className="space-y-0.5">
                         <p className="font-semibold text-foreground">
-                          Base Point Calculation
+                          {s.basePointCalc}
                         </p>
                         <p className="text-muted-foreground text-[11px] leading-relaxed">
-                          All point sources (
+                          {s.basePointCalcBody1}
                           <span className="font-medium text-foreground">
-                            Emissions, Steering, Vault Bonus, and Glow Worth
+                            {s.extraPoints}
                           </span>
-                          ) are calculated based on your holdings and activity.
+                          {s.basePointCalcBody2}
                         </p>
                       </div>
                     </div>
@@ -1135,19 +1141,18 @@ export function ImpactScoreBreakdownDialogContent(
                     <div className="flex items-start gap-2">
                       <div className="space-y-0.5">
                         <p className="font-semibold text-foreground">
-                          Weekly Rollover (Sundays 00:00 UTC)
+                          {s.weeklyRollover}
                         </p>
                         <p className="text-muted-foreground text-[11px] leading-relaxed">
-                          On weekly rollover, your{" "}
+                          {s.weeklyRolloverBody1}
                           <span className="font-medium text-foreground">
-                            Total Multiplier
-                          </span>{" "}
-                          (Miner 3× + Streak up to +1×) is applied to{" "}
-                          <span className="font-medium text-foreground">
-                            ALL point sources
+                            {s.totalMultiplier}
                           </span>
-                          , including Glow Worth. The points displayed above
-                          already include these multipliers.
+                          {s.weeklyRolloverBody2}
+                          <span className="font-medium text-foreground">
+                            {s.allPointSources}
+                          </span>
+                          {s.weeklyRolloverBody3}
                         </p>
                       </div>
                     </div>
@@ -1203,6 +1208,8 @@ export function ImpactScoreBreakdownDialogContent(
 export function ImpactScoreBreakdownDialog(
   props: ImpactScoreBreakdownDialogProps,
 ) {
+  const { t } = useLang();
+  const s = t.bigDialogs.impactBreakdown;
   const {
     open,
     onOpenChange,
@@ -1217,7 +1224,7 @@ export function ImpactScoreBreakdownDialog(
     walletAddress,
     weekRange,
     enabled: open,
-    toastTitle: "Failed to load Impact breakdown",
+    toastTitle: s.toastFailed,
     includeWeekly: true,
   });
 
@@ -1225,7 +1232,7 @@ export function ImpactScoreBreakdownDialog(
     <Dialog open={open} onOpenChange={onOpenChange}>
       {query.isLoading ? (
         <DialogContent className="sm:max-w-md p-6 bg-card border border-border/40 rounded-2xl">
-          <DialogTitle className="sr-only">Loading Impact Score</DialogTitle>
+          <DialogTitle className="sr-only">{s.loadingTitle}</DialogTitle>
           <div className="space-y-4">
             <Skeleton className="h-20 w-full rounded-xl bg-muted/50" />
             <Skeleton className="h-32 w-full rounded-xl bg-muted/50" />
@@ -1234,9 +1241,9 @@ export function ImpactScoreBreakdownDialog(
         </DialogContent>
       ) : query.isError ? (
         <DialogContent className="sm:max-w-md p-6 bg-card border border-border/40 rounded-2xl">
-          <DialogTitle className="sr-only">Error</DialogTitle>
+          <DialogTitle className="sr-only">{s.errorTitle}</DialogTitle>
           <div className="text-center text-zinc-500 py-10">
-            Unable to load score data.
+            {s.errorBody}
           </div>
         </DialogContent>
       ) : query.data ? (

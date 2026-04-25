@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/lib/i18n";
 
 export interface GlowWorthBreakdown {
   glowWorthGlw: number;
@@ -107,6 +108,7 @@ function BreakdownRow(props: {
 
 export function GlowWorthBreakdownDialog(props: GlowWorthBreakdownDialogProps) {
   const { open, onOpenChange, breakdown } = props;
+  const { t } = useLang();
 
   const safeBreakdown = breakdown ?? {
     glowWorthGlw: NaN,
@@ -122,13 +124,13 @@ export function GlowWorthBreakdownDialog(props: GlowWorthBreakdownDialogProps) {
           <DialogHeader>
             <div className="flex flex-col items-center text-center space-y-2">
               <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
-                Your Glow Worth
+                {t.dialogs.glowWorth.title}
               </DialogTitle>
               <div className="text-6xl font-mono font-semibold text-foreground tracking-tighter tabular-nums">
                 {formatGlw(safeBreakdown.glowWorthGlw)}
               </div>
               <DialogDescription className="text-[10px] font-mono text-muted-foreground/50 uppercase tracking-wider mt-2">
-                Total GLW across all sources
+                {t.dialogs.glowWorth.totalDescription}
               </DialogDescription>
             </div>
           </DialogHeader>
@@ -139,22 +141,22 @@ export function GlowWorthBreakdownDialog(props: GlowWorthBreakdownDialogProps) {
             <div className="space-y-3">
               <BreakdownRow
                 icon={GlwWorthIcon}
-                label="GLW in your wallet"
-                sublabel="Updates right away when you receive or swap GLW"
+                label={t.dialogs.glowWorth.liquidLabel}
+                sublabel={t.dialogs.glowWorth.liquidSublabel}
                 value={formatGlw(safeBreakdown.liquidGlw)}
                 tone="emerald"
               />
               <BreakdownRow
                 icon={VaultIcon}
-                label="GLW from delegations + pending recovery"
-                sublabel="Includes delegated GLW and protocol deposit recovery not yet claimable"
+                label={t.dialogs.glowWorth.delegatedLabel}
+                sublabel={t.dialogs.glowWorth.delegatedSublabel}
                 value={formatGlw(safeBreakdown.delegatedActiveGlw)}
                 tone="purple"
               />
               <BreakdownRow
                 icon={EmissionsIcon}
-                label="Unclaimed rewards"
-                sublabel="Rewards you've earned but haven't claimed yet"
+                label={t.dialogs.glowWorth.unclaimedLabel}
+                sublabel={t.dialogs.glowWorth.unclaimedSublabel}
                 value={formatGlw(safeBreakdown.unclaimedGlwRewards)}
                 tone="cyan"
               />

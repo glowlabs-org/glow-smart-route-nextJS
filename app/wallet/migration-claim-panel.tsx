@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { useMigrationClaim, useRegions } from "@/hooks";
 import FallbackImage from "@/components/ui/fallback-image";
+import { useLang } from "@/lib/i18n";
 
 interface MigrationData {
   wallet: string;
@@ -54,6 +55,8 @@ export function MigrationClaimPanel({
   isError = false,
   onClaim,
 }: MigrationClaimPanelProps) {
+  const { t } = useLang();
+  const s = t.dialogs.migration;
   const [confirmDialogOpen, setConfirmDialogOpen] = React.useState(false);
   const [showSuccessState, setShowSuccessState] = React.useState(false);
 
@@ -107,9 +110,9 @@ export function MigrationClaimPanel({
         <CardHeader>
           <div className="flex items-center gap-2">
             <Gift className="w-5 h-5" />
-            <CardTitle>GCTL Allocation</CardTitle>
+            <CardTitle>{s.title}</CardTitle>
           </div>
-          <CardDescription>Checking your V2 GCTL allocation</CardDescription>
+          <CardDescription>{s.checkingAllocation}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -174,7 +177,7 @@ export function MigrationClaimPanel({
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <CardTitle className="text-xl md:text-2xl font-semibold">
-                GCTL Allocation
+                {s.title}
               </CardTitle>
               {!isClaimSuccess && (
                 <Badge
@@ -182,13 +185,12 @@ export function MigrationClaimPanel({
                   className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
                 >
                   <AlertCircle className="w-3 h-3 mr-1" />
-                  Available
+                  {s.available}
                 </Badge>
               )}
             </div>
             <CardDescription className="mt-2">
-              Your V2 GCTL allocation is staked to the Clean Grid Project by
-              default. Claim to unstake to your wallet.
+              {s.allocationDescription}
             </CardDescription>
           </div>
         </div>
@@ -206,7 +208,7 @@ export function MigrationClaimPanel({
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-sm text-muted-foreground mb-1">
-                    GCTL available to unstake
+                    {s.gctlAvailableToUnstake}
                   </div>
                   <div className="text-3xl font-bold">
                     {migrationAmountFormatted} GCTL
@@ -228,12 +230,12 @@ export function MigrationClaimPanel({
                   {isClaimingMigration ? (
                     <>
                       <Gift className="w-4 h-4 mr-2 animate-spin" />
-                      Claiming...
+                      {s.claiming}
                     </>
                   ) : (
                     <>
                       <Gift className="w-4 h-4 mr-2" />
-                      Unstake and claim GCTL
+                      {s.unstakeAndClaim}
                     </>
                   )}
                 </Button>
@@ -253,11 +255,11 @@ export function MigrationClaimPanel({
                       <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
                     </div>
                     <div className="flex-1 text-sm text-green-700 dark:text-green-300">
-                      <div className="font-semibold mb-1">Claim successful</div>
+                      <div className="font-semibold mb-1">
+                        {s.claimSuccessful}
+                      </div>
                       <div className="text-green-700 dark:text-green-300">
-                        Your GCTL allocation has been unstaked from the Clean
-                        Grid Project and transferred to your wallet. Balances
-                        will update automatically.
+                        {s.claimSuccessfulBody}
                       </div>
                       <div className="mt-3">
                         <Button asChild variant="secondary" size="sm">
@@ -267,7 +269,7 @@ export function MigrationClaimPanel({
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1"
                           >
-                            Explore regions
+                            {s.exploreRegions}
                             <ExternalLink className="w-3.5 h-3.5" />
                           </a>
                         </Button>
@@ -281,10 +283,9 @@ export function MigrationClaimPanel({
                   <div className="flex items-start gap-3 mb-4">
                     <Info className="w-5 h-5 text-muted-foreground/20 mt-0.5 flex-shrink-0" />
                     <div className="text-sm text-muted-foreground">
-                      <div className="font-medium mb-1">Stake your GCTL</div>
+                      <div className="font-medium mb-1">{s.stakeYourGctl}</div>
                       <div className="text-muted-foreground">
-                        Consider staking your GCTL to one of these active
-                        regions to support renewable energy and earn rewards:
+                        {s.stakeYourGctlBody}
                       </div>
                     </div>
                   </div>
@@ -339,12 +340,8 @@ export function MigrationClaimPanel({
           {!showSuccessState ? (
             <>
               <DialogHeader>
-                <DialogTitle>Unstake and claim GCTL</DialogTitle>
-                <DialogDescription>
-                  Your V2 GCTL allocation from prior contributions is currently
-                  staked to the Clean Grid Project. Confirm to unstake and
-                  transfer it to your wallet.
-                </DialogDescription>
+                <DialogTitle>{s.confirmTitle}</DialogTitle>
+                <DialogDescription>{s.confirmDescription}</DialogDescription>
               </DialogHeader>
 
               <div className="py-4">
@@ -352,7 +349,7 @@ export function MigrationClaimPanel({
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="text-sm text-muted-foreground mb-1">
-                        Amount to claim
+                        {s.amountToClaim}
                       </div>
                       <div className="text-2xl font-bold">
                         {migrationAmountFormatted} GCTL
@@ -366,9 +363,7 @@ export function MigrationClaimPanel({
                   <div className="flex items-start gap-2">
                     <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                     <div className="text-sm text-blue-700 dark:text-blue-300">
-                      This will instantly unstake your GCTL and move it to your
-                      wallet. This can only be done once, after that all
-                      unstaking events take 100 weeks
+                      {s.onceOnlyNotice}
                     </div>
                   </div>
                 </div>
@@ -380,7 +375,7 @@ export function MigrationClaimPanel({
                   onClick={() => setConfirmDialogOpen(false)}
                   disabled={isClaimingMigration}
                 >
-                  Cancel
+                  {s.cancel}
                 </Button>
                 <Button
                   onClick={handleConfirmClaim}
@@ -389,12 +384,12 @@ export function MigrationClaimPanel({
                   {isClaimingMigration ? (
                     <>
                       <Gift className="w-4 h-4 mr-2 animate-spin" />
-                      Claiming...
+                      {s.claiming}
                     </>
                   ) : (
                     <>
                       <Gift className="w-4 h-4 mr-2" />
-                      Confirm unstake and claim
+                      {s.confirmUnstake}
                     </>
                   )}
                 </Button>
@@ -407,11 +402,9 @@ export function MigrationClaimPanel({
                   <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/40">
                     <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
                   </span>
-                  Claim successful
+                  {s.claimSuccessTitle}
                 </DialogTitle>
-                <DialogDescription>
-                  Your GCTL has been unstaked and transferred to your wallet.
-                </DialogDescription>
+                <DialogDescription>{s.claimSuccessSub}</DialogDescription>
               </DialogHeader>
 
               <div className="py-4 space-y-4">
@@ -423,7 +416,7 @@ export function MigrationClaimPanel({
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="text-sm text-green-700 dark:text-green-300 mb-1">
-                        Amount claimed
+                        {s.amountClaimed}
                       </div>
                       <div className="text-3xl font-bold text-green-800 dark:text-green-200">
                         {migrationAmountFormatted} GCTL
@@ -438,10 +431,9 @@ export function MigrationClaimPanel({
                   <div className="flex items-start gap-3 mb-4">
                     <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                     <div className="text-sm text-blue-700 dark:text-blue-300">
-                      <div className="font-medium mb-1">Stake your GCTL</div>
+                      <div className="font-medium mb-1">{s.stakeYourGctl}</div>
                       <div className="text-blue-600 dark:text-blue-400">
-                        Consider staking your GCTL to one of these active
-                        regions to support renewable energy and earn rewards:
+                        {s.stakeYourGctlBody}
                       </div>
                     </div>
                   </div>
@@ -488,7 +480,7 @@ export function MigrationClaimPanel({
 
               <DialogFooter>
                 <Button onClick={() => setConfirmDialogOpen(false)}>
-                  Done
+                  {s.done}
                 </Button>
               </DialogFooter>
             </>

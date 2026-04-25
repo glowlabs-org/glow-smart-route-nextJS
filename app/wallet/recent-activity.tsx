@@ -39,6 +39,9 @@ import {
   type ClaimActivityEntry,
   type ClaimActivityGroup,
 } from "@/app/wallet/activity-feed-claim-utils";
+import { useLang, type Strings } from "@/lib/i18n";
+
+type RecentActivityLabels = Strings["widgets"]["recentActivity"];
 
 type ActivityKind =
   | "mint"
@@ -146,7 +149,10 @@ function getRewardTokenLabel(symbol: string) {
   return symbol === "SGCTL" ? "sGCTL" : symbol;
 }
 
-function buildClaimActivity(group: ClaimActivityGroup): ActivityItem | null {
+function buildClaimActivity(
+  group: ClaimActivityGroup,
+  labels: RecentActivityLabels,
+): ActivityItem | null {
   if (!group.tokenEntries.length) return null;
 
   const primary = group.tokenEntries[0] ?? null;
@@ -157,7 +163,7 @@ function buildClaimActivity(group: ClaimActivityGroup): ActivityItem | null {
     const nonceStr = group.nonce;
     if (!nonceStr) return null;
     try {
-      return `Week ${nonceToWeek(BigInt(nonceStr))}`;
+      return labels.weekN(Number(nonceToWeek(BigInt(nonceStr))));
     } catch {
       return null;
     }
@@ -165,10 +171,11 @@ function buildClaimActivity(group: ClaimActivityGroup): ActivityItem | null {
 
   const title =
     primary && group.tokenEntries.length === 1
-      ? `Claimed ${formatCompactNumber(primary[1], 2)} ${getRewardTokenLabel(
-          primary[0]
-        )}`
-      : "Claimed rewards";
+      ? labels.claimedTitleSingle(
+          formatCompactNumber(primary[1], 2),
+          getRewardTokenLabel(primary[0]),
+        )
+      : labels.claimedTitleMulti;
 
   const subtitleParts: string[] = [];
   if (weekLabel) subtitleParts.push(weekLabel);
@@ -192,7 +199,7 @@ function buildClaimActivity(group: ClaimActivityGroup): ActivityItem | null {
     txHash: group.txHash,
     title,
     subtitle,
-    pill: isProtocol ? "PD" : "Emissions",
+    pill: isProtocol ? labels.pillPd : labels.pillEmissions,
     icon: <Gift className="h-5 w-5" />,
     iconClassName: isProtocol
       ? "text-delegation-purple bg-delegation-purple/10"
@@ -200,7 +207,10 @@ function buildClaimActivity(group: ClaimActivityGroup): ActivityItem | null {
   };
 }
 
-function buildMintActivity(event: MintedEvent): ActivityItem | null {
+function buildMintActivity(
+  event: MintedEvent,
+  labels: RecentActivityLabels,
+): ActivityItem | null {
   const timestampMs = new Date(event.ts).getTime();
   if (!Number.isFinite(timestampMs)) return null;
 
@@ -208,10 +218,11 @@ function buildMintActivity(event: MintedEvent): ActivityItem | null {
   const originalDecimals = event.currency === "USDG" ? 6 : 18;
   const original = safeFormatUnits(event.amountRaw, originalDecimals);
 
-  const title = `Minted ${formatCompactNumber(gctl, 2)} GCTL`;
-  const subtitle = `From ${formatCompactNumber(original, 2)} ${
-    event.currency === "USDG" ? "USDC" : event.currency
-  }`;
+  const title = labels.mintedTitle(formatCompactNumber(gctl, 2));
+  const subtitle = labels.mintedSubtitle(
+    formatCompactNumber(original, 2),
+    event.currency === "USDG" ? "USDC" : event.currency,
+  );
 
   return {
     id: event.txId
@@ -222,13 +233,16 @@ function buildMintActivity(event: MintedEvent): ActivityItem | null {
     txHash: event.txId,
     title,
     subtitle,
-    pill: event.epoch ? `Epoch ${event.epoch}` : undefined,
+    pill: event.epoch ? labels.epochBadge(event.epoch) : undefined,
     icon: <Sparkles className="h-4 w-4" />,
     iconClassName: "text-[#22D3EE] bg-[#22D3EE]/10",
   };
 }
 
-function buildStakeActivity(event: StakedEvent): ActivityItem | null {
+function buildStakeActivity(
+  event: StakedEvent,
+  labels: RecentActivityLabels,
+): ActivityItem | null {
   const timestampMs = new Date(event.ts).getTime();
   if (!Number.isFinite(timestampMs)) return null;
 
@@ -237,12 +251,14 @@ function buildStakeActivity(event: StakedEvent): ActivityItem | null {
     event.direction === "stake" ? "stake" : "unstake";
   const regionLabel =
     event.regionName ||
-    (event.regionId ? `Region ${event.regionId}` : "Region");
+    (event.regionId
+      ? labels.regionFallback(event.regionId)
+      : labels.regionGeneric);
 
   const title =
     direction === "stake"
-      ? `Staked ${formatCompactNumber(gctl, 0)} GCTL`
-      : `Unstaking ${formatCompactNumber(gctl, 0)} GCTL`;
+      ? labels.stakedTitle(formatCompactNumber(gctl, 0))
+      : labels.unstakingTitle(formatCompactNumber(gctl, 0));
 
   return {
     id: `stake-${event.epoch}-${timestampMs}-${event.regionId}-${event.direction}`,
@@ -250,8 +266,10 @@ function buildStakeActivity(event: StakedEvent): ActivityItem | null {
     timestampMs,
     title,
     subtitle:
-      direction === "stake" ? `In ${regionLabel}` : `From ${regionLabel}`,
-    pill: event.epoch ? `Epoch ${event.epoch}` : undefined,
+      direction === "stake"
+        ? labels.stakedSubtitle(regionLabel)
+        : labels.unstakingSubtitle(regionLabel),
+    pill: event.epoch ? labels.epochBadge(event.epoch) : undefined,
     icon:
       direction === "stake" ? (
         <TrendingUp className="h-4 w-4" />
@@ -265,7 +283,10 @@ function buildStakeActivity(event: StakedEvent): ActivityItem | null {
   };
 }
 
-function buildSplitActivity(split: SplitActivity): ActivityItem | null {
+function buildSplitActivity(
+  split: SplitActivity,
+  labels: RecentActivityLabels,
+): ActivityItem | null {
   const timestampMs = split.timestamp * 1000;
   if (!Number.isFinite(timestampMs)) return null;
 
@@ -286,15 +307,18 @@ function buildSplitActivity(split: SplitActivity): ActivityItem | null {
 
   const isMiningCenter = split.fractionType === "mining-center";
   const title = isMiningCenter
-    ? `Purchased ${split.stepsPurchased ?? 0} miners`
-    : `Delegated ${formatCompactNumber(amount, 0)} ${launchpadCurrency}`;
+    ? labels.purchasedMinersTitle(split.stepsPurchased ?? 0)
+    : labels.delegatedTitle(formatCompactNumber(amount, 0), launchpadCurrency);
 
   const subtitle = isMiningCenter
-    ? `${formatCompactNumber(amount, 0)} ${split.currency}`
+    ? labels.purchasedMinersSubtitle(
+        formatCompactNumber(amount, 0),
+        split.currency,
+      )
     : undefined;
 
   const pill = (() => {
-    if (split.isFilled) return "Filled";
+    if (split.isFilled) return labels.pillFilled;
     if (typeof split.progressPercent !== "number") return undefined;
     // Launchpad fractions that mix SGCTL + GLW accounting can report
     // splitsSold > totalSteps, producing nonsensical >100% values. Trust
@@ -302,7 +326,7 @@ function buildSplitActivity(split: SplitActivity): ActivityItem | null {
     // disagree rather than invent a state.
     if (split.progressPercent > 100 || split.progressPercent < 0)
       return undefined;
-    return `${Math.round(split.progressPercent)}% filled`;
+    return labels.pillPctFilled(Math.round(split.progressPercent));
   })();
 
   return {
@@ -326,7 +350,10 @@ function buildSplitActivity(split: SplitActivity): ActivityItem | null {
   };
 }
 
-function buildSwapActivity(swap: SwapActivity): ActivityItem | null {
+function buildSwapActivity(
+  swap: SwapActivity,
+  labels: RecentActivityLabels,
+): ActivityItem | null {
   const timestampMs = swap.timestampMs;
   if (!Number.isFinite(timestampMs)) return null;
 
@@ -337,18 +364,18 @@ function buildSwapActivity(swap: SwapActivity): ActivityItem | null {
 
   const isSellingGlw = glwIn > 0 && usdgOut > 0;
   const title = isSellingGlw
-    ? `Swapped ${formatCompactNumber(glwIn, 2)} GLW → ${formatCompactNumber(
-        usdgOut,
-        2
-      )} USDG`
+    ? labels.swappedGlwToUsdg(
+        formatCompactNumber(glwIn, 2),
+        formatCompactNumber(usdgOut, 2),
+      )
     : usdgIn > 0 && glwOut > 0
-    ? `Swapped ${formatCompactNumber(usdgIn, 2)} USDG → ${formatCompactNumber(
-        glwOut,
-        2
-      )} GLW`
-    : "Swap";
+    ? labels.swappedUsdgToGlw(
+        formatCompactNumber(usdgIn, 2),
+        formatCompactNumber(glwOut, 2),
+      )
+    : labels.swap;
 
-  const subtitle = "GLW/USDG pool";
+  const subtitle = labels.glwUsdgPool;
 
   return {
     id: swap.txHash ? `swap-${swap.txHash}` : `swap-${timestampMs}`,
@@ -357,7 +384,7 @@ function buildSwapActivity(swap: SwapActivity): ActivityItem | null {
     txHash: swap.txHash,
     title,
     subtitle,
-    pill: isSellingGlw ? "Sell" : "Buy",
+    pill: isSellingGlw ? labels.pillSell : labels.pillBuy,
     icon: isSellingGlw ? (
       <TrendingDown className="h-4 w-4" />
     ) : (
@@ -383,6 +410,7 @@ export function RecentActivity({
   maxItems,
   showKpis = true,
 }: RecentActivityProps) {
+  const { t } = useLang();
   const { isConnecting, isReconnecting } = useAccount();
   const isWalletConnecting =
     (isConnecting || isReconnecting) && !Boolean(walletAddress);
@@ -501,31 +529,32 @@ export function RecentActivity({
   }, [claimActivityGroups, mintedEvents, stakeEvents, splitsActivity, swapsActivity]);
 
   // Combine and format all activities
+  const labels = t.widgets.recentActivity;
   const activities = React.useMemo(() => {
     const all: ActivityItem[] = [];
 
     mintedEvents.forEach((evt) => {
-      const item = buildMintActivity(evt);
+      const item = buildMintActivity(evt, labels);
       if (item) all.push(item);
     });
 
     stakeEvents.forEach((evt) => {
-      const item = buildStakeActivity(evt);
+      const item = buildStakeActivity(evt, labels);
       if (item) all.push(item);
     });
 
     splitsActivity.forEach((split) => {
-      const item = buildSplitActivity(split);
+      const item = buildSplitActivity(split, labels);
       if (item) all.push(item);
     });
 
     swapsActivity.forEach((swap) => {
-      const item = buildSwapActivity(swap);
+      const item = buildSwapActivity(swap, labels);
       if (item) all.push(item);
     });
 
     claimActivityGroups.forEach((group) => {
-      const item = buildClaimActivity(group);
+      const item = buildClaimActivity(group, labels);
       if (item) all.push(item);
     });
 
@@ -540,7 +569,7 @@ export function RecentActivity({
 
       return 0;
     });
-  }, [claimActivityGroups, mintedEvents, stakeEvents, splitsActivity, swapsActivity]);
+  }, [claimActivityGroups, labels, mintedEvents, stakeEvents, splitsActivity, swapsActivity]);
 
   const isLoading =
     (Boolean(walletAddress) && !isCardInView) ||
@@ -554,7 +583,7 @@ export function RecentActivity({
 
   const handleViewTransaction = React.useCallback((activity: ActivityItem) => {
     if (!activity.txHash) {
-      toast.info("Transaction hash not available for this activity.");
+      toast.info(labels.toastTxUnavailable);
       return;
     }
     window.open(
@@ -562,7 +591,7 @@ export function RecentActivity({
       "_blank",
       "noopener,noreferrer"
     );
-  }, []);
+  }, [labels]);
 
   if (hideIfEmpty && !isLoading && activities.length === 0) return null;
 
@@ -588,11 +617,11 @@ export function RecentActivity({
                 headerVariant !== "small" && "tracking-tight"
               )}
             >
-              Recent Activity
+              {t.widgets.recentActivity.title}
             </CardTitle>
             {headerRight ?? (
               <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                Live
+                {t.widgets.recentActivity.live}
               </span>
             )}
           </div>
@@ -604,46 +633,46 @@ export function RecentActivity({
           <div className="grid grid-cols-4 gap-3">
             <div className="rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-3">
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                Total
+                {labels.kpiTotal}
               </div>
               <div className="mt-1.5 text-xl font-semibold tabular-nums text-foreground">
                 {kpis.totalTransactions}
               </div>
               <div className="mt-0.5 text-[10px] text-muted-foreground/60 dark:text-muted-foreground/80">
-                transactions
+                {labels.kpiTransactions}
               </div>
             </div>
             <div className="rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-3">
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                Delegations
+                {labels.kpiDelegations}
               </div>
               <div className="mt-1.5 text-xl font-semibold tabular-nums text-foreground">
                 {kpis.delegationsCount}
               </div>
               <div className="mt-0.5 text-[10px] text-muted-foreground/60 dark:text-muted-foreground/80">
-                made
+                {labels.kpiDelegationsSub}
               </div>
             </div>
             <div className="rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-3">
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                Miners
+                {labels.kpiMiners}
               </div>
               <div className="mt-1.5 text-xl font-semibold tabular-nums text-foreground">
                 {kpis.minersCount}
               </div>
               <div className="mt-0.5 text-[10px] text-muted-foreground/60 dark:text-muted-foreground/80">
-                purchased
+                {labels.kpiMinersSub}
               </div>
             </div>
             <div className="rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-3">
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                Claimed
+                {labels.kpiClaimed}
               </div>
               <div className="mt-1.5 text-xl font-semibold tabular-nums text-foreground">
                 {formatCompactNumber(kpis.totalClaimed, 0)}
               </div>
               <div className="mt-0.5 text-[10px] text-muted-foreground/60 dark:text-muted-foreground/80">
-                GLW
+                {labels.kpiClaimedSub}
               </div>
             </div>
           </div>
@@ -671,10 +700,10 @@ export function RecentActivity({
             <div>
               <Clock className="w-10 h-10 mx-auto mb-3 opacity-50" />
               <div className="text-sm font-medium text-foreground/80">
-                No recent activity
+                {labels.emptyTitle}
               </div>
               <div className="text-xs mt-1">
-                Your transactions will appear here.
+                {labels.emptyBody}
               </div>
             </div>
           </div>
@@ -743,7 +772,7 @@ export function RecentActivity({
                             e.stopPropagation();
                             handleViewTransaction(activity);
                           }}
-                          aria-label="View transaction"
+                          aria-label={labels.ariaViewTx}
                         >
                           <ExternalLink className="h-4 w-4" />
                         </Button>
@@ -816,7 +845,7 @@ export function RecentActivity({
                               e.stopPropagation();
                               handleViewTransaction(activity);
                             }}
-                            aria-label="View transaction"
+                            aria-label={labels.ariaViewTx}
                           >
                             <ExternalLink className="h-4 w-4" />
                           </Button>

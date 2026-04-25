@@ -15,6 +15,7 @@ import { useAccount } from "wagmi";
 import { useGctlApi } from "@/hooks";
 import { SuccessState } from "@/components/buy-gctl/success-state";
 import { useQueryState } from "nuqs";
+import { useLang } from "@/lib/i18n";
 import { GlowSymbolAnimated } from "../glow-symbol-animated";
 import { usePolling } from "@/utils/use-polling";
 import type { PendingTransfer } from "@glowlabs-org/utils/browser";
@@ -37,13 +38,16 @@ export function ProcessingModal({
   onConfirmed,
   onFailed,
 }: ProcessingModalProps) {
+  const { t } = useLang();
+  const pm = t.routes.processingModal;
+  const td = t.transactionDialog;
   const queryClient = useQueryClient();
   const { address } = useAccount();
   
   const copyTxHash = () => {
     if (trackingTxHash) {
       navigator.clipboard.writeText(trackingTxHash);
-      toast.success("Transaction ID copied to clipboard");
+      toast.success(pm.transactionIdCopied);
     }
   };
 
@@ -171,7 +175,7 @@ export function ProcessingModal({
         <DialogContent className="bg-card/90 backdrop-blur-sm rounded-2xl p-0 md:max-w-sm w-full border-border shadow-2xl overflow-hidden">
           {/* Visually hidden title for accessibility */}
           <DialogHeader>
-            <DialogTitle className="sr-only">Transaction Success</DialogTitle>
+            <DialogTitle className="sr-only">{pm.processingPurchase}</DialogTitle>
           </DialogHeader>
           <SuccessState
             handleClose={handleSuccessClose}
@@ -191,7 +195,7 @@ export function ProcessingModal({
         <DialogContent className="bg-card/90 backdrop-blur-sm rounded-2xl p-0 md:max-w-sm w-full border-border shadow-2xl overflow-hidden">
           {/* Visually hidden title for accessibility */}
           <DialogHeader>
-            <DialogTitle className="sr-only">Transaction Failed</DialogTitle>
+            <DialogTitle className="sr-only">{pm.transactionFailed}</DialogTitle>
           </DialogHeader>
           <div className="px-8 py-12 text-center space-y-8">
             <div className="flex flex-col items-center">
@@ -199,12 +203,12 @@ export function ProcessingModal({
                 <XCircle className="w-10 h-10 text-destructive-foreground" />
               </div>
               <div className="text-2xl font-bold text-foreground mb-2">
-                Transaction Failed
+                {pm.transactionFailed}
               </div>
               <div className="text-muted-foreground text-sm max-w-sm">
                 {(failureInfo as any)?.errorMessage ||
                   (failureInfo as any)?.errorDetails ||
-                  "We were unable to process your transaction. Please try again or contact support."}
+                  td.defaultErrorDescription}
               </div>
             </div>
 
@@ -212,7 +216,7 @@ export function ProcessingModal({
               <div className="space-y-4 text-left">
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground text-sm">
-                    Transaction ID
+                    {pm.transactionId}
                   </span>
                   <div className="flex items-center space-x-2">
                     <span className="text-foreground text-sm font-mono">
@@ -233,7 +237,7 @@ export function ProcessingModal({
               onClick={onClose}
               className="w-full h-12 text-base font-medium rounded-xl border-0"
             >
-              Close
+              {pm.close}
             </Button>
           </div>
         </DialogContent>
@@ -253,7 +257,7 @@ export function ProcessingModal({
       <DialogContent className="bg-card rounded-2xl p-0 md:max-w-md w-full border-border shadow-2xl overflow-hidden">
         {/* Visually hidden title for accessibility */}
         <DialogHeader>
-          <DialogTitle className="sr-only">Processing Purchase</DialogTitle>
+          <DialogTitle className="sr-only">{pm.processingPurchase}</DialogTitle>
         </DialogHeader>
         <div className="px-8 py-12 text-center">
           {/* Processing Icon */}
@@ -262,12 +266,12 @@ export function ProcessingModal({
               <GlowSymbolAnimated className="size-14" />
             </div>
             <div className="text-2xl font-bold text-foreground mb-2">
-              Processing Purchase
+              {pm.processingPurchase}
             </div>
             <div className="text-muted-foreground text-sm">
               {!transferData && isPolling
-                ? "Checking transaction status..."
-                : "Your USDC has been sent. GCTL will be credited shortly."}
+                ? pm.checkingStatus
+                : pm.sentSubtitle}
             </div>
           </div>
 
@@ -275,10 +279,8 @@ export function ProcessingModal({
           {isPolling && (
             <div className="inline-flex items-center px-4 py-2 bg-secondary/50 backdrop-blur-sm border border-border rounded-full mb-8">
               <span className="text-foreground text-sm font-medium">
-                ETA:{" "}
-                {countdown > 0
-                  ? `${countdown}s`
-                  : "Processing should complete soon"}
+                {pm.etaPrefix}{" "}
+                {countdown > 0 ? `${countdown}s` : pm.completeSoon}
               </span>
             </div>
           )}
@@ -293,8 +295,7 @@ export function ProcessingModal({
                 />
               </div>
               <div className="text-xs text-muted-foreground">
-                {Math.round(progressPercentage)}% complete • Checking status
-                every 10s
+                {pm.progressPercentLine(String(Math.round(progressPercentage)))}
               </div>
             </div>
           )}
@@ -302,16 +303,16 @@ export function ProcessingModal({
           {/* Transaction Details */}
           <div className="space-y-4 mb-8 text-left">
             <div className="flex justify-between items-center">
-              <span className="text-muted-foreground text-sm">Status</span>
+              <span className="text-muted-foreground text-sm">{pm.statusLabel}</span>
               <span className="text-foreground text-sm font-medium">
-                {!transferData && isPolling ? "Checking..." : "Processing"}
+                {!transferData && isPolling ? pm.statusChecking : pm.statusProcessing}
               </span>
             </div>
 
             <div className="flex justify-between items-center">
-              <span className="text-muted-foreground text-sm">Network</span>
+              <span className="text-muted-foreground text-sm">{pm.networkLabel}</span>
               <span className="text-foreground text-sm font-medium">
-                Ethereum Mainnet
+                {pm.ethereumMainnet}
               </span>
             </div>
 
@@ -319,7 +320,7 @@ export function ProcessingModal({
               <>
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground text-sm">
-                    Transaction ID
+                    {pm.transactionId}
                   </span>
                   <div className="flex items-center space-x-2">
                     <span className="text-foreground text-sm font-mono">
@@ -336,7 +337,7 @@ export function ProcessingModal({
 
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground text-sm">
-                    Explorer
+                    {pm.explorer}
                   </span>
                   <a
                     href={`https://etherscan.io/tx/${trackingTxHash}`}
@@ -344,7 +345,7 @@ export function ProcessingModal({
                     rel="noopener noreferrer"
                     className="flex items-center space-x-1 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
                   >
-                    <span>View on Etherscan</span>
+                    <span>{td.viewOnEtherscan}</span>
                     <ExternalLink className="w-3 h-3" />
                   </a>
                 </div>
@@ -354,12 +355,11 @@ export function ProcessingModal({
 
           {/* Continue Button */}
           <Button onClick={onClose} variant="secondary" className="w-full">
-            Continue in Background
+            {pm.continueInBackground}
           </Button>
 
           <div className="text-xs text-muted-foreground mt-4">
-            You can safely close this window. We&apos;ll continue processing and
-            update your balance automatically.
+            {pm.safeCloseHint}
           </div>
         </div>
       </DialogContent>

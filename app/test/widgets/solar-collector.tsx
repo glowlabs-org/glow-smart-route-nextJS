@@ -54,9 +54,13 @@ import {
 } from "@/components/ui/chart";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/telemetry";
-import { useSolarCollectorQuery } from "@/hooks/hub-solar-collector";
+import {
+  useSolarCollectorQuery,
+  formatWhenLabel,
+} from "@/hooks/hub-solar-collector";
 import { useRegions } from "@/hooks/control-regions";
 import { hubGet } from "@/lib/api/hub-client";
+import { useLang, getBcp47, type Strings } from "@/lib/i18n";
 
 const SOLAR_ORANGE = "#ffb472";
 const SOLAR_YELLOW = "#ffd37a";
@@ -132,38 +136,41 @@ function getShareHomesLabel(homesPowered: number): {
 
 function getRegionLabel(
   regionId: number | null,
-  regions: Array<{ id: number; code: string }> | undefined
+  regions: Array<{ id: number; code: string }> | undefined,
+  cleanGridLabel: string,
 ): string {
   if (!regionId) return "";
   const region = regions?.find((r) => r.id === regionId);
   if (!region) return "";
   const code = region.code;
-  if (code === "*") return "Clean Grid";
+  if (code === "*") return cleanGridLabel;
   if (code.startsWith("US-")) return code.slice(3);
   return code;
 }
 
 function getRegionCode(
   regionId: number | null,
-  regions: Array<{ id: number; code: string }> | undefined
+  regions: Array<{ id: number; code: string }> | undefined,
+  cleanGridCode: string,
 ): string {
   if (!regionId) return "";
   const region = regions?.find((r) => r.id === regionId);
   if (!region) return "";
   const code = region.code;
-  if (code === "*") return "CGP";
+  if (code === "*") return cleanGridCode;
   if (code.startsWith("US-")) return code.slice(3);
   return code;
 }
 
 function getRegionCodeFromName(
   name: string | number | undefined,
-  regions: Array<{ id: number; code: string }> | undefined
+  regions: Array<{ id: number; code: string }> | undefined,
+  cleanGridCode: string,
 ): string {
   if (!name || typeof name !== "string") return "";
   const match = name.match(/region(\d+)/);
   if (!match) return "";
-  return getRegionCode(Number(match[1]), regions);
+  return getRegionCode(Number(match[1]), regions, cleanGridCode);
 }
 
 function getGhostState(totalWatts: number) {
@@ -183,12 +190,13 @@ function SolarFootprintDialog({
   open,
   onOpenChange,
 }: SolarFootprintDialogProps) {
+  const { t } = useLang();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-card rounded-2xl p-0 sm:max-w-md w-full border border-border/40 overflow-hidden flex flex-col gap-0">
         <DialogHeader className="px-5 py-4 border-b border-border/60">
           <DialogTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground">
-            How Solar Footprint Works
+            {t.widgets.solarCollector.dialogTitle}
           </DialogTitle>
         </DialogHeader>
         <div className="p-5 space-y-4">
@@ -199,27 +207,23 @@ function SolarFootprintDialog({
               </div>
               <div>
                 <div className="text-base font-semibold">
-                  Verified Solar Footprint
+                  {t.widgets.solarCollector.cardHeading}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Real farms • real capacity
+                  {t.widgets.solarCollector.cardSubheading}
                 </div>
               </div>
             </div>
             <div className="text-sm text-muted-foreground leading-relaxed">
-              Each time a farm is funded, its physical capacity is distributed
-              across the network. Your share is based on your Impact Power in
-              that farm’s region for the given week.
+              {t.widgets.solarCollector.mainDescription}
             </div>
             <div className="pt-1">
               <div className="p-3 bg-glow-orange/5 border border-glow-orange/10 rounded-lg">
                 <div className="text-[10px] font-bold text-glow-orange flex items-center gap-1.5 uppercase tracking-wider">
-                  Impact Power
+                  {t.widgets.solarCollector.impactPowerLabel}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
-                  Direct Points + Glow Worth Points. Direct points come from
-                  emissions rewards, steering, and vault participation. Glow
-                  Worth is distributed by each region’s emission share.
+                  {t.widgets.solarCollector.impactPowerDescription}
                 </p>
               </div>
             </div>
@@ -227,17 +231,17 @@ function SolarFootprintDialog({
 
           <div className="space-y-1">
             <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider pl-1 pb-1">
-              What to Expect
+              {t.widgets.solarCollector.whatToExpect}
             </div>
             <div className="rounded-xl border border-border bg-muted/5 divide-y divide-border/40">
               <div className="p-3.5 flex items-start gap-3">
                 <Zap className="h-4 w-4 text-amber-500 mt-0.5" />
                 <div>
                   <div className="text-sm font-medium">
-                    Panels grow with new farms
+                    {t.widgets.solarCollector.expectItem1Title}
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
-                    Every 400W captured becomes one completed panel.
+                    {t.widgets.solarCollector.expectItem1Body}
                   </div>
                 </div>
               </div>
@@ -245,11 +249,10 @@ function SolarFootprintDialog({
                 <PieChartIcon className="h-4 w-4 text-emerald-500 mt-0.5" />
                 <div>
                   <div className="text-sm font-medium">
-                    Regional share matters
+                    {t.widgets.solarCollector.expectItem2Title}
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
-                    Your influence is measured per region based on the week the
-                    farm is funded.
+                    {t.widgets.solarCollector.expectItem2Body}
                   </div>
                 </div>
               </div>
@@ -257,10 +260,10 @@ function SolarFootprintDialog({
                 <TrendingUp className="h-4 w-4 text-sky-500 mt-0.5" />
                 <div>
                   <div className="text-sm font-medium">
-                    Completed weeks only
+                    {t.widgets.solarCollector.expectItem3Title}
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
-                    New farms appear once the protocol week is completed.
+                    {t.widgets.solarCollector.expectItem3Body}
                   </div>
                 </div>
               </div>
@@ -272,7 +275,7 @@ function SolarFootprintDialog({
             className="w-full h-11"
             onClick={() => onOpenChange(false)}
           >
-            Got it
+            {t.widgets.solarCollector.gotIt}
           </Button>
         </div>
       </DialogContent>
@@ -332,6 +335,7 @@ export default function SolarCollectorWidget({
   onFarmClick,
   readOnly = false,
 }: SolarCollectorWidgetProps) {
+  const { t, lang } = useLang();
   const chainId = useChainId();
   const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
   const source = "impact_summary_widget";
@@ -360,12 +364,12 @@ export default function SolarCollectorWidget({
   };
 
   const chartConfig = {
-    region1: { label: "Clean Grid Project (CGP)", color: "#6b7280" },
-    region2: { label: "Utah (UT)", color: "#3b82f6" },
-    region3: { label: "Missouri (MO)", color: "#10b981" },
-    region4: { label: "Colorado (CO)", color: "#f59e0b" },
-    total: { label: "Total Watts", color: "#f59e0b" },
-    share: { label: "Network Share", color: "#10b981" },
+    region1: { label: t.widgets.solarCollector.chartCleanGridProject, color: "#6b7280" },
+    region2: { label: t.widgets.solarCollector.chartUtah, color: "#3b82f6" },
+    region3: { label: t.widgets.solarCollector.chartMissouri, color: "#10b981" },
+    region4: { label: t.widgets.solarCollector.chartColorado, color: "#f59e0b" },
+    total: { label: t.widgets.solarCollector.chartTotalWatts, color: "#f59e0b" },
+    share: { label: t.widgets.solarCollector.chartNetworkShare, color: "#10b981" },
   } satisfies ChartConfig;
 
   const distributionData = React.useMemo(() => {
@@ -476,7 +480,7 @@ export default function SolarCollectorWidget({
   );
 
   const recentDropRegionLabel = model.recentDrop
-    ? getRegionLabel(model.recentDrop.regionId, regions)
+    ? getRegionLabel(model.recentDrop.regionId, regions, t.widgets.solarCollector.cleanGridRegion)
     : "";
 
   const hasSignificantInfluence = React.useMemo(() => {
@@ -585,11 +589,10 @@ export default function SolarCollectorWidget({
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium text-foreground">
-                  Your solar footprint will appear here
+                  {t.widgets.solarCollector.emptyFootprintTitle}
                 </div>
                 <div className="text-xs text-muted-foreground mt-0.5">
-                  When new farms onboard, your share of clean energy production
-                  will be tracked.
+                  {t.widgets.solarCollector.emptyFootprintBody}
                 </div>
               </div>
               <button
@@ -598,7 +601,7 @@ export default function SolarCollectorWidget({
                 onClick={handleLearnMore}
               >
                 <HelpCircle className="h-3.5 w-3.5" />
-                Learn more
+                {t.widgets.solarCollector.learnMore}
               </button>
             </div>
           </CardContent>
@@ -616,7 +619,7 @@ export default function SolarCollectorWidget({
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <div className="text-[11px] font-mono font-bold uppercase tracking-widest text-muted-foreground">
-                Verified Solar Footprint
+                {t.widgets.solarCollector.sectionTitle}
               </div>
               <TooltipProvider>
                 <Tooltip>
@@ -632,11 +635,7 @@ export default function SolarCollectorWidget({
                     side="bottom"
                     className="max-w-xs text-xs leading-relaxed"
                   >
-                    <p>
-                      Your verified connection to physical solar infrastructure.
-                      Based on your participation in completed V2 farms across
-                      the network.
-                    </p>
+                    <p>{t.widgets.solarCollector.sectionTitleTooltip}</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -648,7 +647,7 @@ export default function SolarCollectorWidget({
               onClick={handleLearnMore}
             >
               <HelpCircle className="h-3.5 w-3.5" />
-              Learn more
+              {t.widgets.solarCollector.learnMore}
             </button>
           </div>
 
@@ -673,13 +672,15 @@ export default function SolarCollectorWidget({
                     >
                       <p>
                         {model.impact.homesPowered < 1
-                          ? "Estimated number of LED lightbulbs (9W) that could be continuously powered by your solar capacity."
-                          : "Estimated number of U.S. homes that could be continuously powered by your solar capacity, assuming an 18% capacity factor and 1.17 kW average load per home."}
+                          ? t.widgets.solarCollector.lightbulbsTooltip
+                          : t.widgets.solarCollector.homesTooltip}
                       </p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-                {model.impact.homesPowered < 1 ? "Lightbulbs" : "Homes Powered"}
+                {model.impact.homesPowered < 1
+                  ? t.widgets.solarCollector.lightbulbs
+                  : t.widgets.solarCollector.homesPowered}
               </div>
               <div className="flex items-baseline gap-1">
                 <span className="font-mono text-2xl md:text-3xl font-bold tracking-tight text-foreground tabular-nums">
@@ -693,7 +694,9 @@ export default function SolarCollectorWidget({
                     : model.impact.homesPowered.toLocaleString()}
                 </span>
                 <span className="text-sm font-mono text-muted-foreground">
-                  {model.impact.homesPowered < 1 ? "bulbs" : "homes"}
+                  {model.impact.homesPowered < 1
+                    ? t.widgets.solarCollector.bulbsUnit
+                    : t.widgets.solarCollector.homesUnit}
                 </span>
               </div>
             </div>
@@ -715,15 +718,11 @@ export default function SolarCollectorWidget({
                       side="bottom"
                       className="max-w-xs text-xs leading-relaxed"
                     >
-                      <p>
-                        Estimated annual clean energy production based on the
-                        physical capacity of your captured panels and an
-                        estimated 18% average capacity factor.
-                      </p>
+                      <p>{t.widgets.solarCollector.energyPerYearTooltip}</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-                Energy / Year
+                {t.widgets.solarCollector.energyPerYear}
               </div>
               <div className="flex items-baseline gap-1">
                 <span className="font-mono text-2xl md:text-3xl font-bold tracking-tight text-foreground tabular-nums">
@@ -752,23 +751,18 @@ export default function SolarCollectorWidget({
                       side="bottom"
                       className="max-w-xs text-xs leading-relaxed"
                     >
-                      <p>
-                        The number of mature trees required to sequester the
-                        same amount of CO₂ offset by your clean energy
-                        production (based on 1,000 lb CO₂/MWh and 0.022
-                        tonnes/year per tree).
-                      </p>
+                      <p>{t.widgets.solarCollector.treesEquivalentTooltip}</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-                Trees Equivalent
+                {t.widgets.solarCollector.treesEquivalent}
               </div>
               <div className="flex items-baseline gap-1">
                 <span className="font-mono text-2xl md:text-3xl font-bold tracking-tight text-foreground tabular-nums">
                   {model.impact.treesEquivalent.toLocaleString()}
                 </span>
                 <span className="text-sm font-mono text-muted-foreground">
-                  trees
+                  {t.widgets.solarCollector.treesUnit}
                 </span>
               </div>
             </div>
@@ -776,7 +770,7 @@ export default function SolarCollectorWidget({
             {/* Panel Progress */}
             <div>
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1.5">
-                Panel #{model.currentPanelIndex}
+                {t.widgets.solarCollector.panelLabel(model.currentPanelIndex)}
               </div>
               <div className="flex items-center gap-3">
                 <div className="flex-1 h-3 rounded-full bg-muted/50 border border-border/50 overflow-hidden">
@@ -793,8 +787,7 @@ export default function SolarCollectorWidget({
                 </span>
               </div>
               <div className="mt-1 text-[10px] text-muted-foreground">
-                {model.totalPanels} panel{model.totalPanels !== 1 ? "s" : ""}{" "}
-                completed
+                {t.widgets.solarCollector.panelsCompleted(model.totalPanels)}
               </div>
             </div>
           </div>
@@ -821,7 +814,7 @@ export default function SolarCollectorWidget({
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1">
-                      Latest Verified Addition
+                      {t.widgets.solarCollector.latestVerifiedAddition}
                     </div>
                     <div className="font-medium text-sm text-foreground truncate">
                       {model.recentDrop.farmName}
@@ -833,14 +826,24 @@ export default function SolarCollectorWidget({
                       )}
                     </div>
                     <div className="text-xs text-muted-foreground mt-0.5">
-                      {model.recentDrop.whenLabel}
+                      {formatWhenLabel(
+                        model.recentDrop.timestamp,
+                        {
+                          whenToday: t.widgets.solarCollector.whenToday,
+                          whenYesterday: t.widgets.solarCollector.whenYesterday,
+                          whenDaysAgo: t.widgets.solarCollector.whenDaysAgo,
+                          whenLastWeek: t.widgets.solarCollector.whenLastWeek,
+                          whenWeeksAgo: t.widgets.solarCollector.whenWeeksAgo,
+                        },
+                        getBcp47(lang),
+                      )}
                     </div>
                   </div>
 
                   <div className="hidden sm:flex items-center gap-8 px-6 border-x border-border/50 h-10">
                     <div>
                       <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground mb-0.5">
-                        Farm Size
+                        {t.widgets.solarCollector.farmSize}
                       </div>
                       <div className="text-xs font-mono font-medium text-foreground tabular-nums">
                         {(model.recentDrop.farmSizeWatts / 1000).toFixed(1)} kW
@@ -848,7 +851,7 @@ export default function SolarCollectorWidget({
                     </div>
                     <div>
                       <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground mb-0.5">
-                        Your Share
+                        {t.widgets.solarCollector.yourShare}
                       </div>
                       <div className="text-xs font-mono font-medium text-foreground tabular-nums">
                         {(
@@ -861,7 +864,7 @@ export default function SolarCollectorWidget({
                     </div>
                     <div>
                       <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground mb-0.5">
-                        Capture
+                        {t.widgets.solarCollector.captureLabel}
                       </div>
                       <div className="text-xs font-mono font-medium text-[color:var(--color-glow-orange)] tabular-nums">
                         +{formatCaptureValue(model.recentDrop.wattsCaptured)}{" "}
@@ -876,10 +879,10 @@ export default function SolarCollectorWidget({
             ) : (
               <div className="flex-1 rounded-xl border border-border bg-muted/10 p-3">
                 <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1">
-                  Latest Addition
+                  {t.widgets.solarCollector.latestAddition}
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  No recent farm additions yet
+                  {t.widgets.solarCollector.noRecentAdditions}
                 </div>
               </div>
             )}
@@ -892,7 +895,7 @@ export default function SolarCollectorWidget({
                 onClick={handleShare}
               >
                 <ArrowUpRight className="h-4 w-4" />
-                Share
+                {t.widgets.solarCollector.share}
               </button>
             )}
           </div>
@@ -910,7 +913,7 @@ export default function SolarCollectorWidget({
                 <div className="flex items-center gap-2">
                   <PieChartIcon className="h-4 w-4 text-muted-foreground" />
                   <div className="text-[11px] font-mono font-bold uppercase tracking-widest text-muted-foreground">
-                    Regional Energy Distribution
+                    {t.widgets.solarCollector.regionalDistribution}
                   </div>
                 </div>
                 <ChartContainer
@@ -929,7 +932,7 @@ export default function SolarCollectorWidget({
                                 {Number(value).toLocaleString()}
                               </span>
                               <span className="text-[10px] font-mono text-muted-foreground uppercase">
-                                Watts
+                                {t.widgets.solarCollector.wattsUnit}
                               </span>
                             </div>
                           )}
@@ -959,7 +962,7 @@ export default function SolarCollectorWidget({
                 <div className="flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
                   <div className="text-[11px] font-mono font-bold uppercase tracking-widest text-muted-foreground">
-                    Footprint Growth
+                    {t.widgets.solarCollector.footprintGrowth}
                   </div>
                 </div>
                 <ChartContainer
@@ -998,7 +1001,7 @@ export default function SolarCollectorWidget({
                                 {Number(value).toLocaleString()}
                               </span>
                               <span className="text-[10px] font-mono text-muted-foreground uppercase">
-                                Watts
+                                {t.widgets.solarCollector.wattsUnit}
                               </span>
                             </div>
                           )}
@@ -1011,7 +1014,7 @@ export default function SolarCollectorWidget({
                                 year: "numeric",
                               });
                             }
-                            return `Week ${value}`;
+                            return t.widgets.solarCollector.weekFallback(value);
                           }}
                         />
                       }
@@ -1034,7 +1037,7 @@ export default function SolarCollectorWidget({
                   <div className="flex items-center gap-2">
                     <Activity className="h-4 w-4 text-muted-foreground" />
                     <div className="text-[11px] font-mono font-bold uppercase tracking-widest text-muted-foreground">
-                      Cumulative Regional Impact
+                      {t.widgets.solarCollector.cumulativeRegionalImpact}
                     </div>
                   </div>
                   <ChartContainer
@@ -1088,13 +1091,14 @@ export default function SolarCollectorWidget({
                                       day: "numeric",
                                       year: "numeric",
                                     })
-                                  : `Week ${label}`}
+                                  : t.widgets.solarCollector.weekFallback(String(label))}
                               </div>
                               <div className="space-y-1">
                                 {payload.map((entry, idx: number) => {
                                   const regionCode = getRegionCodeFromName(
                                     String(entry.name ?? ""),
-                                    regions
+                                    regions,
+                                    t.widgets.solarCollector.cleanGridRegionCode,
                                   );
                                   return (
                                     <div
@@ -1128,7 +1132,7 @@ export default function SolarCollectorWidget({
                                 <div className="mt-2 pt-2 border-t border-border/50">
                                   <div className="flex items-center justify-between">
                                     <span className="text-[10px] text-muted-foreground">
-                                      Multiplier
+                                      {t.widgets.solarCollector.multiplierLabel}
                                     </span>
                                     <span className="text-[10px] font-mono font-bold text-[color:var(--color-miner)]">
                                       {rolloverMultiplier.toFixed(2)}×
@@ -1137,14 +1141,15 @@ export default function SolarCollectorWidget({
                                   <div className="flex flex-wrap gap-1 mt-1">
                                     {hasCashMinerBonus && (
                                       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-[color:var(--color-miner)]/10 text-[color:var(--color-miner)]">
-                                        Miner 3×
+                                        {t.widgets.solarCollector.minerBadge}
                                       </span>
                                     )}
                                     {streakBonusMultiplier > 0 && (
                                       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-[color:var(--delegation-purple)]/10 text-[color:var(--delegation-purple)]">
-                                        Streak +
-                                        {streakBonusMultiplier.toFixed(2)}× (
-                                        {impactStreakWeeks}w)
+                                        {t.widgets.solarCollector.streakBadge(
+                                          streakBonusMultiplier.toFixed(2),
+                                          impactStreakWeeks,
+                                        )}
                                       </span>
                                     )}
                                   </div>

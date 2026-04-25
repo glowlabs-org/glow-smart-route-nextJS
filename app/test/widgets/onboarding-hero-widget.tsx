@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { GlowSymbol } from "@/components/glow-symbol";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/telemetry";
+import { useLang } from "@/lib/i18n";
 
 interface OnboardingHeroWidgetProps {
   className?: string;
@@ -21,6 +22,7 @@ export default function OnboardingHeroWidget({
   variant = "default",
   onBuyGlowClick,
 }: OnboardingHeroWidgetProps) {
+  const { t } = useLang();
   const { isConnected, address } = useAccount();
   const walletAddress = address?.toLowerCase() ?? null;
   const source = "onboarding_hero_widget";
@@ -45,7 +47,7 @@ export default function OnboardingHeroWidget({
         <div className="flex items-center justify-center md:justify-start gap-2">
           <div className="h-2 w-2 rounded-full bg-[color:var(--color-glow-green)] animate-pulse shadow-[0_0_8px_var(--color-glow-green)]" />
           <span className="text-xs font-mono font-semibold tracking-widest uppercase text-muted-foreground/60 dark:text-muted-foreground/80">
-            New to Glow? Start Here
+            {t.widgets.onboardingHero.kicker}
           </span>
         </div>
       </CardHeader>
@@ -57,19 +59,19 @@ export default function OnboardingHeroWidget({
               className="text-2xl sm:text-3xl md:text-4xl lg:text-[2.5rem] leading-[1.2] tracking-tight text-foreground text-center md:text-left"
               style={{ fontFamily: "Duplicate Slab, serif" }}
             >
-              <span className="italic">"If everyone in the world owned</span>{" "}
+              <span className="italic">{t.widgets.onboardingHero.quotePre}</span>{" "}
               <span className="text-[color:var(--color-glow-orange)] underline decoration-[color:var(--color-glow-orange)]/40 underline-offset-4 decoration-2 font-semibold not-italic whitespace-nowrap">
-                $20 of GLW
+                {t.widgets.onboardingHero.quoteHighlight}
               </span>
               <span className="italic">
-                , we could eliminate fossil fuels by 2030."
+                {t.widgets.onboardingHero.quotePost}
               </span>
             </h2>
 
             <div className="mt-4 flex items-center justify-center md:justify-start gap-3">
               <div className="h-px w-8 bg-border/40 dark:bg-border/60" />
               <p className="text-sm font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                David Vorick, CEO
+                {t.widgets.onboardingHero.attribution}
               </p>
             </div>
           </div>
@@ -88,7 +90,7 @@ export default function OnboardingHeroWidget({
               }}
               className="group w-full h-11 font-mono font-bold text-xs"
             >
-              Buy GLW
+              {t.widgets.onboardingHero.buyGlw}
             </Button>
           ) : (
             <Button
@@ -103,7 +105,7 @@ export default function OnboardingHeroWidget({
               className="group w-full h-11 font-mono font-bold text-xs"
             >
               <CreditCard className="mr-2 h-4 w-4 opacity-70 group-hover:opacity-100" />
-              Buy GLW
+              {t.widgets.onboardingHero.buyGlw}
             </Button>
           )}
         </div>

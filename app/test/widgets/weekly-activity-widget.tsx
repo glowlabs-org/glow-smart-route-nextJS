@@ -34,6 +34,7 @@ import {
   parseTokenAmountFromBaseUnits,
 } from "@/utils/launchpad-rewards";
 import { useAccount } from "wagmi";
+import { useLang, type Strings } from "@/lib/i18n";
 
 type WeekStatus = "missed" | "delegated" | "miner" | "both";
 
@@ -141,13 +142,14 @@ function getWeekStatusLabel(params: {
   status: WeekStatus;
   week: number;
   currentWeek: number;
+  labels: Strings["widgets"]["weeklyActivity"]["weekStatus"];
 }) {
-  const { status, week, currentWeek } = params;
-  if (status === "missed" && week === currentWeek) return "Current";
-  if (status === "delegated") return "Delegator";
-  if (status === "miner") return "Miner";
-  if (status === "both") return "Both";
-  return "Missed";
+  const { status, week, currentWeek, labels } = params;
+  if (status === "missed" && week === currentWeek) return labels.current;
+  if (status === "delegated") return labels.delegator;
+  if (status === "miner") return labels.miner;
+  if (status === "both") return labels.both;
+  return labels.missed;
 }
 
 interface WeeklyActivityWidgetProps {
@@ -160,10 +162,11 @@ const DISPLAY_WEEKS_CAP = 4;
 const GRID_COLUMNS = 4;
 
 function WeeklyActivitySkeleton() {
+  const { t } = useLang();
   return (
     <Card className="overflow-hidden h-full lg:max-h-[280px] bg-card dark:bg-card border-border/20 pt-6 pb-0">
       <CardHeader className="py-0 px-6">
-        <CardTitle className="text-center">Weekly Streak</CardTitle>
+        <CardTitle className="text-center">{t.widgets.weeklyActivity.title}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col flex-1 min-h-0 px-6 pb-6">
         <div className="flex flex-col flex-1 min-h-0 gap-4">
@@ -186,6 +189,7 @@ export default function WeeklyActivityWidget({
   hideIfEmpty = true,
   variant = "default",
 }: WeeklyActivityWidgetProps) {
+  const { t } = useLang();
   const weeksCount = DISPLAY_WEEKS_CAP;
   const hasWallet = Boolean(walletAddress);
   const isFlow = variant === "flow";
@@ -461,7 +465,7 @@ export default function WeeklyActivityWidget({
       )}
     >
       <CardHeader className="py-0 px-6">
-        <CardTitle className="text-center">Weekly Streak</CardTitle>
+        <CardTitle className="text-center">{t.widgets.weeklyActivity.title}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col flex-1 min-h-0 px-6 pb-6">
         <div className="flex flex-col flex-1 min-h-0">
@@ -471,11 +475,11 @@ export default function WeeklyActivityWidget({
                 <div className="font-mono text-5xl font-bold tracking-tight text-muted-foreground/40 leading-none">
                   —
                   <span className="ml-2 text-sm font-mono font-semibold text-muted-foreground/40 uppercase tracking-wider align-middle">
-                    Wks
+                    {t.widgets.weeklyActivity.wks}
                   </span>
                 </div>
                 <div className="mt-2 font-mono text-xs text-muted-foreground/60">
-                  Current Streak
+                  {t.widgets.weeklyActivity.currentStreak}
                 </div>
               </div>
 
@@ -499,19 +503,19 @@ export default function WeeklyActivityWidget({
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-1.5">
                       <span className="h-2.5 w-2.5 rounded-full bg-[color:var(--color-miner)]" />
-                      <span>Miner</span>
+                      <span>{t.widgets.weeklyActivity.legendMiner}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <span className="h-2.5 w-2.5 rounded-full bg-delegation-purple" />
-                      <span>Delegator</span>
+                      <span>{t.widgets.weeklyActivity.legendDelegator}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <span className="h-2.5 w-2.5 rounded-full bg-[#4ADE80]" />
-                      <span>Both</span>
+                      <span>{t.widgets.weeklyActivity.legendBoth}</span>
                     </div>
                   </div>
                   <div className="text-[10px] font-mono font-semibold uppercase tracking-wider text-primary">
-                    Connect wallet
+                    {t.widgets.weeklyActivity.connectWallet}
                   </div>
                 </div>
               </div>
@@ -529,7 +533,7 @@ export default function WeeklyActivityWidget({
           ) : isError ? (
             <div className="flex flex-1 flex-col items-center justify-center text-center gap-2 py-10">
               <div className="text-sm text-destructive">
-                Unable to load weekly activity.
+                {t.widgets.weeklyActivity.unableToLoad}
               </div>
             </div>
           ) : shouldHide ? (
@@ -538,11 +542,11 @@ export default function WeeklyActivityWidget({
                 <div className="font-mono text-5xl font-bold tracking-tight text-foreground leading-none">
                   0
                   <span className="ml-2 text-sm font-mono font-semibold text-muted-foreground uppercase tracking-wider align-middle">
-                    Wks
+                    {t.widgets.weeklyActivity.wks}
                   </span>
                 </div>
                 <div className="mt-2 font-mono text-xs text-muted-foreground">
-                  Current Streak
+                  {t.widgets.weeklyActivity.currentStreak}
                 </div>
               </div>
 
@@ -575,7 +579,7 @@ export default function WeeklyActivityWidget({
                     <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
                   </svg>
                   <div className="text-xs text-primary">
-                    Delegate GLW or buy a miner to start your streak!
+                    {t.widgets.weeklyActivity.startYourStreak}
                   </div>
                 </div>
               </div>
@@ -586,11 +590,11 @@ export default function WeeklyActivityWidget({
                 <div className="font-mono text-6xl font-semibold tracking-tight text-foreground leading-none">
                   {streakWeeks}
                   <span className="ml-2 text-sm font-mono font-medium text-muted-foreground/50 uppercase tracking-widest align-middle">
-                    Wks
+                    {t.widgets.weeklyActivity.wks}
                   </span>
                 </div>
                 <div className="mt-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/50">
-                  Current Streak
+                  {t.widgets.weeklyActivity.currentStreak}
                 </div>
               </div>
 
@@ -654,6 +658,7 @@ export default function WeeklyActivityWidget({
                                 status: cell.status,
                                 week: cell.week,
                                 currentWeek,
+                                labels: t.widgets.weeklyActivity.weekStatus,
                               })}
                             </div>
                             {cell.status !== "missed" && (
@@ -662,7 +667,7 @@ export default function WeeklyActivityWidget({
                                   cell.delegationAmounts.SGCTL > 0) && (
                                   <div className="flex items-center justify-between gap-3 text-xs">
                                     <span className="text-muted-foreground">
-                                      Delegated
+                                      {t.widgets.weeklyActivity.weekDelegated}
                                     </span>
                                     <span className="font-mono font-semibold tabular-nums text-delegation-purple">
                                       {formatDelegationAmounts(
@@ -674,7 +679,7 @@ export default function WeeklyActivityWidget({
                                 {cell.minerAmount > 0 && (
                                   <div className="flex items-center justify-between gap-3 text-xs">
                                     <span className="text-muted-foreground">
-                                      Miner
+                                      {t.widgets.weeklyActivity.weekMiner}
                                     </span>
                                     <span className="font-mono font-semibold tabular-nums text-miner">
                                       {cell.minerAmount.toLocaleString(
@@ -717,8 +722,8 @@ export default function WeeklyActivityWidget({
                           <line x1="12" y1="17" x2="12.01" y2="17" />
                         </svg>
                         <div className="text-xs text-amber-600 dark:text-amber-400">
-                          <span className="font-semibold">Streak at risk!</span>{" "}
-                          Delegate GLW or buy a miner this week.
+                          <span className="font-semibold">{t.widgets.weeklyActivity.streakAtRiskBold}</span>{" "}
+                          {t.widgets.weeklyActivity.streakAtRiskBody}
                         </div>
                       </div>
                       {displayMultiplier && (
@@ -748,18 +753,18 @@ export default function WeeklyActivityWidget({
                             className="rounded-xl border border-foreground/10 dark:border-zinc-800 bg-popover/95 px-3 py-2"
                           >
                             <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                              Current Multiplier
+                              {t.widgets.weeklyActivity.currentMultiplier}
                             </div>
                             <div className="mt-1.5 space-y-1">
                               <div className="flex items-center justify-between gap-4 text-xs">
                                 <span className="text-muted-foreground">
-                                  Base
+                                  {t.widgets.weeklyActivity.multiplierBase}
                                 </span>
                                 <span className="font-mono font-semibold tabular-nums">
                                   {displayMultiplier.base}×
                                   {displayMultiplier.hasCashMinerBonus && (
                                     <span className="ml-1 text-[10px] text-[color:var(--color-miner)]">
-                                      (Miner)
+                                      {t.widgets.weeklyActivity.multiplierMinerSuffix}
                                     </span>
                                   )}
                                 </span>
@@ -767,7 +772,7 @@ export default function WeeklyActivityWidget({
                               {displayMultiplier.streakBonus > 0 && (
                                 <div className="flex items-center justify-between gap-4 text-xs">
                                   <span className="text-muted-foreground">
-                                    Streak
+                                    {t.widgets.weeklyActivity.multiplierStreak}
                                   </span>
                                   <span className="font-mono font-semibold tabular-nums text-delegation-purple">
                                     +{displayMultiplier.streakBonus.toFixed(2)}×
@@ -776,7 +781,7 @@ export default function WeeklyActivityWidget({
                               )}
                               <div className="pt-1 border-t border-border/50 flex items-center justify-between gap-4 text-xs">
                                 <span className="text-muted-foreground font-semibold">
-                                  Total
+                                  {t.widgets.weeklyActivity.multiplierTotal}
                                 </span>
                                 <span className="font-mono font-bold tabular-nums text-primary">
                                   {displayMultiplier.total.toFixed(2)}×
@@ -795,15 +800,15 @@ export default function WeeklyActivityWidget({
                     <div className="flex items-center gap-3">
                       <div className="flex items-center gap-1.5">
                         <span className="h-2.5 w-2.5 rounded-full bg-[color:var(--color-miner)]" />
-                        <span>Miner</span>
+                        <span>{t.widgets.weeklyActivity.legendMiner}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <span className="h-2.5 w-2.5 rounded-full bg-delegation-purple" />
-                        <span>Delegator</span>
+                        <span>{t.widgets.weeklyActivity.legendDelegator}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <span className="h-2.5 w-2.5 rounded-full bg-[#4ADE80]" />
-                        <span>Both</span>
+                        <span>{t.widgets.weeklyActivity.legendBoth}</span>
                       </div>
                     </div>
                     {displayMultiplier ? (
@@ -872,7 +877,7 @@ export default function WeeklyActivityWidget({
                       </Tooltip>
                     ) : (
                       <div className="text-[10px] font-mono uppercase tracking-wider text-foreground/70">
-                        Streak {streakWeeks}/4
+                        {t.widgets.weeklyActivity.streakCounter(streakWeeks)}
                       </div>
                     )}
                   </div>

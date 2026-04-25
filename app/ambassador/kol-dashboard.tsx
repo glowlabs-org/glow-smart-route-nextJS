@@ -37,6 +37,7 @@ import {
   type KolDashboardFilter,
   type KolDashboardResponse,
 } from "@/hooks/useKolDashboard";
+import { getBcp47, useLang, type Lang } from "@/lib/i18n";
 
 // ---- Formatting helpers (shared with internal dashboard) ----
 
@@ -56,9 +57,9 @@ function CopyableWallet({
   const handleCopy = React.useCallback(() => {
     navigator.clipboard.writeText(wallet);
     setCopied(true);
-    toast.success(t.walletCopied);
+    toast.success(t.ambassador.walletCopied);
     setTimeout(() => setCopied(false), 2000);
-  }, [wallet, t.walletCopied]);
+  }, [wallet, t.ambassador.walletCopied]);
 
   return (
     <button
@@ -118,322 +119,29 @@ function formatPercentValue(value: string | number) {
 }
 
 function formatDate(isoString: string, lang: Lang = "en") {
-  return new Date(isoString).toLocaleDateString(
-    lang === "ko" ? "ko-KR" : "en-US",
-    {
-      month: "short",
-      day: "numeric",
-    }
-  );
+  return new Date(isoString).toLocaleDateString(getBcp47(lang), {
+    month: "short",
+    day: "numeric",
+  });
 }
 
 function formatLongDate(isoString: string, lang: Lang = "en") {
-  return new Date(isoString).toLocaleDateString(
-    lang === "ko" ? "ko-KR" : "en-US",
-    {
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    }
-  );
+  return new Date(isoString).toLocaleDateString(getBcp47(lang), {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 function formatDateTime(isoString: string, lang: Lang = "en") {
-  return new Date(isoString).toLocaleString(
-    lang === "ko" ? "ko-KR" : "en-US",
-    {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    }
-  );
+  return new Date(isoString).toLocaleString(getBcp47(lang), {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
-// ---- Localization (English / Korean) ----
-
-type Lang = "en" | "ko";
-const LANG_STORAGE_KEY = "ambassador-dashboard-lang";
-
-interface Strings {
-  pageTitle: string;
-  subtitlePrefix: string;
-  allTime: string;
-
-  connectPrompt: string;
-  accessDeniedTitle: string;
-  accessDeniedPrefix: string;
-  accessDeniedSuffix: string;
-  signPromptPrefix: string;
-  signPromptSuffix: string;
-  verifyButton: string;
-  signing: string;
-
-  sales: string;
-  volume: string;
-  payback: string;
-  rolling30dDelegated: string;
-  paybackRate: string;
-
-  delegators: (n: number) => string;
-  saleAttributionHint: (direct: number, second: number) => string;
-  weekRangeHint: (start: number, end: number) => string;
-  baseCommissionHint: (pct: number) => string;
-  delegationBonus: (pct: string) => string;
-  uncertaintyBonus: (pct: string) => string;
-
-  networkBonus: string;
-  networkBonusHeadline: (pct: number) => string;
-  networkBonusDescription: (date: string, weekNumber: number) => string;
-  yourBase: string;
-  bonus: string;
-  total: string;
-
-  minerSales: string;
-  minerSalesLegend: string;
-  delegated30D: string;
-  delegated30DLegend: string;
-
-  weeklyBreakdown: string;
-  weekColumn: string;
-  salesColumn: string;
-  volumeColumn: string;
-  paybackColumn: string;
-  delegated30DColumn: string;
-  weekLabel: (n: number) => string;
-  inProgress: string;
-  salesCount: (n: number) => string;
-  inclBonus: (amount: string) => string;
-
-  typeHeader: string;
-  buyerHeader: string;
-  farmHeader: string;
-  amountHeader: string;
-  paybackHeader: string;
-  dateHeader: string;
-  stepsCount: (n: number) => string;
-  direct: string;
-  secondDeg: string;
-
-  refreshing: string;
-  unableToLoad: string;
-  retry: string;
-  noData: string;
-
-  walletCopied: string;
-  signFailed: string;
-
-  switchLanguageAria: string;
-}
-
-const TRANSLATIONS: Record<Lang, Strings> = {
-  en: {
-    pageTitle: "Ambassador Dashboard",
-    subtitlePrefix: "Commission tracking for",
-    allTime: "All Time",
-
-    connectPrompt: "Connect your ambassador wallet to see your dashboard.",
-    accessDeniedTitle: "Access Denied",
-    accessDeniedPrefix: "The connected wallet ",
-    accessDeniedSuffix:
-      " is not registered as an ambassador. Please connect with your approved wallet.",
-    signPromptPrefix: "Sign a message to verify ownership of ",
-    signPromptSuffix: " and access your dashboard.",
-    verifyButton: "Verify Identity",
-    signing: "Signing...",
-
-    sales: "Sales",
-    volume: "Volume",
-    payback: "Payback",
-    rolling30dDelegated: "Rolling 30D Delegated",
-    paybackRate: "Payback Rate",
-
-    delegators: (n) => `${n} delegators`,
-    saleAttributionHint: (direct, second) =>
-      `${direct} direct, ${second} 2nd-degree`,
-    weekRangeHint: (start, end) => `Week ${start} - ${end}`,
-    baseCommissionHint: (pct) => `${pct}% base commission`,
-    delegationBonus: (pct) => `+${pct} delegation bonus`,
-    uncertaintyBonus: (pct) => `+${pct} uncertainty bonus`,
-
-    networkBonus: "Network Bonus",
-    networkBonusHeadline: (pct) =>
-      `+${pct}% of every ambassador you recruited`,
-    networkBonusDescription: (date, weekNumber) =>
-      `Active since ${date} (week ${weekNumber}). Paid on top of your own commission — the ambassadors you recruited still receive their full payback.`,
-    yourBase: "Your payback",
-    bonus: "Bonus",
-    total: "Total",
-
-    minerSales: "Miner Sales",
-    minerSalesLegend: "Miner Sales ($)",
-    delegated30D: "30D Delegated (USD)",
-    delegated30DLegend: "30D Delegated ($, GLW + sGCTL)",
-
-    weeklyBreakdown: "Weekly Breakdown",
-    weekColumn: "Week",
-    salesColumn: "Sales",
-    volumeColumn: "Volume",
-    paybackColumn: "Payback",
-    delegated30DColumn: "30D Delegated ($)",
-    weekLabel: (n) => `Week ${n}`,
-    inProgress: "In progress",
-    salesCount: (n) => `${n} ${n === 1 ? "sale" : "sales"}`,
-    inclBonus: (amount) => `incl ${amount} bonus`,
-
-    typeHeader: "Type",
-    buyerHeader: "Buyer",
-    farmHeader: "Farm",
-    amountHeader: "Amount",
-    paybackHeader: "Payback",
-    dateHeader: "Date",
-    stepsCount: (n) => `${n} steps`,
-    direct: "direct",
-    secondDeg: "2nd deg",
-
-    refreshing: "Refreshing...",
-    unableToLoad: "Unable to load dashboard data.",
-    retry: "Retry",
-    noData: "No data found for your wallet in this period.",
-
-    walletCopied: "Wallet address copied",
-    signFailed: "Signing failed. Please try again.",
-
-    switchLanguageAria: "Switch to Korean",
-  },
-  ko: {
-    pageTitle: "앰배서더 대시보드",
-    subtitlePrefix: "커미션 추적:",
-    allTime: "전체 기간",
-
-    connectPrompt: "대시보드를 보려면 앰배서더 지갑을 연결해 주세요.",
-    accessDeniedTitle: "접근 거부됨",
-    accessDeniedPrefix: "연결된 지갑 ",
-    accessDeniedSuffix:
-      "은(는) 앰배서더로 등록되지 않았습니다. 승인된 지갑으로 연결해 주세요.",
-    signPromptPrefix: "지갑 ",
-    signPromptSuffix:
-      "의 소유권을 확인하고 대시보드에 접속하려면 메시지에 서명해 주세요.",
-    verifyButton: "본인 인증",
-    signing: "서명 중...",
-
-    sales: "판매",
-    volume: "거래량",
-    payback: "페이백",
-    rolling30dDelegated: "30일 누적 위임",
-    paybackRate: "페이백 비율",
-
-    delegators: (n) => `위임자 ${n}명`,
-    saleAttributionHint: (direct, second) =>
-      `직접 ${direct}건, 2단계 ${second}건`,
-    weekRangeHint: (start, end) => `${start}주 - ${end}주`,
-    baseCommissionHint: (pct) => `기본 커미션 ${pct}%`,
-    delegationBonus: (pct) => `위임 보너스 +${pct}`,
-    uncertaintyBonus: (pct) => `불확실성 보너스 +${pct}`,
-
-    networkBonus: "네트워크 보너스",
-    networkBonusHeadline: (pct) =>
-      `추천하신 모든 앰배서더 페이백의 +${pct}%`,
-    networkBonusDescription: (date, weekNumber) =>
-      `${date}(${weekNumber}주)부터 적용됩니다. 본인의 커미션에 추가로 지급되며, 추천하신 앰배서더들도 전액 페이백을 받습니다.`,
-    yourBase: "본인 페이백",
-    bonus: "보너스",
-    total: "총액",
-
-    minerSales: "마이너 판매",
-    minerSalesLegend: "마이너 판매 ($)",
-    delegated30D: "30일 위임 (USD)",
-    delegated30DLegend: "30일 위임 ($, GLW + sGCTL)",
-
-    weeklyBreakdown: "주간 상세",
-    weekColumn: "주차",
-    salesColumn: "판매",
-    volumeColumn: "거래량",
-    paybackColumn: "페이백",
-    delegated30DColumn: "30일 위임 ($)",
-    weekLabel: (n) => `${n}주`,
-    inProgress: "진행 중",
-    salesCount: (n) => `${n}건`,
-    inclBonus: (amount) => `보너스 ${amount} 포함`,
-
-    typeHeader: "유형",
-    buyerHeader: "구매자",
-    farmHeader: "팜",
-    amountHeader: "금액",
-    paybackHeader: "페이백",
-    dateHeader: "날짜",
-    stepsCount: (n) => `${n} 스텝`,
-    direct: "직접",
-    secondDeg: "2단계",
-
-    refreshing: "새로고침 중...",
-    unableToLoad: "대시보드 데이터를 불러올 수 없습니다.",
-    retry: "다시 시도",
-    noData: "이 기간에는 지갑에 대한 데이터가 없습니다.",
-
-    walletCopied: "지갑 주소가 복사되었습니다",
-    signFailed: "서명에 실패했습니다. 다시 시도해 주세요.",
-
-    switchLanguageAria: "Switch to English",
-  },
-};
-
-const LangContext = React.createContext<{
-  lang: Lang;
-  setLang: (l: Lang) => void;
-  t: Strings;
-}>({ lang: "en", setLang: () => {}, t: TRANSLATIONS.en });
-
-function LangProvider({ children }: { children: React.ReactNode }) {
-  const [lang, setLangState] = React.useState<Lang>("en");
-
-  React.useEffect(() => {
-    if (typeof window === "undefined") return;
-    const stored = window.localStorage.getItem(LANG_STORAGE_KEY);
-    if (stored === "ko" || stored === "en") setLangState(stored);
-  }, []);
-
-  const setLang = React.useCallback((next: Lang) => {
-    setLangState(next);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(LANG_STORAGE_KEY, next);
-    }
-  }, []);
-
-  const value = React.useMemo(
-    () => ({ lang, setLang, t: TRANSLATIONS[lang] }),
-    [lang, setLang]
-  );
-
-  return <LangContext.Provider value={value}>{children}</LangContext.Provider>;
-}
-
-function useLang() {
-  return React.useContext(LangContext);
-}
-
-function LangToggle() {
-  const { lang, setLang, t } = useLang();
-  const next: Lang = lang === "en" ? "ko" : "en";
-  return (
-    <Button
-      type="button"
-      size="sm"
-      variant="outline"
-      onClick={() => setLang(next)}
-      className="border-border/20 dark:border-border/40 gap-1.5 px-2.5"
-      aria-label={t.switchLanguageAria}
-      title={t.switchLanguageAria}
-    >
-      <span className="text-base leading-none">
-        {next === "ko" ? "\u{1F1F0}\u{1F1F7}" : "\u{1F1FA}\u{1F1F8}"}
-      </span>
-      <span className="text-xs font-mono uppercase">
-        {next === "ko" ? "KO" : "EN"}
-      </span>
-    </Button>
-  );
-}
 
 // ---- Month filter generation ----
 
@@ -588,11 +296,11 @@ function AuthGate({
       const signature = await signer.signMessage(message);
       onAuthenticated({ walletAddress: address, signature, message });
     } catch (err) {
-      setError(err instanceof Error ? err.message : t.signFailed);
+      setError(err instanceof Error ? err.message : t.ambassador.signFailed);
     } finally {
       setIsSigning(false);
     }
-  }, [signer, address, onAuthenticated, t.signFailed]);
+  }, [signer, address, onAuthenticated, t.ambassador.signFailed]);
 
   const handleAdminPasswordSubmit = React.useCallback(
     async (e: React.FormEvent) => {
@@ -612,10 +320,10 @@ function AuthGate({
       if (res.ok) {
         setAdminAuthenticated(true);
       } else {
-        setAdminError("Invalid password");
+        setAdminError(t.ambassador.invalidPassword);
       }
     },
-    [adminPassword]
+    [adminPassword, t.ambassador.invalidPassword]
   );
 
   const handleAdminWalletSelect = React.useCallback(
@@ -634,13 +342,15 @@ function AuthGate({
           onSubmit={handleAdminPasswordSubmit}
           className="w-full max-w-sm space-y-4"
         >
-          <h1 className="text-2xl font-bold tracking-tight">Admin Access</h1>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {t.ambassador.adminAccess}
+          </h1>
           <p className="text-sm text-muted-foreground/60 dark:text-muted-foreground/80">
-            Enter the admin password to continue.
+            {t.ambassador.adminPasswordPrompt}
           </p>
           <Input
             type="password"
-            placeholder="Admin password"
+            placeholder={t.ambassador.adminPasswordPlaceholder}
             value={adminPassword}
             onChange={(e) => setAdminPassword(e.target.value)}
           />
@@ -653,7 +363,7 @@ function AuthGate({
               disabled={!adminPassword}
               className="flex-1 bg-foreground text-background hover:bg-foreground/90"
             >
-              Continue
+              {t.ambassador.continue}
             </Button>
             <Button
               type="button"
@@ -665,7 +375,7 @@ function AuthGate({
               }}
               className="border-border/20 dark:border-border/40 hover:border-border/40 dark:hover:border-border/60"
             >
-              Back
+              {t.ambassador.back}
             </Button>
           </div>
         </form>
@@ -681,9 +391,11 @@ function AuthGate({
           onSubmit={handleAdminWalletSelect}
           className="w-full max-w-sm space-y-4"
         >
-          <h1 className="text-2xl font-bold tracking-tight">Select Ambassador</h1>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {t.ambassador.selectAmbassador}
+          </h1>
           <p className="text-sm text-muted-foreground/60 dark:text-muted-foreground/80">
-            Choose an ambassador wallet to view their dashboard.
+            {t.ambassador.selectAmbassadorPrompt}
           </p>
           <select
             value={adminWallet}
@@ -700,7 +412,7 @@ function AuthGate({
             type="submit"
             className="w-full bg-foreground text-background hover:bg-foreground/90"
           >
-            View Dashboard
+            {t.ambassador.viewDashboard}
           </Button>
         </form>
       </div>
@@ -710,14 +422,11 @@ function AuthGate({
   if (!isConnected) {
     return (
       <div className="relative flex min-h-[60vh] flex-col items-center justify-between py-16">
-        <div className="absolute right-0 top-4">
-          <LangToggle />
-        </div>
         <div />
         <div className="max-w-md space-y-3 text-center">
-          <h1 className="text-3xl font-bold tracking-tight">{t.pageTitle}</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t.ambassador.pageTitle}</h1>
           <p className="text-sm text-muted-foreground/60 dark:text-muted-foreground/80">
-            {t.connectPrompt}
+            {t.ambassador.connectPrompt}
           </p>
         </div>
         <button
@@ -725,7 +434,7 @@ function AuthGate({
           onClick={() => setShowAdminLogin(true)}
           className="text-[10px] text-muted-foreground/30 hover:text-muted-foreground/50 transition-colors"
         >
-          Admin
+          {t.ambassador.admin}
         </button>
       </div>
     );
@@ -734,18 +443,15 @@ function AuthGate({
   if (!isKol) {
     return (
       <div className="relative flex min-h-[60vh] flex-col items-center justify-between py-16">
-        <div className="absolute right-0 top-4">
-          <LangToggle />
-        </div>
         <div />
         <div className="max-w-md space-y-3 text-center">
           <h1 className="text-3xl font-bold tracking-tight">
-            {t.accessDeniedTitle}
+            {t.ambassador.accessDeniedTitle}
           </h1>
           <p className="text-sm text-muted-foreground/60 dark:text-muted-foreground/80">
-            {t.accessDeniedPrefix}
+            {t.ambassador.accessDeniedPrefix}
             <span className="font-mono text-sm">{formatWallet(address!)}</span>
-            {t.accessDeniedSuffix}
+            {t.ambassador.accessDeniedSuffix}
           </p>
         </div>
         <button
@@ -753,7 +459,7 @@ function AuthGate({
           onClick={() => setShowAdminLogin(true)}
           className="text-[10px] text-muted-foreground/30 hover:text-muted-foreground/50 transition-colors"
         >
-          Admin
+          {t.ambassador.admin}
         </button>
       </div>
     );
@@ -761,22 +467,19 @@ function AuthGate({
 
   return (
     <div className="relative flex min-h-[50vh] items-center justify-center">
-      <div className="absolute right-0 top-4">
-        <LangToggle />
-      </div>
       <div className="max-w-md space-y-6 text-center">
-        <h1 className="text-2xl font-bold tracking-tight">{t.pageTitle}</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{t.ambassador.pageTitle}</h1>
         <p className="text-muted-foreground">
-          {t.signPromptPrefix}
+          {t.ambassador.signPromptPrefix}
           <span className="font-mono text-sm">{formatWallet(address!)}</span>
-          {t.signPromptSuffix}
+          {t.ambassador.signPromptSuffix}
         </p>
         <Button
           onClick={handleSign}
           disabled={isSigning || isSignerLoading}
           className="bg-foreground text-background hover:bg-foreground/90"
         >
-          {isSigning ? t.signing : t.verifyButton}
+          {isSigning ? t.ambassador.signing : t.ambassador.verifyButton}
         </Button>
         {error && <p className="text-sm text-red-500">{error}</p>}
       </div>
@@ -808,9 +511,9 @@ function KolDashboardView({ auth }: { auth: KolAuth }) {
       {/* Page header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">{t.pageTitle}</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t.ambassador.pageTitle}</h1>
           <p className="mt-1 text-sm text-muted-foreground/60">
-            {t.subtitlePrefix}{" "}
+            {t.ambassador.subtitlePrefix}{" "}
             <CopyableWallet wallet={auth.walletAddress} className="text-sm" />
           </p>
         </div>
@@ -854,9 +557,8 @@ function KolDashboardView({ auth }: { auth: KolAuth }) {
                 : "border-border/20 dark:border-border/40"
             }
           >
-            {t.allTime}
+            {t.ambassador.allTime}
           </Button>
-          <LangToggle />
         </div>
       </div>
 
@@ -879,19 +581,19 @@ function KolDashboardView({ auth }: { auth: KolAuth }) {
         </div>
       ) : isError || !data ? (
         <div className="rounded-2xl border border-border/20 p-6 text-center text-sm text-muted-foreground/60 dark:border-border/40">
-          <div>{t.unableToLoad}</div>
+          <div>{t.ambassador.unableToLoad}</div>
           <Button
             variant="outline"
             size="sm"
             className="mt-4"
             onClick={() => refetch()}
           >
-            {t.retry}
+            {t.ambassador.retry}
           </Button>
         </div>
       ) : !kol ? (
         <div className="rounded-2xl border border-border/20 p-6 text-center text-sm text-muted-foreground/60 dark:border-border/40">
-          {t.noData}
+          {t.ambassador.noData}
         </div>
       ) : (
         <KolContent
@@ -954,26 +656,26 @@ function KolContent({
       {/* KPIs */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <MetricCard
-          label={t.sales}
+          label={t.ambassador.sales}
           value={totalSales}
-          hint={t.saleAttributionHint(
+          hint={t.ambassador.saleAttributionHint(
             kol.attributionBreakdown.direct.saleCount,
             kol.attributionBreakdown.secondDegree.saleCount
           )}
         />
         <MetricCard
-          label={t.volume}
+          label={t.ambassador.volume}
           value={formatUsdFromRawUsdc6(kol.totalMinerSalesRaw)}
-          hint={t.weekRangeHint(range.startWeek, range.endWeek)}
+          hint={t.ambassador.weekRangeHint(range.startWeek, range.endWeek)}
         />
         <MetricCard
-          label={t.payback}
+          label={t.ambassador.payback}
           value={formatUsdFromRawUsdc6(kol.totalPaybackRaw)}
-          hint={t.baseCommissionHint(program.baseCommissionPercent)}
+          hint={t.ambassador.baseCommissionHint(program.baseCommissionPercent)}
           tone="success"
         />
         <MetricCard
-          label={t.rolling30dDelegated}
+          label={t.ambassador.rolling30dDelegated}
           value={`$${Number(
             formatUnits(
               BigInt(
@@ -982,18 +684,18 @@ function KolContent({
               6
             )
           ).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
-          hint={t.delegators(kol.rolling30DayDelegation.uniqueDelegators)}
+          hint={t.ambassador.delegators(kol.rolling30DayDelegation.uniqueDelegators)}
         />
         <div className="rounded-2xl border border-border/20 dark:border-border/40 bg-card px-5 py-4">
           <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
-            {t.paybackRate}
+            {t.ambassador.paybackRate}
           </div>
           <div className="mt-2 text-2xl font-bold tracking-tight tabular-nums sm:text-3xl">
             5%
           </div>
           <div className="mt-1.5 space-y-0.5 text-xs leading-5 text-muted-foreground/60">
             <div>
-              {t.delegationBonus(
+              {t.ambassador.delegationBonus(
                 formatPercentValue(
                   kol.rolling30DayDelegation.ecosystemBonusPercent
                 )
@@ -1001,7 +703,7 @@ function KolContent({
             </div>
             {Number(kol.rolling30DayDelegation.flatBonusPercent ?? 0) > 0 && (
               <div>
-                {t.uncertaintyBonus(
+                {t.ambassador.uncertaintyBonus(
                   formatPercentValue(
                     kol.rolling30DayDelegation.flatBonusPercent ?? "0"
                   )
@@ -1018,19 +720,19 @@ function KolContent({
           <div className="flex items-center gap-2.5">
             <div className="h-4 w-1 rounded-full bg-amber-500/70" />
             <span className="text-xs font-semibold uppercase tracking-wide">
-              {t.networkBonus}
+              {t.ambassador.networkBonus}
             </span>
           </div>
           <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 px-5 py-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div className="space-y-1">
                 <div className="text-sm font-semibold">
-                  {t.networkBonusHeadline(
+                  {t.ambassador.networkBonusHeadline(
                     kol.masterReferrerOverride.overridePercent
                   )}
                 </div>
                 <div className="text-xs text-muted-foreground/70">
-                  {t.networkBonusDescription(
+                  {t.ambassador.networkBonusDescription(
                     formatDate(kol.masterReferrerOverride.startedAt, lang),
                     kol.masterReferrerOverride.startedAtWeek
                   )}
@@ -1039,7 +741,7 @@ function KolContent({
               <div className="grid grid-cols-3 gap-4 text-right md:gap-6">
                 <div>
                   <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
-                    {t.yourBase}
+                    {t.ambassador.yourBase}
                   </div>
                   <div className="mt-1 text-lg font-bold tabular-nums">
                     {formatUsdFromRawUsdc6(
@@ -1049,7 +751,7 @@ function KolContent({
                 </div>
                 <div>
                   <div className="text-[10px] font-mono uppercase tracking-widest text-amber-500">
-                    {t.bonus}
+                    {t.ambassador.bonus}
                   </div>
                   <div className="mt-1 text-lg font-bold tabular-nums text-amber-500">
                     +
@@ -1060,7 +762,7 @@ function KolContent({
                 </div>
                 <div>
                   <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
-                    {t.total}
+                    {t.ambassador.total}
                   </div>
                   <div className="mt-1 text-lg font-bold tabular-nums text-emerald-500">
                     {formatUsdFromRawUsdc6(kol.totalPaybackRaw)}
@@ -1080,7 +782,7 @@ function KolContent({
             <div className="flex items-center gap-2.5">
               <div className="h-4 w-1 rounded-full bg-zinc-500/70" />
               <span className="text-xs font-semibold uppercase tracking-wide">
-                {t.minerSales}
+                {t.ambassador.minerSales}
               </span>
             </div>
             <div className="rounded-2xl border border-border/20 dark:border-border/40 bg-card p-4">
@@ -1112,7 +814,7 @@ function KolContent({
                   <Line
                     type="monotone"
                     dataKey="volume"
-                    name={t.minerSales}
+                    name={t.ambassador.minerSales}
                     stroke="#71717a"
                     strokeWidth={2}
                     dot={{ r: 4, fill: "#71717a" }}
@@ -1122,7 +824,7 @@ function KolContent({
               <div className="mt-3 flex items-center justify-center text-xs text-muted-foreground/60">
                 <span className="flex items-center gap-2">
                   <span className="h-0.5 w-4 rounded-full bg-[#71717a]" />
-                  {t.minerSalesLegend}
+                  {t.ambassador.minerSalesLegend}
                 </span>
               </div>
             </div>
@@ -1133,7 +835,7 @@ function KolContent({
             <div className="flex items-center gap-2.5">
               <div className="h-4 w-1 rounded-full bg-emerald-500/70" />
               <span className="text-xs font-semibold uppercase tracking-wide">
-                {t.delegated30D}
+                {t.ambassador.delegated30D}
               </span>
             </div>
             <div className="rounded-2xl border border-border/20 dark:border-border/40 bg-card p-4">
@@ -1165,7 +867,7 @@ function KolContent({
                   <Line
                     type="monotone"
                     dataKey="delegatedUsd"
-                    name={t.delegated30D}
+                    name={t.ambassador.delegated30D}
                     stroke="#10b981"
                     strokeWidth={2}
                     dot={{ r: 4, fill: "#10b981" }}
@@ -1175,7 +877,7 @@ function KolContent({
               <div className="mt-3 flex items-center justify-center text-xs text-muted-foreground/60">
                 <span className="flex items-center gap-2">
                   <span className="h-0.5 w-4 rounded-full bg-[#10b981]" />
-                  {t.delegated30DLegend}
+                  {t.ambassador.delegated30DLegend}
                 </span>
               </div>
             </div>
@@ -1188,19 +890,19 @@ function KolContent({
         <div className="flex items-center gap-2.5">
           <div className="h-4 w-1 rounded-full bg-foreground/70" />
           <span className="text-xs font-semibold uppercase tracking-wide">
-            {t.weeklyBreakdown}
+            {t.ambassador.weeklyBreakdown}
           </span>
         </div>
         <div className="overflow-hidden rounded-2xl border border-border/20 dark:border-border/40 bg-card">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/30 hover:bg-muted/30">
-                <TableHead className="px-4">{t.weekColumn}</TableHead>
-                <TableHead className="text-right">{t.salesColumn}</TableHead>
-                <TableHead className="text-right">{t.volumeColumn}</TableHead>
-                <TableHead className="text-right">{t.paybackColumn}</TableHead>
+                <TableHead className="px-4">{t.ambassador.weekColumn}</TableHead>
+                <TableHead className="text-right">{t.ambassador.salesColumn}</TableHead>
+                <TableHead className="text-right">{t.ambassador.volumeColumn}</TableHead>
+                <TableHead className="text-right">{t.ambassador.paybackColumn}</TableHead>
                 <TableHead className="text-right pr-4">
-                  {t.delegated30DColumn}
+                  {t.ambassador.delegated30DColumn}
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -1217,11 +919,11 @@ function KolContent({
                         <TableCell className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <span className="font-semibold">
-                              {t.weekLabel(week.weekNumber)}
+                              {t.ambassador.weekLabel(week.weekNumber)}
                             </span>
                             {isCurrentWeek && (
                               <Badge variant="outline" className="border-border/20 dark:border-border/40 text-[10px] font-mono">
-                                {t.inProgress}
+                                {t.ambassador.inProgress}
                               </Badge>
                             )}
                           </div>
@@ -1242,7 +944,7 @@ function KolContent({
                             week.masterReferrerOverride.eligible &&
                             BigInt(week.masterReferrerOverride.overrideRaw) > 0n && (
                               <div className="text-[10px] font-normal text-amber-500/80">
-                                {t.inclBonus(
+                                {t.ambassador.inclBonus(
                                   formatUsdFromRawUsdc6(
                                     week.masterReferrerOverride.overrideRaw
                                   )
@@ -1264,18 +966,18 @@ function KolContent({
                             <details className="group">
                               <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-2 text-xs font-medium text-muted-foreground/50 transition-colors marker:content-none hover:text-muted-foreground/70">
                                 <span className="transition group-open:rotate-90">&#9654;</span>
-                                {t.salesCount(week.sales.length)}
+                                {t.ambassador.salesCount(week.sales.length)}
                               </summary>
                               <div className="border-t border-border/10 dark:border-border/20">
                                 <Table>
                                   <TableHeader>
                                     <TableRow className="bg-muted/20 hover:bg-muted/20">
-                                      <TableHead className="px-4 text-[10px]">{t.typeHeader}</TableHead>
-                                      <TableHead className="text-[10px]">{t.buyerHeader}</TableHead>
-                                      <TableHead className="text-[10px]">{t.farmHeader}</TableHead>
-                                      <TableHead className="text-right text-[10px]">{t.amountHeader}</TableHead>
-                                      <TableHead className="text-right text-[10px]">{t.paybackHeader}</TableHead>
-                                      <TableHead className="text-[10px] pr-4">{t.dateHeader}</TableHead>
+                                      <TableHead className="px-4 text-[10px]">{t.ambassador.typeHeader}</TableHead>
+                                      <TableHead className="text-[10px]">{t.ambassador.buyerHeader}</TableHead>
+                                      <TableHead className="text-[10px]">{t.ambassador.farmHeader}</TableHead>
+                                      <TableHead className="text-right text-[10px]">{t.ambassador.amountHeader}</TableHead>
+                                      <TableHead className="text-right text-[10px]">{t.ambassador.paybackHeader}</TableHead>
+                                      <TableHead className="text-[10px] pr-4">{t.ambassador.dateHeader}</TableHead>
                                     </TableRow>
                                   </TableHeader>
                                   <TableBody>
@@ -1286,7 +988,7 @@ function KolContent({
                                             variant="outline"
                                             className="border-border/20 text-[10px] font-mono dark:border-border/40"
                                           >
-                                            {sale.attributionType === "direct_kol" ? t.direct : t.secondDeg}
+                                            {sale.attributionType === "direct_kol" ? t.ambassador.direct : t.ambassador.secondDeg}
                                           </Badge>
                                         </TableCell>
                                         <TableCell className="py-2">
@@ -1294,7 +996,7 @@ function KolContent({
                                         </TableCell>
                                         <TableCell className="py-2">
                                           <div className="font-medium">{sale.farmName ?? "\u2014"}</div>
-                                          <div className="text-[10px] text-muted-foreground/50">{t.stepsCount(sale.stepsPurchased)}</div>
+                                          <div className="text-[10px] text-muted-foreground/50">{t.ambassador.stepsCount(sale.stepsPurchased)}</div>
                                         </TableCell>
                                         <TableCell className="py-2 text-right font-medium tabular-nums">
                                           {formatUsdFromRawUsdc6(sale.amountRaw)}
@@ -1323,7 +1025,7 @@ function KolContent({
       </div>
 
       {isFetching && (
-        <div className="text-xs text-muted-foreground/50">{t.refreshing}</div>
+        <div className="text-xs text-muted-foreground/50">{t.ambassador.refreshing}</div>
       )}
     </>
   );
@@ -1334,13 +1036,8 @@ function KolContent({
 export function KolDashboard() {
   const [auth, setAuth] = React.useState<KolAuth | null>(null);
 
-  return (
-    <LangProvider>
-      {!auth ? (
-        <AuthGate onAuthenticated={setAuth} />
-      ) : (
-        <KolDashboardView auth={auth} />
-      )}
-    </LangProvider>
-  );
+  if (!auth) {
+    return <AuthGate onAuthenticated={setAuth} />;
+  }
+  return <KolDashboardView auth={auth} />;
 }

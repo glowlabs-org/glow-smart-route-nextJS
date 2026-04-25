@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { useGlowPrices } from "@/hooks/useGlowPrices";
+import { useLang } from "@/lib/i18n";
 
 interface TickerCardProps {
   title: string;
@@ -117,6 +118,8 @@ function TickerCard({
     () => buildChartConfig(title, deltaPercent ?? undefined),
     [title, deltaPercent],
   );
+  const { t } = useLang();
+  const s = t.routes.stats;
 
   return (
     <TooltipProvider delayDuration={150}>
@@ -188,7 +191,7 @@ function TickerCard({
                 </div>
 
                 <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mt-2">
-                  {source ? source : "Current price"}
+                  {source ? source : s.currentPrice}
                 </div>
 
                 {typeof deltaPercent === "number" ? (
@@ -284,6 +287,8 @@ function TickerCard({
 }
 
 export function MarketTickers({ shouldLoad = true }: MarketTickersProps) {
+  const { t } = useLang();
+  const s = t.routes.stats;
   const {
     spotPrice,
     spotPriceLoading,
@@ -321,36 +326,27 @@ export function MarketTickers({ shouldLoad = true }: MarketTickersProps) {
     <div>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <TickerCard
-          title="GLW Spot Price"
+          title={s.glwSpotPrice}
           price={spotPriceLabel}
-          // delta={spotDelta ?? undefined}
-          // deltaPercent={spotDeltaPercent ?? undefined}
-          tooltip="Real-time market price from Uniswap pool. This is the current trading price where you can buy or sell GLW tokens on the open market."
-          // sparkline={spotSparkline}
+          tooltip={s.glwSpotTooltip}
           isLoading={!shouldLoad || spotPriceLoading || poolActivityLoading}
           updateFrequency="~30s"
           externalLink={{
             url: "https://www.defined.fi/eth/0x6fa09ffc45f1ddc95c1bc192956717042f142c5d?maker=0x5abcfde6bc010138f65e8dc088927473c49867e4&preferredQuoteTokenAddress=0xf4fbc617a5733eaaf9af08e1ab816b103388d8b6&cache=f235f&quoteToken=token1",
-            label: "View pair on Defined.fi",
+            label: s.viewPairOnDefined,
           }}
         />
         <TickerCard
-          title="GLW Edgap Price"
+          title={s.glwEdgapPrice}
           price={edgapPriceLabel}
-          // delta={edgapDelta ?? undefined}
-          // deltaPercent={edgapDeltaPercent ?? undefined}
-          tooltip="Exponentially-Decayed, liquidity-aware price. A smoothed, stable price signal used by the protocol for GCTL pricing. Reacts to market changes but filters out short-term noise."
-          // sparkline={edgapSparkline}
+          tooltip={s.glwEdgapTooltip}
           isLoading={!shouldLoad || edgapPriceLoading}
           updateFrequency="~1m"
         />
         <TickerCard
-          title="GCTL Mint Price"
+          title={s.gctlMintPrice}
           price={gctlPriceLabel}
-          // delta={gctlMintDelta ?? undefined}
-          // deltaPercent={gctlMintDeltaPercent ?? undefined}
-          tooltip="Dynamic price to mint new GCTL tokens = ceil(√GLW Price / $0.05) × $0.05. The price is the square root of GLW price, rounded up to the nearest 5 cents."
-          // sparkline={gctlMintSparkline}
+          tooltip={s.gctlMintTooltip}
           isLoading={!shouldLoad || edgapPriceLoading}
           updateFrequency="~1m"
         />

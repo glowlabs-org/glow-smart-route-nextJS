@@ -8,6 +8,7 @@ import { useAccount } from "wagmi";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/telemetry";
+import { useLang } from "@/lib/i18n";
 
 // Custom Discord Icon
 function DiscordLogo({ className }: { className?: string }) {
@@ -33,6 +34,7 @@ export default function DiscordWidget({
   className,
   variant = "default",
 }: DiscordWidgetProps) {
+  const { t } = useLang();
   const { address, isConnected } = useAccount();
   const walletAddress = address?.toLowerCase() ?? null;
   const source = "discord_widget";
@@ -43,7 +45,7 @@ export default function DiscordWidget({
       href="https://discord.gg/glowfnd"
       target="_blank"
       rel="noreferrer"
-      aria-label="Join the Glow Discord (opens in a new tab)"
+      aria-label={t.widgets.discord.joinAria}
       className="group block h-full w-full focus:outline-none"
       onClick={() => {
         trackEvent("dashboard_discord_click", {
@@ -86,7 +88,7 @@ export default function DiscordWidget({
               <div className="flex items-center gap-2 opacity-80">
                 <DiscordLogo className="h-5 w-5" />
                 <span className="text-xs font-mono font-medium tracking-wider uppercase">
-                  Community
+                  {t.widgets.discord.kicker}
                 </span>
               </div>
 
@@ -105,22 +107,21 @@ export default function DiscordWidget({
                     "text-[10px] font-bold tracking-wide text-white/90"
                   )}
                 >
-                  ONLINE
+                  {t.widgets.discord.online}
                 </span>
               </div>
             </div>
 
             <div className="space-y-4">
               <h3 className="text-xl font-bold leading-tight tracking-tight md:text-2xl">
-                Join the conversation in Discord.
+                {t.widgets.discord.title}
               </h3>
               <p
                 className={cn(
                   "max-w-[32rem] text-sm leading-relaxed text-white/70"
                 )}
               >
-                Engage in founder-led discussions, meet like-minded users, and
-                have your questions answered by the team.
+                {t.widgets.discord.description}
               </p>
 
               {/* Stats / Features Grid to fill empty space */}
@@ -132,14 +133,14 @@ export default function DiscordWidget({
                     )}
                   >
                     <Users className="h-4 w-4" />
-                    <span>7k+ Members</span>
+                    <span>{t.widgets.discord.membersCount}</span>
                   </div>
                   <p
                     className={cn(
                       "text-xs text-white/60"
                     )}
                   >
-                    Global community
+                    {t.widgets.discord.membersSubtitle}
                   </p>
                 </div>
                 <div className="space-y-1">
@@ -149,14 +150,14 @@ export default function DiscordWidget({
                     )}
                   >
                     <Zap className="h-4 w-4" />
-                    <span>24/7 Community</span>
+                    <span>{t.widgets.discord.alwaysOn}</span>
                   </div>
                   <p
                     className={cn(
                       "text-xs text-white/60"
                     )}
                   >
-                    Ask questions and get help
+                    {t.widgets.discord.alwaysOnSubtitle}
                   </p>
                 </div>
               </div>

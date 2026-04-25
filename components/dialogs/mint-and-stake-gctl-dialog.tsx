@@ -56,6 +56,7 @@ import {
   useWallets,
 } from "@/hooks";
 import { useDebouncedAsync } from "@/hooks/useDebouncedAsync";
+import { useLang } from "@/lib/i18n";
 import { useImpactWalletStats } from "@/hooks/hub-impact";
 import { getGctlDialogErrorMessage } from "@/lib/gctl-dialog-error-message";
 import { trackEvent } from "@/lib/telemetry";
@@ -278,6 +279,8 @@ export function MintAndStakeGctlDialog({
   usdgBalance,
   forceStep1 = false,
 }: MintAndStakeGctlDialogProps) {
+  const { t } = useLang();
+  const m = t.bigDialogs.mintStake;
   const { address, isConnected } = useAccount();
   const { signer } = useEthersSigner();
   const wagmiChainId = useChainId();
@@ -792,7 +795,7 @@ export function MintAndStakeGctlDialog({
     pollInterval: 10_000,
     maxDuration: 60,
     pollFn: async () => {
-      if (!trackingTxHash) throw new Error("Missing tx hash");
+      if (!trackingTxHash) throw new Error(m.missingTxHash);
       const res = await fetchTransferDetails(trackingTxHash);
       if (res.ok) return res.val;
       throw new Error(res.val);
@@ -804,7 +807,7 @@ export function MintAndStakeGctlDialog({
         const msg =
           (data as any)?.errorMessage ||
           (data as any)?.errorDetails ||
-          "Transaction failed";
+          m.transactionFailedShort;
         updateStakeStepStatus("FINALIZE", "error", { errorMessage: msg });
         setStakeUiState("error");
         setStakeUiErrorMessage(msg);
@@ -851,7 +854,7 @@ export function MintAndStakeGctlDialog({
         }
       }
 
-      const msg = error?.message || "Polling failed";
+      const msg = error?.message || m.pollingFailed;
       updateStakeStepStatus("FINALIZE", "error", { errorMessage: msg });
       setStakeUiState("error");
       setStakeUiErrorMessage(msg);
@@ -892,7 +895,7 @@ export function MintAndStakeGctlDialog({
           const msg =
             (data as any)?.errorMessage ||
             (data as any)?.errorDetails ||
-            "Transaction failed";
+            m.transactionFailedShort;
           updateStakeStepStatus("FINALIZE", "error", { errorMessage: msg });
           setStakeUiState("error");
           setStakeUiErrorMessage(msg);
@@ -1026,19 +1029,19 @@ export function MintAndStakeGctlDialog({
 
   const handleStakeExisting = React.useCallback(async () => {
     if (!isConnected || !address || !signer) {
-      toast.error("Please connect your wallet");
+      toast.error(m.toastConnectWallet);
       return;
     }
     if (!selectedRegionId) {
-      toast.error("Please select a region");
+      toast.error(m.toastSelectRegion);
       return;
     }
     if (!Number.isFinite(amountNumber) || amountNumber <= 0) {
-      toast.error("Please enter a valid amount");
+      toast.error(m.toastEnterAmount);
       return;
     }
     if (!isUnstakeAcknowledged) {
-      toast.error("Please acknowledge the terms");
+      toast.error(m.toastAcknowledgeTerms);
       return;
     }
 
@@ -1059,20 +1062,20 @@ export function MintAndStakeGctlDialog({
       const steps: TransactionStep[] = [
         {
           id: "SIGN_STAKE",
-          title: "Sign stake message",
-          description: "Wallet signature (no gas)",
+          title: m.stepSignMessage,
+          description: m.stepSignDesc,
           status: "waiting_signature",
         },
         {
           id: "SUBMIT_STAKE",
-          title: "Submit stake",
-          description: "Sending to Glow Control",
+          title: m.stepSubmit,
+          description: m.stepSubmitDesc,
           status: "idle",
         },
         {
           id: "REFRESH",
-          title: "Refresh balances",
-          description: "Updating your dashboard",
+          title: m.stepRefreshBalances,
+          description: m.stepRefreshDesc,
           status: "idle",
         },
       ];
@@ -1190,23 +1193,23 @@ export function MintAndStakeGctlDialog({
     }
 
     if (!isConnected || !address || !signer) {
-      toast.error("Please connect your wallet");
+      toast.error(m.toastConnectWallet);
       return;
     }
     if (!selectedRegionId) {
-      toast.error("Please select a region");
+      toast.error(m.toastSelectRegion);
       return;
     }
     if (!Number.isFinite(amountNumber) || amountNumber <= 0) {
-      toast.error("Please enter a valid amount");
+      toast.error(m.toastEnterAmount);
       return;
     }
     if (!isUnstakeAcknowledged) {
-      toast.error("Please acknowledge the terms");
+      toast.error(m.toastAcknowledgeTerms);
       return;
     }
     if (selectedCurrency === "GCTL") {
-      toast.error("Select USDC, USDG, or ETH to mint GCTL.");
+      toast.error(m.toastSelectRegion);
       return;
     }
 
@@ -1238,7 +1241,7 @@ export function MintAndStakeGctlDialog({
         steps.push({
           id: "SWAP_ETH_TO_USDC",
           title: "Swap ETH → USDC",
-          description: "Converting via Uniswap",
+          description: m.convertingUniswapDesc,
           tokenFrom: "ETH",
           tokenTo: "USDC",
           status: "waiting_signature",
@@ -1247,26 +1250,26 @@ export function MintAndStakeGctlDialog({
       steps.push(
         {
           id: "CHECK_ALLOWANCE",
-          title: "Check allowance",
-          description: "Verifying token permissions",
+          title: m.stepCheckAllowance,
+          description: m.stepCheckAllowanceDesc,
           status: "idle",
         },
         {
           id: "APPROVE",
-          title: "Approve token",
-          description: "One-time approval (if needed)",
+          title: m.stepApproveToken,
+          description: m.stepApproveTokenDesc,
           status: "idle",
         },
         {
           id: "MINT_AND_STAKE",
-          title: "Mint & Stake GCTL",
-          description: "Submitting transaction",
+          title: m.title,
+          description: m.stepSubmitTx,
           status: "idle",
         },
         {
           id: "FINALIZE",
-          title: "Finalize",
-          description: "Waiting for confirmation",
+          title: m.stepFinalize,
+          description: m.stepFinalizeDesc,
           status: "idle",
         },
       );
@@ -1450,15 +1453,15 @@ export function MintAndStakeGctlDialog({
   }, [activeSummary?.regions, activeSummary?.totalGlwRewards, regions]);
 
   const dialogTitle = React.useMemo(() => {
-    if (step === 1) return "Introduction";
-    if (step === 2) return "Choose Target";
-    if (step === 4) return "Impact Activated";
+    if (step === 1) return m.introduction;
+    if (step === 2) return m.chooseTarget;
+    if (step === 4) return m.impactActivated;
     if (selectedRegionLabel) {
-      if (stakeMode === "stake") return `Stake to ${selectedRegionLabel}`;
-      return `Mint & Stake to ${selectedRegionLabel}`;
+      if (stakeMode === "stake") return `${m.stakePower} → ${selectedRegionLabel}`;
+      return `${m.title} → ${selectedRegionLabel}`;
     }
-    return stakeMode === "stake" ? "Stake Power" : "Mint & Stake";
-  }, [selectedRegionLabel, stakeMode, step]);
+    return stakeMode === "stake" ? m.stakePower : m.title;
+  }, [m, selectedRegionLabel, stakeMode, step]);
 
   const handleBack = React.useCallback(() => {
     if (isBusy) return;
@@ -1474,7 +1477,7 @@ export function MintAndStakeGctlDialog({
   const handleNext = React.useCallback(() => {
     if (step === 1) {
       if (!isConnected) {
-        toast.error("Please connect your wallet to continue");
+        toast.error(m.toastConnectWalletContinue);
         return;
       }
       return setStepOverride(2);
@@ -1532,7 +1535,7 @@ export function MintAndStakeGctlDialog({
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
-                        aria-label="Close"
+                        aria-label={m.close}
                         disabled={isBusy}
                       >
                         <X className="h-4 w-4" />
@@ -1573,7 +1576,7 @@ export function MintAndStakeGctlDialog({
                   <div className="pt-1">
                     <div className="p-3 bg-card border border-border/20 dark:border-border/40 rounded-lg">
                       <div className="text-[10px] font-medium text-[color:var(--color-glow-orange)] flex items-center gap-1.5 uppercase tracking-wider">
-                        Off-chain Asset
+                        {m.offChainAsset}
                       </div>
                       <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
                         GCTL is currently managed off-chain. It is{" "}
@@ -1588,7 +1591,7 @@ export function MintAndStakeGctlDialog({
 
                 <div className="space-y-1">
                   <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest pl-1 pb-1">
-                    Your Benefits
+                    {m.yourBenefits}
                   </div>
                   <div className="rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 divide-y divide-border/20 dark:divide-border/40">
                     <div className="p-3.5 flex items-start gap-3">
@@ -1597,7 +1600,7 @@ export function MintAndStakeGctlDialog({
                       </div>
                       <div>
                         <div className="text-sm font-medium">
-                          Boost Impact Score
+                          {m.boostImpactScore}
                         </div>
                         <div className="text-xs text-muted-foreground mt-0.5">
                           Earn 3 pts per GLW steered on the leaderboard.
@@ -1610,10 +1613,10 @@ export function MintAndStakeGctlDialog({
                       </div>
                       <div>
                         <div className="text-sm font-medium">
-                          Direct Protocol Rewards
+                          {m.directProtocolRewards}
                         </div>
                         <div className="text-xs text-muted-foreground mt-0.5">
-                          You decide which regions receive funding.
+                          {m.youDecideRegions}
                         </div>
                       </div>
                     </div>
@@ -1630,7 +1633,7 @@ export function MintAndStakeGctlDialog({
                     className="w-full h-11 text-sm font-medium"
                     onClick={handleNext}
                   >
-                    Start Staking
+                    {m.startStaking}
                   </Button>
                 )}
               </div>
@@ -1640,7 +1643,7 @@ export function MintAndStakeGctlDialog({
                 <div className="flex items-center justify-between">
                   <div className="text-sm font-medium">Select Region</div>
                   <div className="text-xs text-muted-foreground">
-                    Where to direct GLW?
+                    {m.whereToDirect}
                   </div>
                 </div>
 
@@ -1680,7 +1683,7 @@ export function MintAndStakeGctlDialog({
                               {r.name}
                               {isCgp && (
                                 <span className="text-[10px] font-semibold uppercase tracking-wider text-[color:var(--color-glow-orange)]">
-                                  Legacy
+                                  {m.legacy}
                                 </span>
                               )}
                             </div>
@@ -1712,7 +1715,7 @@ export function MintAndStakeGctlDialog({
                   onClick={handleNext}
                   disabled={!selectedRegionId || isRegionsLoading}
                 >
-                  Continue
+                  {m.continueButton}
                 </Button>
               </div>
             ) : step === 3 ? (
@@ -1734,8 +1737,8 @@ export function MintAndStakeGctlDialog({
                       </div>
                       <div className="text-xl font-semibold text-foreground">
                         {stakeUiState === "processing"
-                          ? "Processing"
-                          : "Transaction Failed"}
+                          ? m.processing
+                          : m.transactionFailed}
                       </div>
                       <div className="text-sm text-muted-foreground">
                         {stakeUiState === "processing"
@@ -1770,7 +1773,7 @@ export function MintAndStakeGctlDialog({
                           onClick={() => handleDialogOpenChange(false)}
                           className="flex-1"
                         >
-                          Close
+                          {m.close}
                         </Button>
                         <Button
                           onClick={() => {
@@ -1784,7 +1787,7 @@ export function MintAndStakeGctlDialog({
                           }}
                           className="flex-1"
                         >
-                          Try Again
+                          {m.tryAgain}
                         </Button>
                       </div>
                     ) : null}
@@ -1902,17 +1905,17 @@ export function MintAndStakeGctlDialog({
                     {stakeMode === "mint" ? (
                       <div className="rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-4 space-y-2">
                         <div className="text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
-                          Mint Estimate
+                          {m.mintEstimate}
                         </div>
                         {amountNumber <= 0 ? (
                           <div className="text-xs text-muted-foreground">
-                            Enter an amount to preview minted GCTL.
+                            {m.enterToPreview}
                           </div>
                         ) : selectedCurrency === "ETH" &&
                           isEthQuoteRunning &&
                           !estimatedUsdcOutFromEth ? (
                           <div className="text-xs text-muted-foreground">
-                            Estimating ETH quote...
+                            {m.estimatingEthQuote}
                           </div>
                         ) : estimatedGctl && estimatedGctl > 0 ? (
                           <div className="space-y-1">
@@ -1960,13 +1963,12 @@ export function MintAndStakeGctlDialog({
                               )}
                             </div>
                             <div className="text-[11px] text-muted-foreground">
-                              Estimated output based on current quote and token
-                              prices.
+                              {m.estimatedOutputNote}
                             </div>
                           </div>
                         ) : (
                           <div className="text-xs text-muted-foreground">
-                            Unable to estimate minted GCTL right now.
+                            {m.unableToEstimate}
                           </div>
                         )}
                       </div>
@@ -1974,7 +1976,7 @@ export function MintAndStakeGctlDialog({
 
                     <div className="space-y-2">
                       <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest pl-1">
-                        Impact Preview
+                        {m.impactPreview}
                       </div>
                       <div className="rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 overflow-hidden">
                         <div className="p-4 border-b border-border/20 dark:border-border/40 flex items-center justify-between">
@@ -1989,23 +1991,19 @@ export function MintAndStakeGctlDialog({
                                   <TooltipTrigger asChild>
                                     <button
                                       type="button"
-                                      aria-label="How GCTL redirects rewards"
+                                      aria-label={m.howGctlRedirects}
                                       className="inline-flex items-center text-muted-foreground hover:text-foreground transition-colors"
                                     >
                                       <Info className="h-3.5 w-3.5" />
                                     </button>
                                   </TooltipTrigger>
                                   <TooltipContent className="max-w-xs">
-                                    GCTL does not create new GLW for you. It
-                                    redirects weekly emissions from other
-                                    regions to this one. The +GLW/week goes to
-                                    solar farms in the selected region, not to
-                                    your wallet.
+                                    {m.gctlDoesNotCreateGlw}
                                   </TooltipContent>
                                 </Tooltip>
                               </div>
                               <div className="text-xs text-muted-foreground">
-                                to farms in {selectedRegionLabel || "Region"}
+                                {m.toFarmsIn(selectedRegionLabel || m.regionFallback)}
                               </div>
                             </div>
                           </div>
@@ -2031,7 +2029,7 @@ export function MintAndStakeGctlDialog({
                         <div className="grid grid-cols-2 divide-x divide-border/20 dark:divide-border/40 bg-muted/20 dark:bg-muted/30">
                           <div className="p-3 text-center">
                             <div className="text-[10px] text-muted-foreground font-mono uppercase">
-                              Score Boost
+                              {m.scoreBoost}
                             </div>
                             <div className="mt-0.5 font-mono text-sm text-foreground">
                               {steeringImpactQuote ? (
@@ -2046,7 +2044,7 @@ export function MintAndStakeGctlDialog({
                           </div>
                           <div className="p-3 text-center">
                             <div className="text-[10px] text-muted-foreground font-mono uppercase">
-                              Region Share
+                              {m.regionShare}
                             </div>
                             <div className="mt-0.5 font-mono text-sm text-foreground">
                               {inflationPreview ? (
@@ -2150,8 +2148,8 @@ export function MintAndStakeGctlDialog({
                               : isProcessing
                                 ? "Finalizing..."
                                 : stakeMode === "stake"
-                                  ? "Confirm Stake"
-                                  : "Confirm Mint & Stake"}
+                                  ? m.confirmStake
+                                  : m.confirmMintAndStake}
                       </Button>
                     </div>
                   </>
@@ -2192,6 +2190,8 @@ function SuccessLevelUp(props: {
   } | null;
   onDone: () => void;
 }) {
+  const { t } = useLang();
+  const m = t.bigDialogs.mintStake;
   const { receipt, score, onDone } = props;
 
   const prev = Math.max(0, Math.floor(score?.prevSteeringPoints ?? 0));
@@ -2213,7 +2213,7 @@ function SuccessLevelUp(props: {
     <div className="flex flex-col items-center justify-center py-3 space-y-5 animate-in fade-in zoom-in-95 duration-300">
       <div className="text-center space-y-1.5">
         <div className="text-xl font-semibold text-foreground">
-          Impact Activated
+          {m.impactActivated}
         </div>
         <div className="text-sm text-muted-foreground">
           Your Governance Power is now live and directing rewards.
@@ -2224,7 +2224,7 @@ function SuccessLevelUp(props: {
         <div className="inline-flex items-center gap-2 rounded-full border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 px-3 py-1">
           <SteeringIcon className="h-3.5 w-3.5 text-[#22D3EE]" />
           <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-            Steering Score
+            {m.steeringScore}
           </span>
         </div>
       </div>
@@ -2261,7 +2261,7 @@ function SuccessLevelUp(props: {
           <div className="p-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground font-medium">
-                Region
+                {m.regionLabel}
               </span>
               <span className="text-sm font-semibold text-foreground">
                 {receipt.regionLabel}
@@ -2269,7 +2269,7 @@ function SuccessLevelUp(props: {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground font-medium">
-                Power Activated
+                {m.powerActivated}
               </span>
               <span className="text-sm font-mono font-semibold text-foreground">
                 {formatTokenAmount(receipt.amountGctl, {
@@ -2280,7 +2280,7 @@ function SuccessLevelUp(props: {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground font-medium">
-                GLW Directed
+                {m.glwDirected}
               </span>
               <span className="text-sm font-mono font-semibold text-foreground">
                 {receipt.deltaGlwPerWeek != null
@@ -2294,7 +2294,7 @@ function SuccessLevelUp(props: {
       ) : null}
 
       <Button onClick={onDone} className="w-full h-11">
-        Done
+        {m.done}
       </Button>
     </div>
   );

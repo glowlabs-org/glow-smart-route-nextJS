@@ -15,6 +15,7 @@ import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useER20Balances } from "@/hooks/useERC20Balances";
 import { cn } from "@/lib/utils";
 import { getAppKitClient } from "@/lib/wagmi-config";
+import { useLang } from "@/lib/i18n";
 import { ConnectButton } from "./connect-button";
 import { Button } from "./ui/button";
 
@@ -25,6 +26,7 @@ export function WalletStatus({
   className?: string;
   minimal?: boolean;
 }) {
+  const { t } = useLang();
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
   const { connectors } = useConnect();
@@ -52,7 +54,7 @@ export function WalletStatus({
       await appKitClient.open({ view: "Account" });
     } catch (error: any) {
       console.error("Failed to open wallet account view:", error);
-      toast.error(error?.message || "Failed to open wallet");
+      toast.error(error?.message || t.wallet.failedToOpenWallet);
     }
   };
 
@@ -60,14 +62,14 @@ export function WalletStatus({
     try {
       if (process.env.NEXT_PUBLIC_CHAIN_ID === "1") {
         await switchChain({ chainId: mainnet.id });
-        toast.success("Switched to Ethereum Mainnet");
+        toast.success(t.wallet.switchedToMainnet);
       } else {
         await switchChain({ chainId: sepolia.id });
-        toast.success("Switched to Sepolia Testnet");
+        toast.success(t.wallet.switchedToSepolia);
       }
     } catch (error: any) {
       console.error("Failed to switch network:", error);
-      toast.error(error?.message || "Failed to switch network");
+      toast.error(error?.message || t.wallet.failedToSwitchNetwork);
     }
   };
 
@@ -93,12 +95,14 @@ export function WalletStatus({
           className
         )}
       >
-        {minimal ? <AlertTriangle className="w-4 h-4" /> : "Reconnect Wallet"}
+        {minimal ? <AlertTriangle className="w-4 h-4" /> : t.wallet.reconnectWallet}
       </Button>
     );
   }
 
   if (isWrongNetwork) {
+    const targetNetwork =
+      process.env.NEXT_PUBLIC_CHAIN_ID === "11155111" ? "Sepolia" : "Mainnet";
     return (
       <Button
         size={"sm"}
@@ -113,13 +117,7 @@ export function WalletStatus({
       >
         <AlertTriangle className="w-4 h-4" />
         {!minimal &&
-          (isSwitchingChain
-            ? "Switching..."
-            : `Switch to ${
-                process.env.NEXT_PUBLIC_CHAIN_ID === "11155111"
-                  ? "Sepolia"
-                  : "Mainnet"
-              }`)}
+          (isSwitchingChain ? t.wallet.switching : t.wallet.switchTo(targetNetwork))}
       </Button>
     );
   }
@@ -137,7 +135,7 @@ export function WalletStatus({
           : "gap-2 rounded-2xl border px-4 text-sm h-10",
         className
       )}
-      aria-label="Open wallet account"
+      aria-label={t.wallet.openWalletAccount}
       title={address}
     >
       <span

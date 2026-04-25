@@ -35,6 +35,7 @@ import {
   resolveDelegationCurrency,
   resolveLaunchpadDelegationShareCount,
 } from "@/utils/launchpad-rewards";
+import { useLang } from "@/lib/i18n";
 
 const regionRouter = RegionRouter(
   process.env.NEXT_PUBLIC_CONTROL_API_URL || "",
@@ -68,6 +69,8 @@ export function LaunchpadStatsDialog({
   application,
   rewardScore,
 }: LaunchpadStatsDialogProps) {
+  const { t } = useLang();
+  const ls = t.routes.launchpadStats;
   const { data: activeSummary, isLoading: isActiveSummaryLoading } =
     useActiveRegionsSummary({ enabled: open && Boolean(application) });
   const { regions, isRegionsLoading } = useRegions();
@@ -216,128 +219,128 @@ export function LaunchpadStatsDialog({
     () => [
       {
         id: "delegated-glw",
-        label: `Delegated ${delegationCurrency}`,
+        label: ls.delegatedToken(delegationCurrency),
         value:
           totalDelegationPerFraction > 0
             ? formatNumber(totalDelegationPerFraction, 0)
-            : "N/A",
-        tooltip: `Amount of ${delegationCurrency} required to post as protocol deposit per fraction.`,
+            : ls.naValue,
+        tooltip: ls.delegatedTooltip(delegationCurrency),
         secondary: costPerFractionUsd
-          ? `≈ $${costPerFractionUsd} USD`
+          ? ls.usdApprox(costPerFractionUsd)
           : undefined,
       },
       {
         id: "weekly-glw",
         label:
           delegationCurrency === "SGCTL"
-            ? "Estimated Rewards / Week"
-            : "Estimated GLW / Week",
+            ? ls.estimatedRewardsPerWeek
+            : ls.estimatedGlwPerWeek,
         value:
           delegationCurrency === "SGCTL"
             ? weeklyGlwFromInflation > 0 || weeklyPdFromDeposit > 0
-              ? `${formatNumber(
-                  weeklyPdFromDeposit,
-                  2,
-                )} SGCTL + ${formatNumber(weeklyGlwFromInflation, 2)} GLW`
-              : "N/A"
+              ? ls.sgctlPlusGlw(
+                  formatNumber(weeklyPdFromDeposit, 2),
+                  formatNumber(weeklyGlwFromInflation, 2),
+                )
+              : ls.naValue
             : totalWeeklyGlw > 0
               ? formatNumber(totalWeeklyGlw, 2)
-              : "N/A",
+              : ls.naValue,
         tooltip:
           delegationCurrency === "SGCTL"
-            ? "Expected weekly rewards from SGCTL protocol-deposit recovery plus GLW emissions share."
-            : "Expected weekly rewards from deposit recovery and GLW emission rewards share.",
-        secondary:
-          delegationCurrency === "SGCTL"
-            ? weeklyRewardsUsd
-              ? `≈ $${weeklyRewardsUsd} USD`
-              : undefined
-            : weeklyRewardsUsd
-              ? `≈ $${weeklyRewardsUsd} USD`
-              : undefined,
+            ? ls.rewardsTooltipSgctl
+            : ls.rewardsTooltipDefault,
+        secondary: weeklyRewardsUsd ? ls.usdApprox(weeklyRewardsUsd) : undefined,
         compactValue: delegationCurrency === "SGCTL",
       },
       {
         id: "farm-efficiency",
-        label: "Efficiency Score",
+        label: ls.efficiencyScore,
         value: formatNumber(farmEfficiency, 2),
-        tooltip:
-          "Expected carbon credits per $100k deposit weekly, based on audited farm projections.",
+        tooltip: ls.efficiencyTooltip,
         secondary:
           region?.efficiencyScore != null
-            ? `Region: ${formatNumber(regionalEfficiency, 2)}`
+            ? ls.regionLabel(formatNumber(regionalEfficiency, 2))
             : undefined,
         highlight: efficiencyComparison === "higher",
       },
       {
         id: "apy",
-        label: "Estimated APY",
-        value: apy > 0 ? `${formatNumber(apy, 1)}%` : "N/A",
-        tooltip:
-          "Annualized return including deposit recovery and emissions, based on expected farm performance and regional competitiveness.",
-        secondary: "Estimate only, changes weekly",
+        label: ls.estimatedApy,
+        value: apy > 0 ? `${formatNumber(apy, 1)}%` : ls.naValue,
+        tooltip: ls.apyTooltip,
+        secondary: ls.apyFootnote,
         highlight: true,
       },
       {
         id: "cc-week",
-        label: "CCs Per Week",
+        label: ls.ccsPerWeek,
         value: formatNumber(weeklyCCPerFraction, 4),
-        tooltip: "Expected carbon credits generated weekly per fraction.",
-        secondary: "Per fraction",
+        tooltip: ls.ccsPerWeekTooltip,
+        secondary: ls.perFraction,
       },
       {
         id: "glw-from-ccs",
         label:
-          delegationCurrency === "SGCTL" ? "SGCTL From CCs" : "GLW From CCs",
+          delegationCurrency === "SGCTL" ? ls.sgctlFromCCs : ls.glwFromCCs,
         value: formatNumber(weeklyPdFromDeposit, 2),
         tooltip:
           delegationCurrency === "SGCTL"
-            ? "Weekly SGCTL rewards from protocol-deposit recovery based on carbon credit generation."
-            : "Weekly GLW rewards from deposit recovery based on carbon credit generation.",
+            ? ls.fromCCsTooltipSgctl
+            : ls.fromCCsTooltipDefault,
         secondary:
           delegationCurrency === "SGCTL"
             ? weeklyRewardsUsdValue > 0
-              ? `${formatNumber(
-                  (weeklyPdUsdPerFraction / weeklyRewardsUsdValue) * 100,
-                  1,
-                )}% of total weekly USD rewards`
+              ? ls.pctOfTotalUsd(
+                  formatNumber(
+                    (weeklyPdUsdPerFraction / weeklyRewardsUsdValue) * 100,
+                    1,
+                  ),
+                )
               : undefined
             : totalWeeklyGlw > 0
-              ? `${formatNumber(
-                  (weeklyPdFromDeposit / totalWeeklyGlw) * 100,
-                  1,
-                )}% of total rewards`
+              ? ls.pctOfTotal(
+                  formatNumber(
+                    (weeklyPdFromDeposit / totalWeeklyGlw) * 100,
+                    1,
+                  ),
+                )
               : undefined,
       },
       {
         id: "glw-from-inflation",
-        label: "GLW from Emissions",
+        label: ls.glwFromEmissions,
         value: formatNumber(weeklyGlwFromInflation, 2),
-        tooltip: "Weekly GLW rewards from protocol emissions share.",
+        tooltip: ls.glwFromEmissionsTooltip,
         secondary:
           delegationCurrency === "SGCTL"
             ? weeklyRewardsUsdValue > 0
-              ? `${formatNumber(
-                  (weeklyInflationUsdPerFraction / weeklyRewardsUsdValue) * 100,
-                  1,
-                )}% of total weekly USD rewards`
+              ? ls.pctOfTotalUsd(
+                  formatNumber(
+                    (weeklyInflationUsdPerFraction / weeklyRewardsUsdValue) *
+                      100,
+                    1,
+                  ),
+                )
               : undefined
             : totalWeeklyGlw > 0
-              ? `${formatNumber(
-                  (weeklyGlwFromInflation / totalWeeklyGlw) * 100,
-                  1,
-                )}% of total rewards`
+              ? ls.pctOfTotal(
+                  formatNumber(
+                    (weeklyGlwFromInflation / totalWeeklyGlw) * 100,
+                    1,
+                  ),
+                )
               : undefined,
       },
       {
         id: "solar-panels",
-        label: "Solar Panels",
+        label: ls.solarPanels,
         value:
           solarPanelsQuantity > 0
             ? formatNumber(solarPanelsQuantity, 0)
-            : "N/A",
-        tooltip: "Total number of solar panels installed at this farm.",
-        secondary: "Total panels",
+            : ls.naValue,
+        tooltip: ls.solarPanelsTooltip,
+        secondary: ls.totalPanels,
       },
     ],
     [
@@ -358,6 +361,7 @@ export function LaunchpadStatsDialog({
       weeklyRewardsUsd,
       weeklyRewardsUsdValue,
       delegationCurrency,
+      ls,
     ],
   );
 
@@ -365,33 +369,33 @@ export function LaunchpadStatsDialog({
     () => [
       {
         id: "region",
-        label: "Region",
-        value: zoneName || "N/A",
+        label: ls.region,
+        value: zoneName || ls.naValue,
       },
 
       {
         id: "active-farms",
-        label: "Active Farms",
+        label: ls.activeFarms,
         value:
           region?.solarFarmCount != null
             ? formatNumber(region.solarFarmCount, 0)
-            : "N/A",
+            : ls.naValue,
       },
       {
         id: "farms-under-construction",
-        label: "Farms Under Construction",
+        label: ls.farmsUnderConstruction,
         value:
           regionDetails?.solarFarmApplications != null
             ? formatNumber(farmsOnDeck, 0)
-            : "N/A",
+            : ls.naValue,
       },
       {
         id: "regional-glw-week",
-        label: "Regional GLW Per Week",
+        label: ls.regionalGlwPerWeek,
         value:
           regionSummary?.glwPerWeek != null
             ? formatNumber(regionSummary.glwPerWeek, 0)
-            : "N/A",
+            : ls.naValue,
       },
     ],
     [
@@ -400,6 +404,7 @@ export function LaunchpadStatsDialog({
       regionDetails?.solarFarmApplications,
       regionSummary?.glwPerWeek,
       zoneName,
+      ls,
     ],
   );
 
@@ -412,11 +417,10 @@ export function LaunchpadStatsDialog({
         <div className="border-b border-border/40 pb-6 pt-8 px-6">
           <div className="flex flex-col items-center text-center space-y-2">
             <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-              Delegation Advanced Stats
+              {ls.title}
             </DialogTitle>
             <div className="text-[10px] font-mono text-muted-foreground/50 dark:text-muted-foreground/70 uppercase tracking-wider mt-2">
-              Evaluate expected performance for{" "}
-              {zoneName ?? "this delegation"}
+              {ls.subtitle(zoneName ?? "")}
             </div>
           </div>
         </div>
@@ -427,11 +431,10 @@ export function LaunchpadStatsDialog({
             <section className="space-y-3">
               <div>
                 <h3 className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
-                  Opportunity snapshot
+                  {ls.snapshotHeading}
                 </h3>
                 <p className="text-sm text-muted-foreground/80 mt-1">
-                  Expected returns per fraction based on audited farm performance
-                  and current market conditions.
+                  {ls.snapshotDesc}
                 </p>
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -449,11 +452,10 @@ export function LaunchpadStatsDialog({
             <section className="space-y-3">
               <div>
                 <h3 className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
-                  Region context
+                  {ls.regionHeading}
                 </h3>
                 <p className="text-sm text-muted-foreground/80 mt-1">
-                  Regional competitive landscape and network activity. Farms
-                  compete only within their region.
+                  {ls.regionDesc}
                 </p>
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -465,14 +467,8 @@ export function LaunchpadStatsDialog({
 
             <section>
               <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4 text-xs text-muted-foreground">
-                <strong>Expectation-based rewards:</strong> Returns are calculated
-                based on expected lifetime carbon displacement audited at farm
-                construction, not actual weekly performance. This protects
-                delegators from weather volatility and operational risk while
-                focusing competition on maximum climate impact. Actual returns
-                depend on regional competitiveness, market conditions, and network
-                growth. Deposit recovery and GLW emissions continue based on
-                original projections regardless of realized farm output.
+                <strong>{ls.expectationHeader}</strong>
+                {ls.expectationDesc}
               </div>
             </section>
           </div>
@@ -495,12 +491,19 @@ function StatCard({
   compactValue,
   loading,
 }: StatCardProps) {
-  const isRegionName = label === "Region";
-  const isFarmEfficiency = label === "Efficiency Score";
+  const { t } = useLang();
+  const ls = t.routes.launchpadStats;
+  const isRegionName = label === ls.region;
+  const isFarmEfficiency = label === ls.efficiencyScore;
 
   // Determine the border/background color for farm efficiency
   const efficiencyStyle = React.useMemo(() => {
-    if (!isFarmEfficiency || !secondary?.includes("Region:")) {
+    // Match locale-aware "Region:" prefix from regionLabel(value).
+    // En: "Region: 1.23" — Ko: "지역: 1.23"
+    const regionPrefixMatch = secondary
+      ? secondary.match(/^[^:]+:\s*([\d.]+)/)
+      : null;
+    if (!isFarmEfficiency || !regionPrefixMatch) {
       return highlight
         ? "border-accent/40 bg-accent/10"
         : "border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50";
@@ -508,10 +511,9 @@ function StatCard({
 
     // Extract numbers from farm efficiency value and region efficiency secondary text
     const farmValue = parseFloat(value.replace(/[^0-9.-]/g, ""));
-    const regionMatch = secondary.match(/Region:\s*([\d.]+)/);
-    const regionValue = regionMatch ? parseFloat(regionMatch[1]) : null;
+    const regionValue = parseFloat(regionPrefixMatch[1]);
 
-    if (regionValue === null || farmValue === regionValue) {
+    if (Number.isNaN(regionValue) || farmValue === regionValue) {
       return "border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50";
     }
 
@@ -531,7 +533,7 @@ function StatCard({
             <TooltipTrigger
               className="text-muted-foreground/70"
               type="button"
-              aria-label={`${label} details`}
+              aria-label={ls.detailsAriaLabel(label)}
             >
               <HelpCircle className="h-3.5 w-3.5" />
             </TooltipTrigger>

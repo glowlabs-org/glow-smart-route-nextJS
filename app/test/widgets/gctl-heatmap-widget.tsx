@@ -40,6 +40,7 @@ import {
 import { ConnectButton } from "@/components/connect-button";
 import { trackEvent } from "@/lib/telemetry";
 import { SteeringIcon } from "@/components/impact-icons";
+import { useLang, type Strings } from "@/lib/i18n";
 
 // --- Utility Functions ---
 
@@ -87,6 +88,7 @@ function RegionSteeringRow({
   regionWeeklyEmissions,
   isMax,
   normalizedWidth,
+  labels,
 }: {
   regionName: string;
   userStakedGctl: number;
@@ -94,6 +96,7 @@ function RegionSteeringRow({
   regionWeeklyEmissions: number;
   isMax: boolean;
   normalizedWidth: number;
+  labels: Strings["widgets"]["gctlHeatmap"];
 }) {
   // Calculate Share %
   const shareOfRegion =
@@ -127,7 +130,7 @@ function RegionSteeringRow({
               {regionName}
             </div>
             <div className="text-[10px] text-muted-foreground/60 font-mono mt-1">
-              {formatCompact(userStakedGctl)} GCTL Staked
+              {labels.rowGctlStakedSuffix(formatCompact(userStakedGctl))}
             </div>
           </div>
         </div>
@@ -136,13 +139,13 @@ function RegionSteeringRow({
           <div className="font-mono font-semibold text-foreground flex items-center justify-end gap-1">
             {formatCompact(glwDirected)}{" "}
             <span className="text-[10px] text-muted-foreground/60 font-normal">
-              GLW/wk
+              {labels.rowGlwPerWeek}
             </span>
           </div>
           <div className="text-[10px] text-[#22D3EE] font-medium">
             {totalRegionStakedGctl > 0
-              ? `Directing ${(shareOfRegion * 100).toFixed(2)}% of Region`
-              : "Directing Emissions"}
+              ? labels.rowDirectingPct((shareOfRegion * 100).toFixed(2))
+              : labels.rowDirectingEmissions}
           </div>
         </div>
       </div>
@@ -161,6 +164,7 @@ export default function GctlControlWidget({
   variant?: "default" | "flow" | "minimal";
   readOnly?: boolean;
 }) {
+  const { t } = useLang();
   const [showAllStakes, setShowAllStakes] = useState(false);
   const { isConnecting, isReconnecting } = useAccount();
   const isEnabled = Boolean(walletAddress);
@@ -328,7 +332,7 @@ export default function GctlControlWidget({
       <Card className={cardClasses}>
         <CardHeader className="pb-0 pt-4 flex-row items-center justify-between">
           <CardTitle className="text-lg font-semibold tracking-tight">
-            Glow Control (GCTL)
+            {t.widgets.gctlHeatmap.title}
           </CardTitle>
           <div className="h-2 w-2 rounded-full bg-muted-foreground/30" />
         </CardHeader>
@@ -338,10 +342,10 @@ export default function GctlControlWidget({
           </div>
           <div>
             <h3 className="font-semibold text-foreground">
-              Steer Solar Rewards
+              {t.widgets.gctlHeatmap.disconnectedHeading}
             </h3>
             <p className="text-sm text-muted-foreground mt-1 max-w-[200px] mx-auto">
-              Direct GLW emissions to regions and earn 3 points per GLW.
+              {t.widgets.gctlHeatmap.disconnectedBody}
             </p>
           </div>
           <ConnectButton variant="default" />
@@ -357,7 +361,7 @@ export default function GctlControlWidget({
         <CardHeader className="pb-0 pt-4 flex-row items-center justify-between">
           <div className="flex items-center gap-2">
             <CardTitle className="text-lg font-semibold tracking-tight text-foreground">
-              Glow Control
+              {t.widgets.gctlHeatmap.titleShort}
             </CardTitle>
           </div>
         </CardHeader>
@@ -382,12 +386,14 @@ export default function GctlControlWidget({
             {/* Value Prop */}
             <div className="space-y-2">
               <h3 className="text-xl font-semibold text-foreground">
-                {readOnly ? "No GCTL Holdings" : "Direct Global Emissions"}
+                {readOnly
+                  ? t.widgets.gctlHeatmap.zeroHoldingsTitleReadOnly
+                  : t.widgets.gctlHeatmap.zeroHoldingsTitle}
               </h3>
               <p className="text-sm text-muted-foreground max-w-[280px] mx-auto">
                 {readOnly
-                  ? "This wallet has no GCTL staked."
-                  : "Decide where solar gets built."}
+                  ? t.widgets.gctlHeatmap.zeroHoldingsBodyReadOnly
+                  : t.widgets.gctlHeatmap.zeroHoldingsBody}
               </p>
             </div>
 
@@ -397,13 +403,15 @@ export default function GctlControlWidget({
                 <div className="bg-[#22D3EE]/10 rounded-xl px-4 py-2.5 flex items-center gap-2">
                   <Zap className="h-4 w-4 text-[#22D3EE]" />
                   <span className="text-xs font-medium text-[#22D3EE]">
-                    Earn <span className="font-semibold">3 Points</span> per GLW
-                    Steered
+                    {t.widgets.gctlHeatmap.gamificationHook}{" "}
+                    <span className="font-semibold">
+                      {t.widgets.gctlHeatmap.gamificationPoints}
+                    </span>
                   </span>
                 </div>
 
                 <Button className="w-full" onClick={handleMintAndStakeClick}>
-                  Mint & Stake GCTL
+                  {t.widgets.gctlHeatmap.mintAndStake}
                 </Button>
               </>
             )}
@@ -420,7 +428,7 @@ export default function GctlControlWidget({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CardTitle className="text-lg font-semibold tracking-tight text-foreground">
-              Glow Control (GCTL)
+              {t.widgets.gctlHeatmap.title}
             </CardTitle>
             <TooltipProvider>
               <Tooltip>
@@ -428,7 +436,7 @@ export default function GctlControlWidget({
                   <Info className="h-3.5 w-3.5 text-muted-foreground hover:text-[#22D3EE] transition-colors" />
                 </TooltipTrigger>
                 <TooltipContent>
-                  Your governance influence over the solar grid.
+                  {t.widgets.gctlHeatmap.titleTooltip}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -442,7 +450,7 @@ export default function GctlControlWidget({
               onClick={handleMintAndStakeClick}
             >
               <TrendingUp className="h-3 w-3" />
-              Boost
+              {t.widgets.gctlHeatmap.boost}
             </Button>
           )}
         </div>
@@ -454,7 +462,7 @@ export default function GctlControlWidget({
           {/* KPI 1: Holdings */}
           <div className="space-y-1">
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
-              My Holdings
+              {t.widgets.gctlHeatmap.myHoldings}
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-2xl font-mono font-semibold text-foreground">
@@ -469,11 +477,11 @@ export default function GctlControlWidget({
                     "text-[color:var(--color-glow-orange)] font-medium"
                 )}
               >
-                {formatCompact(walletBalanceGctl)} Liquid
+                {formatCompact(walletBalanceGctl)} {t.widgets.gctlHeatmap.liquidSuffix}
               </span>
               <span>•</span>
               <span className="text-[#22D3EE] font-medium">
-                {formatCompact(stakedTotalGctl)} Active
+                {formatCompact(stakedTotalGctl)} {t.widgets.gctlHeatmap.activeSuffix}
               </span>
             </div>
           </div>
@@ -481,7 +489,7 @@ export default function GctlControlWidget({
           {/* KPI 2: Impact Score Contribution */}
           <div className="space-y-1 text-right">
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
-              Steering Score
+              {t.widgets.gctlHeatmap.steeringScore}
             </div>
             <div className="flex items-baseline justify-end gap-2">
               <span className="text-2xl font-mono font-semibold text-foreground">
@@ -491,10 +499,10 @@ export default function GctlControlWidget({
                     : stakedTotalGctl * 0.1
                 )}
               </span>
-              <span className="text-xs text-muted-foreground/60">Pts</span>
+              <span className="text-xs text-muted-foreground/60">{t.widgets.gctlHeatmap.pts}</span>
             </div>
             <div className="text-[10px] text-[#22D3EE] font-medium">
-              +3 pts / GLW rate
+              {t.widgets.gctlHeatmap.perGlwRate}
             </div>
           </div>
         </div>
@@ -502,8 +510,8 @@ export default function GctlControlWidget({
         {/* Middle: Region Steering List */}
         <div className="flex-1 flex flex-col gap-2 min-h-0 overflow-y-auto pr-1 -mr-1">
           <div className="flex items-center justify-between text-[10px] uppercase font-mono text-muted-foreground/50 mb-1 border-b border-border/20 pb-1">
-            <span>Active Stakes</span>
-            <span>Impact</span>
+            <span>{t.widgets.gctlHeatmap.activeStakes}</span>
+            <span>{t.widgets.gctlHeatmap.impactColumn}</span>
           </div>
 
           {stakesWithNormalizedWidth.length > 0 ? (
@@ -517,6 +525,7 @@ export default function GctlControlWidget({
                   regionWeeklyEmissions={stake.weeklyEmissions}
                   isMax={i === 0}
                   normalizedWidth={stake.normalizedWidth}
+                  labels={t.widgets.gctlHeatmap}
                 />
               ))}
               {hasMoreStakes && (
@@ -527,12 +536,12 @@ export default function GctlControlWidget({
                 >
                   {isExpanded ? (
                     <>
-                      Show Less
+                      {t.widgets.gctlHeatmap.showLess}
                       <ChevronUp className="h-3 w-3" />
                     </>
                   ) : (
                     <>
-                      Show {hiddenStakesCount} More
+                      {t.widgets.gctlHeatmap.showMore(hiddenStakesCount)}
                       <ChevronDown className="h-3 w-3" />
                     </>
                   )}
@@ -562,11 +571,11 @@ export default function GctlControlWidget({
                 />
               </div>
               <span className="text-xs font-medium text-muted-foreground">
-                No Active Steering
+                {t.widgets.gctlHeatmap.noActiveSteering}
               </span>
               {!readOnly && (
                 <span className="text-[10px] text-[#22D3EE] mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  Stake GCTL to Direct Emissions
+                  {t.widgets.gctlHeatmap.stakeToDirect}
                 </span>
               )}
             </div>
@@ -582,7 +591,7 @@ export default function GctlControlWidget({
                   <AlertCircle className="h-3.5 w-3.5 text-[color:var(--color-glow-orange)]" />
                 </div>
                 <span className="text-[10px] font-medium text-[color:var(--color-glow-orange)] uppercase tracking-wide">
-                  Unused Influence
+                  {t.widgets.gctlHeatmap.unusedInfluence}
                 </span>
               </div>
             )}
@@ -592,9 +601,9 @@ export default function GctlControlWidget({
               className="h-6 text-[10px] px-2"
               onClick={handleMintAndStakeClick}
             >
-              Stake{" "}
-              {walletBalanceGctl > 0 ? formatCompact(walletBalanceGctl) : ""}{" "}
-              GCTL
+              {t.widgets.gctlHeatmap.stakeFooter(
+                walletBalanceGctl > 0 ? formatCompact(walletBalanceGctl) : "",
+              )}
               <ArrowRight className="ml-1 h-3 w-3" />
             </Button>
           </div>

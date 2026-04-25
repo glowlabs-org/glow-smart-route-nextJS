@@ -22,6 +22,7 @@ import { InstructionsDialog } from "@/components/instructions-dialog";
 import { Info } from "lucide-react";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useAccount, useBalance } from "wagmi";
+import { useLang } from "@/lib/i18n";
 
 type BalanceLike = bigint | { toString(): string } | null;
 
@@ -35,6 +36,7 @@ interface SendTabProps {
 }
 
 export function SendTab({ tokens }: SendTabProps) {
+  const { t } = useLang();
   const { isConnected, isConnecting, address } = useAccount();
   const { signer } = useEthersSigner();
 
@@ -91,24 +93,24 @@ export function SendTab({ tokens }: SendTabProps) {
   const getSendButtonProps = () => {
     if (Number(amountToSend) === 0) {
       return {
-        label: `Enter an amount`,
+        label: t.dialogs.send.enterAmount,
         disabled: true,
       };
     } else if (!sendToAddress) {
       return {
-        label: `Enter an address`,
+        label: t.dialogs.send.enterAddress,
         disabled: true,
       };
     } else if (
       Number(amountToSend) > Number(toFixedTruncate(getTokenToSendBalance(), 6))
     ) {
       return {
-        label: `Insufficient ${selectedTokenSend.label} balance`,
+        label: t.dialogs.send.insufficientBalance(selectedTokenSend.label),
         disabled: true,
       };
     } else {
       return {
-        label: `Send`,
+        label: t.dialogs.send.send,
         disabled: false,
       };
     }
@@ -116,12 +118,12 @@ export function SendTab({ tokens }: SendTabProps) {
 
   const handleSendToken = async () => {
     if (!isSendTokensReady) {
-      toast.error("Send tokens hook not ready");
+      toast.error(t.dialogs.send.notReady);
       return;
     }
     // Verify if amountToSend is positive and valid number
     if (Number.isNaN(Number(amountToSend)) || Number(amountToSend) <= 0) {
-      toast.error("Invalid amount");
+      toast.error(t.dialogs.send.invalidAmount);
       return;
     }
     if (isAddress(sendToAddress)) {
@@ -143,21 +145,21 @@ export function SendTab({ tokens }: SendTabProps) {
           // Refresh balances after successful transaction
           await refreshBalances();
           setPendingSendTx(false);
-          toast.success("Transaction successful");
+          toast.success(t.dialogs.send.txSuccessful);
           // Reset form
           setAmountToSend("0");
           setSendToAddress("");
         } else {
-          toast.error(result.val || "Transaction failed");
+          toast.error(result.val || t.dialogs.send.txFailed);
           setPendingSendTx(false);
         }
       } catch (error) {
         console.log(error);
-        toast.error("Transaction failed");
+        toast.error(t.dialogs.send.txFailed);
         setPendingSendTx(false);
       }
     } else {
-      toast.error("Invalid address");
+      toast.error(t.dialogs.send.invalidAddress);
     }
   };
 
@@ -172,11 +174,11 @@ export function SendTab({ tokens }: SendTabProps) {
       <div className="group relative bg-muted/30 rounded-3xl p-4 lg:p-6 border border-border hover:border-border/60 transition-all duration-300">
         <div className="flex items-center justify-between mb-3">
           <span className="text-xs lg:text-sm font-medium text-muted-foreground">
-            Amount
+            {t.dialogs.send.amount}
           </span>
           {isConnected && (
             <span className="text-xs lg:text-sm text-muted-foreground">
-              Balance:{" "}
+              {t.dialogs.send.balance}{" "}
               <span className="font-medium">
                 {isWalletLoading || balancesLoading ? (
                   <Skeleton className="w-16 h-4 inline-block" />
@@ -226,7 +228,7 @@ export function SendTab({ tokens }: SendTabProps) {
       <div className="group relative bg-muted/30 rounded-3xl p-4 lg:p-6 border border-border hover:border-border/60 transition-all duration-300">
         <div className="flex items-center justify-between mb-3">
           <span className="text-xs lg:text-sm font-medium text-muted-foreground">
-            Recipient Address
+            {t.dialogs.send.recipientAddress}
           </span>
         </div>
         <Input
@@ -254,7 +256,7 @@ export function SendTab({ tokens }: SendTabProps) {
                 <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
               </div>
             )}
-            {pendingSendTx ? "Sending..." : getSendButtonProps().label}
+            {pendingSendTx ? t.dialogs.send.sending : getSendButtonProps().label}
           </Button>
         )}
       </div>

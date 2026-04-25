@@ -29,6 +29,7 @@ import {
 import { useRegions } from "@/hooks";
 import { useQueryState, parseAsString } from "nuqs";
 import { toast } from "sonner";
+import { useLang } from "@/lib/i18n";
 
 interface BuybackActivityRow {
   id: string;
@@ -91,6 +92,8 @@ function useMockActivity(): BuybackActivityRow[] {
 }
 
 export function ImpactBuybackView() {
+  const { t } = useLang();
+  const ib = t.routes.impactBuyback;
   const { regions, isRegionsLoading } = useRegions();
 
   // URL state for active tab and region
@@ -129,19 +132,19 @@ export function ImpactBuybackView() {
     try {
       const qty = Number(creditsToBurn || 0);
       if (!selectedRegion) {
-        toast.error("Select a region first");
+        toast.error(ib.toastSelectRegionFirst);
         return;
       }
       if (!Number.isFinite(qty) || qty <= 0) {
-        toast.error("Enter a valid credits amount to burn");
+        toast.error(ib.toastEnterValidAmount);
         return;
       }
       // Mock async
       await new Promise((r) => setTimeout(r, 600));
-      toast.success(`Submitted buyback in ${selectedRegion.name}`);
+      toast.success(ib.toastSubmittedIn(selectedRegion.name));
       setCreditsToBurn("");
     } catch (err) {
-      toast.error("Failed to submit buyback");
+      toast.error(ib.toastFailedSubmit);
     }
   };
 
@@ -150,29 +153,25 @@ export function ImpactBuybackView() {
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold">Impact Buyback</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Pilot for Phase I – mock flows wired to live regions list.
-        </p>
+        <h1 className="text-2xl font-semibold">{ib.title}</h1>
+        <p className="text-sm text-muted-foreground mt-1">{ib.subtitle}</p>
       </div>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v)}>
         <TabsList className="bg-muted/40">
-          <TabsTrigger value="buyback">Buyback</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
+          <TabsTrigger value="buyback">{ib.tabBuyback}</TabsTrigger>
+          <TabsTrigger value="activity">{ib.tabActivity}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="buyback" className="mt-4">
           <Card className="rounded-3xl border border-border">
             <CardHeader className="border-b">
-              <CardTitle>Buyback</CardTitle>
-              <CardDescription>
-                Burn impact credits for USDG. All values are mocked.
-              </CardDescription>
+              <CardTitle>{ib.buybackCardTitle}</CardTitle>
+              <CardDescription>{ib.buybackCardDesc}</CardDescription>
             </CardHeader>
             <CardContent className="py-6 space-y-6">
               <div className="space-y-2">
-                <div className="text-sm font-medium">Select a region</div>
+                <div className="text-sm font-medium">{ib.selectRegion}</div>
                 <Select
                   value={regionCode || undefined}
                   onValueChange={(v) => setRegionCode(v)}
@@ -181,7 +180,7 @@ export function ImpactBuybackView() {
                   <SelectTrigger className="w-full">
                     <SelectValue
                       placeholder={
-                        isRegionsLoading ? "Loading…" : "Choose a region"
+                        isRegionsLoading ? ib.loading : ib.chooseRegion
                       }
                     />
                   </SelectTrigger>
@@ -202,7 +201,7 @@ export function ImpactBuybackView() {
                 <Card className="rounded-xl">
                   <CardContent className="py-4">
                     <div className="text-xs text-muted-foreground">
-                      Region Pot
+                      {ib.regionPot}
                     </div>
                     <div className="text-lg font-bold tabular-nums">
                       {formatNumber(regionPot, 0)} USDG
@@ -212,27 +211,27 @@ export function ImpactBuybackView() {
                 <Card className="rounded-xl">
                   <CardContent className="py-4">
                     <div className="text-xs text-muted-foreground">
-                      Unbounded Supply
+                      {ib.unboundedSupply}
                     </div>
                     <div className="text-lg font-bold tabular-nums">
-                      {formatNumber(unboundedSupply, 0)} credits
+                      {formatNumber(unboundedSupply, 0)} {ib.creditsUnit}
                     </div>
                   </CardContent>
                 </Card>
                 <Card className="rounded-xl">
                   <CardContent className="py-4">
                     <div className="text-xs text-muted-foreground">
-                      Certificates Balance
+                      {ib.certificatesBalance}
                     </div>
                     <div className="text-lg font-bold tabular-nums">
-                      {formatNumber(certificates, 0)} credits
+                      {formatNumber(certificates, 0)} {ib.creditsUnit}
                     </div>
                   </CardContent>
                 </Card>
               </div>
 
               <div className="space-y-2">
-                <div className="text-sm font-medium">Credits to Burn</div>
+                <div className="text-sm font-medium">{ib.creditsToBurn}</div>
                 <Input
                   type="text"
                   inputMode="decimal"
@@ -254,16 +253,16 @@ export function ImpactBuybackView() {
                 <Card className="rounded-xl">
                   <CardContent className="py-4">
                     <div className="text-xs text-muted-foreground">
-                      New balance after burn
+                      {ib.newBalanceAfterBurn}
                     </div>
                     <div className="text-lg font-bold tabular-nums">
-                      {formatNumber(newBalanceAfterBurn, 0)} credits
+                      {formatNumber(newBalanceAfterBurn, 0)} {ib.creditsUnit}
                     </div>
                   </CardContent>
                 </Card>
                 <Card className="rounded-xl">
                   <CardContent className="py-4">
-                    <div className="text-xs text-muted-foreground">$made</div>
+                    <div className="text-xs text-muted-foreground">{ib.madeUsdg}</div>
                     <div className="text-lg font-bold tabular-nums">
                       {formatNumber(madeUSDG, 2)} USDG
                     </div>
@@ -276,7 +275,7 @@ export function ImpactBuybackView() {
                 onClick={onRedeem}
                 disabled={!selectedRegion}
               >
-                Redeem now
+                {ib.redeemNow}
               </Button>
             </CardContent>
           </Card>
@@ -285,19 +284,17 @@ export function ImpactBuybackView() {
         <TabsContent value="activity" className="mt-4">
           <Card className="rounded-3xl border border-border">
             <CardHeader className="border-b">
-              <CardTitle>Latest buybacks</CardTitle>
-              <CardDescription>
-                Mocked recent activity across regions
-              </CardDescription>
+              <CardTitle>{ib.latestBuybacks}</CardTitle>
+              <CardDescription>{ib.latestBuybacksDesc}</CardDescription>
             </CardHeader>
             <CardContent className="py-6">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>When</TableHead>
-                    <TableHead>Region</TableHead>
-                    <TableHead className="text-right">Credits burned</TableHead>
-                    <TableHead className="text-right">USDG paid</TableHead>
+                    <TableHead>{ib.colWhen}</TableHead>
+                    <TableHead>{ib.colRegion}</TableHead>
+                    <TableHead className="text-right">{ib.colCreditsBurned}</TableHead>
+                    <TableHead className="text-right">{ib.colUsdgPaid}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

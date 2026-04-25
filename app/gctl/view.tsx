@@ -11,6 +11,7 @@ import { trackEvent } from "@/lib/telemetry";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useER20Balances } from "@/hooks/useERC20Balances";
 import { useGctlApi } from "@/hooks/control-gctl";
+import { useLang } from "@/lib/i18n";
 import { useGlowSpotPriceSummary } from "@/hooks/useGlowSpotPriceSummary";
 import { formatUnits } from "viem";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
@@ -36,6 +37,8 @@ export function GctlWalletIndicator() {
 }
 
 export function GctlLandingCta() {
+  const { t } = useLang();
+  const r = t.routes.gctlLanding;
   const { isConnected, address } = useAccount();
   const { signer } = useEthersSigner();
   const { usdcBalance, usdgBalance } = useER20Balances({ signer });
@@ -119,10 +122,10 @@ export function GctlLandingCta() {
               onClick={handleBuyGlwClick}
             >
               <ShoppingCart className="mr-2 h-4 w-4" />
-              Buy GLW
+              {r.buyGlw}
             </Button>
             <Button variant="outline" className="h-12 sm:h-14 flex-1" asChild>
-              <Link href="/" prefetch>Go to Dashboard</Link>
+              <Link href="/" prefetch>{r.goToDashboard}</Link>
             </Button>
           </div>
         ) : (
@@ -130,7 +133,7 @@ export function GctlLandingCta() {
             className="h-12 sm:h-14 w-full sm:max-w-xs"
             onClick={handleMintClick}
           >
-            Mint &amp; Stake GCTL
+            {r.mintAndStake}
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         )}
@@ -138,10 +141,10 @@ export function GctlLandingCta() {
 
       <div className="text-xs sm:text-sm text-muted-foreground/60 mt-6 lg:mt-4">
         {!isConnected
-          ? "Connect wallet to get started"
+          ? r.connectPrompt
           : hasGctl
-          ? `You hold ${gctlBalanceFormatted} GCTL. `
-          : "Mint price = \u221AGLW price. Funds flow to the Glow Endowment."}
+          ? r.youHoldGctl(gctlBalanceFormatted)
+          : r.mintPriceNote}
       </div>
 
       {isMintDialogOpen && (

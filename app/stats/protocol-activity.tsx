@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FallbackImage } from "@/components/ui/fallback-image";
 import { CashMinerIcon, DelegationIcon } from "@/components/impact-icons";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/lib/i18n";
 
 import { useFractionsSummary, type FractionsSummaryResponse } from "@/hooks";
 import {
@@ -139,6 +140,8 @@ function InventoryList({
   countdownDate: Date;
   badgeColor: "green" | "blue";
 }) {
+  const { t } = useLang();
+  const s = t.routes.stats;
   if (items.length === 0) {
     return (
       <div className="mb-6 rounded-xl border-2 border-dashed border-border/30 dark:border-border/40 bg-muted/20 dark:bg-muted/50 p-6 text-center">
@@ -223,7 +226,7 @@ function InventoryList({
                         {item.remainingValueFormatted}
                       </div>
                       <div className="text-[10px] text-muted-foreground">
-                        Remaining
+                        {s.remaining}
                       </div>
                     </div>
                   </div>
@@ -306,11 +309,13 @@ function EventList({
 }
 
 function DelegationEmptyState() {
+  const { t } = useLang();
+  const s = t.routes.stats;
   return (
     <EmptyState
       icon={<DelegationIcon className="h-8 w-8 text-muted-foreground" />}
-      title="No delegations yet"
-      description="When delegations happen, they'll appear here. Start with an available farm above."
+      title={s.noDelegationsYet}
+      description={s.delegationsAppear}
     />
   );
 }
@@ -340,11 +345,13 @@ function MinerItem({ event }: { event: ProtocolEventRowProps }) {
 }
 
 function MinerEmptyState() {
+  const { t } = useLang();
+  const s = t.routes.stats;
   return (
     <EmptyState
       icon={<CashMinerIcon className="h-8 w-8 text-muted-foreground" />}
-      title="No purchases yet"
-      description="Miner purchases will appear here."
+      title={s.noPurchasesYet}
+      description={s.minerPurchasesAppear}
     />
   );
 }
@@ -380,6 +387,8 @@ export function ProtocolActivity({
   onSeeAllDelegation,
   onSeeAllMiners,
 }: ProtocolActivityProps) {
+  const { t } = useLang();
+  const s = t.routes.stats;
   const { toast } = useToast();
 
   const {
@@ -670,10 +679,10 @@ export function ProtocolActivity({
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-sm font-semibold text-foreground">
-                      Launchpad Delegation
+                      {s.launchpadDelegation}
                     </h3>
                     <p className="mt-0.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
-                      Community-backed solar farms
+                      {s.communityBackedFarms}
                     </p>
                   </div>
                   <Badge
@@ -689,7 +698,7 @@ export function ProtocolActivity({
                 <div className="space-y-4">
                   <div className="mb-4 flex items-center justify-between">
                     <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
-                      Recent Activity
+                      {s.recentActivity}
                     </span>
                     <div className="flex items-center gap-3">
                       <Badge
@@ -697,7 +706,7 @@ export function ProtocolActivity({
                         className="text-[10px] font-mono uppercase tracking-widest border-border/30 text-muted-foreground/60"
                       >
                         <Activity className="mr-1 h-3 w-3" />
-                        Live
+                        {s.live}
                       </Badge>
                       {pendingProps.shouldShowDelegationSeeAll ? (
                         <Button
@@ -706,7 +715,7 @@ export function ProtocolActivity({
                           className="h-7 text-xs font-medium text-muted-foreground hover:text-foreground"
                           onClick={pendingProps.onSeeAllDelegation}
                         >
-                          See All
+                          {s.seeAll}
                         </Button>
                       ) : null}
                     </div>
@@ -724,10 +733,10 @@ export function ProtocolActivity({
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-sm font-semibold text-foreground">
-                      Glow Miners
+                      {s.glowMiners}
                     </h3>
                     <p className="mt-0.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
-                      Mining infrastructure
+                      {s.miningInfrastructure}
                     </p>
                   </div>
                   <Badge
@@ -743,7 +752,7 @@ export function ProtocolActivity({
                 <div className="space-y-4">
                   <div className="mb-4 flex items-center justify-between">
                     <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
-                      Recent Activity
+                      {s.recentActivity}
                     </span>
                     <div className="flex items-center gap-3">
                       <Badge
@@ -751,7 +760,7 @@ export function ProtocolActivity({
                         className="text-[10px] font-mono uppercase tracking-widest border-border/30 text-muted-foreground/60"
                       >
                         <Activity className="mr-1 h-3 w-3" />
-                        Live
+                        {s.live}
                       </Badge>
                       {minerProps.shouldShowMinerSeeAll ? (
                         <Button
@@ -760,7 +769,7 @@ export function ProtocolActivity({
                           className="h-7 text-xs font-medium text-muted-foreground hover:text-foreground"
                           onClick={minerProps.onSeeAllMiners}
                         >
-                          See All
+                          {s.seeAll}
                         </Button>
                       ) : null}
                     </div>

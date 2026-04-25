@@ -4,6 +4,7 @@ import { NumberTicker } from "@/components/ui/number-ticker";
 import { useGctlApi } from "@/hooks";
 import { ExternalLink } from "lucide-react";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
+import { useLang } from "@/lib/i18n";
 
 interface StatsSidebarProps {
   marketCap: string;
@@ -20,6 +21,7 @@ export function StatsSidebar({
   isUsdcInRedemptionLoading,
   isWalletLoading,
 }: StatsSidebarProps) {
+  const { t } = useLang();
   const { gctlPriceNumber, isGctlPriceLoading } = useGctlApi();
   const { spotPrice, isLoading: isSpotPriceLoading } = useGlowSpotPrice();
 
@@ -27,14 +29,16 @@ export function StatsSidebar({
     <div className="bg-background backdrop-blur-xl rounded-3xl border border-border overflow-hidden">
       <div className="p-4 lg:p-6">
         <div className="flex items-center gap-2 mb-4">
-          <h3 className="text-lg lg:text-xl font-semibold">Market Overview</h3>
+          <h3 className="text-lg lg:text-xl font-semibold">
+            {t.dialogs.statsSidebar.marketOverview}
+          </h3>
         </div>
 
         {/* Stats Items - 2 columns on mobile, 1 column on desktop sidebar */}
         <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
           <div className="bg-muted/30 rounded-xl border border-border p-3 lg:p-4">
             <div className="text-xs text-muted-foreground mb-1 lg:mb-2">
-              GLW Market Cap
+              {t.dialogs.statsSidebar.glwMarketCap}
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-base lg:text-xl font-extrabold tabular-nums">
@@ -50,7 +54,7 @@ export function StatsSidebar({
 
           <div className="bg-muted/30 rounded-xl border border-border p-3 lg:p-4">
             <div className="text-xs text-muted-foreground mb-1 lg:mb-2">
-              GLW Price
+              {t.dialogs.statsSidebar.glwPrice}
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-base lg:text-xl font-extrabold tabular-nums">
@@ -65,7 +69,9 @@ export function StatsSidebar({
           </div>
 
           <div className="bg-muted/30 rounded-xl border border-border p-4">
-            <div className="text-xs text-muted-foreground mb-2">GCTL Price</div>
+            <div className="text-xs text-muted-foreground mb-2">
+              {t.dialogs.statsSidebar.gctlPrice}
+            </div>
             <div className="flex items-baseline gap-2">
               <span className="text-xl font-extrabold tabular-nums">
                 ${" "}
@@ -84,7 +90,7 @@ export function StatsSidebar({
             (!isUsdcInRedemptionLoading || !isWalletLoading) && (
               <div className="bg-muted/30 rounded-xl border border-border p-3 lg:p-4">
                 <div className="text-xs text-muted-foreground mb-1 lg:mb-2">
-                  USDC Available
+                  {t.dialogs.statsSidebar.usdcAvailable}
                 </div>
                 <div className="flex items-baseline gap-2">
                   <span className="text-base lg:text-xl font-extrabold tabular-nums">
@@ -99,7 +105,7 @@ export function StatsSidebar({
                 {isUsdcInRedemptionLoading && !isWalletLoading && (
                   <div className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
                     <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                    Updating...
+                    {t.dialogs.statsSidebar.updating}
                   </div>
                 )}
               </div>
@@ -113,7 +119,7 @@ export function StatsSidebar({
               rel="noreferrer"
               className="inline-flex items-center gap-2 text-sm font-medium hover:underline"
             >
-              View GLW/USDG activity
+              {t.dialogs.statsSidebar.viewGlwUsdgActivity}
               <ExternalLink className="w-4 h-4" />
             </a>
           </div>

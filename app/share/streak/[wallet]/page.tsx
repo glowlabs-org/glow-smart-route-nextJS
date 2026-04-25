@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import { GlowCommit } from "@/components/glow-commit/glow-commit";
 import { buildPageMetadata, SEO } from "@/lib/seo";
+import { TrackOwnStreakLink } from "./track-own-streak-link";
 
 interface PageProps {
   params: Promise<{ wallet: string }>;
@@ -34,15 +35,7 @@ export default async function ShareStreakPage({ params }: PageProps) {
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
       <GlowCommit walletAddress={wallet} />
-      <p className="mt-6 text-sm text-muted-foreground">
-        Track your own mining streak at{" "}
-        <a
-          href="https://app.glow.org"
-          className="underline hover:text-foreground"
-        >
-          app.glow.org
-        </a>
-      </p>
+      <TrackOwnStreakLink />
     </div>
   );
 }

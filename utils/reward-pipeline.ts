@@ -46,14 +46,15 @@ export function getEpochEndMs(epoch: number) {
 
 export function formatRewardPipelineDate(
   timestampMs: number,
-  options: Intl.DateTimeFormatOptions = {
+  options: Intl.DateTimeFormatOptions & { locale?: string } = {
     month: "short",
     day: "numeric",
   }
 ) {
-  return new Date(timestampMs).toLocaleDateString("en-US", {
-    timeZone: options.timeZone ?? "UTC",
-    ...options,
+  const { locale, ...rest } = options;
+  return new Date(timestampMs).toLocaleDateString(locale ?? "en-US", {
+    timeZone: rest.timeZone ?? "UTC",
+    ...rest,
   });
 }
 

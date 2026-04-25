@@ -60,6 +60,7 @@ import { useEnsNames } from "@/hooks/useEnsNames";
 import { shortAddress } from "@/utils/impact";
 import { GlowSymbolAnimated } from "@/components/glow-symbol-animated";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/lib/i18n";
 
 interface GlowSoftDashboardProps {
   walletAddressOverride?: string | null;
@@ -215,20 +216,21 @@ function countAvailableApplications(
 }
 
 function DashboardConnectingSkeleton() {
+  const { t } = useLang();
   return (
     <div className="min-h-[70vh] bg-background flex flex-col items-center justify-center gap-6 px-4 text-center">
       <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
-        Wallet Handshake
+        {t.home.connecting.kicker}
       </div>
 
       <GlowSymbolAnimated className="h-24 w-24 text-foreground" />
 
       <h2 className="text-4xl lg:text-5xl font-semibold tracking-tight text-foreground">
-        Connecting your wallet
+        {t.home.connecting.title}
       </h2>
 
       <p className="max-w-xl text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
-        Approve or reject the request in your wallet extension to continue
+        {t.home.connecting.description}
       </p>
     </div>
   );
@@ -237,6 +239,7 @@ function DashboardConnectingSkeleton() {
 export default function GlowSoftDashboard({
   walletAddressOverride,
 }: GlowSoftDashboardProps) {
+  const { t } = useLang();
   const { address: connectedAddress, isConnected, isConnecting } = useAccount();
   const walletAddress = walletAddressOverride ?? connectedAddress ?? null;
   const hasWallet = Boolean(walletAddress);
@@ -421,13 +424,13 @@ export default function GlowSoftDashboard({
       if (isMigrationDialogOpen) setIsMigrationDialogOpen(false);
     } else if (migrationToastIdRef.current == null) {
       const formattedAmount = formatGctl(migrationData?.migrationAmount || "0");
-      migrationToastIdRef.current = toast("GCTL allocation available", {
-        description: `${formattedAmount} GCTL available to claim`,
+      migrationToastIdRef.current = toast(t.home.toasts.migrationTitle, {
+        description: t.home.toasts.migrationDescription(formattedAmount),
         duration: Infinity,
         dismissible: false,
         closeButton: false,
         action: {
-          label: "Claim GCTL",
+          label: t.home.toasts.migrationAction,
           onClick: () => setIsMigrationDialogOpen(true),
         },
       });
@@ -443,15 +446,16 @@ export default function GlowSoftDashboard({
       refundToastIdRef.current = null;
       if (isRefundDialogOpen) setIsRefundDialogOpen(false);
     } else if (existingToastId == null) {
-      const toastId = toast("You have refunds available", {
-        description: `${
-          summary.totalRefundableFractions
-        } listings · ${formatGlw(summary.totalRefundableAmount)} GLW`,
+      const toastId = toast(t.home.toasts.refundsTitle, {
+        description: t.home.toasts.refundsDescription(
+          summary.totalRefundableFractions,
+          formatGlw(summary.totalRefundableAmount),
+        ),
         duration: Infinity,
         dismissible: false,
         closeButton: false,
         action: {
-          label: "Claim refunds",
+          label: t.home.toasts.refundsAction,
           onClick: () => setIsRefundDialogOpen(true),
         },
       });
@@ -542,8 +546,8 @@ export default function GlowSoftDashboard({
                   <SectionHeader
                     title={
                       isApproachingLaunchpad
-                        ? "Launchpad Opening Soon"
-                        : "Launchpad Live"
+                        ? t.home.sections.launchpadOpeningSoon
+                        : t.home.sections.launchpadLive
                     }
                   />
                   <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
@@ -561,8 +565,8 @@ export default function GlowSoftDashboard({
                 <SectionHeader
                   title={
                     readOnly && profileDisplayName
-                      ? `${profileDisplayName}'s Dashboard`
-                      : "Overview"
+                      ? t.home.sections.readOnlyDashboard(profileDisplayName)
+                      : t.home.sections.overview
                   }
                 />
                 <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
@@ -578,8 +582,8 @@ export default function GlowSoftDashboard({
                         })}
                         fallback={
                           <DeferredAnalyticsCard
-                            title="Impact Score"
-                            description="Impact analytics load a few seconds after launch traffic settles."
+                            title={t.home.deferred.impactScore.title}
+                            description={t.home.deferred.impactScore.description}
                           />
                         }
                       >
@@ -618,8 +622,8 @@ export default function GlowSoftDashboard({
                         })}
                         fallback={
                           <DeferredAnalyticsCard
-                            title="Glow Worth"
-                            description="Wallet worth and chart history load after the launchpad shell is stable."
+                            title={t.home.deferred.glowWorth.title}
+                            description={t.home.deferred.glowWorth.description}
                           />
                         }
                       >
@@ -651,7 +655,7 @@ export default function GlowSoftDashboard({
 
               {/* Mining & Rewards Section */}
               <section className="flex flex-col gap-8 pt-20">
-                <SectionHeader title="Mining & Rewards" />
+                <SectionHeader title={t.home.sections.miningAndRewards} />
                 <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/20 items-stretch">
                     <div
@@ -677,8 +681,8 @@ export default function GlowSoftDashboard({
                         })}
                         fallback={
                           <DeferredAnalyticsCard
-                            title="Rewards"
-                            description="Claims and reward analytics are staggered during launch windows."
+                            title={t.home.deferred.rewards.title}
+                            description={t.home.deferred.rewards.description}
                           />
                         }
                       >
@@ -698,7 +702,7 @@ export default function GlowSoftDashboard({
 
               {/* Action Section: Grow Your Impact */}
               <section className="flex flex-col gap-8 pt-20">
-                <SectionHeader title="Grow Your Impact" />
+                <SectionHeader title={t.home.sections.growYourImpact} />
                 <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/20 items-stretch">
                     <div
@@ -734,7 +738,7 @@ export default function GlowSoftDashboard({
 
               {/* My Impact Section */}
               <section className="flex flex-col gap-8 pt-20">
-                <SectionHeader title="My Impact" />
+                <SectionHeader title={t.home.sections.myImpact} />
                 <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
                   <WidgetErrorBoundary>
                     <SolarCollectorWidget
@@ -764,7 +768,7 @@ export default function GlowSoftDashboard({
 
               {/* Journey Section */}
               <section className="flex flex-col gap-8 pt-20">
-                <SectionHeader title="Your Journey" />
+                <SectionHeader title={t.home.sections.yourJourney} />
                 <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/20 items-stretch">
                     <div className="pb-8 lg:pb-0 lg:pr-10 flex lg:col-span-4">
@@ -778,8 +782,8 @@ export default function GlowSoftDashboard({
                         })}
                         fallback={
                           <DeferredAnalyticsCard
-                            title="Weekly Streak"
-                            description="Streak and multiplier analytics load after launch traffic subsides."
+                            title={t.home.deferred.weeklyStreak.title}
+                            description={t.home.deferred.weeklyStreak.description}
                           />
                         }
                       >
@@ -814,8 +818,8 @@ export default function GlowSoftDashboard({
                         })}
                         fallback={
                           <DeferredAnalyticsCard
-                            title="Mining Summary"
-                            description="Portfolio rollups are queued behind launchpad traffic during live windows."
+                            title={t.home.deferred.miningSummary.title}
+                            description={t.home.deferred.miningSummary.description}
                           />
                         }
                       >
@@ -833,7 +837,7 @@ export default function GlowSoftDashboard({
 
               {/* My Farms Section */}
               <section className="flex flex-col gap-8 pt-20 pb-20">
-                <SectionHeader title="My Farms" />
+                <SectionHeader title={t.home.sections.myFarms} />
                 <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
                   <WidgetErrorBoundary>
                     <MyFarmsGridSection
@@ -867,8 +871,8 @@ export default function GlowSoftDashboard({
                   <SectionHeader
                     title={
                       isApproachingLaunchpad
-                        ? "Launchpad Opening Soon"
-                        : "Launchpad Live"
+                        ? t.home.sections.launchpadOpeningSoon
+                        : t.home.sections.launchpadLive
                     }
                   />
                   <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
@@ -883,7 +887,7 @@ export default function GlowSoftDashboard({
 
               {/* Hero Section */}
               <section className="flex flex-col gap-8">
-                <SectionHeader title="Get Started" />
+                <SectionHeader title={t.home.sections.getStarted} />
                 <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-0 items-stretch">
                     <div className="pb-8 lg:pb-0 lg:pr-10 flex min-h-[340px]">
@@ -912,7 +916,7 @@ export default function GlowSoftDashboard({
 
               {/* Community & Leaderboard Section */}
               <section className="flex flex-col gap-8">
-                <SectionHeader title="Community & Leaderboard" />
+                <SectionHeader title={t.home.sections.communityAndLeaderboard} />
                 <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/20 items-stretch">
                     <div className="pb-8 lg:pb-0 lg:pr-10 lg:col-span-8 flex min-h-[400px]">
@@ -937,7 +941,7 @@ export default function GlowSoftDashboard({
 
               {/* Protocol Metrics Section */}
               <section className="flex flex-col gap-8">
-                <SectionHeader title="Protocol Metrics" />
+                <SectionHeader title={t.home.sections.protocolMetrics} />
                 <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
                   <WidgetErrorBoundary>
                     <ProtocolMetricsWidget />
@@ -947,7 +951,7 @@ export default function GlowSoftDashboard({
 
               {/* Education Section */}
               <section className="flex flex-col gap-8">
-                <SectionHeader title="Education" />
+                <SectionHeader title={t.home.sections.education} />
                 <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/20 items-stretch">
                     <div className="pb-8 lg:pb-0 lg:pr-10 lg:col-span-7 flex min-h-[400px]">
@@ -969,7 +973,7 @@ export default function GlowSoftDashboard({
 
               {/* Stay Connected Section */}
               <section className="flex flex-col gap-8">
-                <SectionHeader title="Stay Connected" />
+                <SectionHeader title={t.home.sections.stayConnected} />
                 <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/20 items-stretch">
                     <div className="pb-8 lg:pb-0 lg:pr-10 lg:col-span-5 flex min-h-[340px]">

@@ -121,6 +121,7 @@ import { hubGet } from "@/lib/api/hub-client";
 import type { RewardsBreakdownResponse } from "@/hooks/hub-fractions";
 import { getLaunchpadNowMs } from "@/utils/launchpad-now";
 import { normalizeMinerWeeksRemainingDisplay } from "@/lib/mining-score";
+import { useLang } from "@/lib/i18n";
 
 export type LaunchpadRewardScore = {
   userWeeklyGlwRewards: string;
@@ -375,6 +376,8 @@ export function DepositDialog({
 }: DepositDialogProps) {
   const APP_DOMAIN_PLAIN_TEXT = "app.\u200Bglow.\u200Borg";
 
+  const { t } = useLang();
+  const dd = t.routes.depositDialog;
   const { isConnected, address, connector } = useAccount();
   const isMobile = useIsMobile();
   const chainId = useChainId();
@@ -909,19 +912,21 @@ export function DepositDialog({
     !initialPositionValueGuard.isBlocked &&
     !affordability.canSubmit &&
     selectedShortfall > 0n;
-  const disabledCtaLabel = `Need +${formatTokenAmount(
-    selectedShortfall,
-    shortfallDecimals,
-    "0",
-    6,
-  )} ${selectedPaymentMethod}${
+  const disabledCtaLabel =
     runtimeSelectedCurrency === "GLW" && selectedPaymentMethod === "USDC"
-      ? " (swap buffer)"
-      : ""
-  }`;
+      ? dd.shortfallNeedSwapBuffer(
+          formatTokenAmount(selectedShortfall, shortfallDecimals, "0", 6),
+          selectedPaymentMethod,
+        )
+      : dd.shortfallNeed(
+          formatTokenAmount(selectedShortfall, shortfallDecimals, "0", 6),
+          selectedPaymentMethod,
+        );
   const initialPositionMinimumMessage =
     initialPositionValueGuard.message ??
-    `Your first miner or delegation should total at least $${MIN_INITIAL_POSITION_USD.toLocaleString()} so weekly reward claims stay worth the gas.`;
+    dd.initialPositionMinimumFallback(
+      MIN_INITIAL_POSITION_USD.toLocaleString(),
+    );
 
   const sgctlRequiredAmount = affordability.requiredByMethod.SGCTL ?? 0n;
   const sgctlShortfall =
@@ -952,19 +957,20 @@ export function DepositDialog({
     const shortfallLabel = formatTokenAmount(sgctlShortfall, 6, "0", 6);
 
     if (selectedPaymentMethod === "USDC") {
-      return `This uses your available regional stake of ${existingStakeLabel} SGCTL, then mints and stakes ${shortfallLabel} more from USDC.`;
+      return dd.sgctlFundingFromUsdc(existingStakeLabel, shortfallLabel);
     }
 
     if (selectedPaymentMethod === "ETH") {
-      return `This uses your available regional stake of ${existingStakeLabel} SGCTL, then mints and stakes ${shortfallLabel} more from ETH.`;
+      return dd.sgctlFundingFromEth(existingStakeLabel, shortfallLabel);
     }
 
     if (selectedPaymentMethod === "GCTL") {
-      return `This uses your available regional stake of ${existingStakeLabel} SGCTL, then stakes ${shortfallLabel} more from your wallet GCTL balance.`;
+      return dd.sgctlFundingFromGctl(existingStakeLabel, shortfallLabel);
     }
 
     return null;
   }, [
+    dd,
     formatTokenAmount,
     runtimeSelectedCurrency,
     selectedPaymentMethod,
@@ -1062,26 +1068,28 @@ export function DepositDialog({
   ]);
 
   const ctaLabel = !isSubmitting && isPreparingWalletAuthorization
-    ? "Preparing Wallet..."
+    ? dd.ctaPreparingWallet
     : isCheckingInitialPositionEligibility
-      ? "Checking Eligibility..."
+      ? dd.ctaCheckingEligibility
       : sgctlPreparationCutoffGuard.isBlocked
-        ? "Staked SGCTL Only"
+        ? dd.ctaStakedSgctlOnly
       : initialPositionValueGuard.isBlocked
-        ? `Minimum $${initialPositionValueGuard.minimumUsd.toLocaleString()} To Start`
+        ? dd.ctaMinimumToStart(
+            initialPositionValueGuard.minimumUsd.toLocaleString(),
+          )
         : showShortfallInCta
           ? disabledCtaLabel
           : runtimeSelectedCurrency === "SGCTL"
             ? sgctlSourceMode === "staked"
-              ? "Confirm Delegation"
+              ? dd.ctaConfirmDelegation
               : sgctlSourceMode === "wallet_gctl"
-                ? "Stake & Delegate"
-                : "Mint, Stake & Delegate"
+                ? dd.ctaStakeAndDelegate
+                : dd.ctaMintStakeDelegate
             : runtimeSelectedCurrency === "GLW"
               ? selectedPaymentMethod !== "GLW"
-                ? "Swap & Delegate"
-                : "Confirm Delegation"
-              : "Confirm Purchase";
+                ? dd.ctaSwapAndDelegate
+                : dd.ctaConfirmDelegation
+              : dd.ctaConfirmPurchase;
 
   const estimatedRewardsBreakdown = React.useMemo(
     () =>
@@ -1118,12 +1126,12 @@ export function DepositDialog({
           ?.weeksOfMinerLifeRemaining,
       );
       if (typeof normalized === "number" && normalized > 0) {
-        return `weekly for ${Math.floor(normalized)} week${Math.floor(normalized) === 1 ? "" : "s"}.`;
+        return dd.weeklyForWeeks(String(Math.floor(normalized)));
       }
-      return "weekly for 99 weeks.";
+      return dd.weeklyFor99Weeks;
     }
-    return "weekly for 100 weeks.";
-  }, [runtimeSelectedCurrency, rewardScore]);
+    return dd.weeklyFor100Weeks;
+  }, [dd, runtimeSelectedCurrency, rewardScore]);
 
   // Estimated weekly impact points based on GLOW-IMPACT-SCORE.md rules:
   // - Emissions: +1 point per GLW earned in emission rewards
@@ -1353,17 +1361,14 @@ export function DepositDialog({
       }
 
       if (!hasFreshStakeRead && lastRetriableError) {
-        throw new Error(
-          "Unable to verify your recent stake right now. Please wait a few seconds and retry.",
-        );
+        throw new Error(dd.stakeSyncUnableToVerify);
       }
 
-      throw new Error(
-        "Your new balance is still updating. Please wait a moment and try again.",
-      );
+      throw new Error(dd.stakeSyncBalanceUpdating);
     },
     [
       address,
+      dd,
       fetchFreshAvailableStake,
       invalidateGctlQueries,
       queryClient,
@@ -1720,7 +1725,7 @@ export function DepositDialog({
   const handleConfirm = async () => {
     if (!isConnected || !effectiveApplication?.activeFraction) return;
     if (isCheckingInitialPositionEligibility) {
-      toast.message("Checking wallet eligibility...");
+      toast.message(dd.toastCheckingEligibility);
       return;
     }
     if (initialPositionValueGuard.isBlocked) {
@@ -1734,8 +1739,8 @@ export function DepositDialog({
     if (isPreparingWalletAuthorization) {
       toast.message(
         runtimeSelectedCurrency === "SGCTL"
-          ? "Preparing wallet signer..."
-          : "Preparing wallet connection...",
+          ? dd.toastPreparingSigner
+          : dd.toastPreparingConnection,
       );
       return;
     }
@@ -1759,15 +1764,13 @@ export function DepositDialog({
 
       const availableSteps = resolveFractionRemainingSteps(activeFraction);
       if (availableSteps <= 0) {
-        toast.error("This listing is no longer available.");
+        toast.error(dd.toastListingNoLongerAvailable);
         return;
       }
       if (quantity > availableSteps) {
         setQuantity(availableSteps);
         setQuantityInput(availableSteps.toString());
-        toast.error(
-          `Only ${availableSteps} step${availableSteps === 1 ? "" : "s"} remaining for this listing.`,
-        );
+        toast.error(dd.toastStepsRemaining(String(availableSteps)));
         return;
       }
 
@@ -1980,7 +1983,7 @@ export function DepositDialog({
                 getStoredReferralAttribution()?.referralCode ?? null,
             });
 
-            toast.success("Delegation successful!");
+            toast.success(dd.toastDelegationSuccess);
             onSuccess?.();
           },
         });
@@ -2173,8 +2176,8 @@ export function DepositDialog({
 
       toast.success(
         runtimeSelectedCurrency === "USDC"
-          ? "Miners purchased!"
-          : "Delegation successful!",
+          ? dd.toastMinersPurchased
+          : dd.toastDelegationSuccess,
       );
       onSuccess?.();
 
@@ -2229,7 +2232,7 @@ export function DepositDialog({
       })();
     } catch (e: any) {
       console.error(e);
-      const rawMsg = getErrorMessage(e) || "Transaction failed";
+      const rawMsg = getErrorMessage(e) || dd.processingTransactionFailedFallback;
       const errorTxHash =
         typeof e?.txHash === "string"
           ? e.txHash
@@ -2376,7 +2379,7 @@ export function DepositDialog({
       setErrorMessage(msg);
       setIsInsufficientSharesError(shouldRefresh);
       if (isUserRejected) {
-        toast.error("Transaction rejected");
+        toast.error(dd.toastTransactionRejected);
       } else if (!hasCustomMessage) {
         toast.error(msg);
       }
@@ -2433,19 +2436,21 @@ export function DepositDialog({
         window.matchMedia?.("(max-width: 768px)")?.matches;
 
       const shareTitle = farmLabelForShare
-        ? `Glow • ${farmLabelForShare}`
-        : "Glow";
+        ? dd.shareTitlePrefix(farmLabelForShare)
+        : dd.shareTitleFallback;
 
       const shareText =
         runtimeSelectedCurrency === "USDC"
-          ? `I just bought ${quantity} miner${quantity > 1 ? "s" : ""} from ${
-              farmLabelForShare ?? "a solar farm"
-            } on @glowFND\n\n${APP_DOMAIN_PLAIN_TEXT}`
-          : `I just helped fund ${
-              farmLabelForShare ?? "a solar farm"
-            } by delegating ${
-              runtimeSelectedCurrency === "SGCTL" ? "SGCTL" : "GLW"
-            } tokens.\n\nYou can do the same on ${APP_DOMAIN_PLAIN_TEXT}`;
+          ? dd.shareTextMiners(
+              String(quantity),
+              farmLabelForShare ?? dd.shareFarmFallback,
+              APP_DOMAIN_PLAIN_TEXT,
+            )
+          : dd.shareTextDelegation(
+              farmLabelForShare ?? dd.shareFarmFallback,
+              runtimeSelectedCurrency === "SGCTL" ? "SGCTL" : "GLW",
+              APP_DOMAIN_PLAIN_TEXT,
+            );
 
       const canNativeShare =
         typeof navigator !== "undefined" &&
@@ -2509,7 +2514,7 @@ export function DepositDialog({
       }
     } catch (e) {
       console.error(e);
-      toast.error("Unable to share right now");
+      toast.error(dd.toastUnableToShare);
     }
   };
 
@@ -2524,18 +2529,18 @@ export function DepositDialog({
 
           const delegatedLabel =
             runtimeSelectedCurrency === "SGCTL"
-              ? "Total SGCTL Delegated"
-              : "Total GLW Delegated";
+              ? dd.successDetailTotalSgctlDelegated
+              : dd.successDetailTotalGlwDelegated;
 
           return [
             {
-              label: "Quantity",
+              label: dd.successDetailQuantity,
               value: quantity.toString(),
             },
             {
               label:
                 runtimeSelectedCurrency === "USDC"
-                  ? "Total USDC"
+                  ? dd.successDetailTotalUsdc
                   : delegatedLabel,
               value: formatNumber(
                 parseFloat(
@@ -2577,13 +2582,13 @@ export function DepositDialog({
           <div className="text-center space-y-2">
             <div className="text-xl sm:text-2xl font-bold text-foreground">
               {runtimeSelectedCurrency === "USDC"
-                ? "Purchase Complete!"
-                : "Delegation Complete!"}
+                ? dd.successPurchaseComplete
+                : dd.successDelegationComplete}
             </div>
             <div className="text-xs sm:text-sm text-muted-foreground">
               {runtimeSelectedCurrency === "USDC"
-                ? "You helped accelerate real-world solar deployment."
-                : "You just activated real-world solar rewards."}
+                ? dd.successPurchaseSubtitle
+                : dd.successDelegationSubtitle}
             </div>
           </div>
 
@@ -2602,7 +2607,7 @@ export function DepositDialog({
                 }
                 sublabel={
                   <span className="text-[11px] sm:text-xs text-muted-foreground">
-                    {leftAfterSteps} left
+                    {dd.successLeft(String(leftAfterSteps))}
                   </span>
                 }
                 otherColor={
@@ -2628,7 +2633,7 @@ export function DepositDialog({
                           : "#C084FC",
                     }}
                   />
-                  <span>Already filled</span>
+                  <span>{dd.successAlreadyFilled}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span
@@ -2640,7 +2645,7 @@ export function DepositDialog({
                           : "#4ADE80",
                     }}
                   />
-                  <span>Your contribution</span>
+                  <span>{dd.successYourContribution}</span>
                 </div>
               </div>
             </div>
@@ -2651,7 +2656,7 @@ export function DepositDialog({
               {/* Projected Weekly Rewards */}
               <div className="px-5 py-4">
                 <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest mb-2">
-                  Projected Weekly Rewards
+                  {dd.successProjectedWeeklyRewards}
                 </div>
                 <div className="flex justify-between items-end">
                   <div className="flex items-baseline gap-1.5 flex-wrap">
@@ -2712,7 +2717,7 @@ export function DepositDialog({
                 <div className="px-5 py-4 border-t border-border/20 dark:border-border/40">
                   <div className="flex justify-between items-center mb-3">
                     <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
-                      Est. Weekly Impact Points
+                      {dd.successEstWeeklyImpactPoints}
                     </div>
                     <div className="flex items-baseline gap-1">
                       <span className="text-lg font-mono font-semibold text-foreground leading-none">
@@ -2722,7 +2727,7 @@ export function DepositDialog({
                         })}
                       </span>
                       <span className="text-xs font-mono text-muted-foreground">
-                        pts
+                        {dd.successPtsUnit}
                       </span>
                     </div>
                   </div>
@@ -2735,7 +2740,7 @@ export function DepositDialog({
                           <EmissionsIcon className="w-3.5 h-3.5" />
                         </div>
                         <span className="text-sm text-muted-foreground">
-                          Emissions
+                          {dd.successEmissions}
                         </span>
                       </div>
                       <span className="font-mono text-sm font-medium text-[color:var(--color-miner)]">
@@ -2755,7 +2760,7 @@ export function DepositDialog({
                             <VaultIcon className="w-3.5 h-3.5" />
                           </div>
                           <span className="text-sm text-muted-foreground">
-                            Vault Bonus
+                            {dd.successVaultBonus}
                           </span>
                         </div>
                         <span className="font-mono text-sm font-medium text-[color:var(--delegation-purple)]">
@@ -2773,9 +2778,9 @@ export function DepositDialog({
                   {runtimeSelectedCurrency === "USDC" ? (
                     <div className="mt-3 pt-2.5 border-t border-border/20 dark:border-border/40 text-[11px] text-muted-foreground/50 dark:text-muted-foreground/70">
                       <span className="text-[color:var(--color-miner)] font-medium">
-                        3x miner bonus
+                        {dd.successMinerBonusPrefix}
                       </span>{" "}
-                      applies at weekly rollover
+                      {dd.successMinerBonusSuffix}
                     </div>
                   ) : null}
                 </div>
@@ -2805,11 +2810,11 @@ export function DepositDialog({
             {shareUrl ? (
               <Button className="w-full" onClick={handleShare}>
                 <Share2 className="w-4 h-4 mr-2" />
-                Share
+                {dd.successShare}
               </Button>
             ) : null}
             <Button variant="outline" onClick={handleClose} className="w-full">
-              Close
+              {dd.successClose}
             </Button>
           </div>
         </div>
@@ -2865,10 +2870,10 @@ export function DepositDialog({
               transition={{ delay: 0.1 }}
             >
               {hasError
-                ? "Transaction Failed"
+                ? dd.processingTransactionFailed
                 : isPendingConfirmation
-                  ? "Transaction Pending"
-                  : "Processing Transaction"}
+                  ? dd.processingTransactionPending
+                  : dd.processingTransactionInFlight}
             </motion.div>
             <motion.div
               className="text-muted-foreground text-sm"
@@ -2877,10 +2882,10 @@ export function DepositDialog({
               transition={{ delay: 0.2 }}
             >
               {hasError
-                ? "There was an error processing your transaction."
+                ? dd.processingErrorBody
                 : isPendingConfirmation
-                  ? "Your transaction was submitted, but Glow has not indexed it yet. Please wait for indexing to catch up before trying again."
-                  : "Please wait while we process your transaction."}
+                  ? dd.processingPendingBody
+                  : dd.processingActiveBody}
             </motion.div>
           </div>
 
@@ -2914,7 +2919,7 @@ export function DepositDialog({
               >
                 {hasError
                   ? errorMessage
-                  : "The network transaction may already be mined. Glow will reflect it after the split indexer catches up. Do not submit the purchase again unless you have refreshed and confirmed nothing changed."}
+                  : dd.processingPendingExplainer}
               </p>
             </motion.div>
           ) : null}
@@ -2931,7 +2936,7 @@ export function DepositDialog({
                 onClick={handleClose}
                 className="flex-1"
               >
-                Close
+                {dd.processingClose}
               </Button>
               <Button
                 onClick={() => {
@@ -2951,10 +2956,10 @@ export function DepositDialog({
                 {isInsufficientSharesError ? (
                   <>
                     <RefreshCw className="w-4 h-4 mr-2" />
-                    Refresh & Retry
+                    {dd.processingRefreshAndRetry}
                   </>
                 ) : (
-                  "Try Again"
+                  dd.processingTryAgain
                 )}
               </Button>
             </motion.div>
@@ -2971,7 +2976,7 @@ export function DepositDialog({
                 onClick={handleClose}
                 className="w-full"
               >
-                Close
+                {dd.processingClose}
               </Button>
             </motion.div>
           )}
@@ -2985,10 +2990,10 @@ export function DepositDialog({
         <div className="px-6 pt-6 pb-3">
           <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
             {runtimeSelectedCurrency === "USDC"
-              ? "Buy Miners"
+              ? dd.reviewTitleMiners
               : runtimeSelectedCurrency === "SGCTL"
-                ? "Delegate SGCTL"
-                : "Delegate GLW"}
+                ? dd.reviewTitleSgctl
+                : dd.reviewTitleGlw}
           </DialogTitle>
           <div className="text-sm text-muted-foreground mt-1">
             {application?.farmName} • {application?.zone?.name}
@@ -3001,11 +3006,11 @@ export function DepositDialog({
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Quantity
+                {dd.reviewQuantityLabel}
               </label>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">
-                  {maxQuantity} available
+                  {dd.reviewQuantityAvailable(String(maxQuantity))}
                 </span>
                 <button
                   type="button"
@@ -3015,7 +3020,7 @@ export function DepositDialog({
                   }}
                   className="text-xs font-medium text-glow-orange hover:text-glow-orange/80 transition-colors px-2 py-0.5 rounded-md hover:bg-glow-orange/10"
                 >
-                  Max
+                  {dd.reviewMaxButton}
                 </button>
               </div>
             </div>
@@ -3069,7 +3074,7 @@ export function DepositDialog({
             <div className="relative flex justify-between items-end">
               <div>
                 <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
-                  Est. Weekly Rewards
+                  {dd.reviewEstWeeklyRewards}
                 </div>
                 <div className="flex items-baseline gap-1.5 flex-wrap">
                   {isMultiAssetEstimatedRewards ? (
@@ -3135,7 +3140,7 @@ export function DepositDialog({
               </div>
               <div className="text-right">
                 <div className="text-xs text-muted-foreground/80 mb-1">
-                  Value
+                  {dd.reviewValueLabel}
                 </div>
                 <div className="text-sm text-foreground/80 font-mono">
                   ≈ $
@@ -3151,15 +3156,15 @@ export function DepositDialog({
           <div className="flex flex-col gap-2">
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               {runtimeSelectedCurrency === "USDC"
-                ? "Select Currency"
-                : "Delegation Source"}
+                ? dd.reviewSelectCurrency
+                : dd.reviewDelegationSource}
             </label>
             <div className="space-y-2">
               {/* Option: GLW */}
               {(runtimeSelectedCurrency === "GLW" ||
                 runtimeSelectedCurrency === "USDC") && (
                 <PaymentOption
-                  label="Glow (GLW)"
+                  label={dd.paymentLabelGlw}
                   balance={
                     glwBalance
                       ? `${parseFloat(
@@ -3179,7 +3184,7 @@ export function DepositDialog({
                   pricePreview={requiredDisplayByMethod.GLW}
                   previewLabel={
                     runtimeSelectedCurrency === "GLW"
-                      ? "Delegation amount"
+                      ? dd.previewDelegationAmount
                       : undefined
                   }
                 />
@@ -3187,13 +3192,10 @@ export function DepositDialog({
               {runtimeSelectedCurrency === "SGCTL" &&
                 showStakedSgctlOption && (
                 <PaymentOption
-                  label="Staked (SGCTL)"
-                  balance={`${formatTokenAmount(
-                    stakedGctlBalance,
-                    6,
-                    "0",
-                    6,
-                  )} SGCTL in region`}
+                  label={dd.paymentLabelSgctl}
+                  balance={dd.paymentSgctlInRegion(
+                    formatTokenAmount(stakedGctlBalance, 6, "0", 6),
+                  )}
                   icon={<TokenIcon symbol="GCTL" />}
                   selected={selectedPaymentMethod === "SGCTL"}
                   onSelect={() => setSelectedPaymentMethod("SGCTL")}
@@ -3203,15 +3205,17 @@ export function DepositDialog({
                     !affordability.canSubmit
                   }
                   pricePreview={requiredDisplayByMethod.SGCTL}
-                  previewLabel="Delegation amount"
+                  previewLabel={dd.previewDelegationAmount}
                 />
               )}
               {runtimeSelectedCurrency === "SGCTL" &&
                 !sgctlPreparationCutoffGuard.isBlocked &&
                 !showStakedSgctlOption && (
                   <PaymentOption
-                    label="Control (GCTL)"
-                    balance={`${formatTokenAmount(gctlWalletBalance, 6, "0", 6)} wallet`}
+                    label={dd.paymentLabelGctl}
+                    balance={dd.paymentGctlWallet(
+                      formatTokenAmount(gctlWalletBalance, 6, "0", 6),
+                    )}
                     icon={<TokenIcon symbol="GCTL" />}
                     selected={selectedPaymentMethod === "GCTL"}
                     onSelect={() => setSelectedPaymentMethod("GCTL")}
@@ -3221,7 +3225,7 @@ export function DepositDialog({
                       !affordability.canSubmit
                     }
                     pricePreview={requiredDisplayByMethod.GCTL}
-                    previewLabel="Source amount"
+                    previewLabel={dd.previewSourceAmount}
                   />
                 )}
               {(runtimeSelectedCurrency !== "SGCTL" ||
@@ -3230,7 +3234,7 @@ export function DepositDialog({
                 <>
                   {/* Option: USDC */}
                   <PaymentOption
-                    label="USD Coin (USDC)"
+                    label={dd.paymentLabelUsdc}
                     balance={
                       usdcBalance
                         ? `${parseFloat(
@@ -3249,15 +3253,15 @@ export function DepositDialog({
                     pricePreview={requiredDisplayByMethod.USDC}
                     previewLabel={
                       runtimeSelectedCurrency === "SGCTL"
-                        ? "Source cost"
+                        ? dd.previewSourceCost
                         : runtimeSelectedCurrency === "GLW"
-                          ? "Swap cost"
+                          ? dd.previewSwapCost
                           : undefined
                     }
                   />
                   {/* Option: ETH */}
                   <PaymentOption
-                    label="Ethereum (ETH)"
+                    label={dd.paymentLabelEth}
                     balance={
                       ethBalance
                         ? `${parseFloat(formatUnits(ethBalance, 18)).toFixed(
@@ -3276,9 +3280,9 @@ export function DepositDialog({
                     pricePreview={requiredDisplayByMethod.ETH}
                     previewLabel={
                       runtimeSelectedCurrency === "SGCTL"
-                        ? "Source cost"
+                        ? dd.previewSourceCost
                         : runtimeSelectedCurrency === "GLW"
-                          ? "Swap cost"
+                          ? dd.previewSwapCost
                           : undefined
                     }
                   />
@@ -3299,8 +3303,8 @@ export function DepositDialog({
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-mono font-medium uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
                 {runtimeSelectedCurrency === "SGCTL"
-                  ? "You Delegate"
-                  : "Delegation Amount"}
+                  ? dd.reviewYouDelegate
+                  : dd.reviewDelegationAmount}
               </span>
               <div className="text-right text-sm font-semibold font-mono">
                 {delegatedAmountLabel}
@@ -3310,11 +3314,11 @@ export function DepositDialog({
           <div className="flex items-center justify-between mb-5">
             <span className="text-sm font-mono font-medium uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
               {runtimeSelectedCurrency === "SGCTL"
-                ? "Source Cost"
+                ? dd.reviewSourceCost
                 : runtimeSelectedCurrency === "GLW" &&
                     selectedPaymentMethod !== "GLW"
-                  ? "Swap Cost"
-                  : "Total"}
+                  ? dd.reviewSwapCost
+                  : dd.reviewTotal}
             </span>
             <div className="text-right">
               <div className="text-xl font-bold font-mono">
@@ -3333,8 +3337,8 @@ export function DepositDialog({
               </div>
               <div className="text-xs text-muted-foreground">
                 {selectedPaymentMethod === "USDC"
-                  ? "Stable"
-                  : `≈ $${costInUSDC(quantity).toLocaleString()}`}
+                  ? dd.reviewStable
+                  : dd.reviewApprox(costInUSDC(quantity).toLocaleString())}
               </div>
             </div>
           </div>
@@ -3405,6 +3409,8 @@ function PaymentOption({
   pricePreview: string;
   previewLabel?: string;
 }) {
+  const { t } = useLang();
+  const dd = t.routes.depositDialog;
   if (disabled) return null;
   return (
     <div
@@ -3428,7 +3434,7 @@ function PaymentOption({
               isBalanceInsufficient ? "text-red-500" : "text-muted-foreground",
             )}
           >
-            Balance: {balance}
+            {dd.paymentBalancePrefix(balance)}
           </div>
         </div>
       </div>

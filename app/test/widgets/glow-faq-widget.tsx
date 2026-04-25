@@ -7,130 +7,7 @@ import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/telemetry";
 import { useAccount } from "wagmi";
-
-interface FaqItem {
-  id: string;
-  q: string;
-  a: React.ReactNode;
-}
-
-const faqItems: FaqItem[] = [
-  {
-    id: "item-1",
-    q: "What is Glow?",
-    a: (
-      <div className="space-y-4">
-        <p>
-          Glow is a solar mining crypto protocol that helps fund the
-          construction of real-world solar farms.
-        </p>
-        <p>
-          Solar farms compete to displace the most carbon per dollar of
-          electricity revenue.
-        </p>
-        <p>
-          Unlike traditional carbon credits, Glow specifically identifies solar
-          opportunities that deliver the greatest impact (CO2 offset) per dollar
-          of funding.
-        </p>
-      </div>
-    ),
-  },
-  {
-    id: "item-2",
-    q: "What is GLW and why does it matter?",
-    a: (
-      <div className="space-y-4">
-        <p>
-          GLW is the utility token of the ecosystem. It serves two main
-          purposes:
-        </p>
-        <ul className="list-disc pl-5 space-y-2 text-muted-foreground">
-          <li>
-            <strong className="text-foreground">Incentive:</strong> Solar farms
-            earn GLW as they produce clean energy.
-          </li>
-          <li>
-            <strong className="text-foreground">Governance:</strong> It is used
-            to vote on which farms receive funding.
-          </li>
-        </ul>
-      </div>
-    ),
-  },
-  {
-    id: "item-3",
-    q: 'What does "delegating GLW" mean?',
-    a: (
-      <div className="space-y-4">
-        <p>
-          Delegating is a vetting mechanism. Solar farms need to prove
-          efficiency to get funding.
-        </p>
-        <div className="p-4 rounded-xl bg-background/50 border text-sm">
-          GLW holders "vouch" for specific farms by delegating tokens. If the
-          farm is efficient, you earn yield. If it is inefficient, you may
-          forfeit tokens.
-        </div>
-      </div>
-    ),
-  },
-  {
-    id: "item-4",
-    q: 'What is a "Glow miner"?',
-    a: (
-      <div className="space-y-4">
-        <p>
-          A Glow miner is a digital representation of a real-world solar
-          installation.
-        </p>
-        <p>
-          Purchasable with USDC, it earns GLW emissions tokens for{" "}
-          <span className="text-primary font-mono">99 weeks</span> based on the
-          electricity the physical farm generates. It bridges DeFi liquidity
-          with physical infrastructure.
-        </p>
-      </div>
-    ),
-  },
-  {
-    id: "item-5",
-    q: "Should I delegate or mine?",
-    a: (
-      <div className="space-y-4">
-        <p>
-          It depends on what you hold. If you already have GLW, delegation is the
-          most capital-efficient path: you earn two reward streams (deposit
-          recovery + protocol emissions) while keeping your tokens.
-        </p>
-        <p>
-          If you hold USDC or ETH and want to accumulate GLW over time, mining
-          positions may offer a discounted entry. Selling GLW to buy miners forfeits
-          the deposit recovery stream entirely, making it harder to rebuild your
-          position, especially if the protocol grows.
-        </p>
-      </div>
-    ),
-  },
-  {
-    id: "item-6",
-    q: "What is the Impact Leaderboard?",
-    a: (
-      <div className="space-y-4">
-        <p>
-          The Impact Leaderboard ranks wallets by{" "}
-          <span className="text-primary font-medium">Glow Impact Score</span>—a
-          points system designed to reward the actions that most directly grow
-          onchain climate impact (especially{" "}
-          <span className="text-primary font-medium">
-            steering via staked GCTL
-          </span>
-          ).
-        </p>
-      </div>
-    ),
-  },
-];
+import { useLang } from "@/lib/i18n";
 
 export default function GlowFaqWidget({
   className,
@@ -139,10 +16,12 @@ export default function GlowFaqWidget({
   className?: string;
   variant?: "default" | "minimal";
 }) {
+  const { t } = useLang();
   const { address, isConnected } = useAccount();
   const walletAddress = address?.toLowerCase() ?? null;
   const source = "glow_faq_widget";
-  const [activeId, setActiveId] = useState<string>(faqItems[0].id);
+  const faqItems = t.widgets.faq.items;
+  const [activeId, setActiveId] = useState<string>(faqItems[0]?.id ?? "");
   const isMinimal = variant === "minimal";
 
   const activeItem = faqItems.find((item) => item.id === activeId);
@@ -165,10 +44,10 @@ export default function GlowFaqWidget({
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <CardTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80 font-semibold">Glow FAQ</CardTitle>
+            <CardTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80 font-semibold">{t.widgets.faq.widgetTitle}</CardTitle>
           </div>
           <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80 bg-muted/30 dark:bg-muted/50 px-2 py-1 rounded-lg">
-            Documentation
+            {t.widgets.faq.widgetTag}
           </span>
         </div>
       </CardHeader>
@@ -216,13 +95,30 @@ export default function GlowFaqWidget({
                   <h3 className="text-lg font-semibold mb-4 text-foreground tracking-tight">
                     {activeItem.q}
                   </h3>
-                  <div className="text-sm leading-relaxed text-muted-foreground/80 dark:text-muted-foreground">
-                    {activeItem.a}
+                  <div className="text-sm leading-relaxed text-muted-foreground/80 dark:text-muted-foreground space-y-4">
+                    {activeItem.paragraphs.map((paragraph, i) => (
+                      <p key={`p-${i}`}>{paragraph}</p>
+                    ))}
+                    {activeItem.bullets && activeItem.bullets.length > 0 && (
+                      <ul className="list-disc pl-5 space-y-2 text-muted-foreground">
+                        {activeItem.bullets.map((bullet, i) => (
+                          <li key={`b-${i}`}>
+                            <strong className="text-foreground">{bullet.label}</strong>{" "}
+                            {bullet.text}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {activeItem.callout && (
+                      <div className="p-4 rounded-xl bg-background/50 border text-sm">
+                        {activeItem.callout}
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (
                 <div className="h-full flex items-center justify-center text-muted-foreground/60 dark:text-muted-foreground/80 text-xs font-mono uppercase tracking-widest">
-                  Select a question
+                  {t.widgets.faq.selectQuestion}
                 </div>
               )}
             </div>

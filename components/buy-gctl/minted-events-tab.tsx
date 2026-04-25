@@ -3,6 +3,7 @@ import { ArrowUpRight, Sparkles } from "lucide-react";
 import { formatUnits } from "viem";
 import { getCurrencyDecimals, getDisplayDecimals } from "@/lib/currency";
 import { MintedEvent } from "@glowlabs-org/utils/browser";
+import { useLang } from "@/lib/i18n";
 
 interface MintedEventsTabProps {
   mintedEvents: MintedEvent[];
@@ -15,6 +16,8 @@ export function MintedEventsTab({
   dataLoading,
   maxItems,
 }: MintedEventsTabProps) {
+  const { t } = useLang();
+  const et = t.routes.eventTabs;
   const displayedEvents = maxItems ? mintedEvents.slice(0, maxItems) : mintedEvents;
 
   if (dataLoading) {
@@ -43,10 +46,10 @@ export function MintedEventsTab({
           <Sparkles className="w-6 h-6 text-muted-foreground/60" />
         </div>
         <h3 className="text-sm font-semibold text-foreground mb-1">
-          No minted events yet
+          {et.noMintedEventsTitle}
         </h3>
         <p className="text-xs text-muted-foreground/60 max-w-sm mx-auto">
-          GCTL minting transactions will appear here
+          {et.noMintedEventsDesc}
         </p>
       </div>
     );
@@ -94,7 +97,7 @@ export function MintedEventsTab({
               </div>
               <div className="text-right">
                 <span className="text-sm font-mono tabular-nums text-muted-foreground">
-                  from {originalAmount} {displayCurrency}
+                  {et.fromAmount(originalAmount, displayCurrency)}
                 </span>
               </div>
             </div>

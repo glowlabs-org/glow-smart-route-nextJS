@@ -21,6 +21,7 @@ import {
   useMiningScore,
 } from "@/hooks";
 import { useWalletFarms, useRegions } from "@/hooks";
+import { useLang } from "@/lib/i18n";
 import type { RewardsBreakdownResponse } from "@/hooks/hub-fractions";
 import type { SplitActivity } from "@/hooks/hub-listings";
 import { FallbackImage } from "@/components/ui/fallback-image";
@@ -53,6 +54,8 @@ export function RewardsBreakdownPanel({
   isRewardsBreakdownError,
   splitsActivity: preloadedSplitsActivity,
 }: RewardsBreakdownPanelProps) {
+  const { t } = useLang();
+  const rb = t.bigDialogs.rewardsBreakdown;
   const [selectedFarmForDetails, setSelectedFarmForDetails] = useState<{
     farmId: string;
     farmName: string;
@@ -373,15 +376,15 @@ export function RewardsBreakdownPanel({
 
   const getDescription = () => {
     if (hasDelegations && hasMiners) {
-      return "Detailed breakdown of your delegations and miners";
+      return rb.delegationsAndMinersDesc;
     }
     if (hasDelegations) {
-      return "Detailed breakdown of your delegations";
+      return rb.delegationsDesc;
     }
     if (hasMiners) {
-      return "Detailed breakdown of your miners";
+      return rb.minersDesc;
     }
-    return "Detailed breakdown of your rewards";
+    return rb.rewardsDesc;
   };
 
   const getFarmMetadata = (farmId: string) => {
@@ -420,12 +423,13 @@ export function RewardsBreakdownPanel({
           <DialogHeader>
             <DialogTitle>{selectedFarmForDetails?.farmName}</DialogTitle>
             <DialogDescription>
-              Weekly rewards breakdown for this{" "}
-              {selectedFarmForDetails?.type === "launchpad"
-                ? "delegation"
-                : selectedFarmForDetails?.type === "mining-center"
-                  ? "miner"
-                  : "farm"}
+              {rb.weeklyFor(
+                selectedFarmForDetails?.type === "launchpad"
+                  ? rb.delegationNoun
+                  : selectedFarmForDetails?.type === "mining-center"
+                    ? rb.minerNoun
+                    : rb.farmNoun,
+              )}
             </DialogDescription>
           </DialogHeader>
 
@@ -436,14 +440,14 @@ export function RewardsBreakdownPanel({
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b bg-muted/50">
-                        <th className="text-left p-3 font-medium">Week</th>
+                        <th className="text-left p-3 font-medium">{rb.week}</th>
                         <th className="text-right p-3 font-medium">
-                          Emissions
+                          {rb.emissions}
                         </th>
                         <th className="text-right p-3 font-medium">
-                          Protocol Deposit
+                          {rb.protocolDeposit}
                         </th>
-                        <th className="text-right p-3 font-medium">Total</th>
+                        <th className="text-right p-3 font-medium">{rb.total}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -515,7 +519,7 @@ export function RewardsBreakdownPanel({
                     </tbody>
                     <tfoot>
                       <tr className="border-t bg-muted/50 font-semibold">
-                        <td className="p-3">Total</td>
+                        <td className="p-3">{rb.total}</td>
                         <td className="p-3 text-right">
                           {formatGLW(selectedFarmDetails.totalInflationRewards)}{" "}
                           GLW
@@ -629,7 +633,7 @@ export function RewardsBreakdownPanel({
               className="w-full sm:w-auto"
             >
               <Gift className="w-4 h-4 mr-2" />
-              Claim Rewards
+              {rb.claimRewards}
             </Button>
           </div>
         </CardHeader>
@@ -641,7 +645,7 @@ export function RewardsBreakdownPanel({
                 <Card>
                   <CardContent className="p-6 py-2">
                     <div className="text-sm text-muted-foreground mb-3">
-                      Delegated
+                      {rb.delegated}
                     </div>
                     <div className="text-4xl font-bold mb-3">
                       {delegatedGLW} GLW
@@ -659,7 +663,7 @@ export function RewardsBreakdownPanel({
                   {totalEarnings === 0 && pendingEstimatedWeeklyGlwTotal > 0 ? (
                     <>
                       <div className="text-sm text-muted-foreground mb-3">
-                        Estimated Weekly Rewards
+                        {rb.estWeeklyRewards}
                       </div>
                       <div className="text-4xl font-bold mb-3">
                         ~
@@ -780,7 +784,7 @@ export function RewardsBreakdownPanel({
             {delegations.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold">Delegations</h3>
+                  <h3 className="text-lg font-semibold">{rb.delegations}</h3>
                   <span className="text-sm text-muted-foreground">
                     Total Earned:{" "}
                     <span className="font-semibold text-foreground">
@@ -828,7 +832,7 @@ export function RewardsBreakdownPanel({
                             <div className="space-y-3 text-sm">
                               <div className="flex justify-between items-center">
                                 <span className="text-xs text-muted-foreground">
-                                  Delegated
+                                  {rb.delegated}
                                 </span>
                                 <span className="font-semibold">
                                   {formatGLW(farm.amountInvested)} GLW
@@ -836,7 +840,7 @@ export function RewardsBreakdownPanel({
                               </div>
                               <div className="flex justify-between items-center">
                                 <span className="text-xs text-muted-foreground">
-                                  Weeks Remaining
+                                  {rb.weeksRemaining}
                                 </span>
                                 <span className="font-semibold">
                                   {100 - farm.totalWeeksEarned}
@@ -844,7 +848,7 @@ export function RewardsBreakdownPanel({
                               </div>
                               <div className="flex justify-between items-center pb-2 border-b">
                                 <span className="text-xs text-muted-foreground">
-                                  Last Week
+                                  {rb.lastWeek}
                                 </span>
                                 <span className="font-medium">
                                   {formatGLW(farm.lastWeekRewards)} GLW
@@ -908,7 +912,7 @@ export function RewardsBreakdownPanel({
                               </div>
                               <div className="flex justify-between items-center">
                                 <span className="text-xs text-muted-foreground">
-                                  Total Earned
+                                  {rb.totalEarned}
                                 </span>
                                 <span className="font-semibold">
                                   {formatGLW(farm.totalEarnedSoFar)} GLW
@@ -929,7 +933,7 @@ export function RewardsBreakdownPanel({
                                   });
                                 }}
                               >
-                                See Details
+                                {rb.seeDetails}
                                 <ChevronRight className="w-4 h-4 ml-2" />
                               </Button>
                               <Button
@@ -943,7 +947,7 @@ export function RewardsBreakdownPanel({
                                   );
                                 }}
                               >
-                                See Audit
+                                {rb.seeAudit}
                                 <ExternalLink className="w-4 h-4 ml-2" />
                               </Button>
                             </div>
@@ -960,7 +964,7 @@ export function RewardsBreakdownPanel({
             {miners.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold">Mining</h3>
+                  <h3 className="text-lg font-semibold">{rb.mining}</h3>
                   <span className="text-sm text-muted-foreground">
                     Total Earned:{" "}
                     <span className="font-semibold text-foreground">
@@ -1008,7 +1012,7 @@ export function RewardsBreakdownPanel({
                             <div className="space-y-3 text-sm">
                               <div className="flex justify-between items-center">
                                 <span className="text-xs text-muted-foreground">
-                                  Weeks Remaining
+                                  {rb.weeksRemaining}
                                 </span>
                                 <span className="font-semibold">
                                   {99 - farm.totalWeeksEarned}
@@ -1016,7 +1020,7 @@ export function RewardsBreakdownPanel({
                               </div>
                               <div className="flex justify-between items-center">
                                 <span className="text-xs text-muted-foreground">
-                                  Last Week
+                                  {rb.lastWeek}
                                 </span>
                                 <span className="font-medium">
                                   {formatGLW(farm.lastWeekRewards)} GLW
@@ -1024,7 +1028,7 @@ export function RewardsBreakdownPanel({
                               </div>
                               <div className="flex justify-between items-center pt-2 border-t">
                                 <span className="text-xs text-muted-foreground">
-                                  Total Earned
+                                  {rb.totalEarned}
                                 </span>
                                 <span className="font-semibold">
                                   {formatGLW(farm.totalEarnedSoFar)} GLW
@@ -1045,7 +1049,7 @@ export function RewardsBreakdownPanel({
                                   });
                                 }}
                               >
-                                See Details
+                                {rb.seeDetails}
                                 <ChevronRight className="w-4 h-4 ml-2" />
                               </Button>
                               <Button
@@ -1059,7 +1063,7 @@ export function RewardsBreakdownPanel({
                                   );
                                 }}
                               >
-                                See Audit
+                                {rb.seeAudit}
                                 <ExternalLink className="w-4 h-4 ml-2" />
                               </Button>
                             </div>
@@ -1077,7 +1081,7 @@ export function RewardsBreakdownPanel({
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h3 className="text-lg font-semibold">Other Rewards</h3>
+                    <h3 className="text-lg font-semibold">{rb.otherRewards}</h3>
                     <p className="text-sm text-muted-foreground mt-1">
                       Farms where you have reward splits (e.g., farm owner
                       rewards)
@@ -1152,7 +1156,7 @@ export function RewardsBreakdownPanel({
                               {farm.weeksLeft !== null && (
                                 <div className="flex justify-between items-center">
                                   <span className="text-xs text-muted-foreground">
-                                    Weeks Remaining
+                                    {rb.weeksRemaining}
                                   </span>
                                   <span className="font-semibold">
                                     {farm.weeksLeft}
@@ -1162,7 +1166,7 @@ export function RewardsBreakdownPanel({
                               {farm.asset && (
                                 <div className="flex justify-between items-center">
                                   <span className="text-xs text-muted-foreground">
-                                    PD Asset
+                                    {rb.pdAsset}
                                   </span>
                                   <Badge
                                     variant="outline"
@@ -1174,7 +1178,7 @@ export function RewardsBreakdownPanel({
                               )}
                               <div className="flex justify-between items-center pb-2 border-b">
                                 <span className="text-xs text-muted-foreground">
-                                  Last Week
+                                  {rb.lastWeek}
                                 </span>
                                 <span className="font-medium">
                                   {formatGLW(farm.lastWeekRewards)} GLW
@@ -1247,7 +1251,7 @@ export function RewardsBreakdownPanel({
                               </div>
                               <div className="flex justify-between items-center pt-2 border-t">
                                 <span className="text-xs text-muted-foreground">
-                                  Total Earned on V2
+                                  {rb.totalEarned} on V2
                                 </span>
                                 <div className="flex flex-col items-end gap-1">
                                   {!farm.asset || farm.asset === "GLW" ? (
@@ -1302,7 +1306,7 @@ export function RewardsBreakdownPanel({
                                 });
                               }}
                             >
-                              See Details
+                              {rb.seeDetails}
                               <ChevronRight className="w-4 h-4 ml-2" />
                             </Button>
                             <Button
@@ -1316,7 +1320,7 @@ export function RewardsBreakdownPanel({
                                 );
                               }}
                             >
-                              See Audit
+                              {rb.seeAudit}
                               <ExternalLink className="w-4 h-4 ml-2" />
                             </Button>
                           </div>
@@ -1333,7 +1337,7 @@ export function RewardsBreakdownPanel({
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h3 className="text-lg font-semibold">Pending Rewards</h3>
+                    <h3 className="text-lg font-semibold">{rb.pendingRewards}</h3>
                     <p className="text-sm text-muted-foreground mt-1">
                       Recent purchases that will start earning rewards in
                       upcoming weeks
@@ -1402,7 +1406,7 @@ export function RewardsBreakdownPanel({
                                   {farmName}
                                 </h3>
                                 <Badge variant="secondary" className="text-xs">
-                                  Pending
+                                  {rb.pending}
                                 </Badge>
                               </div>
                               {regionName && (
@@ -1415,7 +1419,7 @@ export function RewardsBreakdownPanel({
                             <div className="space-y-3 text-sm">
                               <div className="flex justify-between items-center">
                                 <span className="text-xs text-muted-foreground">
-                                  Type
+                                  {rb.type}
                                 </span>
                                 <div className="flex gap-1">
                                   {pending.types.map((type) => (
@@ -1477,7 +1481,7 @@ export function RewardsBreakdownPanel({
                                 );
                               }}
                             >
-                              See Audit
+                              {rb.seeAudit}
                               <ExternalLink className="w-4 h-4 ml-2" />
                             </Button>
                           </div>
