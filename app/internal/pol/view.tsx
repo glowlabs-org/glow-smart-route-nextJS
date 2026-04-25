@@ -79,15 +79,18 @@ const MiniBlogGraphButton = dynamic<MiniBlogGraphButtonProps>(
     import("./mini-blog-graph-button").then((mod) => mod.MiniBlogGraphButton),
   {
     ssr: false,
-    loading: () => (
-      <button
-        type="button"
-        disabled
-        className="w-full rounded-xl border border-border/40 bg-muted/30 px-4 py-3 text-xs font-mono uppercase tracking-wider text-foreground/50"
-      >
-        View all topics
-      </button>
-    ),
+    loading: function MiniBlogGraphLoading() {
+      const p = usePolCopy();
+      return (
+        <button
+          type="button"
+          disabled
+          className="w-full rounded-xl border border-border/40 bg-muted/30 px-4 py-3 text-xs font-mono uppercase tracking-wider text-foreground/50"
+        >
+          {p.viewAllTopics}
+        </button>
+      );
+    },
   },
 );
 
@@ -215,6 +218,37 @@ const POL_COPY = {
     generatedCreditsLifetime: "Generated Credits (Lifetime)",
     projectedLifetimeCredits: "Projected Lifetime Credits",
     numberOfPanels: "Number of Panels",
+    openFarmDetails: (name: string) => `Open details for ${name}`,
+    learnMore: "Learn more",
+    readFullBlog: "Read the full blog",
+    viewAllTopics: "View all topics",
+    week: "Week",
+    endowment: "Endowment",
+    tradingBot: "Trading bot",
+    revenueContribution: "Revenue contribution",
+    last90Days: "Last 90 days",
+    noRegionData: "No region data available.",
+    liveBreakdownUnavailable: "Live breakdown unavailable.",
+    activeDelegators: "Active Delegators",
+    networkImpact: "Network Impact",
+    networkImpactDesc:
+      "Aggregate environmental output of Glow solar installations.",
+    homesPoweredByCleanEnergy: "Homes powered by clean energy",
+    totalPanels: "Total Panels",
+    installedCapacity: "Installed Capacity",
+    treesEquivalent: "Trees Equivalent",
+    fullyDilutedValuation: "Fully Diluted Valuation",
+    tokenFdvDesc: "Token FDV excluding embedded liquidity GLW.",
+    tokenCategoryLabels: {
+      solarFarms: "Solar farms",
+      grants: "Grants",
+      governance: "Governance",
+      ecosystem: "Ecosystem",
+      earlyStageFunding: "Early stage funding",
+      lateStageFunding: "Late stage funding",
+      grantsBootstrap: "Grants bootstrap",
+      earlyLiquidityBootstrap: "Liquidity bootstrap",
+    } as Record<string, string>,
   },
   ko: {
     clickForBasics: "기본 내용 보기 ↗",
@@ -310,6 +344,36 @@ const POL_COPY = {
     generatedCreditsLifetime: "생성된 크레딧 (누적)",
     projectedLifetimeCredits: "예상 누적 크레딧",
     numberOfPanels: "패널 수",
+    openFarmDetails: (name: string) => `${name} 세부 정보 열기`,
+    learnMore: "더 알아보기",
+    readFullBlog: "전체 블로그 읽기",
+    viewAllTopics: "전체 주제 보기",
+    week: "주",
+    endowment: "Endowment",
+    tradingBot: "트레이딩 봇",
+    revenueContribution: "수익 기여도",
+    last90Days: "최근 90일",
+    noRegionData: "지역 데이터가 없습니다.",
+    liveBreakdownUnavailable: "실시간 구성 데이터를 사용할 수 없습니다.",
+    activeDelegators: "활성 위임자",
+    networkImpact: "네트워크 임팩트",
+    networkImpactDesc: "Glow 태양광 설치의 종합 환경 성과입니다.",
+    homesPoweredByCleanEnergy: "청정 에너지 공급 가구 수",
+    totalPanels: "총 패널 수",
+    installedCapacity: "설치 용량",
+    treesEquivalent: "나무 환산치",
+    fullyDilutedValuation: "완전 희석 가치",
+    tokenFdvDesc: "내장 유동성 GLW를 제외한 토큰 FDV입니다.",
+    tokenCategoryLabels: {
+      solarFarms: "태양광 발전소",
+      grants: "그랜트",
+      governance: "거버넌스",
+      ecosystem: "생태계",
+      earlyStageFunding: "초기 단계 펀딩",
+      lateStageFunding: "후기 단계 펀딩",
+      grantsBootstrap: "그랜트 부트스트랩",
+      earlyLiquidityBootstrap: "유동성 부트스트랩",
+    } as Record<string, string>,
   },
 } as const;
 
@@ -1112,6 +1176,153 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
   },
 };
 
+function inheritMiniBlogMeta(
+  id: MiniBlogId,
+  title: string,
+  paragraphs: string[],
+): MiniBlogEntry {
+  return {
+    ...MINI_BLOGS[id],
+    title,
+    paragraphs,
+  };
+}
+
+const KO_MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
+  "glow-economy-basics": inheritMiniBlogMeta("glow-economy-basics", "Glow 경제", [
+    "Bitcoin이 토큰을 채굴 장비로 바꾸었듯, Glow는 토큰을 태양광 발전소로 바꿉니다. BTC가 Bitcoin 경제의 핵심 토큰인 것처럼 GLW는 Glow 경제의 핵심 토큰입니다. 매주 새 GLW가 발행되어 프로토콜에서 구축되는 태양광 발전소에 배분됩니다.",
+    "Glow는 태양광 발전소가 어디에 구축될지 결정할 수 있는 권한을 판매해 수익을 만듭니다. 참여자가 Glow Control(GCTL)을 민팅하기 위해 지불한 자금은 GLW의 유동성을 영구적으로 깊게 하는 데 사용됩니다. 이 유동성은 제거될 수 없기 때문에 내장 유동성이라고 부릅니다.",
+  ]),
+  "glw-token-basics": inheritMiniBlogMeta("glw-token-basics", "GLW 토큰", [
+    "GLW는 Glow 프로토콜의 네이티브 토큰입니다. 프로토콜은 매주 GLW를 발행해 세 경제 주체에 배분합니다: 마이닝 리워드를 두고 경쟁하는 활성 태양광 발전소, 그랜트 풀, 그리고 운영 비용을 위한 Glow Foundation입니다.",
+    "태양광 발전소는 검증된 청정 에너지를 생산하고 전력 매출 1달러당 임팩트 효율로 경쟁해 GLW를 획득합니다. GLW 보유자는 발전소가 프로토콜의 재무 요건을 충족하도록 GLW를 위임함으로써 이 리워드에 참여할 수 있습니다.",
+  ]),
+  "liquidity-basics": inheritMiniBlogMeta("liquidity-basics", "유동성 기본 원리", [
+    "유동성 풀은 두 자산을 보유하고 자동으로 재조정되는 포트폴리오로 이해할 수 있습니다. 여기서는 GLW와 USDC를 보유합니다. 풀은 누군가 팔고 싶을 때 매수자를, 사고 싶을 때 매도자를 제공하며, 그 대가로 각 스왑에서 수수료를 받습니다.",
+    "풀은 두 자산의 목표 비율을 유지하기 위해 계속 재조정됩니다. GLW 가격이 하락하면 USDC 비중이 커지므로 일부 USDC로 GLW를 사서 균형을 맞춥니다. GLW 가격이 상승하면 일부 GLW를 팔아 USDC를 확보합니다. 이 자동 재조정 덕분에 풀은 시장 양쪽에 깊이를 제공하고, 통과하는 모든 거래에서 수수료를 얻습니다.",
+  ]),
+  "control-basics": inheritMiniBlogMeta("control-basics", "Glow Control", [
+    "Glow는 대규모 태양광 전력을 생산하는 프로토콜이며, Glow Control 토큰은 이해관계자가 그 전력이 세계 어디에서 생산될지 지정할 수 있게 합니다. GCTL 보유자는 특정 지역에 토큰을 스테이크하고, 프로토콜은 그 비율에 따라 리워드를 배분합니다.",
+    "GCTL이 민팅될 때 지불된 자금은 Glow Endowment로 직접 유입되어 GLW 뒤의 내장 유동성을 영구적으로 깊게 합니다. 따라서 태양광 구축 지역을 조정하는 의사결정은 동시에 토큰 경제의 기반을 강화합니다.",
+  ]),
+  "solar-installations-basics": inheritMiniBlogMeta("solar-installations-basics", "월간 태양광 구축", [
+    'Glow 생태계에서 "태양광 발전소"는 4kW 주거용 옥상 시스템부터 16MW 유틸리티 규모 배열까지 모든 규모의 태양광 설치를 의미합니다. 각 발전소는 같은 지역의 다른 발전소와 비교해 임팩트 효율을 기준으로 GLW 리워드를 경쟁합니다.',
+    "월간 태양광 구축은 Glow가 새 발전 용량을 얼마나 빠르게 추가하는지 보여줍니다. 최근 13주 동안 Glow에서 활성화된 모든 발전소의 명목 용량을 합산하고, 이를 4주 월간 평균으로 환산해 kW 단위로 표시합니다.",
+    "발전소는 정확히 100주 동안 Glow 프로토콜에서 활성 상태입니다. 이 기간 동안 GLW를 획득하고 지역 내 경쟁을 하며, 성과에 따라 위임자의 프로토콜 디포짓을 회수합니다. 100주 후에는 GLW 리워드가 종료되지만, 설치된 태양광 설비는 이후 수십 년 동안 청정 에너지와 검증된 임팩트를 계속 생산합니다.",
+  ]),
+  "uniswap-vs-protocol-liquidity": inheritMiniBlogMeta("uniswap-vs-protocol-liquidity", "Uniswap 유동성과 내장 유동성", [
+    "Uniswap 같은 일반 DEX의 유동성은 개별 LP가 소유합니다. 이들은 거래 수수료를 얻기 위해 토큰을 예치하는 트레이더, 펀드, 기관이며 언제든 유동성을 회수할 수 있습니다. 변동성이 예상보다 커지면 합리적인 LP는 비영구 손실을 피하려고 자금을 회수합니다.",
+    "따라서 유동성이 가장 중요한 순간에 LP는 오히려 회수할 유인이 가장 강합니다. 충분한 LP가 동시에 회수하면 다른 참여자가 거래할 기회를 얻기 전에 풀의 가용 깊이가 크게 줄어들 수 있습니다.",
+    "내장 유동성은 회수 옵션을 제거해 이 문제를 해결합니다. Glow Endowment의 유동성 포지션은 영구적이므로 변동성, 하락장, 패닉 매도 속에서도 시장 깊이를 제공합니다. 이 유동성은 가장 필요할 때 존재하며, 시장 상황과 관계없이 거래 수수료로 복리 성장합니다.",
+  ]),
+  "glow-endowment": inheritMiniBlogMeta("glow-endowment", "Glow Endowment", [
+    "Glow Endowment는 GLW/USDC Uniswap 풀의 내장 유동성입니다. Glow가 프로토콜 수익을 얻으면 공개 시장에서 GLW를 매수하는 데 사용합니다. 이렇게 확보한 GLW와 남은 USDC는 함께 영구 유동성 포지션으로 투입되며 회수할 수 없습니다.",
+    "Endowment는 Uniswap LP 포지션이므로 거래 활동을 통해 자동 재조정됩니다. GLW가 상승하면 풀은 GLW를 팔고 USDC를 축적합니다. GLW가 하락하면 USDC 준비금으로 GLW를 매수해 유통량에서 제거합니다. 이 재조정은 사람의 개입 없이 이루어지며 양방향 거래 깊이를 제공합니다.",
+    "Endowment는 모든 스왑에서 거래 수수료를 얻고, 이 수수료는 포지션에 직접 복리로 더해집니다. GCTL 민팅 수익은 새 자본을 추가하고, 거래 수수료는 그 위에서 복리 성장합니다.",
+  ]),
+  "embedded-liquidity-growth-basics": inheritMiniBlogMeta("embedded-liquidity-growth-basics", "내장 유동성 성장", [
+    "내장 유동성 성장은 Glow Endowment의 영구 유동성 포지션이 얼마나 빠르게 복리 성장하는지 측정합니다. APY로 표시되는 성장률은 GCTL 민팅 수익과 풀의 모든 스왑에서 얻은 거래 수수료라는 두 자금 유입원을 반영합니다.",
+    "Endowment가 아직 초기 확장 단계에 있기 때문에 절대 깊이가 커지는 중에도 연환산 성장률은 높게 보일 수 있습니다. 기반이 커질수록 APY는 완화될 수 있지만, 기간당 추가되는 절대 금액은 계속 증가합니다.",
+  ]),
+  "circulating-supply-basics": inheritMiniBlogMeta("circulating-supply-basics", "GLW 유통 공급량", [
+    "모든 GLW가 자유롭게 거래 가능한 것은 아닙니다. 가장 큰 비유통 범주는 내장 GLW와 위임된 GLW입니다. 내장 GLW는 Glow Endowment의 유동성 포지션 안에 영구적으로 잠겨 있으며, USDC로 스왑될 때만 유통으로 돌아올 수 있습니다. 위임된 GLW는 100주 동안 발전소 vault에 커밋되어 거래에 사용할 수 없습니다.",
+    "그 밖에도 프로토콜은 Grants Treasury, Veto Council, GCA 및 Miner Pool, Early Liquidity 배정 등 여러 컨트랙트 지갑에 GLW를 보유합니다. 유통 공급량은 이러한 잔액을 제외한 나머지로, 시장 참여자가 실제 접근할 수 있는 토큰을 나타냅니다.",
+  ]),
+  "why-liquidity-instead-of-dollars": inheritMiniBlogMeta("why-liquidity-instead-of-dollars", "왜 달러가 아니라 유동성인가?", [
+    "특정 LP 포지션의 유동성은 단조롭게 증가합니다. 가격이 움직이면 LP의 달러 가치와 토큰 수량은 변하지만, 유동성 수량은 그대로 유지되거나 누적 수수료로 증가합니다. 1,000 유동성 단위로 시작한 포지션은 가격이 어떻게 움직여도 1,000 아래로 내려가지 않습니다.",
+    "달러 표시 지표는 가격에 따라 흔들립니다. GLW 가격이 두 배가 되면 풀의 GLW 준비금 달러 가치는 증가하지만, 재조정 때문에 풀은 더 적은 GLW와 더 많은 USDC를 보유하게 됩니다. 달러 수치가 올라도 대규모 GLW 매도를 흡수하는 실제 능력은 줄어들 수 있습니다.",
+    "이 특성은 Glow Endowment에서 특히 중요합니다. Endowment는 모든 스왑 수수료를 포지션에 복리로 더하는 영구 GLW/USDC LP 포지션입니다. 그래서 새 프로토콜 수익이 없어도 유동성은 성장합니다.",
+  ]),
+  "farm-revenue-distribution": inheritMiniBlogMeta("farm-revenue-distribution", "태양광 발전소 가치", [
+    "모든 지역은 Glow 프로토콜에 가치를 제공하고, 각 태양광 발전소는 자신이 속한 지역에 가치를 제공합니다. 이 가치는 마이너 판매, GCTL 민팅 귀속, GCTL 수익 귀속이라는 세 수익 흐름을 통해 프로토콜의 내장 유동성으로 들어갑니다.",
+    "마이너 판매는 발전소가 GLW 리워드 스트림 일부를 판매할 때 발생합니다. 운영 바운티를 제외한 수익은 Endowment에 새 유동성으로 들어갑니다. GCTL 민팅 귀속은 지역에 스테이킹된 GCTL과 해당 지역 내 발전소의 검증된 임팩트 크레딧에 따라 새 GCTL 민팅 수익 일부를 각 발전소에 배분합니다. GCTL 수익 귀속도 같은 방식이지만 새 자본이 아니라 Endowment가 얻은 거래 수수료와 재조정 이익을 배분합니다.",
+  ]),
+  "wallet-participants-basics": inheritMiniBlogMeta("wallet-participants-basics", "지갑 통계", [
+    "프로토콜 참여자는 Glow 생태계에서 의미 있는 온체인 활동을 한 지갑입니다. 마이닝 프랙션 구매, 리워드 분배에 등장, GCTL 스테이킹 등 첫 프로토콜 행동을 수행하면 참여자로 간주됩니다.",
+    "참여자는 서로 겹칠 수 있는 세 범주로 나뉩니다. 위임자는 활성 vault 소유 지분을 보유하고 GLW를 태양광 발전소 지원에 커밋합니다. 마이너는 경쟁 리워드 시스템에 참여하기 위해 마이닝 센터 프랙션을 구매합니다. GCTL 보유자는 지분을 스테이킹해 프로토콜이 태양광 인프라를 어디에 구축할지 지시합니다.",
+    "대시보드는 총 프로토콜 참여자 수와 주간 신규 지갑 활동 속도를 함께 추적합니다. 이를 통해 Glow 경제의 현재 규모와 신규 참여자 유입 속도를 볼 수 있습니다.",
+  ]),
+  "delegation-metrics-basics": inheritMiniBlogMeta("delegation-metrics-basics", "집계 위임 메커니즘", [
+    "매주 GLW 보유자는 토큰을 태양광 발전소에 위임하며, 토큰은 프로토콜 디포짓 역할을 하는 vault에 잠깁니다. 이 디포짓은 발전소가 경쟁 마이닝 시스템에 참여하기 위해 필요합니다. 일단 위임되면 GLW는 발전소의 100주 리워드 수명 동안 커밋되고, 디포짓 회수 과정에서 점진적으로 유통으로 돌아옵니다.",
+    "위임된 GLW는 유통 공급량에 포함되지 않습니다. vault에 잠겨 거래할 수 없기 때문에 장기간 시장에서 사실상 제거됩니다. 현재 위임된 GLW 총량과 과거 위임이 해제되는 속도가 특정 시점의 유통 공급량에 미치는 순효과를 결정합니다.",
+  ]),
+  "region-revenue-basics": inheritMiniBlogMeta("region-revenue-basics", "지역별 수익", [
+    "Glow는 여러 지리적 지역에서 운영되며, 각 지역에는 경쟁하는 태양광 발전소 풀이 있습니다. 각 지역 안에서 발전소는 검증된 임팩트 효율로 경쟁합니다. 전력 매출 1달러당 더 많은 임팩트를 생산하는 발전소가 해당 지역에 배정된 리워드의 더 큰 몫을 가져갑니다.",
+    "각 지역의 수익은 지역의 총 임팩트와 Glow 생태계 참여자가 해당 지역에 보이는 관심을 기반으로 생성됩니다.",
+  ]),
+  "network-impact-basics": inheritMiniBlogMeta("network-impact-basics", "네트워크 임팩트", [
+    "네트워크 임팩트는 Glow 프로토콜의 모든 태양광 설치가 만들어내는 종합 환경 성과를 측정합니다. 이 수치는 토큰 경제가 지원하는 발전소가 생산한 실제 에너지와 탄소 대체 효과를 나타냅니다.",
+    "대시보드는 전체 발전소의 총 태양광 패널 수, 연간 MW 단위 발전 용량, 그 에너지로 공급 가능한 가구 수, 같은 탄소량을 상쇄하는 데 필요한 성목 수 환산치를 추적합니다. 각 지표는 새 발전소가 참여하고 기존 설치가 100주 리워드 기간 이후에도 청정 에너지를 계속 생산하면서 성장합니다.",
+    "이 지표들은 Glow 프로토콜의 심장박동입니다. 모든 토큰 민팅, 위임, GCTL 스테이킹은 궁극적으로 이 임팩트 수치를 높이기 위해 존재합니다.",
+  ]),
+  "emissions-schedule": inheritMiniBlogMeta("emissions-schedule", "발행 스케줄", [
+    "Glow 프로토콜은 매주 230,000 GLW를 발행해 세 그룹에 배분합니다: 마이닝 리워드를 두고 경쟁하는 활성 태양광 발전소에 175,000, 생태계 개발을 위한 그랜트 풀에 40,000, 거버넌스와 운영 비용을 위한 Glow Foundation에 15,000입니다.",
+    "이 고정 주간 발행이 새 GLW의 유일한 공급원입니다. 임의적이거나 가변적인 민팅은 없습니다. 예측 가능한 스케줄 덕분에 참여자는 미래 공급량을 모델링하고 위임 리워드, 발전소 경제성, 유통 공급량이 어떻게 변할지 평가할 수 있습니다.",
+  ]),
+  "delegating-tokens": inheritMiniBlogMeta("delegating-tokens", "GLW 위임", [
+    "Glow의 태양광 마이닝 인센티브에 참여하려면 발전소가 프로토콜 디포짓을 게시해야 합니다. 위임은 GLW 보유자가 발전소를 대신해 이 디포짓을 제공하고, 100주 동안 GLW를 커밋하는 방식입니다. 위임자는 그 대가로 발전소의 경쟁 성과에 따른 디포짓 회수와 주간 GLW 인플레이션 리워드 일부를 받습니다.",
+    "위임자의 역할은 각 발전소의 경쟁력 대비 리워드 조건이 매력적인지 평가하고 그에 따라 GLW를 커밋하는 것입니다.",
+  ]),
+  "glw-token-value": inheritMiniBlogMeta("glw-token-value", "GLW 토큰 가치", [
+    "GLW의 기본 가치는 내장 유동성에 의해 지지됩니다. Glow Endowment는 GCTL 민팅 수익과 복리 거래 수수료로 성장하는 영구 유동성 포지션입니다. 이 유동성은 회수될 수 없기 때문에 토큰 가격 아래에 점점 강화되는 시장 깊이의 바닥을 형성합니다.",
+    "장기적으로 보면 초기 투기가 사라지고 거래량이 정상화된 뒤에도 내장 유동성은 남습니다. 이는 프로토콜의 경제 활동이 생성해 토큰을 지지하도록 영구 커밋된 실제 자본입니다. 순환적인 투기 수요와 달리 내장 유동성은 누적됩니다.",
+  ]),
+  "embedded-liquidity": inheritMiniBlogMeta("embedded-liquidity", "내장 유동성", [
+    "내장 유동성은 GLW/USDC 거래 풀에 영구적으로 커밋됩니다. 언제든 회수 가능한 개인 LP의 일반 유동성과 달리, 내장 유동성은 일방향 커밋입니다. 풀에 들어가면 제거될 수 없습니다. 따라서 시장 상황과 관계없이 GLW 보유자가 거래할 수 있는 기본 시장 깊이가 항상 존재합니다.",
+    "내장 유동성은 프로토콜이 두 원천에서 수익을 만들면서 성장합니다. 첫째는 새 Glow Control(GCTL)을 민팅하는 사람들의 수익이고, 둘째는 사람들이 거래 풀을 사용할 때 발생하는 거래 수수료입니다. 포지션이 영구적이므로 이 수수료는 계속 누적되고, 더 큰 포지션은 더 많은 수수료를 벌어 다시 포지션을 더 빠르게 키웁니다.",
+  ]),
+  "minting-gctl": inheritMiniBlogMeta("minting-gctl", "GCTL 민팅", [
+    "누구나 USDC로 새 GCTL 토큰을 민팅할 수 있습니다. GCTL 1개 민팅 가격은 현재 GLW 토큰 가격의 제곱근을 5센트 단위로 반올림한 값입니다. 예를 들어 GLW가 $9라면 GCTL 1개는 약 $3이고, GLW가 $100라면 민트 가격은 약 $10입니다.",
+    "GCTL 민팅에 사용된 모든 자금은 내장 유동성이 되어 GLW 토큰에 영구 유동성 지원을 제공합니다. 민팅된 각 GCTL은 토큰의 시장 깊이와 가격 안정성을 뒷받침하는 내장 유동성을 깊게 하여 GLW 경제를 강화합니다.",
+  ]),
+  "embedded-glw-supply": inheritMiniBlogMeta("embedded-glw-supply", "내장 GLW 공급량", [
+    "Glow Endowment의 유동성 포지션 안에 있는 GLW는 영구적으로 커밋되어 독립적으로 회수하거나 거래할 수 없습니다. 이 GLW는 사실상 유통에서 제거되어 공개 시장에서 이용 가능한 토큰 수를 줄입니다.",
+    "Endowment가 Uniswap LP 포지션이기 때문에 GLW 잔액은 가격에 따라 변합니다. GLW 가격이 하락하면 풀의 자동 재조정이 USDC 준비금으로 GLW를 매수해 포지션 안의 GLW를 늘리고 유통 공급량을 더 줄입니다. 가격이 상승하면 풀은 GLW를 USDC로 팔아 일부를 시장 쪽으로 되돌립니다. 이 구조는 하락장에는 공급을 조이고 상승장에는 완화하는 안정화 효과를 제공합니다.",
+  ]),
+  "constant-product-rule": inheritMiniBlogMeta("constant-product-rule", "상수곱 규칙", [
+    "상수곱 규칙은 Uniswap 같은 자동화 마켓메이커의 수학적 기반입니다. 풀의 두 토큰 준비금의 곱은 항상 일정해야 합니다: x * y = k. 여기서 x는 한 토큰의 수량, y는 다른 토큰의 수량, k는 누적 수수료로만 증가하는 상수입니다.",
+    "누군가 풀에서 GLW를 사면 USDC를 넣고 GLW를 가져갑니다. USDC 준비금은 증가하고 GLW 준비금은 감소하지만 x * y는 여전히 k와 같습니다. 이 제약이 가격 변화를 강제하며, GLW가 풀에서 희소해질수록 추가 1개 가격은 더 비싸집니다.",
+  ]),
+  "superlinear-market-cap": inheritMiniBlogMeta("superlinear-market-cap", "초선형 시가총액", [
+    "전통 시장에서 시가총액은 가격과 선형적으로 움직입니다. 가격이 두 배가 되면 시가총액도 두 배가 됩니다. 내장 유동성이 있는 시스템에서는 관계가 초선형이 됩니다. GLW 가격이 오르면 Endowment의 USDC 준비금은 재조정으로 증가하고, 더 큰 거래량에서 수수료 수입도 증가합니다.",
+    "이 초선형 동학은 내장 유동성이 높은 가치평가에서 불균형적으로 더 강한 지지력을 제공한다는 뜻입니다. 프로토콜의 유동성 기반은 성장에 맞춰가는 데 그치지 않고 앞서 가며, 토큰이 확장될수록 더 탄력적인 시장 깊이를 만듭니다.",
+  ]),
+  "100-weeks-of-rewards": inheritMiniBlogMeta("100-weeks-of-rewards", "100주 리워드", [
+    "Glow 프로토콜의 모든 태양광 발전소는 고정된 100주 리워드 수명 주기를 가집니다. 이 기간 동안 발전소는 검증된 임팩트 효율로 지역 내 다른 발전소와 경쟁해 GLW를 획득합니다. 발전소의 프로토콜 디포짓도 경쟁 성과에 따라 이 기간 동안 회수됩니다.",
+    "100주 후 발전소는 GLW 리워드를 더 이상 받지 않고 프로토콜 디포짓도 완전히 분배됩니다. 하지만 태양광 설치 자체는 수십 년 동안 청정 에너지를 계속 생산합니다. 100주는 발전소의 유효 수명이 아니라 경제적 참여 기간을 정의합니다.",
+  ]),
+  "durable-liquidity": inheritMiniBlogMeta("durable-liquidity", "지속 가능한 유동성", [
+    "토큰 경제의 총 유효 유동성은 회수 가능한 유동성과 내장 유동성이라는 두 구성요소를 가집니다. 회수 가능한 유동성은 수익을 얻기 위해 외부 LP가 제공한 자본이며, 조건이 바뀌면 이동합니다. 내장 유동성은 프로토콜 자체가 생성한 자본이며 영구적이고 제거할 수 없습니다.",
+    "회수 가능한 유동성은 스트레스 상황에서 신뢰하기 어렵기 때문에, 프로토콜이 실제로 의존할 수 있는 유동성을 평가할 때 안정성 계수로 할인해야 합니다. Glow의 설계는 내장 유동성이 회수 가능한 유동성을 크게 초과하는 정상 상태를 목표로 합니다.",
+  ]),
+  "market-cap-exitable": inheritMiniBlogMeta("market-cap-exitable", "인출 가능 시가총액", [
+    "인출 가능 시가총액은 토큰의 전체 시가총액 중 현실적으로 큰 슬리피지 없이 달러로 전환될 수 있는 비율을 측정합니다. 대부분의 토큰은 유동성이 얕고 스트레스 상황에서 회수되는 이동성 LP가 제공하기 때문에, 이 비율은 명목 시가총액의 작은 일부에 그칩니다.",
+  ]),
+  "endowment-bot": inheritMiniBlogMeta("endowment-bot", "Endowment 봇", [
+    "Endowment 봇은 Glow Endowment의 유동성 운영을 관리하는 자동화 시스템입니다. GCTL 민팅 수익과 풀에서 얻은 수수료를 영구 유동성 포지션으로 효율적으로 전환하고 복리화하는 과정을 처리합니다.",
+  ]),
+  "delegations-operational-risk": inheritMiniBlogMeta("delegations-operational-risk", "기대값 기반 리워드", [
+    "위임자는 Glow 프로토콜에서 태양광 발전소를 지원할 때 운영 리스크로부터 보호됩니다. 리워드는 실제 에너지 출력이 아니라 발전소의 감사된 성능 역량을 기준으로 계산되므로, 날씨, 장비 중단, 계절 변동이 위임자 수익을 줄이지 않습니다.",
+    "이 설계는 위임의 금융 리스크와 태양광 운영의 물리적 리스크를 분리합니다. 위임자는 발전소의 경쟁 위치, 리워드 조건, 검증된 역량을 평가하고, 발전소 운영자는 장비 유지와 출력 극대화의 운영 리스크를 부담합니다.",
+  ]),
+  "token-fdv": inheritMiniBlogMeta("token-fdv", "토큰 FDV", [
+    "완전 희석 가치(FDV)는 오늘의 시장 가격을 기준으로 앞으로 존재할 모든 GLW 토큰의 총 가치를 추정합니다. Glow 프로토콜은 정해진 발행 스케줄에 따라 매주 230,000 GLW를 발행하며, FDV는 최종 전체 공급량의 가치를 현재 가격으로 투영합니다.",
+    "중요한 점은 모든 GLW가 유효 FDV에 포함되지 않는다는 것입니다. Endowment 유동성 포지션 안에 영구적으로 내장된 GLW는 다시 유통될 수 없으므로 제외됩니다. 태양광 발전소 vault에 활성 위임된 GLW도 100주 수명 동안 잠겨 있으므로 제외됩니다.",
+  ]),
+  "glw-miners": inheritMiniBlogMeta("glw-miners", "GLW 마이너", [
+    "GLW 마이너는 고임팩트 발전소를 Glow 프로토콜에 온보딩하기 위해 태양광 설치자에게 현금 인센티브를 지급합니다. 그 대가로 마이너는 발전소가 수명 동안 획득하는 GLW를 받고, 필요한 프로토콜 디포짓을 제공한 위임자와 일부 리워드를 나눕니다.",
+    "마이너의 이익은 보유한 GLW에서 설치자에게 지급한 현금을 뺀 값입니다. 가장 매력적인 기회는 한계적으로 실현 가능한 태양광 발전소이면서 프로토콜에서 경쟁력이 높은 경우입니다. 이런 발전소는 더 적은 현금 인센티브로도 같은 지역의 다른 발전소 대비 강한 GLW 리워드를 얻을 수 있습니다.",
+  ]),
+  "gctl-staking": inheritMiniBlogMeta("gctl-staking", "GCTL 스테이킹", [
+    "GCTL 스테이킹은 Glow Control 토큰을 특정 지리적 지역에 커밋하는 과정입니다. 스테이킹된 GCTL은 프로토콜 자원과 발전소 리워드가 지역별로 어떻게 배분될지 결정합니다. 한 지역에 더 많은 GCTL이 스테이킹될수록 새 발전소 용량, 리워드 분배, 프로토콜 관심의 더 큰 몫을 받습니다.",
+  ]),
+};
+
+function useMiniBlogs() {
+  const { lang } = useLang();
+  return lang === "ko" ? KO_MINI_BLOGS : MINI_BLOGS;
+}
+
 const MINI_BLOG_CLUSTERS: Record<MiniBlogId, MiniBlogCluster> = {
   "glow-economy-basics": "core",
   "glw-token-basics": "core",
@@ -1176,6 +1387,7 @@ const WalletGrowthTooltip = React.memo(function WalletGrowthTooltip({
   payload?: Array<{ payload?: WalletGrowthDatum; value?: number }>;
   label?: string;
 }) {
+  const p = usePolCopy();
   if (!active || !payload?.length) return null;
 
   const datum = payload[0]?.payload;
@@ -1189,7 +1401,7 @@ const WalletGrowthTooltip = React.memo(function WalletGrowthTooltip({
         ? datum.newWallets
         : 0;
 
-  const labelText = (label ?? "").toString().trim() || "Week";
+  const labelText = (label ?? "").toString().trim() || p.week;
   const dateText =
     weekStart && weekEnd
       ? `${formatDateShortUtc(weekStart)} - ${formatDateShortUtc(weekEnd)} UTC`
@@ -1216,7 +1428,7 @@ const WalletGrowthTooltip = React.memo(function WalletGrowthTooltip({
           />
           <div className="text-right">
             <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
-              New wallets
+              {p.newWalletsPerWeek}
             </div>
             <div className="mt-0.5 text-base font-mono font-semibold tabular-nums text-foreground leading-none">
               {Math.max(0, Math.round(value)).toLocaleString()}
@@ -1422,8 +1634,10 @@ function MiniBlogPanel({
   parentBlogId?: MiniBlogId;
   className?: string;
 }) {
-  const blog = MINI_BLOGS[blogId];
-  const parentTitle = parentBlogId ? MINI_BLOGS[parentBlogId].title : null;
+  const p = usePolCopy();
+  const miniBlogs = useMiniBlogs();
+  const blog = miniBlogs[blogId];
+  const parentTitle = parentBlogId ? miniBlogs[parentBlogId].title : null;
 
   return (
     <div
@@ -1465,7 +1679,7 @@ function MiniBlogPanel({
       {blog.learnMore && blog.learnMore.length > 0 ? (
         <div className="space-y-3 pt-1">
           <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
-            LEARN MORE
+            {p.learnMore}
           </div>
           <div className="flex flex-wrap gap-2">
             {blog.learnMore.map((learnId) => (
@@ -1475,7 +1689,7 @@ function MiniBlogPanel({
                 className="rounded-lg border border-border/60 bg-card px-3.5 py-2.5 text-xs font-mono uppercase tracking-wider text-foreground/80 hover:bg-foreground hover:text-background transition-colors text-left leading-snug"
                 onClick={() => onSelectBlog(learnId)}
               >
-                {truncateBlogTitle(MINI_BLOGS[learnId].title)}
+                {truncateBlogTitle(miniBlogs[learnId].title)}
               </button>
             ))}
             {blog.externalLink && (
@@ -1510,7 +1724,7 @@ function MiniBlogPanel({
         <div className="space-y-3 pt-1">
           {blog.externalLink && (
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
-              LEARN MORE
+              {p.learnMore}
             </div>
           )}
           <div className="flex flex-wrap gap-2">
@@ -1546,7 +1760,7 @@ function MiniBlogPanel({
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-card px-3.5 py-2.5 text-xs font-mono uppercase tracking-wider text-foreground/80 hover:bg-foreground hover:text-background transition-colors leading-snug"
               >
-                Read the full blog
+                {p.readFullBlog}
                 <svg
                   width="12"
                   height="12"
@@ -1571,7 +1785,7 @@ function MiniBlogPanel({
       <MiniBlogGraphButton
         currentBlogId={blogId}
         onSelectBlog={(id) => onSelectBlog(id as MiniBlogId)}
-        miniBlogs={MINI_BLOGS}
+        miniBlogs={miniBlogs}
         miniBlogClusters={
           MINI_BLOG_CLUSTERS as Record<string, MiniBlogGraphCluster>
         }
@@ -1822,7 +2036,7 @@ const PolLiquidityTooltip = React.memo(function PolLiquidityTooltip({
     <div className="rounded-2xl border border-border/20 dark:border-border/40 bg-card px-4 py-3 min-w-[240px]">
       <div className="flex flex-col gap-0.5">
         <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-          {label ?? "Week"}
+          {label ?? copy.week}
         </div>
         {dateRangeLabel ? (
           <div className="text-[11px] text-muted-foreground">
@@ -1843,7 +2057,7 @@ const PolLiquidityTooltip = React.memo(function PolLiquidityTooltip({
           </div>
         </div>
         <div className="flex items-center justify-between gap-4">
-          <div className="text-xs text-muted-foreground">Endowment</div>
+          <div className="text-xs text-muted-foreground">{copy.endowment}</div>
           <div className="text-sm font-mono tabular-nums text-foreground">
             {typeof point.endowmentLiquidity === "number"
               ? formatLiquidityCompact(point.endowmentLiquidity)
@@ -1852,7 +2066,7 @@ const PolLiquidityTooltip = React.memo(function PolLiquidityTooltip({
         </div>
 
         <div className="flex items-center justify-between gap-4">
-          <div className="text-xs text-muted-foreground">Trading bot</div>
+          <div className="text-xs text-muted-foreground">{copy.tradingBot}</div>
           <div className="text-sm font-mono tabular-nums text-foreground">
             {typeof point.botActiveLiquidity === "number"
               ? formatLiquidityCompact(point.botActiveLiquidity)
@@ -2474,7 +2688,7 @@ const SolarFarmEconomicsSection = React.memo(
                 key={farm.key}
                 role="button"
                 tabIndex={0}
-                aria-label={`Open details for ${farm.name}`}
+                aria-label={p.openFarmDetails(farm.name)}
                 onClick={() => openFarmDialog(farm)}
                 onMouseEnter={() => prefetchFarmImage(farm)}
                 onFocus={() => prefetchFarmImage(farm)}
@@ -3154,7 +3368,7 @@ const DelegationRegionsAndImpactSection = React.memo(
                                 : null;
 
                               if (datum?.isCurrent) {
-                                return "Current";
+                                return p.current;
                               }
 
                               if (weekStart && weekEnd) {
@@ -3511,7 +3725,7 @@ const TokenEmissionsSection = React.memo(function TokenEmissionsSection({
                       key={c.key}
                       type="monotone"
                       dataKey={c.key}
-                      name={c.label}
+                      name={p.tokenCategoryLabels[c.key]}
                       stackId="1"
                       stroke={c.color}
                       strokeWidth={1}
@@ -3639,7 +3853,7 @@ const TokenEmissionsSection = React.memo(function TokenEmissionsSection({
                     const total = Math.max(1, vestingBreakdown.total);
                     const rows = VESTING_CATEGORIES.map((c) => ({
                       key: c.key,
-                      label: c.label,
+                      label: p.tokenCategoryLabels[c.key],
                       color: c.color,
                       value: vestingBreakdown.categories[c.key],
                     })).filter((r) => Number.isFinite(r.value) && r.value > 0);
@@ -3693,7 +3907,7 @@ const TokenEmissionsSection = React.memo(function TokenEmissionsSection({
                   })()
                 ) : (
                   <div className="mt-3 text-sm text-muted-foreground">
-                    Live breakdown unavailable.
+                    {p.liveBreakdownUnavailable}
                   </div>
                 )}
               </div>
@@ -6244,7 +6458,7 @@ export function PolDashboardView() {
                 </div>
               ) : (
                 <div className="text-sm text-muted-foreground py-6">
-                  No region data available.
+                  {p.noRegionData}
                 </div>
               )}
             </div>
@@ -6274,10 +6488,10 @@ export function PolDashboardView() {
             <div className="flex flex-col items-center text-center space-y-2">
               <DialogHeader className="p-0">
                 <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                  Network Impact
+                  {p.networkImpact}
                 </DialogTitle>
                 <DialogDescription className="sr-only">
-                  Aggregate environmental output of Glow solar installations.
+                  {p.networkImpactDesc}
                 </DialogDescription>
               </DialogHeader>
               <div className="text-6xl font-mono font-semibold text-foreground tracking-tighter">
@@ -6286,7 +6500,7 @@ export function PolDashboardView() {
                   : "—"}
               </div>
               <div className="text-[10px] font-mono text-muted-foreground/50 dark:text-muted-foreground/70 uppercase tracking-wider mt-2">
-                Homes powered by clean energy
+                {p.homesPoweredByCleanEnergy}
               </div>
             </div>
           </div>
@@ -6294,7 +6508,7 @@ export function PolDashboardView() {
             <div className="grid grid-cols-3 gap-2 sm:gap-4">
               <div className="min-w-0 rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-3 sm:p-4">
                 <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                  Total Panels
+                  {p.totalPanels}
                 </div>
                 <div className="mt-2 text-xl sm:text-3xl font-semibold font-mono tabular-nums">
                   {impactTotals?.panels != null
@@ -6304,7 +6518,7 @@ export function PolDashboardView() {
               </div>
               <div className="min-w-0 rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-3 sm:p-4">
                 <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                  Installed Capacity
+                  {p.installedCapacity}
                 </div>
                 <div className="mt-2 text-xl sm:text-3xl font-semibold font-mono tabular-nums">
                   {impactTotals?.capacityMw != null
@@ -6317,7 +6531,7 @@ export function PolDashboardView() {
               </div>
               <div className="min-w-0 rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-3 sm:p-4">
                 <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                  Trees Equivalent
+                  {p.treesEquivalent}
                 </div>
                 <div className="mt-2 text-xl sm:text-3xl font-semibold font-mono tabular-nums">
                   {impactTotals?.trees != null

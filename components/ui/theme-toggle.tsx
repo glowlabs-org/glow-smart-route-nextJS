@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
+import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 interface ThemeToggleProps {
@@ -11,6 +12,7 @@ interface ThemeToggleProps {
 
 export function ThemeToggle({ className }: ThemeToggleProps) {
   const { resolvedTheme, setTheme } = useTheme();
+  const { lang } = useLang();
   const [mounted, setMounted] = useState(false);
 
   // Handle mounting to avoid hydration mismatch
@@ -32,6 +34,10 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
   }
 
   const isDark = resolvedTheme === "dark";
+  const ariaLabel =
+    lang === "ko"
+      ? `${isDark ? "라이트" : "다크"} 모드로 전환`
+      : `Switch to ${isDark ? "light" : "dark"} mode`;
 
   return (
     <button
@@ -43,7 +49,7 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
         className
       )}
       onClick={() => setTheme(isDark ? "light" : "dark")}
-      aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
+      aria-label={ariaLabel}
     >
       {/* Track icons */}
       <span className="absolute inset-0 flex items-center justify-between px-1.5 lg:px-2.5">

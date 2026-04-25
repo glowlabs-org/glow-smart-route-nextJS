@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useLang } from "@/lib/i18n";
 
 export type MiniBlogGraphCluster =
   | "core"
@@ -75,6 +76,53 @@ const GRAPH_CLUSTER_LABELS: Record<MiniBlogGraphCluster, string> = {
   solar: "Solar & Impact",
   network: "Network",
 };
+
+const GRAPH_COPY = {
+  en: {
+    back: "Back",
+    closeDetails: "Close details",
+    relatedTopics: "Related Topics",
+    readFullBlog: "Read full blog",
+    openTopicInModal: "Open Topic In Modal",
+    protocolTopics: "Glow Protocol Topics",
+    topicsConnections: (topics: number, connections: number) =>
+      `${topics} topics · ${connections} connections`,
+    graphLabel: "Mini-blog knowledge graph",
+    clickTopic: "Click a topic to explore",
+    viewAllTopics: "View all topics",
+    knowledgeGraph: "Knowledge Graph",
+    knowledgeGraphDesc:
+      "Visual map of all mini-blog topics and their connections.",
+    clusters: GRAPH_CLUSTER_LABELS,
+  },
+  ko: {
+    back: "뒤로",
+    closeDetails: "세부 정보 닫기",
+    relatedTopics: "관련 주제",
+    readFullBlog: "전체 블로그 읽기",
+    openTopicInModal: "모달에서 주제 열기",
+    protocolTopics: "Glow 프로토콜 주제",
+    topicsConnections: (topics: number, connections: number) =>
+      `${topics}개 주제 · ${connections}개 연결`,
+    graphLabel: "미니 블로그 지식 그래프",
+    clickTopic: "주제를 클릭해 탐색하세요",
+    viewAllTopics: "전체 주제 보기",
+    knowledgeGraph: "지식 그래프",
+    knowledgeGraphDesc: "모든 미니 블로그 주제와 연결을 보여주는 시각 지도입니다.",
+    clusters: {
+      core: "프로토콜 핵심",
+      liquidity: "유동성",
+      governance: "거버넌스",
+      solar: "태양광 & 임팩트",
+      network: "네트워크",
+    },
+  },
+} as const;
+
+function useGraphCopy() {
+  const { lang } = useLang();
+  return GRAPH_COPY[lang];
+}
 
 type GraphEdge = { from: string; to: string };
 type GraphNode = { id: string; label: string; cluster: MiniBlogGraphCluster };
@@ -259,6 +307,7 @@ function MiniBlogGraphReadingPanel({
   onSelectBlog: (id: string) => void;
   canGoBack: boolean;
 }) {
+  const copy = useGraphCopy();
   const blog = miniBlogs[blogId];
   if (!blog) return null;
 
@@ -274,7 +323,7 @@ function MiniBlogGraphReadingPanel({
             {canGoBack ? (
               <button
                 type="button"
-                aria-label="Back"
+                aria-label={copy.back}
                 className="h-7 w-7 rounded-lg border border-border/20 text-xs text-muted-foreground hover:text-foreground hover:border-border/40 transition-colors"
                 onClick={onBack}
               >
@@ -285,12 +334,12 @@ function MiniBlogGraphReadingPanel({
               className="inline-flex rounded-md px-2.5 py-1 text-[9px] font-mono uppercase tracking-widest"
               style={{ color: colors.text, backgroundColor: colors.bg }}
             >
-              {GRAPH_CLUSTER_LABELS[cluster]}
+              {copy.clusters[cluster]}
             </span>
           </div>
           <button
             type="button"
-            aria-label="Close details"
+            aria-label={copy.closeDetails}
             className="h-7 w-7 rounded-lg border border-border/20 text-xs text-muted-foreground hover:text-foreground hover:border-border/40 transition-colors"
             onClick={onClose}
           >
@@ -316,7 +365,7 @@ function MiniBlogGraphReadingPanel({
           {relatedTopics.length > 0 ? (
             <div className="pt-3 border-t border-border/20 space-y-2.5">
               <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
-                Related Topics
+                {copy.relatedTopics}
               </div>
               <div className="space-y-2">
                 {relatedTopics
@@ -354,7 +403,7 @@ function MiniBlogGraphReadingPanel({
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider text-muted-foreground/70 hover:text-foreground transition-colors"
               >
-                Read full blog
+                {copy.readFullBlog}
                 <span aria-hidden>&#8599;</span>
               </a>
             </div>
@@ -368,7 +417,7 @@ function MiniBlogGraphReadingPanel({
           className="w-full rounded-xl"
           onClick={() => onSelectBlog(blogId)}
         >
-          Open Topic In Modal
+          {copy.openTopicInModal}
         </Button>
       </div>
     </aside>
@@ -386,6 +435,7 @@ function MiniBlogGraph({
   onSelectBlog: (id: string) => void;
   currentBlogId?: string;
 }) {
+  const copy = useGraphCopy();
   const graphWidth = 760;
   const graphHeight = 560;
 
@@ -504,10 +554,10 @@ function MiniBlogGraph({
           <div className="px-5 py-4 border-b border-border/20 flex items-start justify-between gap-5">
             <div className="flex flex-col gap-1">
               <div className="text-sm font-semibold tracking-tight">
-                Glow Protocol Topics
+                {copy.protocolTopics}
               </div>
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
-                {graphNodes.length} topics · {graphEdges.length} connections
+                {copy.topicsConnections(graphNodes.length, graphEdges.length)}
               </div>
             </div>
             <div className="hidden lg:flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5">
@@ -522,7 +572,7 @@ function MiniBlogGraph({
                     }}
                   />
                   <span className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
-                    {GRAPH_CLUSTER_LABELS[cluster]}
+                    {copy.clusters[cluster]}
                   </span>
                 </div>
               ))}
@@ -534,7 +584,7 @@ function MiniBlogGraph({
               viewBox={`0 0 ${graphWidth} ${graphHeight}`}
               className="h-[760px] w-full min-w-[760px]"
               role="img"
-              aria-label="Mini-blog knowledge graph"
+              aria-label={copy.graphLabel}
             >
               {graphEdges.map((edge, index) => {
                 const from = positions[edge.from];
@@ -657,7 +707,7 @@ function MiniBlogGraph({
 
             {!selected && !hovered ? (
               <div className="absolute bottom-4 inset-x-0 text-center text-[10px] font-mono uppercase tracking-widest text-muted-foreground/40 pointer-events-none">
-                Click a topic to explore
+                {copy.clickTopic}
               </div>
             ) : null}
           </div>
@@ -686,21 +736,22 @@ export function MiniBlogGraphButton({
   miniBlogs,
   miniBlogClusters,
 }: MiniBlogGraphButtonProps) {
+  const copy = useGraphCopy();
   const [open, setOpen] = React.useState(false);
 
   return (
     <>
       <Button type="button" className="w-full" onClick={() => setOpen(true)}>
-        View all topics
+        {copy.viewAllTopics}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-[1540px] sm:max-w-[1540px] w-[99vw] h-[88vh] max-h-[920px] flex flex-col p-0 gap-0 overflow-hidden bg-card border border-border/20">
           <DialogHeader className="p-5 pb-0">
             <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
-              Knowledge Graph
+              {copy.knowledgeGraph}
             </DialogTitle>
             <DialogDescription className="sr-only">
-              Visual map of all mini-blog topics and their connections.
+              {copy.knowledgeGraphDesc}
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 min-h-0 p-5 pt-3">

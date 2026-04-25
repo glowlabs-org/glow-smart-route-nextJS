@@ -18,7 +18,36 @@ import {
 import { createPortal } from "react-dom";
 import { X, Minus, Plus, Locate, Maximize, Loader2 } from "lucide-react";
 
+import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
+
+const MAP_COPY = {
+  en: {
+    closePopup: "Close popup",
+    close: "Close",
+    mapMarker: "Map marker",
+    zoomIn: "Zoom in",
+    zoomOut: "Zoom out",
+    findMyLocation: "Find my location",
+    toggleFullscreen: "Toggle fullscreen",
+    resetBearing: "Reset bearing to north",
+  },
+  ko: {
+    closePopup: "팝업 닫기",
+    close: "닫기",
+    mapMarker: "지도 마커",
+    zoomIn: "확대",
+    zoomOut: "축소",
+    findMyLocation: "내 위치 찾기",
+    toggleFullscreen: "전체 화면 전환",
+    resetBearing: "북쪽 방향으로 초기화",
+  },
+} as const;
+
+function useMapCopy() {
+  const { lang } = useLang();
+  return MAP_COPY[lang];
+}
 
 // Check document class for theme (works with next-themes, etc.)
 function getDocumentTheme(): Theme | null {
@@ -380,6 +409,7 @@ function MapMarker({
   ...markerOptions
 }: MapMarkerProps) {
   const { map } = useMap();
+  const copy = useMapCopy();
 
   const callbacksRef = useRef({
     onClick,
@@ -482,6 +512,8 @@ function MapMarker({
     marker.setPitchAlignment(markerOptions.pitchAlignment ?? "auto");
   }
 
+  marker.getElement().setAttribute("aria-label", copy.mapMarker);
+
   return (
     <MarkerContext.Provider value={{ marker, map }}>
       {children}
@@ -528,6 +560,7 @@ function MarkerPopup({
   closeButton = false,
   ...popupOptions
 }: MarkerPopupProps) {
+  const copy = useMapCopy();
   const { marker, map } = useMarkerContext();
   const container = useMemo(() => document.createElement("div"), []);
   const prevPopupOptions = useRef(popupOptions);
@@ -584,10 +617,10 @@ function MarkerPopup({
           type="button"
           onClick={handleClose}
           className="absolute top-1 right-1 z-10 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-          aria-label="Close popup"
+          aria-label={copy.closePopup}
         >
           <X className="h-4 w-4" />
-          <span className="sr-only">Close</span>
+          <span className="sr-only">{copy.close}</span>
         </button>
       )}
       {children}
@@ -772,6 +805,7 @@ function MapControls({
   className,
   onLocate,
 }: MapControlsProps) {
+  const copy = useMapCopy();
   const { map } = useMap();
   const [waitingForLocation, setWaitingForLocation] = useState(false);
 
@@ -832,10 +866,10 @@ function MapControls({
     >
       {showZoom && (
         <ControlGroup>
-          <ControlButton onClick={handleZoomIn} label="Zoom in">
+          <ControlButton onClick={handleZoomIn} label={copy.zoomIn}>
             <Plus className="size-4" />
           </ControlButton>
-          <ControlButton onClick={handleZoomOut} label="Zoom out">
+          <ControlButton onClick={handleZoomOut} label={copy.zoomOut}>
             <Minus className="size-4" />
           </ControlButton>
         </ControlGroup>
@@ -849,7 +883,7 @@ function MapControls({
         <ControlGroup>
           <ControlButton
             onClick={handleLocate}
-            label="Find my location"
+            label={copy.findMyLocation}
             disabled={waitingForLocation}
           >
             {waitingForLocation ? (
@@ -862,7 +896,7 @@ function MapControls({
       )}
       {showFullscreen && (
         <ControlGroup>
-          <ControlButton onClick={handleFullscreen} label="Toggle fullscreen">
+          <ControlButton onClick={handleFullscreen} label={copy.toggleFullscreen}>
             <Maximize className="size-4" />
           </ControlButton>
         </ControlGroup>
@@ -873,6 +907,7 @@ function MapControls({
 
 function CompassButton({ onClick }: { onClick: () => void }) {
   const { map } = useMap();
+  const copy = useMapCopy();
   const compassRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
@@ -897,7 +932,7 @@ function CompassButton({ onClick }: { onClick: () => void }) {
   }, [map]);
 
   return (
-    <ControlButton onClick={onClick} label="Reset bearing to north">
+    <ControlButton onClick={onClick} label={copy.resetBearing}>
       <svg
         ref={compassRef}
         viewBox="0 0 24 24"
@@ -937,6 +972,7 @@ function MapPopup({
   closeButton = false,
   ...popupOptions
 }: MapPopupProps) {
+  const copy = useMapCopy();
   const { map } = useMap();
   const popupOptionsRef = useRef(popupOptions);
   const onCloseRef = useRef(onClose);
@@ -1010,10 +1046,10 @@ function MapPopup({
           type="button"
           onClick={handleClose}
           className="absolute top-1 right-1 z-10 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-          aria-label="Close popup"
+          aria-label={copy.closePopup}
         >
           <X className="h-4 w-4" />
-          <span className="sr-only">Close</span>
+          <span className="sr-only">{copy.close}</span>
         </button>
       )}
       {children}

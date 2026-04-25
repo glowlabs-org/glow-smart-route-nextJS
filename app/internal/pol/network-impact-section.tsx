@@ -15,6 +15,7 @@ import {
   usePolFarmLocations,
   type PolFarmLocationRow,
 } from "@/hooks/usePolFarmLocations";
+import { useLang } from "@/lib/i18n";
 
 const ZONE_COLORS: Record<string, string> = {
   "Clean Grid Project": "#34d399",
@@ -52,6 +53,51 @@ const ZONE_SHORT_LABELS: Record<string, string> = {
   "Ratan Rajasthan": "RJ",
   Unassigned: "UN",
 };
+
+const COPY = {
+  en: {
+    networkImpact: "Network Impact",
+    description:
+      "Live footprint of active Glow-backed farms using verified coordinates.",
+    openNotes: "Open network impact notes",
+    homesPowered: "Homes powered by clean energy",
+    homesPoweredDesc:
+      "Equivalent households supplied by active Glow-backed solar output.",
+    viewAudits: "View all farm audits ↗",
+    clickToZoom: "Click to zoom",
+    mapLabel: "Dot map + live farm coordinates",
+    loadingMap: "Loading map",
+    clusters: (count: string) => `${count} clusters`,
+    all: "All",
+    us: "US",
+    totalPanels: "Total Panels",
+    installedCapacity: "Installed Capacity",
+    treesEquivalent: "Trees Equivalent",
+    farmsPanels: (farms: number, panels: string) =>
+      `${farms} farms · ${panels} panels`,
+  },
+  ko: {
+    networkImpact: "네트워크 임팩트",
+    description:
+      "검증된 좌표를 기반으로 활성 Glow 후원 발전소의 실시간 분포를 표시합니다.",
+    openNotes: "네트워크 임팩트 설명 열기",
+    homesPowered: "청정 에너지 공급 가구 수",
+    homesPoweredDesc:
+      "활성 Glow 후원 태양광 출력이 공급할 수 있는 가구 수 환산치입니다.",
+    viewAudits: "전체 발전소 감사 보기 ↗",
+    clickToZoom: "클릭하여 확대",
+    mapLabel: "점 지도 + 실시간 발전소 좌표",
+    loadingMap: "지도 로딩 중",
+    clusters: (count: string) => `${count}개 클러스터`,
+    all: "전체",
+    us: "미국",
+    totalPanels: "총 패널 수",
+    installedCapacity: "설치 용량",
+    treesEquivalent: "나무 환산치",
+    farmsPanels: (farms: number, panels: string) =>
+      `${farms}개 발전소 · 패널 ${panels}개`,
+  },
+} as const;
 
 const COARSE_CLUSTER_STEP_DEGREES = 0.4;
 const US_FILTER_KEY = "__US__";
@@ -271,6 +317,8 @@ export function NetworkImpactSection({
   impactTotals,
   onOpenDialog,
 }: NetworkImpactSectionProps) {
+  const { lang } = useLang();
+  const copy = COPY[lang];
   const { data, isLoading } = usePolFarmLocations();
   const mapRef = React.useRef<MapRef | null>(null);
   const [activeZone, setActiveZone] = React.useState<string | null>(US_FILTER_KEY);
@@ -443,10 +491,10 @@ export function NetworkImpactSection({
     <section className="flex flex-col gap-6 pt-16">
       <div className="flex flex-col gap-2">
         <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-          Network Impact
+          {copy.networkImpact}
         </div>
         <p className="text-sm text-muted-foreground max-w-3xl">
-          Live footprint of active Glow-backed farms using verified coordinates.
+          {copy.description}
         </p>
       </div>
 
@@ -454,7 +502,7 @@ export function NetworkImpactSection({
         className="!gap-0 overflow-hidden border-border/20 cursor-pointer"
         role="button"
         tabIndex={0}
-        aria-label="Open network impact notes"
+        aria-label={copy.openNotes}
         onClick={onOpenDialog}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -467,7 +515,7 @@ export function NetworkImpactSection({
           <div className="grid gap-8 xl:grid-cols-12 xl:items-center overflow-hidden">
             <div className="xl:col-span-4 flex flex-col gap-3 min-w-0">
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                Homes powered by clean energy
+                {copy.homesPowered}
               </div>
               <div className="text-6xl sm:text-7xl font-semibold tracking-tight font-mono tabular-nums">
                 {isFiniteNumber(impactTotals?.homesPowered) ? (
@@ -481,7 +529,7 @@ export function NetworkImpactSection({
                 )}
               </div>
               <div className="text-sm text-muted-foreground">
-                Equivalent households supplied by active Glow-backed solar output.
+                {copy.homesPoweredDesc}
               </div>
               <a
                 href="https://glow.org/audits"
@@ -489,7 +537,7 @@ export function NetworkImpactSection({
                 rel="noreferrer"
                 className="mt-2 inline-flex w-fit items-center gap-2 rounded-full border border-border/20 bg-muted/30 px-4 py-2 text-[10px] font-mono uppercase tracking-widest text-foreground transition-colors hover:bg-muted/50"
               >
-                View all farm audits ↗
+                {copy.viewAudits}
               </a>
             </div>
 
@@ -582,10 +630,13 @@ export function NetworkImpactSection({
                               </span>
                             </div>
                             <div className="mt-1 text-[10px] font-mono uppercase tracking-wider text-muted-foreground dark:text-white/80">
-                              {cluster.tooltip}
+                              {copy.farmsPanels(
+                                cluster.farmCount,
+                                formatWholeNumber(cluster.panels)
+                              )}
                             </div>
                             <div className="mt-1 text-[9px] font-mono uppercase tracking-widest text-muted-foreground/70 dark:text-white/55">
-                              Click to zoom
+                              {copy.clickToZoom}
                             </div>
                           </div>
                         </MarkerTooltip>
@@ -604,12 +655,12 @@ export function NetworkImpactSection({
 
               <div className="mt-3 flex items-center justify-between gap-4">
                 <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                  Dot map + live farm coordinates
+                  {copy.mapLabel}
                 </div>
                 <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
                   {isLoading
-                    ? "Loading map"
-                    : `${formatWholeNumber(visibleClusters.length)} clusters`}
+                    ? copy.loadingMap
+                    : copy.clusters(formatWholeNumber(visibleClusters.length))}
                 </div>
               </div>
 
@@ -623,7 +674,7 @@ export function NetworkImpactSection({
                       : "shrink-0 inline-flex items-center gap-1.5 rounded-full border border-border/20 bg-muted/30 px-2.5 py-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/80 transition-colors hover:bg-muted/50"
                   }
                 >
-                  All
+                  {copy.all}
                 </button>
                 <button
                   type="button"
@@ -639,7 +690,7 @@ export function NetworkImpactSection({
                   }
                 >
                   <span className="text-[11px] leading-none">🇺🇸</span>
-                  <span>US</span>
+                  <span>{copy.us}</span>
                   <span
                     className={
                       activeZone === US_FILTER_KEY
@@ -685,7 +736,7 @@ export function NetworkImpactSection({
           <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3 lg:gap-6">
             <div className="rounded-xl border border-border/20 bg-muted/40 dark:bg-muted/80 p-5 lg:p-6">
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                Total Panels
+                {copy.totalPanels}
               </div>
               <div className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight font-mono tabular-nums">
                 {formatWholeNumber(impactTotals?.panels ?? null)}
@@ -693,7 +744,7 @@ export function NetworkImpactSection({
             </div>
             <div className="rounded-xl border border-border/20 bg-muted/40 dark:bg-muted/80 p-5 lg:p-6">
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                Installed Capacity
+                {copy.installedCapacity}
               </div>
               <div className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight font-mono tabular-nums">
                 {formatFixed(impactTotals?.capacityMw ?? null, 1)}
@@ -702,7 +753,7 @@ export function NetworkImpactSection({
             </div>
             <div className="rounded-xl border border-border/20 bg-muted/40 dark:bg-muted/80 p-5 lg:p-6">
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                Trees Equivalent
+                {copy.treesEquivalent}
               </div>
               <div className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight font-mono tabular-nums">
                 {formatCompactNumber(impactTotals?.trees ?? null)}
