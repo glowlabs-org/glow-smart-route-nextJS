@@ -25,12 +25,27 @@ describe("getGctlDialogErrorMessage", () => {
     expect(getGctlDialogErrorMessage(error)).toBe(RPC_RATE_LIMIT_MESSAGE);
   });
 
-  it("preserves the existing insufficient balance guidance", () => {
+  it("maps insufficient balance errors to a clear, timing-neutral message", () => {
+    const expected = "Insufficient token balance. Reduce the amount and try again.";
+
+    // On-chain ERC20InsufficientBalance revert (post-approval).
     expect(
       getGctlDialogErrorMessage(
         new Error("ERC20: transfer amount exceeds balance")
       )
-    ).toContain("Insufficient token balance");
+    ).toBe(expected);
+
+    // Custom error selector (OpenZeppelin ERC20InsufficientBalance).
+    expect(
+      getGctlDialogErrorMessage(new Error("execution reverted: 0xe450d38c"))
+    ).toBe(expected);
+
+    // Pre-approval orchestrator throw — must NOT claim "Approval succeeded".
+    expect(
+      getGctlDialogErrorMessage(
+        new Error("Insufficient balance to complete this transaction.")
+      )
+    ).toBe(expected);
   });
 
   it("maps user rejections to the wallet rejection message", () => {

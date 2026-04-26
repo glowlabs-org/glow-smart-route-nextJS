@@ -97,7 +97,11 @@ export function getGctlDialogErrorMessage(error: unknown) {
   const normalizedMessage = message.toLowerCase();
 
   if (isInsufficientBalanceError(message)) {
-    return "Insufficient token balance. Approval succeeded, but your balance is now below this amount. Reduce the amount and try again.";
+    // Reached either via the pre-approval orchestrator check
+    // (useGctlPreparationOrchestrator.ts) OR an on-chain ERC20InsufficientBalance
+    // revert (0xe450d38c). Don't claim "Approval succeeded" — that's wrong for
+    // the pre-approval path and confusing in the post-approval one.
+    return "Insufficient token balance. Reduce the amount and try again.";
   }
 
   if (normalizedMessage.includes("user rejected")) {
