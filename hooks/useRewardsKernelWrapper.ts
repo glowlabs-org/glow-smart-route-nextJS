@@ -25,6 +25,10 @@ import {
   walletRewardClaimsQueryKey,
   type WalletRewardClaimsIndex,
 } from "@/lib/api/wallet-reward-claims-index";
+import {
+  INSUFFICIENT_GAS_ERROR_MESSAGE,
+  isInsufficientGasError,
+} from "@/lib/rpc-error-utils";
 
 if (!process.env.NEXT_PUBLIC_CHAIN_ID) {
   throw new Error("NEXT_PUBLIC_CHAIN_ID is not set");
@@ -474,6 +478,12 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         } else if (isUserRejectedMessage(errorMessage)) {
           toast.info("Transaction cancelled");
           return { status: "error", message: "Transaction cancelled" };
+        } else if (isInsufficientGasError(error)) {
+          toast.error(INSUFFICIENT_GAS_ERROR_MESSAGE);
+          return {
+            status: "error",
+            message: INSUFFICIENT_GAS_ERROR_MESSAGE,
+          };
         }
 
         toast.error("Failed to claim GLW emission rewards", {
@@ -586,6 +596,12 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           return {
             status: "error",
             message: "Wallet disconnected. Please reconnect and try again.",
+          };
+        } else if (isInsufficientGasError(error)) {
+          toast.error(INSUFFICIENT_GAS_ERROR_MESSAGE);
+          return {
+            status: "error",
+            message: INSUFFICIENT_GAS_ERROR_MESSAGE,
           };
         }
 
@@ -1008,6 +1024,8 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
 
         if (errorMessage.includes("User rejected")) {
           toast.info("Transaction cancelled");
+        } else if (isInsufficientGasError(error)) {
+          toast.error(INSUFFICIENT_GAS_ERROR_MESSAGE);
         } else {
           toast.error("Failed to claim all protocol deposits", {
             description: errorMessage,

@@ -61,6 +61,19 @@ import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-war
 import { trackEvent } from "@/lib/telemetry";
 import { formatRewardPipelineDate } from "@/utils/reward-pipeline";
 import { useLang, getBcp47, type Strings } from "@/lib/i18n";
+import { useEthGasPreflight } from "@/hooks/useEthGasPreflight";
+import { formatUnits } from "viem";
+import {
+  INSUFFICIENT_GAS_ERROR_MESSAGE,
+} from "@/lib/rpc-error-utils";
+
+// Conservative gas estimates for the claim flows. Single-week confirm runs up
+// to two sequential txs (GLW inflation + protocol deposit). Multicall path
+// claims N protocol-deposit weeks in one tx; budget per-week + small base.
+// The `useEthGasPreflight` hook adds its own 7% safety margin.
+const SINGLE_CLAIM_GAS_UNITS = 400_000n;
+const MULTICALL_BASE_GAS_UNITS = 50_000n;
+const MULTICALL_PER_WEEK_GAS_UNITS = 150_000n;
 
 // Currency configurations - neutral containers, colored icons only when active
 const CURRENCY_CONFIG = {
@@ -1345,6 +1358,35 @@ export function ClaimsPanel({
     });
   }, [weeklyBreakdown, getWeekClaimState]);
 
+  // ETH gas preflight: gate both claim entry points so users with insufficient
+  // ETH for gas see a clear "add ETH" message instead of a generic RPC revert
+  // toast (and so the failed write never reaches Sentry).
+  const singleClaimGasPreflight = useEthGasPreflight({
+    estimatedGasUnits: SINGLE_CLAIM_GAS_UNITS,
+    enabled: isConnected && Boolean(address),
+  });
+  const multicallClaimGasUnits = React.useMemo(() => {
+    const weeks = BigInt(Math.max(claimableProtocolWeeks.length, 1));
+    return MULTICALL_BASE_GAS_UNITS + weeks * MULTICALL_PER_WEEK_GAS_UNITS;
+  }, [claimableProtocolWeeks.length]);
+  const multicallGasPreflight = useEthGasPreflight({
+    estimatedGasUnits: multicallClaimGasUnits,
+    enabled:
+      isConnected && Boolean(address) && claimableProtocolWeeks.length > 0,
+  });
+  const hasInsufficientSingleClaimGas =
+    singleClaimGasPreflight.sufficient === false;
+  const hasInsufficientMulticallGas =
+    multicallGasPreflight.sufficient === false;
+  const gasShortfallEth =
+    multicallGasPreflight.shortfallWei != null &&
+    multicallGasPreflight.shortfallWei > 0n
+      ? formatUnits(multicallGasPreflight.shortfallWei, 18)
+      : singleClaimGasPreflight.shortfallWei != null &&
+          singleClaimGasPreflight.shortfallWei > 0n
+        ? formatUnits(singleClaimGasPreflight.shortfallWei, 18)
+        : null;
+
   const claimableInflationWeeks = React.useMemo(
     () =>
       weeklyBreakdown.filter((weekData) => {
@@ -1550,6 +1592,17 @@ export function ClaimsPanel({
       return;
     }
 
+    if (hasInsufficientSingleClaimGas) {
+      toast.error(INSUFFICIENT_GAS_ERROR_MESSAGE);
+      setClaimDialogStatus("error");
+      setClaimDialogError(INSUFFICIENT_GAS_ERROR_MESSAGE);
+      trackEvent("wallet_claim_blocked", {
+        week: activeClaim.weekData.week,
+        reason: "insufficient_gas",
+      });
+      return;
+    }
+
     setClaimDialogStatus("processing");
     setClaimDialogError(null);
     setClaimDialogInfo(null);
@@ -1665,6 +1718,7 @@ export function ClaimsPanel({
     refetch,
     onClaimSuccess,
     t.claims,
+    hasInsufficientSingleClaimGas,
   ]);
 
   const handleClaimAllProtocolDeposits = React.useCallback(async () => {
@@ -1682,6 +1736,11 @@ export function ClaimsPanel({
     if (isSmartAccount) {
       setShowSmartAccountWarning(true);
       setTriggerSmartAccountCheck(true);
+      return;
+    }
+
+    if (hasInsufficientMulticallGas) {
+      toast.error(INSUFFICIENT_GAS_ERROR_MESSAGE);
       return;
     }
 
@@ -1762,6 +1821,7 @@ export function ClaimsPanel({
     refetch,
     onClaimSuccess,
     t.claims,
+    hasInsufficientMulticallGas,
   ]);
 
   const transactionDetails = React.useMemo<TransactionDetail[]>(() => {
@@ -2170,7 +2230,9 @@ export function ClaimsPanel({
   const isBulkClaiming = isClaimingAll || isPreparingClaimAll;
   const isBulkClaimBusy = isBulkClaiming || claimDialogStatus === "processing";
   const isClaimAllProtocolDisabled =
-    claimableProtocolWeeks.length === 0 || isBulkClaimBusy;
+    claimableProtocolWeeks.length === 0 ||
+    isBulkClaimBusy ||
+    hasInsufficientMulticallGas;
 
   // Don't show panel if not connected
   if (!isConnected || !address) {
@@ -2182,8 +2244,24 @@ export function ClaimsPanel({
     return null;
   }
 
+  const showInsufficientGasNotice =
+    hasInsufficientSingleClaimGas || hasInsufficientMulticallGas;
+
   const content = (
     <div className={cn("space-y-6", isDialog && "pr-4")}>
+      {showInsufficientGasNotice && (
+        <div className="flex items-start gap-2 rounded-md border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm text-yellow-700 dark:text-yellow-300">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <div className="font-medium">{INSUFFICIENT_GAS_ERROR_MESSAGE}</div>
+            {gasShortfallEth && (
+              <div className="text-xs opacity-80">
+                Need ~{Number(gasShortfallEth).toFixed(6)} ETH more.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       <div className="flex flex-wrap justify-end gap-2">
         <Button
           onClick={handleClaimAllProtocolDeposits}
@@ -2466,7 +2544,11 @@ export function ClaimsPanel({
         errorContent={errorContent}
         showProcessingProgress
         onConfirm={activeClaim ? handleConfirmClaim : undefined}
-        confirmDisabled={!activeClaim || claimDialogStatus === "processing"}
+        confirmDisabled={
+          !activeClaim ||
+          claimDialogStatus === "processing" ||
+          hasInsufficientSingleClaimGas
+        }
         confirmLabel={t.claims.confirmClaim}
         cancelLabel={t.claims.cancel}
       />

@@ -199,6 +199,15 @@ if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
         /device disconnected/i.test(exceptionText);
       if (isWalletConnectivityIssue) return null;
 
+      // Insufficient ETH for gas is user state, not a code defect. The
+      // claim flow (and other tx flows) preflight + catch this and show a
+      // friendly toast; this filter is a safety net for stragglers.
+      const isInsufficientFunds =
+        exceptionTypes.some((t) => t === "InsufficientFundsError") ||
+        /insufficient funds for gas/i.test(exceptionText) ||
+        /insufficient funds for intrinsic transaction cost/i.test(exceptionText);
+      if (isInsufficientFunds) return null;
+
       // WalletConnect proposal expiry is a user-driven session timeout
       // regardless of whether it surfaces as handled or unhandled. Always
       // drop so it stops filling the errors dashboard.
