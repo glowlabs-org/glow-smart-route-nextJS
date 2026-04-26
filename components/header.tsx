@@ -560,7 +560,8 @@ export function Header({
             <WalletStatus />
           </div>
 
-          <div className="flex items-center gap-3 lg:hidden">
+          <div className="flex items-center gap-2 lg:hidden">
+            <LangToggle />
             <WalletStatus />
             <Drawer direction="right" shouldScaleBackground={false}>
               <DrawerTrigger asChild>
@@ -581,7 +582,6 @@ export function Header({
                   <div className="flex items-center justify-between">
                     <WalletStatus className="h-10" />
                     <div className="flex items-center gap-2">
-                      <LangToggle />
                       <ThemeToggle />
                       <DrawerClose asChild>
                         <motion.button
