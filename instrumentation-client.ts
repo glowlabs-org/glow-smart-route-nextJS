@@ -155,6 +155,18 @@ if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
         message.includes("ChunkLoadError");
       if (isChunkLoadError) return null;
 
+      // Drop delayed-confirmation events. lib/wait-for-transaction-receipt.ts
+      // throws DelayedConfirmationError when a tx was submitted but no RPC
+      // surfaced the receipt before the polling window closed. The tx is
+      // almost always on-chain; the user-facing dialog already shows the
+      // hash and a "do not resubmit" message. Capturing in Sentry buries
+      // real failures under hundreds of false positives.
+      const isDelayedConfirmation =
+        exceptionTypes.some((t) => t === "DelayedConfirmationError") ||
+        /Transaction receipt not found within \d+ms/i.test(exceptionText) ||
+        /was submitted but confirmation is delayed/i.test(exceptionText);
+      if (isDelayedConfirmation) return null;
+
       // Filter wallet rejection errors (user declined connection/signature)
       const extraAny = event.extra as any;
       const errorCode =

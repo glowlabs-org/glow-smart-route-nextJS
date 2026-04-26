@@ -3,7 +3,7 @@ import React from "react";
 import { useContracts } from "./useContracts";
 import { useEthersSigner } from "./useEthersSigner";
 import { Result, Ok, Err } from "ts-results";
-import { waitForEthersTransactionWithRetry } from "@glowlabs-org/utils/browser";
+import { waitForTransactionReceipt } from "@/lib/wait-for-transaction-receipt";
 import { useWalletClient } from "wagmi";
 import { publicClient } from "@/web3/web3/clients/publicClient";
 import {
@@ -189,12 +189,7 @@ export const useSwapUSDCToUSDG = () => {
             const tx = await usdc.approve(usdg.address, MAX_UINT256);
             lastTxHashRef.current = tx.hash as `0x${string}`;
             setLastTxHash(tx.hash as `0x${string}`);
-            await waitForEthersTransactionWithRetry(signer!, tx.hash, {
-              maxRetries: 10, // Increased retries for USDG-related approvals
-              timeoutMs: 300000, // 5 minutes timeout
-              enableLogging: true,
-              pollIntervalMs: 3000, // Poll every 3 seconds to avoid rate limiting
-            });
+            await waitForTransactionReceipt(tx.hash as `0x${string}`);
           } catch (approvalErr: any) {
             // Some tokens require setting allowance to 0 before raising it.
             const message = String(approvalErr?.message || "");
@@ -206,22 +201,12 @@ export const useSwapUSDCToUSDG = () => {
               const resetTx = await usdc.approve(usdg.address, BigInt(0));
               lastTxHashRef.current = resetTx.hash as `0x${string}`;
               setLastTxHash(resetTx.hash as `0x${string}`);
-              await waitForEthersTransactionWithRetry(signer!, resetTx.hash, {
-                maxRetries: 10,
-                timeoutMs: 300000,
-                enableLogging: true,
-                pollIntervalMs: 3000,
-              });
+              await waitForTransactionReceipt(resetTx.hash as `0x${string}`);
 
               const tx = await usdc.approve(usdg.address, MAX_UINT256);
               lastTxHashRef.current = tx.hash as `0x${string}`;
               setLastTxHash(tx.hash as `0x${string}`);
-              await waitForEthersTransactionWithRetry(signer!, tx.hash, {
-                maxRetries: 10,
-                timeoutMs: 300000,
-                enableLogging: true,
-                pollIntervalMs: 3000,
-              });
+              await waitForTransactionReceipt(tx.hash as `0x${string}`);
             } else {
               throw approvalErr;
             }
@@ -243,12 +228,7 @@ export const useSwapUSDCToUSDG = () => {
         lastTxHashRef.current = tx.hash as `0x${string}`;
         setLastTxHash(tx.hash as `0x${string}`);
 
-        await waitForEthersTransactionWithRetry(signer!, tx.hash, {
-          maxRetries: 10, // Increased retries for USDG swaps
-          timeoutMs: 300000, // 5 minutes timeout for USDG swaps
-          enableLogging: true,
-          pollIntervalMs: 3000, // Poll every 3 seconds to avoid rate limiting
-        });
+        await waitForTransactionReceipt(tx.hash as `0x${string}`);
         return new Ok(true);
       } catch (swapError: any) {
         // Check if it's a timeout error

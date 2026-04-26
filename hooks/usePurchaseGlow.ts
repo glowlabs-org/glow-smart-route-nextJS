@@ -10,7 +10,7 @@ import { addresses } from "@/web3/constants/addresses";
 import { publicClient } from "@/web3/web3/clients/publicClient";
 import { useEthersSigner } from "./useEthersSigner";
 import Decimal from "decimal.js";
-import { waitForEthersTransactionWithRetry } from "@glowlabs-org/utils/browser";
+import { waitForTransactionReceipt } from "@/lib/wait-for-transaction-receipt";
 
 const UNISWAP_V2_FACTORY_ABI = parseAbi([
   "function getPair(address tokenA, address tokenB) external view returns (address pair)",
@@ -188,12 +188,7 @@ export function usePurchaseGlow() {
           lastTxHashRef.current = approveTx.hash as `0x${string}`;
           setLastTxHash(approveTx.hash as `0x${string}`);
           setGlowPurchaseState("APPROVING_USDC_TO_OBTAIN_USDG");
-          await waitForEthersTransactionWithRetry(signer!, approveTx.hash, {
-            maxRetries: 5,
-            timeoutMs: 120000, // 2 minutes timeout
-            enableLogging: true,
-            pollIntervalMs: 2000, // Poll every 2 seconds
-          });
+          await waitForTransactionReceipt(approveTx.hash as `0x${string}`);
         } catch (e) {
           setGlowPurchaseState("ERROR");
           return new Err("Error approving USDC to obtain USDG");
@@ -205,12 +200,7 @@ export function usePurchaseGlow() {
         const swapTx = await usdg.swap(signerAddress, usdcNeeded);
         lastTxHashRef.current = swapTx.hash as `0x${string}`;
         setLastTxHash(swapTx.hash as `0x${string}`);
-        await waitForEthersTransactionWithRetry(signer!, swapTx.hash, {
-          maxRetries: 5,
-          timeoutMs: 120000, // 2 minutes timeout
-          enableLogging: true,
-          pollIntervalMs: 2000, // Poll every 2 seconds
-        });
+        await waitForTransactionReceipt(swapTx.hash as `0x${string}`);
         setGlowPurchaseState("SUCCESSFULLY_OBTAINED_USDG");
       } catch (e) {
         setGlowPurchaseState("ERROR");
@@ -232,12 +222,7 @@ export function usePurchaseGlow() {
         lastTxHashRef.current = approveTx.hash as `0x${string}`;
         setLastTxHash(approveTx.hash as `0x${string}`);
         setGlowPurchaseState("APPROVING_USDG_TO_OBTAIN_GLOW");
-        await waitForEthersTransactionWithRetry(signer!, approveTx.hash, {
-          maxRetries: 5,
-          timeoutMs: 120000, // 2 minutes timeout
-          enableLogging: true,
-          pollIntervalMs: 2000, // Poll every 2 seconds
-        });
+        await waitForTransactionReceipt(approveTx.hash as `0x${string}`);
       } catch (e) {
         setGlowPurchaseState("ERROR");
         return new Err("Error approving USDG to obtain Glow");
@@ -254,12 +239,7 @@ export function usePurchaseGlow() {
       );
       lastTxHashRef.current = purchaseTx.hash as `0x${string}`;
       setLastTxHash(purchaseTx.hash as `0x${string}`);
-      await waitForEthersTransactionWithRetry(signer!, purchaseTx.hash, {
-        maxRetries: 5,
-        timeoutMs: 120000, // 2 minutes timeout
-        enableLogging: true,
-        pollIntervalMs: 2000, // Poll every 2 seconds
-      });
+      await waitForTransactionReceipt(purchaseTx.hash as `0x${string}`);
     } catch (e) {
       setGlowPurchaseState("ERROR");
       return new Err("Error purchasing Glow");

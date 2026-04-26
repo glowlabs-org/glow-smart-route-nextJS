@@ -1,4 +1,4 @@
-import { createPublicClient } from "viem";
+import { createPublicClient, type PublicClient } from "viem";
 import { mainnet, sepolia } from "viem/chains";
 import {
   instrumentedFallback,
@@ -47,3 +47,35 @@ export const mainnetPublicClient = createPublicClient({
   chain: mainnet,
   transport: mainnetFallbackTransport(),
 });
+
+// Receipt polling needs to round-robin across all configured RPCs because
+// viem's fallback transport only advances to the next URL on error, not on
+// a null `getTransactionReceipt` result. With a single fallback transport,
+// if Alchemy says "no receipt yet" we never ask Infura. Per-URL clients let
+// the wait helper try each one explicitly on every poll cycle.
+let cachedReceiptClients: PublicClient[] | null = null;
+
+export function getReceiptPollingClients(): PublicClient[] {
+  if (cachedReceiptClients) return cachedReceiptClients;
+
+  const urls = isSepolia
+    ? [sepoliaRpcUrl].filter((u): u is string => typeof u === "string" && u.length > 0)
+    : mainnetRpcUrls;
+
+  if (urls.length === 0) {
+    cachedReceiptClients = [publicClient];
+    return cachedReceiptClients;
+  }
+
+  cachedReceiptClients = urls.map(url =>
+    createPublicClient({
+      chain,
+      transport: instrumentedHttp(
+        url,
+        { timeout: 15_000 },
+        { source: "receiptPolling" }
+      ),
+    })
+  );
+  return cachedReceiptClients;
+}

@@ -5,7 +5,7 @@ import { useChainId, useWalletClient, usePublicClient } from "wagmi";
 import { getAddress, parseAbi, parseEventLogs } from "viem";
 import { Err, Ok, Result } from "ts-results";
 import { getAddresses } from "@glowlabs-org/utils/browser";
-import { waitForViemTransactionWithRetry } from "@glowlabs-org/utils/browser";
+import { waitForTransactionReceipt } from "@/lib/wait-for-transaction-receipt";
 import {
   INVALID_WALLET_TX_RESPONSE_MESSAGE,
   isInvalidWalletTxResponseError,
@@ -254,12 +254,7 @@ export function useSwapETHToUSDC() {
           txHash = normalizeTxHash(rawHash);
         }
 
-        await waitForViemTransactionWithRetry(publicClient, txHash, {
-          maxRetries: 5,
-          timeoutMs: 120000,
-          enableLogging: true,
-          pollIntervalMs: 2000,
-        });
+        await waitForTransactionReceipt(txHash);
 
         // Derive usdcReceived from the receipt's Transfer events rather than a
         // balanceOf delta. A follow-up balanceOf can hit a stale RPC replica

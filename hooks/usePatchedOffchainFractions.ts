@@ -4,9 +4,12 @@ import {
   parseViemError,
   type BuyFractionsParams,
   useOffchainFractions as useSdkOffchainFractions,
-  waitForViemTransactionWithRetry,
 } from "@glowlabs-org/utils/browser";
 import type { Address, PublicClient, WalletClient } from "viem";
+import {
+  DelayedConfirmationError,
+  waitForTransactionReceipt,
+} from "@/lib/wait-for-transaction-receipt";
 
 const ERC20_APPROVAL_ABI = [
   {
@@ -23,7 +26,6 @@ const ERC20_APPROVAL_ABI = [
 
 const ALLOWANCE_NOT_VISIBLE_ERROR =
   "Your token approval is confirmed but not visible to the next transaction yet. Please wait a moment and retry.";
-const RECEIPT_NOT_FOUND_ERROR = "Transaction receipt not found within";
 const SPLIT_CONFIRMATION_DELAYED_MESSAGE =
   "Transaction submitted but confirmation is delayed. Please refresh before retrying.";
 
@@ -125,7 +127,7 @@ export function usePatchedOffchainFractions(
           account: walletClient.account,
         });
 
-        await waitForViemTransactionWithRetry(publicClient, approveHash);
+        await waitForTransactionReceipt(approveHash);
 
         const maxAllowanceChecks = 5;
         const allowanceCheckDelayMs = 500;
@@ -165,16 +167,13 @@ export function usePatchedOffchainFractions(
       const hash = await walletClient.writeContract(request);
 
       try {
-        await waitForViemTransactionWithRetry(publicClient, hash);
+        await waitForTransactionReceipt(hash);
       } catch (error) {
-        const errorMessage =
-          parseViemError(error) ||
-          (error instanceof Error ? error.message : "Unknown error");
-
-        if (errorMessage.includes(RECEIPT_NOT_FOUND_ERROR)) {
+        if (error instanceof DelayedConfirmationError) {
+          // Re-wrap with the buyFractions-specific user message while keeping
+          // the typed error class so the dialog can recognize it.
           throw toDelayedConfirmationError(error, hash);
         }
-
         throw toErrorWithCause(error, { txHash: hash });
       }
 

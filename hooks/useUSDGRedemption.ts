@@ -4,10 +4,8 @@ import { formatUnits, erc20Abi, maxUint256, formatEther, parseAbi } from "viem";
 import { useContracts } from "./useContracts";
 import { useEffect, useState } from "react";
 import { publicClient } from "@/web3/web3/clients/publicClient";
-import {
-  getAddresses,
-  waitForViemTransactionWithRetry,
-} from "@glowlabs-org/utils/browser";
+import { getAddresses } from "@glowlabs-org/utils/browser";
+import { waitForTransactionReceipt } from "@/lib/wait-for-transaction-receipt";
 import { useWalletClient } from "wagmi";
 import {
   INVALID_WALLET_TX_RESPONSE_MESSAGE,
@@ -194,12 +192,7 @@ export function useUSDGRedemption() {
         args: [amountUSDG],
       });
       const hash = normalizeTxHash(rawHash);
-      await waitForViemTransactionWithRetry(publicClient, hash, {
-        maxRetries: 5,
-        timeoutMs: 120000, // 2 minutes timeout
-        enableLogging: true,
-        pollIntervalMs: 2000, // Poll every 2 seconds
-      });
+      await waitForTransactionReceipt(hash);
 
       return new Ok(true);
     } catch (txError: any) {
