@@ -208,6 +208,24 @@ if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
         /insufficient funds for intrinsic transaction cost/i.test(exceptionText);
       if (isInsufficientFunds) return null;
 
+      // Drop wagmi/viem-fallback TimeoutErrors: viem's fallback transport
+      // already retries across all configured RPCs, and any genuine failure
+      // surfaces at the higher-level handler that consumes the read. The
+      // bare TimeoutError from one transport attempt is not actionable and
+      // gets dominated by single users on bad networks (see APP-GLOW-ORG-HG).
+      const hasFallbackTransportFrame = allFrames.some((frame) => {
+        const filename = frame.filename || "";
+        const absPath = frame.abs_path || "";
+        return (
+          /viem\/[^/]+\/clients\/transports\/fallback/.test(filename) ||
+          /viem\/[^/]+\/clients\/transports\/fallback/.test(absPath)
+        );
+      });
+      const isViemTimeout =
+        exceptionTypes.some((t) => t === "TimeoutError") &&
+        /the request took too long to respond/i.test(exceptionText);
+      if (isViemTimeout && hasFallbackTransportFrame) return null;
+
       // WalletConnect proposal expiry is a user-driven session timeout
       // regardless of whether it surfaces as handled or unhandled. Always
       // drop so it stops filling the errors dashboard.
