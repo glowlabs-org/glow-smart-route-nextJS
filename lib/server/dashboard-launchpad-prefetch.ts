@@ -37,6 +37,44 @@ const SPONSOR_LISTINGS_ENDPOINT = "/applications/sponsor-listings-applications";
 const PREFETCH_TIMEOUT_MS = 3_000;
 const DASHBOARD_LISTINGS_REVALIDATE_SECONDS = 30;
 
+// Phase-transition cache busting: include the current launchpad delegation
+// slot in the cache key so that a stale-but-still-fresh entry from one slot
+// never serves data into the next slot. Boundaries on Tuesdays in ET:
+//
+//     pre-1AM   ── 1 AM ─→ sgctl  ── 12:05 PM ─→ sgctl_ended  ── 1 PM ─→ glw
+//
+// Without this, a user who lands on the dashboard at 17:00:01 UTC can be
+// served the SSR cache that was generated at 16:59:45 UTC — pre-1PM data,
+// missing the freshly-visible miners/launchpad. With the fingerprint in the
+// key, every Tuesday phase boundary creates a new cache entry; the old one
+// is orphaned. Mirrors the backend's same approach in publicRoutes.ts.
+function getLaunchpadPhaseFingerprint(now: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  })
+    .formatToParts(now)
+    .reduce<Record<string, string>>((acc, p) => {
+      acc[p.type] = p.value;
+      return acc;
+    }, {});
+
+  const dayKey = `${parts.year}-${parts.month}-${parts.day}`;
+  const minutesIntoEtDay = Number(parts.hour) * 60 + Number(parts.minute);
+  // Boundaries in minutes-since-midnight ET: 1 AM = 60, 12:05 PM = 725, 1 PM = 780
+  let slot: string;
+  if (minutesIntoEtDay < 60) slot = "0-pre1am";
+  else if (minutesIntoEtDay < 725) slot = "1-1am-to-1205pm";
+  else if (minutesIntoEtDay < 780) slot = "2-1205pm-to-1pm";
+  else slot = "3-post-1pm";
+  return `${dayKey}-${slot}`;
+}
+
 export const DASHBOARD_SSR_LISTING_FILTERS = {
   launchpadStatus: {} as const,
   miningStatus: { paymentCurrency: "USDC", type: "mining-center" } as const,
@@ -110,11 +148,15 @@ async function withTimeout<T>(
 async function defaultFetchListings(
   filters: SponsorListingsFilters
 ): Promise<AuctionApplication[]> {
-  return await withTimeout(getCachedSponsorListings(filters));
+  // Fingerprint is computed per request and passed as an argument so it
+  // becomes part of unstable_cache's key. Old slot entries become orphans
+  // automatically on phase transitions.
+  const fingerprint = getLaunchpadPhaseFingerprint();
+  return await withTimeout(getCachedSponsorListings(filters, fingerprint));
 }
 
 const getCachedSponsorListings = unstable_cache(
-  async (filters: SponsorListingsFilters) =>
+  async (filters: SponsorListingsFilters, _phaseFingerprint: string) =>
     await hubGet<AuctionApplication[]>(SPONSOR_LISTINGS_ENDPOINT, {
       params: { ...filters },
     }),
