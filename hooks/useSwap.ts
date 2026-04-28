@@ -465,9 +465,11 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
   async function swap({
     amount,
     slippagePercentTenThousandDenominator = SLIPPAGE_NUMERATOR_DEFAULT,
+    prerequisiteTxHashes,
   }: {
     amount: bigint | { toString(): string };
     slippagePercentTenThousandDenominator?: bigint | { toString(): string };
+    prerequisiteTxHashes?: (`0x${string}` | null | undefined)[];
   }): Promise<Result<boolean, SwapError>> {
     if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") {
       return new Ok(false);
@@ -479,6 +481,27 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     if (!signer) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     const amountBigInt = toBigIntAmount(amount);
     const slippageBigInt = toBigIntPlain(slippagePercentTenThousandDenominator);
+
+    // Wait for prior txs (e.g. USDC->USDG wrap) on the RPC the simulation
+    // routes to. The multi-RPC receipt poll upstream resolves on first hit,
+    // but simulation may land on a node that hasn't indexed yet, producing
+    // a spurious TRANSFER_FROM_FAILED.
+    if (prerequisiteTxHashes?.length) {
+      for (const hash of prerequisiteTxHashes) {
+        if (!hash) continue;
+        try {
+          await publicClient.waitForTransactionReceipt({
+            hash,
+            confirmations: 1,
+            retryCount: 8,
+            retryDelay: 1000,
+          });
+        } catch {
+          // Proceed: simulation will surface a clearer error than a wait timeout.
+        }
+      }
+    }
+
     const getReservesResult = await getReservesViem({
       tokenA: tokenA.address as `0x${string}`,
       tokenB: tokenB.address as `0x${string}`,
@@ -503,6 +526,23 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
         );
         setUniswapPurchaseState("APPROVING_TOKEN");
         await approveTx.wait();
+
+        // Mirror the receipt wait on publicClient: the multi-RPC poll above
+        // resolves on the first hit, which may not be the node the upcoming
+        // simulation reads from.
+        const approveHash = lastTxHashRef.current;
+        if (approveHash) {
+          try {
+            await publicClient.waitForTransactionReceipt({
+              hash: approveHash,
+              confirmations: 1,
+              retryCount: 8,
+              retryDelay: 1000,
+            });
+          } catch {
+            // Proceed: simulation will surface a clearer error if needed.
+          }
+        }
       } catch (err: any) {
         setUniswapPurchaseState("ERROR");
         const errorMessage = extractErrorMessage(

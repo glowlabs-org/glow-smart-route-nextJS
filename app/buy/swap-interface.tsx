@@ -299,7 +299,11 @@ export function SwapInterface({
     getSmartBalancingAmounts,
     estimateGasForPurchaseGlowEarlyLiquidity,
   } = usePurchaseGlow();
-  const { swapUSDCToUSDG, estimateGasForswapUSDCToUSDG } = useSwapUSDCToUSDG();
+  const {
+    swapUSDCToUSDG,
+    estimateGasForswapUSDCToUSDG,
+    lastTxHashRef: usdcToUsdgWrapTxHashRef,
+  } = useSwapUSDCToUSDG();
   const { estimateEthToUsdc, estimateGasForSwapEthToUsdc, swapEthToUsdc } =
     useSwapETHToUSDC();
 
@@ -1973,6 +1977,7 @@ export function SwapInterface({
         selectedTokenBuy={selectedTokenBuy}
         smartBalancingAmounts={smartBalancingAmounts}
         swapUSDCToUSDG={swapUSDCToUSDG}
+        lastWrapTxHashRef={usdcToUsdgWrapTxHashRef}
         onOpenChange={async (open) => {
           setIsDialogOpen(open);
           if (!open) {

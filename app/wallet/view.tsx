@@ -191,7 +191,8 @@ export default function View() {
   const hasTrackedGettingStartedViewRef = React.useRef(false);
 
   // USDC to USDG swap hook
-  const { swapUSDCToUSDG } = useSwapUSDCToUSDG();
+  const { swapUSDCToUSDG, lastTxHashRef: usdcToUsdgWrapTxHashRef } =
+    useSwapUSDCToUSDG();
 
   // ERC20 balances (GLOW, USDC, USDG)
   const {
@@ -1626,6 +1627,7 @@ export default function View() {
         selectedTokenBuy={tokens.USDG}
         smartBalancingAmounts={undefined} // Not needed for USDC -> USDG
         swapUSDCToUSDG={swapUSDCToUSDG}
+        lastWrapTxHashRef={usdcToUsdgWrapTxHashRef}
         slippagePointsTenThousandths={BigInt(100)} // 1% slippage
         onOpenChange={(open) => {
           setUsdcToUsdgDialogOpen(open);

@@ -173,6 +173,10 @@ export const UsdcToTokenDialog: FC<{
   swapUSDCToUSDG: (
     amount: bigint
   ) => Promise<Result<boolean, SwapUSDCToUSDGError | string>>;
+  // Ref to the most recent USDC->USDG wrap tx hash. Used so the USDG->GLW
+  // swap can wait for that wrap to be indexed by the simulation RPC before
+  // simulating; otherwise the sim can revert with TRANSFER_FROM_FAILED.
+  lastWrapTxHashRef?: React.RefObject<`0x${string}` | null>;
   onOpenChange: (open: boolean) => void;
 }> = ({
   isOpen,
@@ -182,6 +186,7 @@ export const UsdcToTokenDialog: FC<{
   selectedTokenBuy,
   smartBalancingAmounts,
   swapUSDCToUSDG,
+  lastWrapTxHashRef,
   selectedTokenSell,
   slippagePointsTenThousandths,
 }) => {
@@ -497,6 +502,9 @@ export const UsdcToTokenDialog: FC<{
         const purchaseGlowFromUniswap = await swap({
           amount: effectiveSmartBalancingAmounts!.amount_in_uni as any,
           slippagePercentTenThousandDenominator: slippagePointsTenThousandths,
+          prerequisiteTxHashes: lastWrapTxHashRef?.current
+            ? [lastWrapTxHashRef.current]
+            : undefined,
         });
         if (!purchaseGlowFromUniswap.ok) {
           updateStepStatus("SWAP_USDG_TO_GLOW_UNISWAP", "error", {
