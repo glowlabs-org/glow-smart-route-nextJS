@@ -160,11 +160,14 @@ if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
       // surfaced the receipt before the polling window closed. The tx is
       // almost always on-chain; the user-facing dialog already shows the
       // hash and a "do not resubmit" message. Capturing in Sentry buries
-      // real failures under hundreds of false positives.
+      // real failures under hundreds of false positives. Two different
+      // phrasings exist in the codebase ("X was submitted..." from the
+      // typed error, "Transaction submitted..." from plain Error throws in
+      // deposit-dialog-utils + usePatchedOffchainFractions); match both.
       const isDelayedConfirmation =
         exceptionTypes.some((t) => t === "DelayedConfirmationError") ||
         /Transaction receipt not found within \d+ms/i.test(exceptionText) ||
-        /was submitted but confirmation is delayed/i.test(exceptionText);
+        /submitted but confirmation is delayed/i.test(exceptionText);
       if (isDelayedConfirmation) return null;
 
       // Filter wallet rejection errors (user declined connection/signature)
