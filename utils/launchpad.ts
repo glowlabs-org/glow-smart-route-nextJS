@@ -5,6 +5,7 @@ export interface LaunchpadListingLike {
     isFilled: boolean;
     remainingSteps: number | null;
     totalSteps: number | null;
+    splitsSold?: number | null;
     marketplaceVisibleAt?: string | null;
   } | null;
 }
@@ -17,7 +18,14 @@ export function isPublicActiveListing(
   if (!fraction) return false;
 
   const totalSteps = fraction?.totalSteps ?? 0;
-  const remainingSteps = fraction?.remainingSteps ?? 0;
+  // Fall back to (totalSteps - splitsSold) when the API doesn't populate
+  // remainingSteps. Without this fallback, mining-center fractions that
+  // serialize remainingSteps=null are incorrectly classified as inactive,
+  // hiding them from the dashboard widget after the launchpad fraction
+  // fills (observed April 28: Hushed Pines at 2/34 sold went invisible).
+  const splitsSold = fraction?.splitsSold ?? 0;
+  const remainingSteps =
+    fraction?.remainingSteps ?? Math.max(0, totalSteps - splitsSold);
 
   return (
     !fraction.isFilled &&
