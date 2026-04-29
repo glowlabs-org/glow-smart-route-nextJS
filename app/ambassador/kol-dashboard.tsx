@@ -161,6 +161,7 @@ function generateMonthOptions(): Array<{
   key: string;
 }> {
   const now = new Date();
+  const currentWeek = getProtocolWeekForDate(now);
   const options: Array<{
     kind: "month";
     startWeek: number;
@@ -170,14 +171,16 @@ function generateMonthOptions(): Array<{
   }> = [];
 
   let cursor = new Date(Date.UTC(2026, 2, 1));
-  while (cursor <= now) {
+  while (true) {
     const year = cursor.getUTCFullYear();
     const month = cursor.getUTCMonth();
     const firstDay = new Date(Date.UTC(year, month, 1));
     const firstDayNextMonth = new Date(Date.UTC(year, month + 1, 1));
+    const startWeek = getProtocolWeekForDate(firstDay);
+    if (startWeek > currentWeek) break;
     options.push({
       kind: "month",
-      startWeek: getProtocolWeekForDate(firstDay),
+      startWeek,
       endWeek: getProtocolWeekForDate(firstDayNextMonth) - 1,
       label: firstDay.toLocaleDateString("en-US", {
         month: "short",
@@ -186,7 +189,7 @@ function generateMonthOptions(): Array<{
       }),
       key: `${year}-${month}`,
     });
-    cursor = new Date(Date.UTC(year, month + 1, 1));
+    cursor = firstDayNextMonth;
   }
 
   return options;
