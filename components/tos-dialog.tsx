@@ -26,6 +26,8 @@ import { resolveWalletChainId } from "@/lib/tos-chain";
 import {
   parseTosApiError,
   shouldRetryTosWithPersonalSign,
+  shouldFallbackToPersonalSign,
+  isAlreadyPendingError,
   type TosError,
 } from "@/lib/tos-signature-errors";
 import { WalletsRouter } from "@glowlabs-org/utils/browser";
@@ -236,6 +238,11 @@ export function TosDialog() {
   const [activeWalletChainId, setActiveWalletChainId] = React.useState<
     number | undefined
   >(connectedChainId);
+  // Synchronous re-entry guard. setIsSigning(true) is async and won't block a
+  // second handleAcceptTos call dispatched in the same tick (rapid double-click
+  // or a re-render firing the click handler twice), which is what causes the
+  // wallet to receive a duplicate request and return -32002.
+  const inFlightRef = React.useRef(false);
 
   const getNetworkLabel = React.useCallback((id?: number) => {
     if (!id) return "Unknown Network";
@@ -364,13 +371,18 @@ export function TosDialog() {
   }, [isConnected, address]);
 
   const handleAcceptTos = async () => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+
     if (!address) {
       toast.error(t.tos.toastWalletRequired);
+      inFlightRef.current = false;
       return;
     }
 
     if (isSignerLoading || !signer) {
       toast.error(t.tos.toastWalletInitializing);
+      inFlightRef.current = false;
       return;
     }
 
@@ -383,6 +395,7 @@ export function TosDialog() {
     if (requestIsWrongNetwork) {
       setError(buildWrongNetworkError(walletChainIdForRequest));
       setRetryCount((prev) => prev + 1);
+      inFlightRef.current = false;
       return;
     }
 
@@ -442,10 +455,14 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
         );
         signingContext.signature = signature;
       } catch (typedDataError) {
-        console.warn(
-          "EIP-712 signing failed, falling back to personal sign:",
-          typedDataError
-        );
+        const canFallback = shouldFallbackToPersonalSign(typedDataError);
+
+        if (canFallback) {
+          console.warn(
+            "EIP-712 signing failed, falling back to personal sign:",
+            typedDataError
+          );
+        }
 
         // Log EIP-712 failure to Sentry with wallet context
         if (typeof window !== "undefined") {
@@ -463,6 +480,8 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
               expectedChainId: String(chainId),
               connectorName,
               connectorId,
+              fallbackToPersonalSign: String(canFallback),
+              alreadyPending: String(isAlreadyPendingError(typedDataError)),
             },
             extra: {
               tosVersion: TOS_VERSION,
@@ -483,6 +502,14 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
               rawError: errorDetails.raw || String(typedDataError),
             },
           });
+        }
+
+        // For already-pending (-32002) and user-rejected, retrying with
+        // signMessage just spawns a second wallet popup, which is what was
+        // causing the cascading "Request already pending" errors. Surface
+        // the error to the outer catch block so the user gets a clear message.
+        if (!canFallback) {
+          throw typedDataError;
         }
 
         // Fallback to personal sign for wallets that don't support EIP-712 properly
@@ -725,6 +752,10 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
         toast.error(t.tos.toastSignatureRequired, {
           description: t.tos.toastSignatureRequiredDescription,
         });
+      } else if (parsedError.type === "already_pending") {
+        toast.error(parsedError.title, {
+          description: parsedError.suggestion,
+        });
       } else if (parsedError.type === "smart_wallet") {
         // For smart wallet errors, show a more helpful toast
         toast.error(t.tos.toastSmartWalletIssue, {
@@ -732,8 +763,14 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
         });
       }
 
-      // Log non-rejection errors to Sentry with comprehensive debugging info
-      if (parsedError.type !== "signature_rejected" && typeof window !== "undefined") {
+      // Log non-rejection errors to Sentry with comprehensive debugging info.
+      // Skip signature_rejected (user action, not a bug) and already_pending
+      // (already captured at the eip712_signing stage with full context).
+      if (
+        parsedError.type !== "signature_rejected" &&
+        parsedError.type !== "already_pending" &&
+        typeof window !== "undefined"
+      ) {
         const normalizedError =
           error instanceof Error ? error : new Error(String(error));
         const sigDebug = getSignatureDebugInfo(signingContext.signature);
@@ -785,6 +822,7 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
       console.error("Error accepting ToS:", error);
     } finally {
       setIsSigning(false);
+      inFlightRef.current = false;
     }
   };
 

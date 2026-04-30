@@ -5,9 +5,70 @@ export type TosErrorType =
   | "deadline_expired"
   | "deadline_invalid"
   | "signature_rejected"
+  | "already_pending"
   | "network_error"
   | "wrong_network"
   | "unknown";
+
+// Detects EIP-1193 -32002 "Request already pending" responses, which surface
+// when a previous wallet popup hasn't been resolved yet. Re-firing a signature
+// in this state spawns a duplicate request that the wallet rejects.
+export function isAlreadyPendingError(error: unknown): boolean {
+  const err = error as {
+    code?: string | number;
+    message?: string;
+    error?: { code?: string | number; message?: string };
+    cause?: { code?: string | number; message?: string };
+  } | null;
+  if (!err) return false;
+
+  const codes = [err.code, err.error?.code, err.cause?.code];
+  if (codes.some((c) => c === -32002 || c === "-32002")) return true;
+
+  const messages = [err.message, err.error?.message, err.cause?.message]
+    .filter((m): m is string => typeof m === "string")
+    .map((m) => m.toLowerCase());
+  return messages.some((m) => m.includes("already pending"));
+}
+
+// Detects "user rejected" wallet errors across providers (MetaMask 4001,
+// Phantom, Coinbase, etc). Used to skip the personal_sign fallback when the
+// user actively dismissed the EIP-712 prompt — retrying just opens a second
+// popup they'll dismiss again.
+export function isUserRejectedError(error: unknown): boolean {
+  const err = error as {
+    code?: string | number;
+    message?: string;
+    error?: { code?: string | number; message?: string };
+    cause?: { code?: string | number; message?: string };
+  } | null;
+  if (!err) return false;
+
+  const codes = [err.code, err.error?.code, err.cause?.code];
+  if (codes.some((c) => c === 4001 || c === "4001" || c === "ACTION_REJECTED"))
+    return true;
+
+  const messages = [err.message, err.error?.message, err.cause?.message]
+    .filter((m): m is string => typeof m === "string")
+    .map((m) => m.toLowerCase());
+  return messages.some(
+    (m) =>
+      m.includes("user rejected") ||
+      m.includes("user denied") ||
+      m.includes("user reject this request") ||
+      m.includes("rejected the request")
+  );
+}
+
+// Whether to fall back from EIP-712 to personal_sign when signTypedData throws
+// at the wallet layer. Only true when the wallet itself can't handle EIP-712
+// (unsupported method). For pending-request or user-rejected errors, retrying
+// would just spawn another popup — surface the error instead.
+export function shouldFallbackToPersonalSign(error: unknown): boolean {
+  if (isAlreadyPendingError(error)) return false;
+  if (isUserRejectedError(error)) return false;
+  return true;
+}
 
 export interface TosError {
   type: TosErrorType;
@@ -21,6 +82,21 @@ export interface TosError {
 export function parseTosApiError(error: unknown): TosError {
   const errorMessage = error instanceof Error ? error.message : String(error);
   const lowerMessage = errorMessage.toLowerCase();
+
+  // Wallet has a previous request still pending (EIP-1193 -32002).
+  // Detected first because "already pending" can also match the generic
+  // network heuristic below.
+  if (isAlreadyPendingError(error) || lowerMessage.includes("already pending")) {
+    return {
+      type: "already_pending",
+      title: "Wallet Request Pending",
+      message:
+        "Your wallet has a previous request waiting for approval.",
+      suggestion:
+        "Open your wallet, approve or dismiss the pending request, then try again.",
+      canRetry: true,
+    };
+  }
 
   // Smart wallet specific errors
   if (
