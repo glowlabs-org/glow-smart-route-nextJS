@@ -77,6 +77,7 @@ import {
 } from "@/lib/normalize-tx-hash";
 import {
   getReadableRpcErrorMessage,
+  isInsufficientGasError,
   normalizeSwapFailureMessage,
 } from "@/lib/rpc-error-utils";
 import {
@@ -836,6 +837,12 @@ export function SwapInterface({
         isInvalidWalletTxResponseError(errorMessage)
       ) {
         errorMessage = INVALID_WALLET_TX_RESPONSE_MESSAGE;
+      } else if (isInsufficientGasError(error) || isInsufficientGasError(errorMessage)) {
+        // Spell out the constraint: gas is paid in ETH only, not USDC or other
+        // tokens. Users with a USDC-only balance otherwise see a generic
+        // "insufficient ETH for gas" line and don't know why their token
+        // balance can't cover it.
+        errorMessage = t.swap.insufficientGasErrorExplained;
       } else {
         errorMessage = normalizeSwapFailureMessage(errorMessage);
       }

@@ -78,6 +78,7 @@ export interface SwapStrings {
   notEnoughEthSwapPurchase: (shortfall: string) => string;
   notEnoughEthRedemption: (shortfall: string) => string;
   insufficientGasError: string;
+  insufficientGasErrorExplained: string;
   smartAccountNotSupported: string;
   failedEstimateUsdg: string;
   glowWorthIncreasedMessage: string;
@@ -195,6 +196,8 @@ const en: SwapStrings = {
     `Not enough ETH to cover the full swap + redemption. Add ${shortfall} to this wallet and try again.`,
   insufficientGasError:
     "Insufficient ETH for gas. Add more ETH to your wallet and try again.",
+  insufficientGasErrorExplained:
+    "Not enough ETH to cover the network fee. Network fees on Ethereum (gas) can only be paid in ETH — USDC and other tokens can't be used. Add some ETH to your wallet and try again.",
   smartAccountNotSupported: "Smart account not supported.",
   failedEstimateUsdg: "Failed to estimate USDG output",
   glowWorthIncreasedMessage:
@@ -311,6 +314,8 @@ const ko: SwapStrings = {
     `전체 스왑 + 상환에 필요한 ETH가 부족합니다. 이 지갑에 ${shortfall}를 추가한 후 다시 시도해주세요.`,
   insufficientGasError:
     "가스용 ETH가 부족합니다. 지갑에 ETH를 추가한 후 다시 시도해주세요.",
+  insufficientGasErrorExplained:
+    "네트워크 수수료를 지불할 ETH가 부족합니다. 이더리움의 네트워크 수수료(가스)는 ETH로만 지불할 수 있으며, USDC나 다른 토큰은 사용할 수 없습니다. 지갑에 ETH를 추가한 후 다시 시도해주세요.",
   smartAccountNotSupported: "스마트 계정은 지원되지 않습니다.",
   failedEstimateUsdg: "USDG 출력 추정에 실패했습니다",
   glowWorthIncreasedMessage:
