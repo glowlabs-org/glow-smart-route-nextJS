@@ -19,7 +19,7 @@ import { ScrollArea } from "./ui/scroll-area";
 import { Separator } from "./ui/separator";
 import { Loader2, ChevronDown, AlertCircle, RefreshCw, Wallet, Info } from "lucide-react";
 import { toast } from "sonner";
-import { keccak256, toHex } from "viem";
+import { keccak256, recoverMessageAddress, toHex } from "viem";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useGctlApi } from "@/hooks";
 import { resolveWalletChainId } from "@/lib/tos-chain";
@@ -678,6 +678,27 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
               const sigDebug = getSignatureDebugInfo(signature);
               const errorDetails = getErrorDetails(personalSignRetryError);
 
+              // Diagnostic: when backend rejects with signer_mismatch, recover
+              // the address client-side from the same (message, signature) pair
+              // and compare to the active signer + claimed wallet. Distinguishes
+              // "wallet signed wrong message/account" (recover ≠ wallet) from
+              // "backend rejected a valid signature" (recover === wallet).
+              let signerAddress: string | null = null;
+              let locallyRecoveredAddress: string | null = null;
+              try {
+                signerAddress = await signer.getAddress();
+              } catch {
+                // ignore — signer may have disconnected mid-flow
+              }
+              try {
+                locallyRecoveredAddress = await recoverMessageAddress({
+                  message,
+                  signature: signature as `0x${string}`,
+                });
+              } catch {
+                // ignore — malformed signature would already surface via backend
+              }
+
               Sentry.captureException(normalizedError, {
                 tags: {
                   tosStage: "api_submission_personal_sign_retry",
@@ -689,6 +710,13 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
                   connectorName,
                   connectorId,
                   signatureType: sigDebug.signatureType,
+                  recoverMatchesWallet: String(
+                    locallyRecoveredAddress?.toLowerCase() ===
+                      address.toLowerCase()
+                  ),
+                  signerMatchesWallet: String(
+                    signerAddress?.toLowerCase() === address.toLowerCase()
+                  ),
                 },
                 extra: {
                   tosVersion: TOS_VERSION,
@@ -698,6 +726,8 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
                   deadlineHuman: new Date(Number(deadline) * 1000).toISOString(),
                   signatureLength: sigDebug.signatureLength,
                   signaturePreview: sigDebug.signaturePreview,
+                  signerAddress,
+                  locallyRecoveredAddress,
                   errorMessage: normalizedError.message,
                   errorCode: errorDetails.code,
                   errorReason: errorDetails.reason,
