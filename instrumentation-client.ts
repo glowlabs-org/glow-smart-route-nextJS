@@ -128,8 +128,11 @@ if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
       // RainbowKit's wallet lookup throws "not found rainbowkit" as an
       // unhandled rejection when a third-party wallet lookup misses. We
       // don't use RainbowKit as a user-facing connector here; it surfaces
-      // via connector discovery and is not actionable.
-      const isRainbowKitNotFound = /not found rainbowkit/i.test(message);
+      // via connector discovery and is not actionable. Test against the
+      // full cause chain (exceptionText) since the rainbowkit message is
+      // often nested under a wagmi connector wrapper - the prior
+      // `message`-only check missed those (~850 events/week).
+      const isRainbowKitNotFound = /not found rainbowkit/i.test(exceptionText);
       if (isRainbowKitNotFound) return null;
 
       // wagmi throws ProviderNotFoundError from the injected connector's
