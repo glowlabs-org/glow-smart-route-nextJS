@@ -417,6 +417,7 @@ export function useWalletPortfolio(params: {
 
     delegatedActiveOnlyGlw: impactDelegatedActiveGlw,
     pendingRecoveredGlw: impactPendingRecoveredGlw,
+    isImpactGlowWorthLoaded: Boolean(impactGlowWorth),
 
     holdings,
     allocationItems: allocations.items,

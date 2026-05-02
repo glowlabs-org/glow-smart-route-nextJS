@@ -89,6 +89,7 @@ export default function PortfolioSummaryWidget({
     chartData: glowWorthChartData,
     shouldShowSkeleton: isPortfolioLoading,
     delegatedActiveOnlyGlw,
+    isImpactGlowWorthLoaded,
   } = useWalletPortfolio({
     walletAddress: walletAddress ?? null,
   });
@@ -144,7 +145,12 @@ export default function PortfolioSummaryWidget({
   }, [splitsActivity, walletFarms]);
 
   const delegatedActiveAssets = React.useMemo<DelegatedAmountsByAsset>(() => {
+    // Only override with the impact-router number once it has actually loaded.
+    // parseGlwFromWei(undefined) returns 0, which is a finite number, so we
+    // need an explicit loaded flag instead of a finiteness check; otherwise
+    // the brief loading window would clobber the client-side value with 0.
     const glw =
+      isImpactGlowWorthLoaded &&
       typeof delegatedActiveOnlyGlw === "number" &&
       Number.isFinite(delegatedActiveOnlyGlw)
         ? delegatedActiveOnlyGlw
@@ -153,7 +159,11 @@ export default function PortfolioSummaryWidget({
       GLW: glw,
       SGCTL: delegatedActiveAssetsRaw.SGCTL ?? 0,
     };
-  }, [delegatedActiveAssetsRaw, delegatedActiveOnlyGlw]);
+  }, [
+    delegatedActiveAssetsRaw,
+    delegatedActiveOnlyGlw,
+    isImpactGlowWorthLoaded,
+  ]);
 
   const stats = React.useMemo(() => {
     const rewardedDelegationFarmIds = new Set<string>();
