@@ -62,7 +62,10 @@ import {
   estimateMiningCenterWeeklyGlw,
 } from "@/utils/sponsorships-in-progress";
 import { useWalletLaunchpadInProgress } from "@/hooks/use-wallet-launchpad-in-progress";
-import { resolveLaunchpadActivityFarmId } from "@/utils/wallet-launchpad";
+import {
+  isSplitActivityStillActive,
+  resolveLaunchpadActivityFarmId,
+} from "@/utils/wallet-launchpad";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { trackEvent } from "@/lib/telemetry";
 import { GENESIS_TIMESTAMP, getCurrentEpoch } from "@/utils/getCurrentEpoch";
@@ -906,47 +909,6 @@ export default function SolarFarmWidget({
     sponsorshipsInProgressWithEstimates,
   ]);
 
-  const inProgressDelegationsCount = React.useMemo(() => {
-    const farmKeys = new Set<string>();
-
-    for (const item of sponsorshipsInProgress) {
-      const farmKey = item.application?.farmId ?? item.applicationId;
-      if (farmKey) {
-        farmKeys.add(farmKey);
-      }
-    }
-
-    return farmKeys.size;
-  }, [sponsorshipsInProgress]);
-
-  const inProgressMinersCount = React.useMemo(() => {
-    const farmKeys = new Set<string>();
-
-    for (const item of miningCenterInProgress) {
-      const farmKey = item.application?.farmId ?? item.applicationId;
-      if (farmKey) {
-        farmKeys.add(farmKey);
-      }
-    }
-
-    return farmKeys.size;
-  }, [miningCenterInProgress]);
-
-  const backendDelegationFarmIds = React.useMemo(() => {
-    if (!data) return new Set<string>();
-    return new Set(
-      data.farmDetails
-        .filter((farm) => farm.type === "launchpad")
-        .map((farm) => farm.farmId)
-    );
-  }, [data]);
-
-  const pendingStartDelegationsCount = React.useMemo(() => {
-    return pendingStartLaunchpadStats.filter(
-      (item) => !backendDelegationFarmIds.has(item.farmId)
-    ).length;
-  }, [pendingStartLaunchpadStats, backendDelegationFarmIds]);
-
   const {
     availableAssets,
     filledHistoryByAsset,
@@ -1103,22 +1065,38 @@ export default function SolarFarmWidget({
       ? selectedAssetEstimatedInProgress
       : historicalLast;
 
-    const activeMiners = data
-      ? data.farmStatistics.minerOnlyFarms + data.farmStatistics.bothTypesFarms
-      : 0;
-    const activeDelegations = data
-      ? data.farmStatistics.delegatorOnlyFarms +
-        data.farmStatistics.bothTypesFarms
-      : 0;
+    // Count each farm once across rewarded + still-active splits, regardless
+    // of how many delegation legs (e.g. GLW + sGCTL) it has. Mirrors
+    // portfolio-summary-widget so the two panels stay in sync.
+    const delegationFarmIds = new Set<string>();
+    const minerFarmIds = new Set<string>();
+
+    if (data) {
+      for (const farm of data.farmDetails) {
+        if (farm.type === "launchpad") {
+          delegationFarmIds.add(farm.farmId);
+        } else if (farm.type === "mining-center") {
+          minerFarmIds.add(farm.farmId);
+        }
+      }
+    }
+
+    for (const split of splitsActivity) {
+      if (!isSplitActivityStillActive({ split })) continue;
+      const farmId = split.farmId ?? split.applicationId;
+      if (!farmId) continue;
+      if (split.fractionType === "launchpad") {
+        delegationFarmIds.add(farmId);
+      } else if (split.fractionType === "mining-center") {
+        minerFarmIds.add(farmId);
+      }
+    }
 
     return {
       weeklyPayout,
       isEstimatedWeeklyPayout,
-      activeMiners: activeMiners + inProgressMinersCount,
-      activeDelegations:
-        activeDelegations +
-        inProgressDelegationsCount +
-        pendingStartDelegationsCount,
+      activeMiners: minerFarmIds.size,
+      activeDelegations: delegationFarmIds.size,
       activeOtherRewards:
         data?.otherFarmsWithRewards?.count ??
         data?.otherFarmsWithRewards?.farms.length ??
@@ -1126,11 +1104,9 @@ export default function SolarFarmWidget({
     };
   }, [
     data,
-    inProgressDelegationsCount,
-    inProgressMinersCount,
-    pendingStartDelegationsCount,
     selectedAssetEstimatedInProgress,
     selectedAssetRawHistory,
+    splitsActivity,
   ]);
 
   const visibleStatsItems = React.useMemo(() => {
