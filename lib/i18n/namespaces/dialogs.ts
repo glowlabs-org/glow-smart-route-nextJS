@@ -9,6 +9,8 @@ export interface DialogsStrings {
     liquidSublabel: string;
     delegatedLabel: string;
     delegatedSublabel: string;
+    pendingRecoveryLabel: string;
+    pendingRecoverySublabel: string;
     unclaimedLabel: string;
     unclaimedSublabel: string;
   };
@@ -211,9 +213,11 @@ const en: DialogsStrings = {
     totalDescription: "Total GLW across all sources",
     liquidLabel: "GLW in your wallet",
     liquidSublabel: "Updates right away when you receive or swap GLW",
-    delegatedLabel: "GLW from delegations + pending recovery",
-    delegatedSublabel:
-      "Includes delegated GLW and protocol deposit recovery not yet claimable",
+    delegatedLabel: "Delegated GLW",
+    delegatedSublabel: "Principal still locked in farm delegations",
+    pendingRecoveryLabel: "Pending recovery",
+    pendingRecoverySublabel:
+      "Protocol deposit recovery earned but not yet claimable",
     unclaimedLabel: "Unclaimed rewards",
     unclaimedSublabel: "Rewards you've earned but haven't claimed yet",
   },
@@ -404,9 +408,11 @@ const ko: DialogsStrings = {
     totalDescription: "모든 출처의 총 GLW",
     liquidLabel: "지갑의 GLW",
     liquidSublabel: "GLW를 받거나 스왑하면 즉시 업데이트됩니다",
-    delegatedLabel: "위임 GLW + 회수 대기분",
-    delegatedSublabel:
-      "위임된 GLW와 아직 클레임할 수 없는 프로토콜 디포짓 회수분을 포함합니다",
+    delegatedLabel: "위임 GLW",
+    delegatedSublabel: "농장 위임에 잠겨 있는 원금",
+    pendingRecoveryLabel: "회수 대기분",
+    pendingRecoverySublabel:
+      "획득했지만 아직 클레임할 수 없는 프로토콜 디포짓 회수분",
     unclaimedLabel: "미청구 리워드",
     unclaimedSublabel: "획득했지만 아직 클레임하지 않은 리워드",
   },

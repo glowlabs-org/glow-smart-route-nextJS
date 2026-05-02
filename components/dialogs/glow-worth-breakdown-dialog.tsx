@@ -22,6 +22,7 @@ export interface GlowWorthBreakdown {
   glowWorthGlw: number;
   liquidGlw: number;
   delegatedActiveGlw: number;
+  pendingRecoveredGlw: number;
   unclaimedGlwRewards: number;
 }
 
@@ -114,6 +115,7 @@ export function GlowWorthBreakdownDialog(props: GlowWorthBreakdownDialogProps) {
     glowWorthGlw: NaN,
     liquidGlw: NaN,
     delegatedActiveGlw: NaN,
+    pendingRecoveredGlw: NaN,
     unclaimedGlwRewards: NaN,
   };
 
@@ -153,6 +155,16 @@ export function GlowWorthBreakdownDialog(props: GlowWorthBreakdownDialogProps) {
                 value={formatGlw(safeBreakdown.delegatedActiveGlw)}
                 tone="purple"
               />
+              {Number.isFinite(safeBreakdown.pendingRecoveredGlw) &&
+              safeBreakdown.pendingRecoveredGlw > 0 ? (
+                <BreakdownRow
+                  icon={VaultIcon}
+                  label={t.dialogs.glowWorth.pendingRecoveryLabel}
+                  sublabel={t.dialogs.glowWorth.pendingRecoverySublabel}
+                  value={formatGlw(safeBreakdown.pendingRecoveredGlw)}
+                  tone="purple"
+                />
+              ) : null}
               <BreakdownRow
                 icon={EmissionsIcon}
                 label={t.dialogs.glowWorth.unclaimedLabel}

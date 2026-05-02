@@ -20,6 +20,7 @@ export interface GlowWorthPoint {
   isCurrent?: boolean;
   liquidGlw?: number;
   delegatedActiveGlw?: number;
+  pendingRecoveredGlw?: number;
   unclaimedGlwRewards?: number;
 }
 
@@ -209,9 +210,6 @@ export function useWalletPortfolio(params: {
   const impactPendingRecoveredGlw = React.useMemo(() => {
     return parseGlwFromWei(impactGlowWorth?.pendingRecoveredGlwWei);
   }, [impactGlowWorth?.pendingRecoveredGlwWei]);
-  const impactDelegatedTotalGlw = React.useMemo(() => {
-    return impactDelegatedActiveGlw + impactPendingRecoveredGlw;
-  }, [impactDelegatedActiveGlw, impactPendingRecoveredGlw]);
   const impactUnclaimedGlwRewards = React.useMemo(() => {
     return parseGlwFromWei(impactGlowWorth?.unclaimedGlwRewardsWei);
   }, [impactGlowWorth?.unclaimedGlwRewardsWei]);
@@ -236,13 +234,15 @@ export function useWalletPortfolio(params: {
     return {
       glowWorthGlw,
       liquidGlw: impactLiquidGlw,
-      delegatedActiveGlw: impactDelegatedTotalGlw,
+      delegatedActiveGlw: impactDelegatedActiveGlw,
+      pendingRecoveredGlw: impactPendingRecoveredGlw,
       unclaimedGlwRewards: impactUnclaimedGlwRewards,
     };
   }, [
     glowWorthGlw,
     hasWallet,
-    impactDelegatedTotalGlw,
+    impactDelegatedActiveGlw,
+    impactPendingRecoveredGlw,
     impactLiquidGlw,
     impactUnclaimedGlwRewards,
   ]);
@@ -307,7 +307,8 @@ export function useWalletPortfolio(params: {
           week: currentWeek,
           isCurrent: true,
           liquidGlw: impactLiquidGlw,
-          delegatedActiveGlw: impactDelegatedTotalGlw,
+          delegatedActiveGlw: impactDelegatedActiveGlw,
+          pendingRecoveredGlw: impactPendingRecoveredGlw,
           unclaimedGlwRewards: impactUnclaimedGlwRewards,
         },
       ];
@@ -322,7 +323,10 @@ export function useWalletPortfolio(params: {
       // Breakdown is only available for current week
       const liquidGlw = isCurrent ? impactLiquidGlw : undefined;
       const delegatedActiveGlw = isCurrent
-        ? impactDelegatedTotalGlw
+        ? impactDelegatedActiveGlw
+        : undefined;
+      const pendingRecoveredGlw = isCurrent
+        ? impactPendingRecoveredGlw
         : undefined;
       const unclaimedGlwRewards = isCurrent
         ? impactUnclaimedGlwRewards
@@ -334,6 +338,7 @@ export function useWalletPortfolio(params: {
         isCurrent,
         liquidGlw,
         delegatedActiveGlw,
+        pendingRecoveredGlw,
         unclaimedGlwRewards,
       };
     });
@@ -343,7 +348,8 @@ export function useWalletPortfolio(params: {
     impactScore?.weekly,
     impactGlowWorth?.glowWorthWei,
     impactLiquidGlw,
-    impactDelegatedTotalGlw,
+    impactDelegatedActiveGlw,
+    impactPendingRecoveredGlw,
     impactUnclaimedGlwRewards,
   ]);
 

@@ -66,6 +66,7 @@ function GlowWorthChartTooltip({
   const isCurrent = Boolean(point?.isCurrent);
   const liquid = point?.liquidGlw ?? NaN;
   const delegated = point?.delegatedActiveGlw ?? NaN;
+  const pendingRecovery = point?.pendingRecoveredGlw ?? NaN;
   const unclaimed = point?.unclaimedGlwRewards ?? NaN;
   if (!Number.isFinite(safeGlw)) return null;
 
@@ -111,11 +112,21 @@ function GlowWorthChartTooltip({
             </span>
           </div>
           <div className="flex items-center justify-between gap-4">
-            <span>{labels.tooltipDelegatedRecovery}</span>
+            <span>{labels.tooltipDelegated}</span>
             <span className="tabular-nums text-foreground">
               {delegated.toLocaleString("en-US", { maximumFractionDigits: 0 })}
             </span>
           </div>
+          {Number.isFinite(pendingRecovery) && pendingRecovery > 0 ? (
+            <div className="flex items-center justify-between gap-4">
+              <span>{labels.tooltipPendingRecovery}</span>
+              <span className="tabular-nums text-foreground">
+                {pendingRecovery.toLocaleString("en-US", {
+                  maximumFractionDigits: 0,
+                })}
+              </span>
+            </div>
+          ) : null}
           <div className="flex items-center justify-between gap-4">
             <span>{labels.tooltipUnclaimed}</span>
             <span className="tabular-nums text-foreground">
@@ -301,6 +312,7 @@ export default function NetWorthWidget({
         glowWorthGlw: glowWorthBreakdown.glowWorthGlw,
         liquidGlw: glowWorthBreakdown.liquidGlw,
         delegatedActiveGlw: glowWorthBreakdown.delegatedActiveGlw,
+        pendingRecoveredGlw: glowWorthBreakdown.pendingRecoveredGlw,
         unclaimedGlwRewards: glowWorthBreakdown.unclaimedGlwRewards,
       } satisfies GlowWorthBreakdown)
     : null;

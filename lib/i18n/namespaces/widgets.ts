@@ -228,7 +228,8 @@ export interface WidgetStrings {
     tooltipWeek: (week: number) => string;
     tooltipFallback: string;
     tooltipLiquid: string;
-    tooltipDelegatedRecovery: string;
+    tooltipDelegated: string;
+    tooltipPendingRecovery: string;
     tooltipUnclaimed: string;
   };
 
@@ -874,7 +875,8 @@ const en: WidgetStrings = {
     tooltipWeek: (week) => `Week ${week}`,
     tooltipFallback: "GLW worth",
     tooltipLiquid: "Liquid",
-    tooltipDelegatedRecovery: "Delegated + recovery",
+    tooltipDelegated: "Delegated",
+    tooltipPendingRecovery: "Pending recovery",
     tooltipUnclaimed: "Unclaimed",
   },
 
@@ -1510,7 +1512,8 @@ const ko: WidgetStrings = {
     tooltipWeek: (week) => `${week}주`,
     tooltipFallback: "GLW 자산",
     tooltipLiquid: "유동",
-    tooltipDelegatedRecovery: "위임 + 회수",
+    tooltipDelegated: "위임",
+    tooltipPendingRecovery: "회수 대기분",
     tooltipUnclaimed: "미청구",
   },
 
