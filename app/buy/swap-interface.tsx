@@ -238,6 +238,7 @@ export function SwapInterface({
     setEstimatedOutputAmount(defaultTokensEstimate);
     setActionErrorMessage(null);
     setEstimateErrorMessage(null);
+    setIsFeesLoading(false);
   }, [selectedTokenBuy, selectedTokenSell]);
 
   const [smartBalancingAmounts, setSmartBalancingAmounts] = useState<
@@ -247,6 +248,7 @@ export function SwapInterface({
       estimatedTotalGasInUSD: string;
     }
   >();
+  const [isFeesLoading, setIsFeesLoading] = useState<boolean>(false);
   const [usdgWithdrawAmount, setUsdgWithdrawAmount] = useState<string>("0");
   const [estimatedWithdrawGas, setEstimatedWithdrawGas] = useState<string>("");
 
@@ -296,7 +298,6 @@ export function SwapInterface({
 
   const {
     purchaseGlowEarlyLiquidity,
-    findAmountGlowFromUSDGAmount,
     getSmartBalancingAmounts,
     estimateGasForPurchaseGlowEarlyLiquidity,
   } = usePurchaseGlow();
@@ -993,143 +994,181 @@ export function SwapInterface({
         });
         if (!smartBalancingAmountsRes.ok) {
           console.error(smartBalancingAmountsRes.val);
-          if (!signal.aborted)
+          if (!signal.aborted) {
             setEstimateErrorMessage(String(smartBalancingAmountsRes.val));
+            setIsFeesLoading(false);
+          }
           return;
         }
+        if (signal.aborted) return;
 
-        // early liquidity fees
-        let estimatedCostInUSDForEarlyLiquidityAmount = "0";
-        estimatedCostInUSDForEarlyLiquidityAmount =
-          await getGlowEarlyLiquidityFees(
-            Number(smartBalancingAmountsRes.val.amount_out_glow)
-          );
-
-        // uniswap fees
-        let estimatedCostInUSDForUniswap = "0";
-        estimatedCostInUSDForUniswap = await getUniswapFees(
-          Number(formatUnits(smartBalancingAmountsRes.val.amount_in_uni, 6))
+        // Show the GLW quote immediately using the API's split. Fees and the
+        // fee-aware split refinement are estimated in the background below.
+        const apiUniOut = Number(smartBalancingAmountsRes.val.amount_out_uni);
+        const apiBondingOut = Number(
+          smartBalancingAmountsRes.val.amount_out_glow
         );
+        const initialOutput =
+          (Number.isFinite(apiUniOut) ? apiUniOut : 0) +
+          (Number.isFinite(apiBondingOut) ? apiBondingOut : 0);
 
-        // usdc -> usdg fees
-        let estimatedGasForswapUSDCToUSDG = "0";
-        const usdcAmountWei = parseUnits(usdgEquivalent, 6);
-        const estimatedGasForswapUSDCToUSDGRes =
-          await estimateGasForswapUSDCToUSDG(usdcAmountWei, ethPriceInUSD);
-        if (estimatedGasForswapUSDCToUSDGRes.ok)
-          estimatedGasForswapUSDCToUSDG = estimatedGasForswapUSDCToUSDGRes.val;
-
-        // eth -> usdc fees
-        let estimatedGasForSwapEthToUsdcUSD = "0";
-        const ethGasRes = await estimateGasForSwapEthToUsdc({
-          amountInWei: ethWei,
-          slippageBps,
-        });
-        if (ethGasRes.ok && ethPriceInUSD) {
-          const feeEth = Number(formatUnits(ethGasRes.val.estimatedFeeWei, 18));
-          estimatedGasForSwapEthToUsdcUSD = toFixedTruncate(
-            feeEth * ethPriceInUSD,
-            6
-          );
-        }
-
-        const amountsWithFees = getOptimalUSDGAmountsWithFees({
-          amount_glow_out_uniswap: Number(
-            smartBalancingAmountsRes.val.amount_out_uni
-          ),
-          amount_glow_out_bonding_curve: Number(
-            smartBalancingAmountsRes.val.amount_out_glow
-          ),
-          fees: {
-            uniswapFees: Number(estimatedCostInUSDForUniswap),
-            bondingCurveFees: Number(estimatedCostInUSDForEarlyLiquidityAmount),
-          },
-          // If we use both they'll be the same so we can use either
-          endingPriceIfBoth: Number(
-            smartBalancingAmountsRes.val.earlyLiquidityCurrentPrice
-          ),
-          amount_usdg_in_uniswap: Number(
-            formatUnits(smartBalancingAmountsRes.val.amount_in_uni, 6)
-          ),
-          amount_usdg_in_bonding_curve: Number(
-            formatUnits(
-              smartBalancingAmountsRes.val.amount_in_glow_bonding_curve,
-              6
-            )
-          ),
-          uniswapUSDGReserves: Number(
-            smartBalancingAmountsRes.val.uniswapUSDGReserves
-          ),
-          uniswapGlowReserves: Number(
-            smartBalancingAmountsRes.val.uniswapGlowReserves
-          ),
-          earlyLiquidityCurrentPrice: Number(glowPrice),
-          usdgToSpend: Number(usdgEquivalent),
-        });
-
-        // uniswap fees (recompute after fee optimization)
-        estimatedCostInUSDForUniswap = await getUniswapFees(
-          amountsWithFees.amount_usdg_in_uniswap
-        );
-
-        // early liquidity fees (recompute after fee optimization)
-        estimatedCostInUSDForEarlyLiquidityAmount =
-          await getGlowEarlyLiquidityFees(
-            amountsWithFees.amount_out_glow_bonding_curve
-          );
-
-        const estimatedTotalGasInUSD = toFixedTruncate(
-          Number(estimatedCostInUSDForUniswap) +
-            Number(estimatedCostInUSDForEarlyLiquidityAmount) +
-            Number(estimatedGasForswapUSDCToUSDG) +
-            Number(estimatedGasForSwapEthToUsdcUSD),
-          6
-        );
-
-        if (signal.aborted) return; // stale
         setEstimateErrorMessage(null);
+        setEstimatedOutputAmount({
+          ...defaultTokensEstimate,
+          [selectedTokenBuy.label]: initialOutput.toString(),
+        });
         setSmartBalancingAmounts({
-          amount_in_glow_bonding_curve: parseUnits(
-            toFixedTruncate(amountsWithFees.amount_usdg_in_bonding_curve, 6),
-            6
-          ),
-          amount_out_glow: toFixedTruncate(
-            amountsWithFees.amount_out_glow_bonding_curve,
-            18
-          ),
-          amount_in_uni: parseUnits(
-            toFixedTruncate(amountsWithFees.amount_usdg_in_uniswap, 6),
-            6
-          ),
-          amount_out_uni: toFixedTruncate(
-            amountsWithFees.amount_out_glow_uniswap,
-            18
-          ),
+          amount_in_glow_bonding_curve:
+            smartBalancingAmountsRes.val.amount_in_glow_bonding_curve,
+          amount_out_glow: toFixedTruncate(apiBondingOut, 18),
+          amount_in_uni: smartBalancingAmountsRes.val.amount_in_uni,
+          amount_out_uni: toFixedTruncate(apiUniOut, 18),
           uniswapGlowReserves: smartBalancingAmountsRes.val.uniswapGlowReserves,
           uniswapUSDGReserves: smartBalancingAmountsRes.val.uniswapUSDGReserves,
           earlyLiquidityCurrentPrice:
             smartBalancingAmountsRes.val.earlyLiquidityCurrentPrice,
           usdgToSpend: smartBalancingAmountsRes.val.usdgToSpend,
-          estimatedCostInUSDForEarlyLiquidity:
-            estimatedCostInUSDForEarlyLiquidityAmount,
-          estimatedCostInUSDForUniswap: estimatedCostInUSDForUniswap,
-          estimatedTotalGasInUSD: estimatedTotalGasInUSD,
+          estimatedCostInUSDForEarlyLiquidity: "0",
+          estimatedCostInUSDForUniswap: "0",
+          estimatedTotalGasInUSD: "0",
         });
+        setIsFeesLoading(true);
 
-        const uniswapOutFresh = Number(amountsWithFees.amount_out_glow_uniswap);
-        const bondingOutFresh = Number(
-          amountsWithFees.amount_out_glow_bonding_curve
-        );
-        const finalOutput =
-          (Number.isFinite(uniswapOutFresh) ? uniswapOutFresh : 0) +
-          (Number.isFinite(bondingOutFresh) ? bondingOutFresh : 0);
+        // Refine fees + split in the background — does not block the GLW quote.
+        void (async () => {
+          try {
+            const usdcAmountWei = parseUnits(usdgEquivalent, 6);
+            const [
+              earlyLiquidityFeesInitial,
+              uniswapFeesInitial,
+              estimatedGasForswapUSDCToUSDGRes,
+              ethGasRes,
+            ] = await Promise.all([
+              getGlowEarlyLiquidityFees(apiBondingOut),
+              getUniswapFees(
+                Number(
+                  formatUnits(smartBalancingAmountsRes.val.amount_in_uni, 6)
+                )
+              ),
+              estimateGasForswapUSDCToUSDG(usdcAmountWei, ethPriceInUSD),
+              estimateGasForSwapEthToUsdc({
+                amountInWei: ethWei,
+                slippageBps,
+              }),
+            ]);
+            if (signal.aborted) return;
 
-        if (signal.aborted) return; // stale
-        setEstimateErrorMessage(null);
-        setEstimatedOutputAmount({
-          ...defaultTokensEstimate,
-          [selectedTokenBuy.label]: finalOutput.toString(),
-        });
+            let estimatedGasForswapUSDCToUSDG = "0";
+            if (estimatedGasForswapUSDCToUSDGRes.ok)
+              estimatedGasForswapUSDCToUSDG =
+                estimatedGasForswapUSDCToUSDGRes.val;
+
+            let estimatedGasForSwapEthToUsdcUSD = "0";
+            if (ethGasRes.ok && ethPriceInUSD) {
+              const feeEth = Number(
+                formatUnits(ethGasRes.val.estimatedFeeWei, 18)
+              );
+              estimatedGasForSwapEthToUsdcUSD = toFixedTruncate(
+                feeEth * ethPriceInUSD,
+                6
+              );
+            }
+
+            const amountsWithFees = getOptimalUSDGAmountsWithFees({
+              amount_glow_out_uniswap: apiUniOut,
+              amount_glow_out_bonding_curve: apiBondingOut,
+              fees: {
+                uniswapFees: Number(uniswapFeesInitial),
+                bondingCurveFees: Number(earlyLiquidityFeesInitial),
+              },
+              endingPriceIfBoth: Number(
+                smartBalancingAmountsRes.val.earlyLiquidityCurrentPrice
+              ),
+              amount_usdg_in_uniswap: Number(
+                formatUnits(smartBalancingAmountsRes.val.amount_in_uni, 6)
+              ),
+              amount_usdg_in_bonding_curve: Number(
+                formatUnits(
+                  smartBalancingAmountsRes.val.amount_in_glow_bonding_curve,
+                  6
+                )
+              ),
+              uniswapUSDGReserves: Number(
+                smartBalancingAmountsRes.val.uniswapUSDGReserves
+              ),
+              uniswapGlowReserves: Number(
+                smartBalancingAmountsRes.val.uniswapGlowReserves
+              ),
+              earlyLiquidityCurrentPrice: Number(glowPrice),
+              usdgToSpend: Number(usdgEquivalent),
+            });
+
+            const [
+              estimatedCostInUSDForUniswap,
+              estimatedCostInUSDForEarlyLiquidityAmount,
+            ] = await Promise.all([
+              getUniswapFees(amountsWithFees.amount_usdg_in_uniswap),
+              getGlowEarlyLiquidityFees(
+                amountsWithFees.amount_out_glow_bonding_curve
+              ),
+            ]);
+            if (signal.aborted) return;
+
+            const estimatedTotalGasInUSD = toFixedTruncate(
+              Number(estimatedCostInUSDForUniswap) +
+                Number(estimatedCostInUSDForEarlyLiquidityAmount) +
+                Number(estimatedGasForswapUSDCToUSDG) +
+                Number(estimatedGasForSwapEthToUsdcUSD),
+              6
+            );
+
+            setSmartBalancingAmounts({
+              amount_in_glow_bonding_curve: parseUnits(
+                toFixedTruncate(amountsWithFees.amount_usdg_in_bonding_curve, 6),
+                6
+              ),
+              amount_out_glow: toFixedTruncate(
+                amountsWithFees.amount_out_glow_bonding_curve,
+                18
+              ),
+              amount_in_uni: parseUnits(
+                toFixedTruncate(amountsWithFees.amount_usdg_in_uniswap, 6),
+                6
+              ),
+              amount_out_uni: toFixedTruncate(
+                amountsWithFees.amount_out_glow_uniswap,
+                18
+              ),
+              uniswapGlowReserves:
+                smartBalancingAmountsRes.val.uniswapGlowReserves,
+              uniswapUSDGReserves:
+                smartBalancingAmountsRes.val.uniswapUSDGReserves,
+              earlyLiquidityCurrentPrice:
+                smartBalancingAmountsRes.val.earlyLiquidityCurrentPrice,
+              usdgToSpend: smartBalancingAmountsRes.val.usdgToSpend,
+              estimatedCostInUSDForEarlyLiquidity:
+                estimatedCostInUSDForEarlyLiquidityAmount,
+              estimatedCostInUSDForUniswap,
+              estimatedTotalGasInUSD,
+            });
+
+            const uniswapOutFresh = Number(
+              amountsWithFees.amount_out_glow_uniswap
+            );
+            const bondingOutFresh = Number(
+              amountsWithFees.amount_out_glow_bonding_curve
+            );
+            const finalOutput =
+              (Number.isFinite(uniswapOutFresh) ? uniswapOutFresh : 0) +
+              (Number.isFinite(bondingOutFresh) ? bondingOutFresh : 0);
+            setEstimatedOutputAmount({
+              ...defaultTokensEstimate,
+              [selectedTokenBuy.label]: finalOutput.toString(),
+            });
+          } finally {
+            if (!signal.aborted) setIsFeesLoading(false);
+          }
+        })();
 
         return;
       }
@@ -1137,11 +1176,9 @@ export function SwapInterface({
         if (!amountStr || amountStr === "0") {
           setSmartBalancingAmounts(undefined);
           setEstimateErrorMessage(null);
+          setIsFeesLoading(false);
           return;
         }
-        const uniswapEstimate = await estimateOutputAmount({
-          amountIn: toUnitsDecimal(amountStr, 6),
-        });
         const smartBalancingAmountsRes = await getSmartBalancingAmounts({
           amountUsdgIn: Number(amountStr),
           earlyLiquidityCurrentPrice: Number(glowPrice),
@@ -1149,178 +1186,169 @@ export function SwapInterface({
         });
         if (!smartBalancingAmountsRes.ok) {
           console.error(smartBalancingAmountsRes.val);
-          if (!signal.aborted)
+          if (!signal.aborted) {
             setEstimateErrorMessage(String(smartBalancingAmountsRes.val));
+            setIsFeesLoading(false);
+          }
           return;
         }
+        if (signal.aborted) return;
 
-        // early liquidity fees
-        let estimatedCostInUSDForEarlyLiquidityAmount = "0";
-        estimatedCostInUSDForEarlyLiquidityAmount =
-          await getGlowEarlyLiquidityFees(
-            Number(smartBalancingAmountsRes.val.amount_out_glow)
-          );
-
-        //uniswap fees
-        let estimatedCostInUSDForUniswap = "0";
-        estimatedCostInUSDForUniswap = await getUniswapFees(
-          Number(formatUnits(smartBalancingAmountsRes.val.amount_in_uni, 6))
+        // Show the GLW quote immediately using the API's split. Fees and the
+        // fee-aware split refinement are estimated in the background below.
+        const apiUniOut = Number(smartBalancingAmountsRes.val.amount_out_uni);
+        const apiBondingOut = Number(
+          smartBalancingAmountsRes.val.amount_out_glow
         );
+        const initialOutput =
+          (Number.isFinite(apiUniOut) ? apiUniOut : 0) +
+          (Number.isFinite(apiBondingOut) ? apiBondingOut : 0);
 
-        let estimatedGasForswapUSDCToUSDG = "0";
-        if (selectedTokenSell.label === "USDC") {
-          const estimatedGasForswapUSDCToUSDGRes =
-            await estimateGasForswapUSDCToUSDG(
-              toUnitsDecimal(amountStr, 6),
-              ethPriceInUSD
-            );
-          if (estimatedGasForswapUSDCToUSDGRes.ok) {
-            estimatedGasForswapUSDCToUSDG =
-              estimatedGasForswapUSDCToUSDGRes.val;
-          }
-        }
-
-        const amountsWithFees = getOptimalUSDGAmountsWithFees({
-          amount_glow_out_uniswap: Number(
-            smartBalancingAmountsRes.val.amount_out_uni
-          ),
-          amount_glow_out_bonding_curve: Number(
-            smartBalancingAmountsRes.val.amount_out_glow
-          ),
-          fees: {
-            uniswapFees: Number(estimatedCostInUSDForUniswap),
-            bondingCurveFees: Number(estimatedCostInUSDForEarlyLiquidityAmount),
-          },
-          //If we use both they'll be the same so we can use either
-          endingPriceIfBoth: Number(
-            smartBalancingAmountsRes.val.earlyLiquidityCurrentPrice
-          ),
-
-          amount_usdg_in_uniswap: Number(
-            formatUnits(smartBalancingAmountsRes.val.amount_in_uni, 6)
-          ),
-          amount_usdg_in_bonding_curve: Number(
-            formatUnits(
-              smartBalancingAmountsRes.val.amount_in_glow_bonding_curve,
-              6
-            )
-          ),
-          uniswapUSDGReserves: Number(
-            smartBalancingAmountsRes.val.uniswapUSDGReserves
-          ),
-          uniswapGlowReserves: Number(
-            smartBalancingAmountsRes.val.uniswapGlowReserves
-          ),
-          earlyLiquidityCurrentPrice: Number(glowPrice),
-          usdgToSpend: Number(amountStr),
+        setEstimateErrorMessage(null);
+        setEstimatedOutputAmount({
+          ...defaultTokensEstimate,
+          [selectedTokenBuy.label]: initialOutput.toString(),
         });
-
-        //uniswap fees
-        estimatedCostInUSDForUniswap = await getUniswapFees(
-          amountsWithFees.amount_usdg_in_uniswap
-        );
-
-        // early liquidity fees
-        estimatedCostInUSDForEarlyLiquidityAmount =
-          await getGlowEarlyLiquidityFees(
-            amountsWithFees.amount_out_glow_bonding_curve
-          );
-
-        const estimatedTotalGasInUSD = toFixedTruncate(
-          Number(estimatedCostInUSDForUniswap) +
-            Number(estimatedCostInUSDForEarlyLiquidityAmount) +
-            Number(estimatedGasForswapUSDCToUSDG),
-          6
-        );
-
-        if (signal.aborted) return; // stale
         setSmartBalancingAmounts({
-          amount_in_glow_bonding_curve: parseUnits(
-            toFixedTruncate(amountsWithFees.amount_usdg_in_bonding_curve, 6),
-            6
-          ),
-          amount_out_glow: toFixedTruncate(
-            amountsWithFees.amount_out_glow_bonding_curve,
-            18
-          ),
-          amount_in_uni: parseUnits(
-            toFixedTruncate(amountsWithFees.amount_usdg_in_uniswap, 6),
-            6
-          ),
-          amount_out_uni: toFixedTruncate(
-            amountsWithFees.amount_out_glow_uniswap,
-            18
-          ),
+          amount_in_glow_bonding_curve:
+            smartBalancingAmountsRes.val.amount_in_glow_bonding_curve,
+          amount_out_glow: toFixedTruncate(apiBondingOut, 18),
+          amount_in_uni: smartBalancingAmountsRes.val.amount_in_uni,
+          amount_out_uni: toFixedTruncate(apiUniOut, 18),
           uniswapGlowReserves: smartBalancingAmountsRes.val.uniswapGlowReserves,
           uniswapUSDGReserves: smartBalancingAmountsRes.val.uniswapUSDGReserves,
           earlyLiquidityCurrentPrice:
             smartBalancingAmountsRes.val.earlyLiquidityCurrentPrice,
           usdgToSpend: smartBalancingAmountsRes.val.usdgToSpend,
-          estimatedCostInUSDForEarlyLiquidity:
-            estimatedCostInUSDForEarlyLiquidityAmount,
-          estimatedCostInUSDForUniswap: estimatedCostInUSDForUniswap,
-          estimatedTotalGasInUSD: estimatedTotalGasInUSD,
+          estimatedCostInUSDForEarlyLiquidity: "0",
+          estimatedCostInUSDForUniswap: "0",
+          estimatedTotalGasInUSD: "0",
         });
+        setIsFeesLoading(true);
 
-        const findAmountGlowFromUSDGAmountRes =
-          await findAmountGlowFromUSDGAmount(toUnitsDecimal(amountStr, 6));
+        // Refine fees + split in the background — does not block the GLW quote.
+        void (async () => {
+          try {
+            const usdcGasInputWei =
+              selectedTokenSell.label === "USDC"
+                ? toUnitsDecimal(amountStr, 6)
+                : null;
+            const [
+              earlyLiquidityFeesInitial,
+              uniswapFeesInitial,
+              usdcToUsdgGasRes,
+            ] = await Promise.all([
+              getGlowEarlyLiquidityFees(apiBondingOut),
+              getUniswapFees(
+                Number(
+                  formatUnits(smartBalancingAmountsRes.val.amount_in_uni, 6)
+                )
+              ),
+              usdcGasInputWei
+                ? estimateGasForswapUSDCToUSDG(usdcGasInputWei, ethPriceInUSD)
+                : Promise.resolve(null),
+            ]);
+            if (signal.aborted) return;
 
-        if (!uniswapEstimate.ok) {
-          // Don't show "Contracts not available" error - it's expected when wallet not connected
-          if (String(uniswapEstimate.val).includes("Contracts not available")) {
-            return;
-          }
-          console.error("!uniswapEstimate.ok", uniswapEstimate.val);
-          if (!signal.aborted)
-            setEstimateErrorMessage(String(uniswapEstimate.val));
-          return;
-        }
+            let estimatedGasForswapUSDCToUSDG = "0";
+            if (usdcToUsdgGasRes && usdcToUsdgGasRes.ok) {
+              estimatedGasForswapUSDCToUSDG = usdcToUsdgGasRes.val;
+            }
 
-        if (!findAmountGlowFromUSDGAmountRes.ok) {
-          console.error(
-            "!findAmountGlowFromUSDGAmountRes.ok)",
-            findAmountGlowFromUSDGAmountRes.val
-          );
-          if (!signal.aborted)
-            setEstimateErrorMessage(
-              String(findAmountGlowFromUSDGAmountRes.val)
+            const amountsWithFees = getOptimalUSDGAmountsWithFees({
+              amount_glow_out_uniswap: apiUniOut,
+              amount_glow_out_bonding_curve: apiBondingOut,
+              fees: {
+                uniswapFees: Number(uniswapFeesInitial),
+                bondingCurveFees: Number(earlyLiquidityFeesInitial),
+              },
+              endingPriceIfBoth: Number(
+                smartBalancingAmountsRes.val.earlyLiquidityCurrentPrice
+              ),
+              amount_usdg_in_uniswap: Number(
+                formatUnits(smartBalancingAmountsRes.val.amount_in_uni, 6)
+              ),
+              amount_usdg_in_bonding_curve: Number(
+                formatUnits(
+                  smartBalancingAmountsRes.val.amount_in_glow_bonding_curve,
+                  6
+                )
+              ),
+              uniswapUSDGReserves: Number(
+                smartBalancingAmountsRes.val.uniswapUSDGReserves
+              ),
+              uniswapGlowReserves: Number(
+                smartBalancingAmountsRes.val.uniswapGlowReserves
+              ),
+              earlyLiquidityCurrentPrice: Number(glowPrice),
+              usdgToSpend: Number(amountStr),
+            });
+
+            const [
+              estimatedCostInUSDForUniswap,
+              estimatedCostInUSDForEarlyLiquidityAmount,
+            ] = await Promise.all([
+              getUniswapFees(amountsWithFees.amount_usdg_in_uniswap),
+              getGlowEarlyLiquidityFees(
+                amountsWithFees.amount_out_glow_bonding_curve
+              ),
+            ]);
+            if (signal.aborted) return;
+
+            const estimatedTotalGasInUSD = toFixedTruncate(
+              Number(estimatedCostInUSDForUniswap) +
+                Number(estimatedCostInUSDForEarlyLiquidityAmount) +
+                Number(estimatedGasForswapUSDCToUSDG),
+              6
             );
-          return;
-        }
 
-        const estimatedUniswapOutputAmount = Number(
-          formatUnits(uniswapEstimate.val, 18)
-        );
-        const estimatedOutputAmountFormated = Number(
-          formatUnits(findAmountGlowFromUSDGAmountRes.val, 18)
-        );
+            setSmartBalancingAmounts({
+              amount_in_glow_bonding_curve: parseUnits(
+                toFixedTruncate(amountsWithFees.amount_usdg_in_bonding_curve, 6),
+                6
+              ),
+              amount_out_glow: toFixedTruncate(
+                amountsWithFees.amount_out_glow_bonding_curve,
+                18
+              ),
+              amount_in_uni: parseUnits(
+                toFixedTruncate(amountsWithFees.amount_usdg_in_uniswap, 6),
+                6
+              ),
+              amount_out_uni: toFixedTruncate(
+                amountsWithFees.amount_out_glow_uniswap,
+                18
+              ),
+              uniswapGlowReserves:
+                smartBalancingAmountsRes.val.uniswapGlowReserves,
+              uniswapUSDGReserves:
+                smartBalancingAmountsRes.val.uniswapUSDGReserves,
+              earlyLiquidityCurrentPrice:
+                smartBalancingAmountsRes.val.earlyLiquidityCurrentPrice,
+              usdgToSpend: smartBalancingAmountsRes.val.usdgToSpend,
+              estimatedCostInUSDForEarlyLiquidity:
+                estimatedCostInUSDForEarlyLiquidityAmount,
+              estimatedCostInUSDForUniswap,
+              estimatedTotalGasInUSD,
+            });
 
-        // Use fresh calculation results to avoid stale state
-        let finalOutput: number;
-        const uniswapOutFresh = Number(amountsWithFees.amount_out_glow_uniswap);
-        const bondingOutFresh = Number(
-          amountsWithFees.amount_out_glow_bonding_curve
-        );
-        const hasFresh =
-          Number.isFinite(uniswapOutFresh) || Number.isFinite(bondingOutFresh);
-        if (hasFresh) {
-          finalOutput =
-            (Number.isFinite(uniswapOutFresh) ? uniswapOutFresh : 0) +
-            (Number.isFinite(bondingOutFresh) ? bondingOutFresh : 0);
-        } else {
-          // Fallback to max output for non-smart balancing scenarios
-          finalOutput = Math.max(
-            estimatedUniswapOutputAmount,
-            estimatedOutputAmountFormated
-          );
-        }
-
-        if (signal.aborted) return; // stale
-        setEstimateErrorMessage(null);
-        setEstimatedOutputAmount({
-          ...defaultTokensEstimate,
-          [selectedTokenBuy.label]: finalOutput.toString(),
-        });
+            const uniswapOutFresh = Number(
+              amountsWithFees.amount_out_glow_uniswap
+            );
+            const bondingOutFresh = Number(
+              amountsWithFees.amount_out_glow_bonding_curve
+            );
+            const finalOutput =
+              (Number.isFinite(uniswapOutFresh) ? uniswapOutFresh : 0) +
+              (Number.isFinite(bondingOutFresh) ? bondingOutFresh : 0);
+            setEstimatedOutputAmount({
+              ...defaultTokensEstimate,
+              [selectedTokenBuy.label]: finalOutput.toString(),
+            });
+          } finally {
+            if (!signal.aborted) setIsFeesLoading(false);
+          }
+        })();
 
         return;
       }
@@ -1410,6 +1438,7 @@ export function SwapInterface({
         );
       setSmartBalancingAmounts(undefined);
       setEstimatedOutputAmount(defaultTokensEstimate);
+      setIsFeesLoading(false);
     }
   };
 
@@ -1899,7 +1928,7 @@ export function SwapInterface({
                     {t.swap.estimatedNetworkFee}
                   </span>
                   <span className="text-xs lg:text-sm font-medium">
-                    {isEstimateLoading ? (
+                    {isEstimateLoading || isFeesLoading ? (
                       <Skeleton className="w-16 h-4" />
                     ) : (
                       `~$${Number(
