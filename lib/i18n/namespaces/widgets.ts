@@ -875,7 +875,7 @@ const en: WidgetStrings = {
     tooltipWeek: (week) => `Week ${week}`,
     tooltipFallback: "GLW worth",
     tooltipLiquid: "Liquid",
-    tooltipDelegated: "Delegated",
+    tooltipDelegated: "Actively delegated",
     tooltipPendingRecovery: "Pending recovery",
     tooltipUnclaimed: "Unclaimed",
   },
@@ -942,7 +942,7 @@ const en: WidgetStrings = {
 
   portfolioSummary: {
     title: "Mining Summary",
-    delegatedAssets: "Delegated Assets",
+    delegatedAssets: "Actively Delegated",
     delegatedGlw: "Delegated GLW",
     delegatedTooltip:
       "Active launchpad principal across GLW and SGCTL, net of recovered rewards when available.",
@@ -1512,7 +1512,7 @@ const ko: WidgetStrings = {
     tooltipWeek: (week) => `${week}주`,
     tooltipFallback: "GLW 자산",
     tooltipLiquid: "유동",
-    tooltipDelegated: "위임",
+    tooltipDelegated: "활성 위임",
     tooltipPendingRecovery: "회수 대기분",
     tooltipUnclaimed: "미청구",
   },
@@ -1579,7 +1579,7 @@ const ko: WidgetStrings = {
 
   portfolioSummary: {
     title: "마이닝 요약",
-    delegatedAssets: "위임된 자산",
+    delegatedAssets: "활성 위임",
     delegatedGlw: "위임된 GLW",
     delegatedTooltip:
       "GLW와 SGCTL의 활성 런치패드 원금(회수된 리워드는 제외).",
