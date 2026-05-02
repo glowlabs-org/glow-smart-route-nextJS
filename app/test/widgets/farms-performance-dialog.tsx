@@ -196,6 +196,26 @@ function formatDelegatedAmountsByAsset(params: {
   )} ${fallbackAsset}`;
 }
 
+function parseRecoveredAmountsByAsset(
+  raw: Record<string, string> | undefined
+): DelegationAmountsByAsset | undefined {
+  if (!raw) return undefined;
+  const result: DelegationAmountsByAsset = {};
+  for (const asset of ["GLW", "SGCTL"] as const) {
+    const value = raw[asset];
+    if (!value) continue;
+    const parsed = parseProtocolDepositTokenAmount(value, asset);
+    if (parsed > 0) result[asset] = parsed;
+  }
+  return result;
+}
+
+function hasAnyAssetAmount(amounts: DelegationAmountsByAsset): boolean {
+  return (["GLW", "SGCTL"] as const).some(
+    (asset) => (amounts[asset] ?? 0) > 0
+  );
+}
+
 export const FILTER_VALUES = [
   "all",
   "miners",
@@ -233,6 +253,7 @@ interface PerformanceRowData {
   estimatedUserWeeklyPd?: number;
   estimatedUserWeeklyPdAsset?: string | null;
   delegatedAmountsByAsset?: DelegationAmountsByAsset;
+  recoveredAmountsByAsset?: DelegationAmountsByAsset;
   inProgressKind?: "launchpad" | "mining-center";
 }
 
@@ -476,10 +497,11 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
   );
   const recoveredLabel = data.isProtocolDepositUsd
     ? `${fmtUsdAmount(data.recovered)} ${protocolDepositAssetLabel}`
-    : `${formatTokenAmountByAsset(
-        data.recovered,
-        protocolDepositAssetLabel
-      )} ${protocolDepositAssetLabel}`;
+    : formatDelegatedAmountsByAsset({
+        amounts: data.recoveredAmountsByAsset,
+        fallbackAmount: data.recovered,
+        fallbackAsset: protocolDepositAssetLabel,
+      });
   const totalRewardsLabel = getTotalRewardsLabel(data);
   const delegatedLabel = isMiner
     ? fmtUsd(data.initialCost)
@@ -1484,10 +1506,16 @@ export function FarmsPerformanceDialogContent({
             farm.amountInvested,
             protocolDepositAsset
           );
-          const recovered = parseProtocolDepositTokenAmount(
-            farm.totalProtocolDepositRewards,
-            protocolDepositAsset
+          const recoveredAmountsByAsset = parseRecoveredAmountsByAsset(
+            farm.totalProtocolDepositRewardsByAsset
           );
+          const recovered =
+            recoveredAmountsByAsset && hasAnyAssetAmount(recoveredAmountsByAsset)
+              ? recoveredAmountsByAsset[protocolDepositAsset as "GLW" | "SGCTL"] ?? 0
+              : parseProtocolDepositTokenAmount(
+                  farm.totalProtocolDepositRewards,
+                  protocolDepositAsset
+                );
           const inflation = parseGlwFromWei(farm.totalInflationRewards);
           return {
             farmId: farm.farmId,
@@ -1505,6 +1533,7 @@ export function FarmsPerformanceDialogContent({
             totalWeeks: 100,
             delegatedAmountsByAsset:
               launchpadDelegatedAmountsByFarmId.get(farm.farmId),
+            recoveredAmountsByAsset,
           };
         }
 

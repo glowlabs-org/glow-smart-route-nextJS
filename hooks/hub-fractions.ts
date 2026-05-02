@@ -214,6 +214,7 @@ export interface RewardsBreakdownResponse {
     totalEarnedSoFar: string;
     totalInflationRewards: string;
     totalProtocolDepositRewards: string;
+    totalProtocolDepositRewardsByAsset?: Record<string, string>;
     lastWeekRewards: string;
     apy: string;
     weeklyBreakdown: Array<{
