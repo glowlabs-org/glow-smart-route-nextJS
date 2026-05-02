@@ -25,6 +25,8 @@ export interface MarketingLaunchpadApplication {
   farmName: string | null;
   zone: { id: number; name: string | null } | null;
   finalProtocolFee: string | null;
+  /** Per-farm PD vault-recovery discount, "1.25" by default. Numeric serialized as string. */
+  pdRecoveryDiscount: string | null;
   auditFields: { netCarbonCreditEarningWeekly: number | null };
   applicationPriceQuotes: Array<{
     prices: Record<string, string>;

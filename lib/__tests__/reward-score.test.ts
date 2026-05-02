@@ -78,6 +78,7 @@ function createApplication(
     publishedOnAuctionTimestamp: "2024-01-01T00:00:00.000Z",
     sponsorSplitPercent: 10,
     finalProtocolFee: "1000",
+    pdRecoveryDiscount: "1.25",
     paymentCurrency: "GLW",
     paymentEventType: null,
     zone: {

@@ -114,6 +114,11 @@ async function estimateRewardScore(
 
   if (!app.zone) return null;
   try {
+    const pdRecoveryDiscount = (() => {
+      if (app.pdRecoveryDiscount == null) return undefined;
+      const parsed = Number(app.pdRecoveryDiscount);
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+    })();
     const batch = await getCachedRewardScoresBatch([
       {
         userId: REWARD_SCORE_FALLBACK_USER_ID,
@@ -124,6 +129,7 @@ async function estimateRewardScore(
         paymentCurrency: variant === "sgctl" ? "SGCTL" : "GLW",
         expectedWeeklyCarbonCredits: carbon,
         regionId: app.zone.id,
+        pdRecoveryDiscount,
       },
     ]);
     const first = batch.results?.[0];

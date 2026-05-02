@@ -61,6 +61,7 @@ function createApplication(
     publishedOnAuctionTimestamp: "2024-01-01T00:00:00.000Z",
     sponsorSplitPercent: 10,
     finalProtocolFee: null,
+    pdRecoveryDiscount: "1.25",
     paymentCurrency: "USDC",
     paymentEventType: null,
     zone: {

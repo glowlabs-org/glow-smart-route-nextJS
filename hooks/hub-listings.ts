@@ -172,6 +172,12 @@ export interface AuctionApplication {
   publishedOnAuctionTimestamp: string;
   sponsorSplitPercent: number;
   finalProtocolFee: string | null;
+  /**
+   * Per-farm PD vault-recovery discount that divides the PD term in the
+   * reward-score formula. Numeric column on the hub `applications` table,
+   * serialized as a decimal string (e.g. "1.25"). Default 1.25.
+   */
+  pdRecoveryDiscount: string | null;
   paymentCurrency: PaymentCurrency | null;
   paymentEventType: string | null;
   zone: Zone;

@@ -30,6 +30,12 @@ export interface RewardScoreBatchParams {
   paymentCurrency: PaymentCurrency;
   expectedWeeklyCarbonCredits: number;
   regionId: number;
+  /**
+   * PD vault-recovery discount (farm-based). Divides the PD term of the
+   * reward-score formula. Comes from the hub `applications` table.
+   * Defaults to 1.25 in the control backend if omitted.
+   */
+  pdRecoveryDiscount?: number;
 }
 
 interface RewardScoreBatchRequestEntry {
@@ -202,6 +208,14 @@ export function buildRewardScoreBatchInputs(params: {
           expectedWeeklyCarbonCredits:
             application.auditFields.netCarbonCreditEarningWeekly,
           regionId: application.zone.id,
+          // Hub serializes the numeric column as a decimal string;
+          // parse it. Control backend falls back to 1.25 if undefined.
+          pdRecoveryDiscount: (() => {
+            const raw = application.pdRecoveryDiscount;
+            if (raw == null) return undefined;
+            const parsed = Number(raw);
+            return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+          })(),
         },
       } as RewardScoreBatchRequestEntry;
     })
