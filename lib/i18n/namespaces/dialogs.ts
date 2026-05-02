@@ -215,7 +215,7 @@ const en: DialogsStrings = {
     liquidSublabel: "Updates right away when you receive or swap GLW",
     delegatedLabel: "Actively delegated GLW",
     delegatedSublabel:
-      "Principal still locked in farm delegations (less than the per-farm initial delegation, since recovery has been earned)",
+      "Principal still locked in farm delegations. Less than your initial delegation (recovery has been earned), but includes recent on-chain delegations not yet in the protocol's split history.",
     pendingRecoveryLabel: "Pending recovery",
     pendingRecoverySublabel:
       "Protocol deposit recovery earned but not yet claimable",
@@ -411,7 +411,7 @@ const ko: DialogsStrings = {
     liquidSublabel: "GLW를 받거나 스왑하면 즉시 업데이트됩니다",
     delegatedLabel: "활성 위임 GLW",
     delegatedSublabel:
-      "농장 위임에 잠겨 있는 원금 (회수가 진행되었기에 농장별 초기 위임액보다 적습니다)",
+      "농장 위임에 잠겨 있는 원금. 회수가 진행되어 초기 위임액보다 적지만, 아직 프로토콜 스플릿 히스토리에 반영되지 않은 최근 온체인 위임이 포함됩니다.",
     pendingRecoveryLabel: "회수 대기분",
     pendingRecoverySublabel:
       "획득했지만 아직 클레임할 수 없는 프로토콜 디포짓 회수분",

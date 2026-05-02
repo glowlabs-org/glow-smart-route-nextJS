@@ -945,7 +945,7 @@ const en: WidgetStrings = {
     delegatedAssets: "Actively Delegated",
     delegatedGlw: "Delegated GLW",
     delegatedTooltip:
-      "Active launchpad principal across GLW and SGCTL, net of recovered rewards when available.",
+      "Active launchpad principal across GLW and SGCTL, net of recovered rewards. Includes recent on-chain delegations that have not yet been folded into the protocol's split history, so this can be slightly higher than (initial − recovered) for the first few days after a new delegation.",
     activeMiners: "Active Miners",
     activeDelegations: "Active Delegations",
   },
@@ -1582,7 +1582,7 @@ const ko: WidgetStrings = {
     delegatedAssets: "활성 위임",
     delegatedGlw: "위임된 GLW",
     delegatedTooltip:
-      "GLW와 SGCTL의 활성 런치패드 원금(회수된 리워드는 제외).",
+      "GLW와 SGCTL의 활성 런치패드 원금(회수된 리워드는 제외). 아직 프로토콜 스플릿 히스토리에 반영되지 않은 최근 온체인 위임이 포함되므로, 새 위임 후 며칠 동안은 (초기 − 회수)보다 약간 높을 수 있습니다.",
     activeMiners: "활성 마이너",
     activeDelegations: "활성 위임",
   },
