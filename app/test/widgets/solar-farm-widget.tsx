@@ -817,7 +817,12 @@ export default function SolarFarmWidget({
   const pendingStartLaunchpadStats = React.useMemo(() => {
     const byFarm = new Map<
       string,
-      { estimatedUserWeeklyGlw: number; estimatedUserWeeklyPd: number; pdAsset: string | null }
+      {
+        farmId: string;
+        estimatedUserWeeklyGlw: number;
+        estimatedUserWeeklyPd: number;
+        pdAsset: string | null;
+      }
     >();
 
     for (const evt of splitsActivity) {
@@ -848,6 +853,7 @@ export default function SolarFarmWidget({
       const pdGlw = pdAsset === "GLW" ? pdAmount : 0;
 
       const existing = byFarm.get(farmId) ?? {
+        farmId,
         estimatedUserWeeklyGlw: 0,
         estimatedUserWeeklyPd: 0,
         pdAsset: pdAsset === "GLW" ? null : pdAsset,
@@ -926,7 +932,20 @@ export default function SolarFarmWidget({
     return farmKeys.size;
   }, [miningCenterInProgress]);
 
-  const pendingStartDelegationsCount = pendingStartLaunchpadStats.length;
+  const backendDelegationFarmIds = React.useMemo(() => {
+    if (!data) return new Set<string>();
+    return new Set(
+      data.farmDetails
+        .filter((farm) => farm.type === "launchpad")
+        .map((farm) => farm.farmId)
+    );
+  }, [data]);
+
+  const pendingStartDelegationsCount = React.useMemo(() => {
+    return pendingStartLaunchpadStats.filter(
+      (item) => !backendDelegationFarmIds.has(item.farmId)
+    ).length;
+  }, [pendingStartLaunchpadStats, backendDelegationFarmIds]);
 
   const {
     availableAssets,
