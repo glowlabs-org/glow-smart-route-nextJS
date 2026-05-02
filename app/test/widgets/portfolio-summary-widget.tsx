@@ -88,6 +88,7 @@ export default function PortfolioSummaryWidget({
   const {
     chartData: glowWorthChartData,
     shouldShowSkeleton: isPortfolioLoading,
+    delegatedActiveOnlyGlw,
   } = useWalletPortfolio({
     walletAddress: walletAddress ?? null,
   });
@@ -107,7 +108,10 @@ export default function PortfolioSummaryWidget({
     limit: 200,
   });
 
-  const delegatedActiveAssets = React.useMemo(() => {
+  // SGCTL comes from control-api per-farm breakdown (no impact-router equivalent).
+  // GLW is overridden below to use the impact-router number so it lines up with
+  // the Glow Worth chart's "Delegated + recovery" (chart = this + pending).
+  const delegatedActiveAssetsRaw = React.useMemo(() => {
     const totals: DelegatedAmountsByAsset = { GLW: 0, SGCTL: 0 };
 
     (walletFarms as WalletFarmWithAssetBreakdown[]).forEach((farm) => {
@@ -138,6 +142,18 @@ export default function PortfolioSummaryWidget({
 
     return totals;
   }, [splitsActivity, walletFarms]);
+
+  const delegatedActiveAssets = React.useMemo<DelegatedAmountsByAsset>(() => {
+    const glw =
+      typeof delegatedActiveOnlyGlw === "number" &&
+      Number.isFinite(delegatedActiveOnlyGlw)
+        ? delegatedActiveOnlyGlw
+        : (delegatedActiveAssetsRaw.GLW ?? 0);
+    return {
+      GLW: glw,
+      SGCTL: delegatedActiveAssetsRaw.SGCTL ?? 0,
+    };
+  }, [delegatedActiveAssetsRaw, delegatedActiveOnlyGlw]);
 
   const stats = React.useMemo(() => {
     const rewardedDelegationFarmIds = new Set<string>();

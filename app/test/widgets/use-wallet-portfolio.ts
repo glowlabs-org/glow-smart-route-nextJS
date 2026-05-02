@@ -409,6 +409,9 @@ export function useWalletPortfolio(params: {
     chartData,
     yDomain,
 
+    delegatedActiveOnlyGlw: impactDelegatedActiveGlw,
+    pendingRecoveredGlw: impactPendingRecoveredGlw,
+
     holdings,
     allocationItems: allocations.items,
     allocationTotalUsd: allocations.totalUsd,
