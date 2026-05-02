@@ -2052,15 +2052,19 @@ export function FarmsPerformanceDialogContent({
       return [...pendingStartRows, ...inProgressRows, ...visibleRows];
     if (filter === "miners")
       return [
-        ...pendingStartRows.filter((r) => r.type === "miner"),
+        ...pendingStartRows.filter(
+          (r) => r.type === "miner" && r.isProtocolDepositUsd
+        ),
         ...inProgressRows.filter((r) => r.inProgressKind === "mining-center"),
-        ...visibleRows,
+        ...visibleRows.filter((r) => r.type === "miner"),
       ];
     if (filter === "delegations")
       return [
-        ...pendingStartRows.filter((r) => r.type === "delegation"),
-        ...inProgressRows.filter((r) => r.inProgressKind !== "mining-center"),
-        ...visibleRows,
+        ...pendingStartRows.filter(
+          (r) => r.type === "delegation" && !r.isProtocolDepositUsd
+        ),
+        ...inProgressRows.filter((r) => r.inProgressKind === "launchpad"),
+        ...visibleRows.filter((r) => r.type === "delegation"),
       ];
     return visibleRows;
   }, [filter, inProgressRows, pendingStartRows, visibleRows]);
@@ -2244,9 +2248,9 @@ export function FarmsPerformanceDialogContent({
                       {fp.roiRequiresSpotPrice}
                     </div>
                   )}
-                {visibleRowsWithInProgress.map((row) => (
+                {visibleRowsWithInProgress.map((row, index) => (
                   <FarmPerformanceRow
-                    key={`${row.type}-${row.farmId}`}
+                    key={`${row.type}-${row.farmId}-${row.protocolDepositAsset ?? "x"}-${row.isPendingStart ? "p" : row.inProgressKind ?? "r"}-${index}`}
                     data={row}
                   />
                 ))}
