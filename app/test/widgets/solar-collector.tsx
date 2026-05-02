@@ -134,6 +134,48 @@ function getShareHomesLabel(homesPowered: number): {
   };
 }
 
+const REGION_COLORS: Record<number, string> = {
+  1: "#6b7280", // Clean Grid Project, grey
+  2: "#3b82f6", // Utah, blue
+  3: "#10b981", // Missouri, green
+  4: "#f59e0b", // Colorado, amber
+  5: "#eab308", // Rajasthan, yellow
+  6: "#ec4899", // Florida, pink
+  7: "#06b6d4", // Lebanon, cyan
+  8: "#a855f7", // Oklahoma, purple
+  9: "#14b8a6", // Idaho, teal
+  10: "#0ea5e9", // U.S. Virgin Islands (USVI), sky
+  11: "#f43f5e", // Michigan, rose
+};
+const REGION_FALLBACK_PALETTE = [
+  "#84cc16",
+  "#d946ef",
+  "#f97316",
+  "#22d3ee",
+  "#facc15",
+];
+const REGION_DEFAULT_COLOR = "#94a3b8";
+
+function getRegionColor(regionId: number): string {
+  if (REGION_COLORS[regionId]) return REGION_COLORS[regionId];
+  if (regionId > 0) {
+    return REGION_FALLBACK_PALETTE[
+      (regionId - 1) % REGION_FALLBACK_PALETTE.length
+    ];
+  }
+  return REGION_DEFAULT_COLOR;
+}
+
+function buildRegionChartLabel(region: {
+  name: string;
+  code: string;
+}): string {
+  const code = region.code;
+  if (!code || code === "*") return region.name;
+  const trimmed = code.startsWith("US-") ? code.slice(3) : code;
+  return `${region.name} (${trimmed})`;
+}
+
 function getRegionLabel(
   regionId: number | null,
   regions: Array<{ id: number; code: string }> | undefined,
@@ -356,21 +398,45 @@ export default function SolarCollectorWidget({
 
   const fill = clamp(ghost.fillPercentage, 0, 100);
 
-  const regionColors: Record<number, string> = {
-    1: "#6b7280", // Grey - CGP
-    2: "#3b82f6", // Blue - UT
-    3: "#10b981", // Green - MO
-    4: "#f59e0b", // Amber - CO
-  };
-
-  const chartConfig = {
-    region1: { label: t.widgets.solarCollector.chartCleanGridProject, color: "#6b7280" },
-    region2: { label: t.widgets.solarCollector.chartUtah, color: "#3b82f6" },
-    region3: { label: t.widgets.solarCollector.chartMissouri, color: "#10b981" },
-    region4: { label: t.widgets.solarCollector.chartColorado, color: "#f59e0b" },
-    total: { label: t.widgets.solarCollector.chartTotalWatts, color: "#f59e0b" },
-    share: { label: t.widgets.solarCollector.chartNetworkShare, color: "#10b981" },
-  } satisfies ChartConfig;
+  const chartConfig = React.useMemo<ChartConfig>(() => {
+    const config: ChartConfig = {
+      region1: {
+        label: t.widgets.solarCollector.chartCleanGridProject,
+        color: getRegionColor(1),
+      },
+      region2: {
+        label: t.widgets.solarCollector.chartUtah,
+        color: getRegionColor(2),
+      },
+      region3: {
+        label: t.widgets.solarCollector.chartMissouri,
+        color: getRegionColor(3),
+      },
+      region4: {
+        label: t.widgets.solarCollector.chartColorado,
+        color: getRegionColor(4),
+      },
+      total: {
+        label: t.widgets.solarCollector.chartTotalWatts,
+        color: "#f59e0b",
+      },
+      share: {
+        label: t.widgets.solarCollector.chartNetworkShare,
+        color: "#10b981",
+      },
+    };
+    if (regions) {
+      for (const region of regions) {
+        const key = `region${region.id}`;
+        if (config[key]) continue;
+        config[key] = {
+          label: buildRegionChartLabel(region),
+          color: getRegionColor(region.id),
+        };
+      }
+    }
+    return config;
+  }, [t.widgets.solarCollector, regions]);
 
   const distributionData = React.useMemo(() => {
     return Object.entries(model.wattsByRegion)
@@ -378,10 +444,18 @@ export default function SolarCollectorWidget({
         regionId: Number(rid),
         name: `region${rid}`,
         value: watts,
-        fill: regionColors[Number(rid)] || "#6b7280",
+        fill: getRegionColor(Number(rid)),
       }))
       .filter((d) => d.value > 0);
   }, [model.wattsByRegion]);
+
+  const trendRegionIds = React.useMemo(() => {
+    const ids = new Set<number>();
+    for (const item of model.weeklyPowerHistory) {
+      ids.add(item.regionId);
+    }
+    return Array.from(ids).sort((a, b) => a - b);
+  }, [model.weeklyPowerHistory]);
 
   const growthData = React.useMemo(() => {
     return model.weeklyHistory.map((item) => ({
@@ -1159,13 +1233,13 @@ export default function SolarCollectorWidget({
                           );
                         }}
                       />
-                      {Object.keys(regionColors).map((rid) => (
+                      {trendRegionIds.map((rid) => (
                         <Line
                           key={rid}
                           type="monotone"
                           dataKey={`region${rid}`}
                           name={`region${rid}`}
-                          stroke={regionColors[Number(rid)]}
+                          stroke={getRegionColor(rid)}
                           strokeWidth={2}
                           dot={{ r: 3 }}
                           activeDot={{ r: 5 }}
