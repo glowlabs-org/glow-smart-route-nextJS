@@ -411,13 +411,7 @@ export function MintAndStakeGctlDialog({
   if (open && !isGctlBalanceLoading && !hasInitializedCurrencyRef.current) {
     hasInitializedCurrencyRef.current = true;
     const defaultCurrency: SourceCurrency =
-      unstkedGctlBalanceNumber > 0
-        ? "GCTL"
-        : usdcBalance && usdcBalance > 0n
-          ? "USDC"
-          : usdgBalance && usdgBalance > 0n
-            ? "USDG"
-            : "ETH";
+      unstkedGctlBalanceNumber > 1 ? "GCTL" : "USDC";
     if (selectedCurrency !== defaultCurrency) {
       setSelectedCurrency(defaultCurrency);
       setAmountInput("");
