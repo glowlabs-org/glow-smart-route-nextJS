@@ -6,10 +6,17 @@ import { formatUnits, parseUnits } from "viem";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { useAccount, useBalance, useChainId } from "wagmi";
+import { mainnet, sepolia } from "wagmi/chains";
+import {
+  useFundWallet,
+  useLogin,
+  usePrivy,
+} from "@privy-io/react-auth";
 import {
   Sun,
   X,
   ChevronLeft,
+  CreditCard,
   Zap,
   Check,
   Loader2,
@@ -59,6 +66,7 @@ import { useDebouncedAsync } from "@/hooks/useDebouncedAsync";
 import { useLang } from "@/lib/i18n";
 import { useImpactWalletStats } from "@/hooks/hub-impact";
 import { getGctlDialogErrorMessage } from "@/lib/gctl-dialog-error-message";
+import { capturePrivyWalletError } from "@/lib/privy-errors";
 import { trackEvent } from "@/lib/telemetry";
 import { bucketEth, bucketToken, bucketUsd } from "@/lib/telemetry-buckets";
 import { getStoredReferralAttribution } from "@/lib/referral-attribution";
@@ -287,6 +295,76 @@ export function MintAndStakeGctlDialog({
   const isEthPayEnabled = wagmiChainId === 1 || wagmiChainId === 11155111;
   const addressKey = address?.toLowerCase() ?? null;
   const source = "mint_and_stake_gctl_dialog";
+
+  // Privy card on-ramp wiring — surfaces a "Buy with card" button when the
+  // user is short on USDC. Lazy-authenticates via useLogin only when the
+  // user opts into the card flow; default connect path stays signature-free.
+  const { authenticated: isPrivyAuthenticated } = usePrivy();
+  const pendingCardFundRef = React.useRef<{
+    address: `0x${string}`;
+    amount: string;
+  } | null>(null);
+  const { fundWallet: privyFundWallet } = useFundWallet();
+  const triggerCardFund = React.useCallback(
+    (target: { address: `0x${string}`; amount: string }) => {
+      void privyFundWallet({
+        address: target.address,
+        options: {
+          asset: "USDC",
+          amount: target.amount,
+          chain: mainnet,
+          defaultFundingMethod: "card",
+          card: { preferredProvider: "coinbase" },
+        },
+      });
+    },
+    [privyFundWallet]
+  );
+  const { login: privyLogin } = useLogin({
+    onComplete: () => {
+      const pending = pendingCardFundRef.current;
+      pendingCardFundRef.current = null;
+      if (pending) triggerCardFund(pending);
+    },
+    onError: (error) => {
+      pendingCardFundRef.current = null;
+      capturePrivyWalletError(error, "card_buy_login");
+    },
+  });
+  const handleBuyWithCard = React.useCallback(
+    (usdcAmount: string) => {
+      if (!address) {
+        toast.error("Connect a wallet first");
+        return;
+      }
+      if (wagmiChainId === sepolia.id) {
+        toast.info("Card purchases are only available on mainnet");
+        return;
+      }
+      trackEvent("mint_gctl_card_click", {
+        usdc_amount: usdcAmount,
+        privy_authenticated: isPrivyAuthenticated,
+        source,
+      });
+      const target = {
+        address: address as `0x${string}`,
+        amount: usdcAmount,
+      };
+      if (!isPrivyAuthenticated) {
+        pendingCardFundRef.current = target;
+        privyLogin();
+        return;
+      }
+      triggerCardFund(target);
+    },
+    [
+      address,
+      wagmiChainId,
+      isPrivyAuthenticated,
+      privyLogin,
+      triggerCardFund,
+    ]
+  );
   const trackGctlEvent = React.useCallback(
     (eventName: string, data?: Record<string, unknown>) => {
       trackEvent(eventName, {
@@ -2143,6 +2221,54 @@ export function MintAndStakeGctlDialog({
                                   ? m.confirmStake
                                   : m.confirmMintAndStake}
                       </Button>
+
+                      {(() => {
+                        if (!isConnected) return null;
+                        if (selectedCurrency !== "USDC") return null;
+                        const usdcBalanceUsd =
+                          usdcBalance != null
+                            ? Number(formatUnits(usdcBalance, 6))
+                            : 0;
+                        if (
+                          !Number.isFinite(amountNumber) ||
+                          amountNumber <= 0
+                        )
+                          return null;
+                        if (amountNumber <= usdcBalanceUsd) return null;
+                        const deficitUsd = amountNumber - usdcBalanceUsd;
+                        // Floor at $20 to clear the on-ramp minimum order
+                        // amounts; surplus stays in the wallet as USDC.
+                        const MIN_CARD_FUND_USDC = 20;
+                        const roundedDeficit =
+                          Math.ceil(deficitUsd * 100) / 100;
+                        const cardFundAmount = Math.max(
+                          MIN_CARD_FUND_USDC,
+                          roundedDeficit
+                        ).toFixed(2);
+                        const isMinimumApplied =
+                          roundedDeficit < MIN_CARD_FUND_USDC;
+                        return (
+                          // Hidden on mobile: in-app dApp browsers block the
+                          // on-ramp popup, so the card flow stays desktop-only.
+                          <div className="hidden lg:block space-y-1 mt-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => handleBuyWithCard(cardFundAmount)}
+                              className="w-full h-11 gap-2 font-medium rounded-xl"
+                            >
+                              <CreditCard className="h-4 w-4" />
+                              {`Buy ${cardFundAmount} USDC with card`}
+                            </Button>
+                            {isMinimumApplied && (
+                              <p className="text-xs text-muted-foreground text-center">
+                                Card on-ramps require a minimum purchase; the
+                                surplus will stay in your wallet as USDC.
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </>
                 )}
