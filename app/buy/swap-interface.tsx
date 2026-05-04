@@ -39,6 +39,7 @@ import {
   useLogin,
   usePrivy,
 } from "@privy-io/react-auth";
+import { capturePrivyWalletError } from "@/lib/privy-errors";
 import { AlertTriangle, ArrowDownUp, CreditCard, Info, Settings } from "lucide-react";
 import { useSwapUSDCToUSDG } from "@/hooks/useSwapUSDCToUSDG";
 import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
@@ -210,9 +211,7 @@ export function SwapInterface({
     },
     onError: (error) => {
       pendingCardFundRef.current = null;
-      Sentry.captureException(new Error(String(error)), {
-        tags: { walletStage: "card_buy_login" },
-      });
+      capturePrivyWalletError(error, "card_buy_login");
     },
   });
 

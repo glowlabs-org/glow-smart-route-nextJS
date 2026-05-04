@@ -8,6 +8,7 @@ import * as React from "react";
 import { useEffect, useRef } from "react";
 import * as Sentry from "@sentry/nextjs";
 import { useLang } from "@/lib/i18n";
+import { capturePrivyWalletError } from "@/lib/privy-errors";
 import { WalletAccountPopover } from "./wallet/wallet-account-popover";
 
 export const ConnectButton = ({
@@ -36,11 +37,7 @@ export const ConnectButton = ({
   }, [onConnect]);
 
   const { connectWallet } = useConnectWallet({
-    onError: (error) => {
-      Sentry.captureException(new Error(String(error)), {
-        tags: { walletStage: "connect" },
-      });
-    },
+    onError: (error) => capturePrivyWalletError(error, "connect"),
   });
 
   const supportedChainIds: number[] = [mainnet.id, sepolia.id];
