@@ -14,6 +14,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowDown,
   Copy,
+  CreditCard,
   ExternalLink,
   Loader2,
   X,
@@ -50,6 +51,7 @@ import {
   usePublicClient,
   useWalletClient,
 } from "wagmi";
+import { mainnet, sepolia } from "wagmi/chains";
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
 import { useEthPrice } from "@/hooks/useEthPrice";
@@ -61,7 +63,13 @@ import {
 } from "@/components/transaction-stepper";
 import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-warning-dialog";
 import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
-import { useConnectWallet } from "@privy-io/react-auth";
+import {
+  useConnectWallet,
+  useFundWallet,
+  useLogin,
+  usePrivy,
+} from "@privy-io/react-auth";
+import { capturePrivyWalletError } from "@/lib/privy-errors";
 import { useLang } from "@/lib/i18n";
 
 const ONE_E18 = 1_000_000_000_000_000_000n;
@@ -280,6 +288,77 @@ export function BuyGlowDialog({
   const openConnectModal = React.useCallback(() => {
     connectWallet();
   }, [connectWallet]);
+
+  const { authenticated: isPrivyAuthenticated } = usePrivy();
+  const pendingCardFundRef = React.useRef<{
+    address: `0x${string}`;
+    amount: string;
+  } | null>(null);
+  const { fundWallet: privyFundWallet } = useFundWallet();
+  const triggerCardFund = React.useCallback(
+    (target: { address: `0x${string}`; amount: string }) => {
+      void privyFundWallet({
+        address: target.address,
+        options: {
+          asset: "USDC",
+          amount: target.amount,
+          chain: mainnet,
+          defaultFundingMethod: "card",
+          card: { preferredProvider: "coinbase" },
+        },
+      });
+    },
+    [privyFundWallet]
+  );
+  const { login: privyLogin } = useLogin({
+    onComplete: () => {
+      const pending = pendingCardFundRef.current;
+      pendingCardFundRef.current = null;
+      if (pending) triggerCardFund(pending);
+    },
+    onError: (error) => {
+      pendingCardFundRef.current = null;
+      capturePrivyWalletError(error, "card_buy_login");
+    },
+  });
+
+  const handleBuyWithCard = React.useCallback(
+    (usdcAmount: string) => {
+      if (!address) {
+        toast.error("Connect a wallet first");
+        return;
+      }
+      if (chainId === sepolia.id) {
+        toast.info("Card purchases are only available on mainnet");
+        return;
+      }
+      trackEvent("buy_glw_card_click", {
+        pay_token: payToken,
+        usdc_amount: usdcAmount,
+        privy_authenticated: isPrivyAuthenticated,
+        source,
+      });
+      const target = {
+        address: address as `0x${string}`,
+        amount: usdcAmount,
+      };
+      if (!isPrivyAuthenticated) {
+        pendingCardFundRef.current = target;
+        privyLogin();
+        return;
+      }
+      triggerCardFund(target);
+    },
+    [
+      address,
+      chainId,
+      payToken,
+      isPrivyAuthenticated,
+      privyLogin,
+      triggerCardFund,
+      source,
+    ]
+  );
 
   const impactWalletStatsQuery = useImpactWalletStats({
     enabled: open,
@@ -1576,23 +1655,65 @@ export function BuyGlowDialog({
               {t.buyGlow.connectWallet}
             </Button>
           ) : (
-            <Button
-              className="w-full"
-              onClick={handleBuyGlow}
-              disabled={
-                !inputAmount ||
-                Number(inputAmount) <= 0 ||
-                Number(inputAmount) > Number(availablePayBalanceFormatted) ||
-                !estimatedGlw ||
-                isEstimating ||
-                inputAmount !== lastEstimatedAmount
-              }
-            >
-              {isEstimating && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              {t.buyGlow.buyGlw}
-            </Button>
+            <div className="space-y-2">
+              <Button
+                className="w-full"
+                onClick={handleBuyGlow}
+                disabled={
+                  !inputAmount ||
+                  Number(inputAmount) <= 0 ||
+                  Number(inputAmount) > Number(availablePayBalanceFormatted) ||
+                  !estimatedGlw ||
+                  isEstimating ||
+                  inputAmount !== lastEstimatedAmount
+                }
+              >
+                {isEstimating && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                {t.buyGlow.buyGlw}
+              </Button>
+              {(() => {
+                if (payToken !== "USDC") return null;
+                const usdcBalanceUsd =
+                  usdcBalance != null
+                    ? Number(formatUnits(usdcBalance, 6))
+                    : 0;
+                const desiredUsdc = Number(inputAmount);
+                if (!Number.isFinite(desiredUsdc) || desiredUsdc <= 0)
+                  return null;
+                if (desiredUsdc <= usdcBalanceUsd) return null;
+                const deficitUsd = desiredUsdc - usdcBalanceUsd;
+                // Floor at $20 to clear MoonPay/Coinbase Onramp minimums.
+                // Surplus stays in the user's wallet as USDC.
+                const MIN_CARD_FUND_USDC = 20;
+                const roundedDeficit = Math.ceil(deficitUsd * 100) / 100;
+                const cardFundAmount = Math.max(
+                  MIN_CARD_FUND_USDC,
+                  roundedDeficit
+                ).toFixed(2);
+                const isMinimumApplied = roundedDeficit < MIN_CARD_FUND_USDC;
+                return (
+                  <div className="space-y-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => handleBuyWithCard(cardFundAmount)}
+                      className="w-full h-11 gap-2 font-medium rounded-xl"
+                    >
+                      <CreditCard className="h-4 w-4" />
+                      {`Buy ${cardFundAmount} USDC with card`}
+                    </Button>
+                    {isMinimumApplied && (
+                      <p className="text-xs text-muted-foreground text-center">
+                        Card on-ramps require a minimum purchase; the surplus
+                        will stay in your wallet as USDC.
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
           )}
         </div>
       </div>
