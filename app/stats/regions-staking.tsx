@@ -7,11 +7,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useActiveRegionsSummary } from "@/hooks";
 import { useToast } from "@/hooks/use-toast";
-import { useCompletedFarms } from "@/hooks/useCompletedFarms";
-import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
-import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import { useLang } from "@/lib/i18n";
-import { formatUnits } from "viem";
 
 interface RegionData {
   id: string | number;
@@ -44,50 +40,8 @@ export function RegionsStaking({ shouldLoad = true }: RegionsStakingProps) {
     isError,
   } = useActiveRegionsSummary({ enabled: shouldLoad });
 
-  const { farms: completedFarms, isLoading: isCompletedLoading } =
-    useCompletedFarms({ enabled: shouldLoad });
-  const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
-
   const totalStakedGctl = activeSummary?.totalGctlStaked ?? 0;
-  const baseRegions = activeSummary?.regions ?? [];
-
-  const pdsByRegionId = React.useMemo(() => {
-    const map = new Map<number, number>();
-    if (!completedFarms || completedFarms.length === 0) return map;
-
-    for (const farm of completedFarms) {
-      const regionId = farm.zone?.id;
-      if (!regionId) continue;
-
-      const currency = farm.paymentCurrency;
-      const amount = farm.paymentAmount;
-      if (!amount) continue;
-
-      try {
-        const decimals =
-          DECIMALS_BY_TOKEN[currency as keyof typeof DECIMALS_BY_TOKEN] ?? 6;
-        const numericAmount = parseFloat(formatUnits(BigInt(amount), decimals));
-
-        let usdValue = numericAmount;
-        if (currency === "GLW" && glwSpotPrice > 0) {
-          usdValue = numericAmount * glwSpotPrice;
-        }
-
-        map.set(regionId, (map.get(regionId) ?? 0) + usdValue);
-      } catch {
-        // skip invalid amounts
-      }
-    }
-
-    return map;
-  }, [completedFarms, glwSpotPrice]);
-
-  const regions = React.useMemo(() => {
-    return baseRegions.map((region) => ({
-      ...region,
-      totalProtocolDepositsUsd: pdsByRegionId.get(region.id) ?? 0,
-    }));
-  }, [baseRegions, pdsByRegionId]);
+  const regions = activeSummary?.regions ?? [];
 
   React.useEffect(() => {
     if (!shouldLoad || !isError) return;
@@ -100,7 +54,7 @@ export function RegionsStaking({ shouldLoad = true }: RegionsStakingProps) {
 
   return (
     <div>
-      {!shouldLoad || isLoading || isFetching || isCompletedLoading ? (
+      {!shouldLoad || isLoading || isFetching ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {[1, 2, 3, 4].map((i) => (
             <Card
