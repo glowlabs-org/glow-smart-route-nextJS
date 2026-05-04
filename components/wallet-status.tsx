@@ -14,10 +14,10 @@ import { forceDisconnect } from "@/utils/forceDisconnect";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useER20Balances } from "@/hooks/useERC20Balances";
 import { cn } from "@/lib/utils";
-import { getAppKitClient } from "@/lib/wagmi-config";
 import { useLang } from "@/lib/i18n";
 import { ConnectButton } from "./connect-button";
 import { Button } from "./ui/button";
+import { WalletAccountPopover } from "./wallet/wallet-account-popover";
 
 export function WalletStatus({
   className,
@@ -43,19 +43,6 @@ export function WalletStatus({
 
   const handleForceDisconnect = () => {
     forceDisconnect(disconnect, connectors);
-  };
-
-  const handleOpenAccount = async () => {
-    try {
-      const appKitClient = getAppKitClient();
-      if (!appKitClient) {
-        throw new Error("AppKit client is not initialized");
-      }
-      await appKitClient.open({ view: "Account" });
-    } catch (error: any) {
-      console.error("Failed to open wallet account view:", error);
-      toast.error(error?.message || t.wallet.failedToOpenWallet);
-    }
   };
 
   const handleSwitchToMainnet = async () => {
@@ -123,52 +110,55 @@ export function WalletStatus({
   }
 
   return (
-    <button
-      type="button"
-      onClick={handleOpenAccount}
-      className={cn(
-        "inline-flex items-center border-border/30 dark:border-border/40 bg-background/70 text-zinc-900 dark:text-zinc-100 backdrop-blur-xl transition-colors",
-        "hover:bg-muted/40 dark:hover:bg-muted/50 hover:border-border/50 dark:hover:border-border/60",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-        minimal
-          ? "justify-center rounded-full w-full h-full p-0 border-0 bg-transparent hover:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
-          : "gap-2 rounded-2xl border px-4 text-sm h-10",
-        className
-      )}
-      aria-label={t.wallet.openWalletAccount}
-      title={address}
-    >
-      <span
-        className={cn(
-          "relative inline-flex items-center justify-center shrink-0",
-          minimal
-            ? "w-full h-full bg-transparent"
-            : "w-6 h-6 rounded-full bg-foreground/10 backdrop-blur-sm"
-        )}
-      >
-        <span
-          aria-hidden
+    <WalletAccountPopover
+      trigger={
+        <button
+          type="button"
           className={cn(
-            "absolute right-0 top-0 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-background",
-            minimal && "right-2 top-2"
-          )}
-        />
-        <Wallet
-          className={cn(
+            "inline-flex items-center border-border/30 dark:border-border/40 bg-background/70 text-zinc-900 dark:text-zinc-100 backdrop-blur-xl transition-colors",
+            "hover:bg-muted/40 dark:hover:bg-muted/50 hover:border-border/50 dark:hover:border-border/60",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
             minimal
-              ? "size-5 text-muted-foreground hover:text-foreground"
-              : "w-3.5 h-3.5"
+              ? "justify-center rounded-full w-full h-full p-0 border-0 bg-transparent hover:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+              : "gap-2 rounded-2xl border px-4 text-sm h-10",
+            className
           )}
-        />
-      </span>
-      {!minimal && (
-        <>
-          <span className="font-mono text-xs sm:text-sm font-medium truncate">
-            {address.slice(0, 6)}...{address.slice(-4)}
+          aria-label={t.wallet.openWalletAccount}
+          title={address}
+        >
+          <span
+            className={cn(
+              "relative inline-flex items-center justify-center shrink-0",
+              minimal
+                ? "w-full h-full bg-transparent"
+                : "w-6 h-6 rounded-full bg-foreground/10 backdrop-blur-sm"
+            )}
+          >
+            <span
+              aria-hidden
+              className={cn(
+                "absolute right-0 top-0 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-background",
+                minimal && "right-2 top-2"
+              )}
+            />
+            <Wallet
+              className={cn(
+                minimal
+                  ? "size-5 text-muted-foreground hover:text-foreground"
+                  : "w-3.5 h-3.5"
+              )}
+            />
           </span>
-          <ChevronDown className="w-3.5 h-3.5 opacity-60 shrink-0" />
-        </>
-      )}
-    </button>
+          {!minimal && (
+            <>
+              <span className="font-mono text-xs sm:text-sm font-medium truncate">
+                {address.slice(0, 6)}...{address.slice(-4)}
+              </span>
+              <ChevronDown className="w-3.5 h-3.5 opacity-60 shrink-0" />
+            </>
+          )}
+        </button>
+      }
+    />
   );
 }

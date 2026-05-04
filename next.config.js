@@ -1,6 +1,96 @@
+// Build the Content-Security-Policy directive list. Kept in Report-Only mode
+// initially so violations surface in the browser console without breaking the
+// app; flip the header name to `Content-Security-Policy` once the report is
+// clean.
+const cspDirectives = [
+  "default-src 'self'",
+  // Next.js + Turbopack rely on inline runtime scripts; some wallet SDKs
+  // (Privy, WalletConnect) ship eval-using crypto polyfills.
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://js.stripe.com https://va.vercel-scripts.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  "img-src 'self' data: blob: https: http:",
+  "media-src 'self' data: blob:",
+  // WalletConnect verification iframe + Cloudflare Turnstile + Stripe checkout.
+  "frame-src 'self' https://verify.walletconnect.com https://verify.walletconnect.org https://challenges.cloudflare.com https://js.stripe.com https://hooks.stripe.com",
+  "frame-ancestors 'none'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "worker-src 'self' blob:",
+  "manifest-src 'self'",
+  // Wallet + RPC + API endpoints. Localhost entries cover `pnpm dev` against
+  // local hub/control backends; railway/alchemy/etc. cover deployed envs.
+  [
+    "connect-src",
+    "'self'",
+    "http://localhost:* ws://localhost:*",
+    // Privy
+    "https://auth.privy.io",
+    "https://*.privy.io",
+    "https://*.rpc.privy.systems",
+    "wss://*.privy.io",
+    // WalletConnect
+    "wss://relay.walletconnect.com",
+    "wss://relay.walletconnect.org",
+    "https://relay.walletconnect.com",
+    "https://relay.walletconnect.org",
+    "https://explorer-api.walletconnect.com",
+    "https://pulse.walletconnect.org",
+    "https://api.web3modal.org",
+    "https://api.web3modal.com",
+    // Coinbase Wallet (walletlink)
+    "wss://www.walletlink.org",
+    "https://*.coinbase.com",
+    // RPC providers
+    "https://*.alchemy.com",
+    "wss://*.alchemy.com",
+    "https://*.g.alchemy.com",
+    // Glow APIs (railway-hosted prod + staging)
+    "https://*.up.railway.app",
+    // CDN / asset hosts
+    "https://*.r2.dev",
+    "https://*.mypinata.cloud",
+    // Payments
+    "https://api.stripe.com",
+    "https://*.crossmint.com",
+    "https://*.crossmint.io",
+    // Analytics + monitoring
+    "https://*.sentry.io",
+    "https://va.vercel-scripts.com",
+    "https://vitals.vercel-insights.com",
+  ].join(" "),
+];
+
+const securityHeaders = [
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=(), interest-cohort=()",
+  },
+  {
+    key: "Strict-Transport-Security",
+    value: "max-age=63072000; includeSubDomains; preload",
+  },
+  {
+    key: "Content-Security-Policy-Report-Only",
+    value: cspDirectives.join("; "),
+  },
+];
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   serverExternalPackages: ["heic-decode"],
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: securityHeaders,
+      },
+    ];
+  },
   experimental: {
     optimizePackageImports: [
       "lucide-react",

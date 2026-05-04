@@ -13,6 +13,8 @@ export interface WalletStrings {
   switchedTo: (network: string) => string;
   failedToSwitchNetwork: string;
   failedToOpenWallet: string;
+  disconnect: string;
+  addressCopied: string;
 }
 
 const en: WalletStrings = {
@@ -28,6 +30,8 @@ const en: WalletStrings = {
   switchedTo: (network) => `Switched to ${network}`,
   failedToSwitchNetwork: "Failed to switch network",
   failedToOpenWallet: "Failed to open wallet",
+  disconnect: "Disconnect",
+  addressCopied: "Address copied",
 };
 
 const ko: WalletStrings = {
@@ -43,6 +47,8 @@ const ko: WalletStrings = {
   switchedTo: (network) => `${network}(으)로 전환되었습니다`,
   failedToSwitchNetwork: "네트워크 전환에 실패했습니다",
   failedToOpenWallet: "지갑을 열 수 없습니다",
+  disconnect: "연결 해제",
+  addressCopied: "주소가 복사되었습니다",
 };
 
 export const walletTranslations: Record<Lang, WalletStrings> = {

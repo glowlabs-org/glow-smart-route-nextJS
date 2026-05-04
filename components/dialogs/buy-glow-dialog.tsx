@@ -61,7 +61,7 @@ import {
 } from "@/components/transaction-stepper";
 import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-warning-dialog";
 import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
-import { getAppKitClient } from "@/lib/wagmi-config";
+import { useConnectWallet } from "@privy-io/react-auth";
 import { useLang } from "@/lib/i18n";
 
 const ONE_E18 = 1_000_000_000_000_000_000n;
@@ -271,15 +271,15 @@ export function BuyGlowDialog({
       }
     }, [address, chainId, walletClient, publicClient?.getBytecode]);
 
+  const { connectWallet } = useConnectWallet({
+    onError: (error) => {
+      console.error("Failed to open connect modal:", error);
+    },
+  });
+
   const openConnectModal = React.useCallback(() => {
-    const appKitClient = getAppKitClient();
-    if (!appKitClient) return;
-    void appKitClient
-      .open({ view: "Connect", namespace: "eip155" })
-      .catch((error) => {
-        console.error("Failed to open connect modal:", error);
-      });
-  }, []);
+    connectWallet();
+  }, [connectWallet]);
 
   const impactWalletStatsQuery = useImpactWalletStats({
     enabled: open,

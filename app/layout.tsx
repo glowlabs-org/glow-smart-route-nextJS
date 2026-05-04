@@ -6,7 +6,6 @@ import { ThemeProvider } from "./providers/theme-provider";
 import { LangProvider } from "@/lib/i18n";
 import { Analytics } from "@vercel/analytics/next";
 import Script from "next/script";
-import { headers } from "next/headers";
 import { Metadata } from "next";
 import { SEO } from "@/lib/seo";
 
@@ -91,9 +90,6 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const requestHeaders = await headers();
-  const cookieHeader = requestHeaders.get("cookie");
-
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -186,7 +182,7 @@ export default async function RootLayout({
       <body className={`antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <LangProvider>
-            <WagmiWrapper cookies={cookieHeader}>
+            <WagmiWrapper>
               <NuqsAdapter>{children}</NuqsAdapter>
             </WagmiWrapper>
           </LangProvider>

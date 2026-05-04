@@ -1,35 +1,14 @@
 import { Button } from "./ui/button";
 import { Loader2, Wallet } from "lucide-react";
-import { useAccount, useChainId, useConnect } from "wagmi";
+import { useAccount, useChainId, useSwitchChain } from "wagmi";
+import { mainnet, sepolia } from "wagmi/chains";
+import { useConnectWallet } from "@privy-io/react-auth";
 import clsx from "clsx";
 import * as React from "react";
 import { useEffect, useRef } from "react";
 import * as Sentry from "@sentry/nextjs";
-import { getAppKitClient } from "@/lib/wagmi-config";
 import { useLang } from "@/lib/i18n";
-
-const CONNECT_PENDING_SENTRY_TIMEOUT_MS = 12_000;
-const CONNECT_SHOW_WATCHDOG_TIMEOUT_MS = 15_000;
-const CONNECT_ATTEMPT_WINDOW_MS = 30_000;
-const PROPOSAL_EXPIRED_REPORT_WINDOW_MS = 30_000;
-
-function getRejectionMessage(reason: unknown): string {
-  if (reason instanceof Error) return reason.message;
-  if (typeof reason === "string") return reason;
-  if (reason && typeof reason === "object" && "message" in reason) {
-    const message = (reason as { message?: unknown }).message;
-    return typeof message === "string" ? message : "";
-  }
-  return "";
-}
-
-function isProposalExpiredReason(reason: unknown): boolean {
-  return /proposal expired/i.test(getRejectionMessage(reason));
-}
-
-function isBenignWalletDiscoveryRejection(reason: unknown): boolean {
-  return /not found rainbowkit/i.test(getRejectionMessage(reason));
-}
+import { WalletAccountPopover } from "./wallet/wallet-account-popover";
 
 export const ConnectButton = ({
   className,
@@ -47,340 +26,90 @@ export const ConnectButton = ({
   const { t } = useLang();
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
-  const {
-    error: connectError,
-    isPending,
-    variables: connectVariables,
-    connectors,
-  } = useConnect();
-  const pendingConnector = connectVariables?.connector;
-  const pendingConnectorId =
-    typeof (pendingConnector as any)?.id === "string"
-      ? (pendingConnector as any).id
-      : "unknown";
-  const pendingConnectorName =
-    typeof (pendingConnector as any)?.name === "string"
-      ? (pendingConnector as any).name
-      : "unknown";
+  const { switchChain, isPending: isSwitchingChain } = useSwitchChain();
+  const targetChainId =
+    process.env.NEXT_PUBLIC_CHAIN_ID === "1" ? mainnet.id : sepolia.id;
+
   const onConnectRef = useRef(onConnect);
-  const pendingReportKeyRef = useRef<string | null>(null);
-  const isConnectedRef = useRef(isConnected);
-  const isPendingRef = useRef(isPending);
-  const connectShowWatchdogRef = useRef<number | null>(null);
-  const pendingConnectorIdRef = useRef(pendingConnectorId);
-  const pendingConnectorNameRef = useRef(pendingConnectorName);
-  const lastConnectAttemptAtRef = useRef(0);
-  const proposalExpiredLastReportedAtRef = useRef(0);
-
-  const clearConnectShowWatchdog = React.useCallback(() => {
-    if (connectShowWatchdogRef.current !== null) {
-      window.clearTimeout(connectShowWatchdogRef.current);
-      connectShowWatchdogRef.current = null;
-    }
-  }, []);
-
-  const scheduleConnectShowWatchdog = React.useCallback(() => {
-    clearConnectShowWatchdog();
-    connectShowWatchdogRef.current = window.setTimeout(() => {
-      if (isConnectedRef.current) return;
-      const appKitClient = getAppKitClient();
-      if (!appKitClient?.isOpen?.()) return;
-
-      const connectorId = pendingConnectorIdRef.current;
-      const connectorName = pendingConnectorNameRef.current;
-      const hasPendingAttempt =
-        isPendingRef.current ||
-        connectorId !== "unknown" ||
-        connectorName !== "unknown";
-      if (!hasPendingAttempt) return;
-
-      const ethereum = (window as any)?.ethereum;
-      Sentry.withScope((scope) => {
-        scope.setLevel("warning");
-        scope.setTag("kind", "wallet_connect_show_timeout");
-        scope.setTag("walletConnectorId", connectorId);
-        scope.setTag("walletConnectorName", connectorName);
-        scope.setExtra("hasWindowEthereum", Boolean(ethereum));
-        scope.setExtra(
-          "ethereumProvidersCount",
-          ethereum && Array.isArray(ethereum.providers)
-            ? ethereum.providers.length
-            : 0
-        );
-        scope.setExtra("ethereumIsMetaMask", ethereum?.isMetaMask ?? null);
-        scope.setExtra(
-          "ethereumIsCoinbaseWallet",
-          ethereum?.isCoinbaseWallet ?? null
-        );
-        scope.setExtra("ethereumIsPhantom", ethereum?.isPhantom ?? null);
-        scope.setExtra(
-          "configuredConnectors",
-          connectors.map((connector) => ({
-            id: connector.id,
-            name: connector.name,
-            type: connector.type,
-          }))
-        );
-        scope.setExtra("isPending", isPendingRef.current);
-        Sentry.captureMessage(
-          "AppKit modal open with unresolved pending connection"
-        );
-      });
-    }, CONNECT_SHOW_WATCHDOG_TIMEOUT_MS);
-  }, [clearConnectShowWatchdog, connectors]);
-
   useEffect(() => {
     onConnectRef.current = onConnect;
   }, [onConnect]);
 
-  useEffect(() => {
-    isPendingRef.current = isPending;
-  }, [isPending]);
-
-  useEffect(() => {
-    pendingConnectorIdRef.current = pendingConnectorId;
-    pendingConnectorNameRef.current = pendingConnectorName;
-  }, [pendingConnectorId, pendingConnectorName]);
-
-  useEffect(() => {
-    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-      const reason = event.reason as unknown;
-      const appKitClient = getAppKitClient();
-      const isModalOpen = Boolean(appKitClient?.isOpen?.());
-      const hasRecentConnectAttempt =
-        Date.now() - lastConnectAttemptAtRef.current <= CONNECT_ATTEMPT_WINDOW_MS;
-      if (!isModalOpen && !isPendingRef.current && !hasRecentConnectAttempt) {
-        return;
-      }
-
-      if (isBenignWalletDiscoveryRejection(reason)) {
-        event.preventDefault();
-        return;
-      }
-
-      if (!isProposalExpiredReason(reason)) return;
-
-      event.preventDefault();
-
-      const now = Date.now();
-      if (
-        now - proposalExpiredLastReportedAtRef.current <
-        PROPOSAL_EXPIRED_REPORT_WINDOW_MS
-      ) {
-        return;
-      }
-      proposalExpiredLastReportedAtRef.current = now;
-
-      const normalizedError =
-        reason instanceof Error
-          ? reason
-          : new Error(getRejectionMessage(reason) || "WalletConnect proposal expired");
-
-      Sentry.captureException(normalizedError, {
-        level: "warning",
-        tags: {
-          walletStage: "connect",
-          walletError: "walletconnect_proposal_expired",
-          walletConnectorId: pendingConnectorIdRef.current,
-          walletConnectorName: pendingConnectorNameRef.current,
-        },
-        extra: {
-          isPending: isPendingRef.current,
-          isModalOpen,
-          hasRecentConnectAttempt,
-        },
+  const { connectWallet } = useConnectWallet({
+    onError: (error) => {
+      Sentry.captureException(new Error(String(error)), {
+        tags: { walletStage: "connect" },
       });
-    };
+    },
+  });
 
-    window.addEventListener("unhandledrejection", handleUnhandledRejection, true);
-    return () => {
-      window.removeEventListener(
-        "unhandledrejection",
-        handleUnhandledRejection,
-        true
-      );
-    };
-  }, []);
-
-  // Check if on wrong network (assuming mainnet or sepolia are supported)
+  const supportedChainIds: number[] = [mainnet.id, sepolia.id];
   const isWrongNetwork =
-    isConnected && chainId && ![1, 11155111].includes(chainId);
+    isConnected && chainId && !supportedChainIds.includes(chainId);
 
-  // Call onConnect when wallet connects
   useEffect(() => {
-    isConnectedRef.current = isConnected;
     if (!isConnected) return;
-    clearConnectShowWatchdog();
-    lastConnectAttemptAtRef.current = 0;
     onConnectRef.current?.();
-  }, [clearConnectShowWatchdog, isConnected]);
+  }, [isConnected]);
 
-  useEffect(() => {
-    if (!connectError) return;
-    lastConnectAttemptAtRef.current = 0;
-    const normalizedError =
-      connectError instanceof Error
-        ? connectError
-        : new Error(String((connectError as any)?.message ?? connectError));
+  const buttonSizeClass = clsx(
+    minimal ? "w-auto px-2 min-w-0 aspect-square" : "w-full",
+    size === "small"
+      ? "h-8 lg:h-10 text-sm lg:text-base"
+      : size === "medium"
+      ? "h-10 lg:h-12 text-base lg:text-lg"
+      : "h-12 lg:h-16 text-base lg:text-lg",
+    "font-semibold"
+  );
 
-    Sentry.captureException(normalizedError, {
-      tags: {
-        walletStage: "connect",
-        walletConnectorId: pendingConnectorId,
-        walletConnectorName: pendingConnectorName,
-      },
-      extra: {
-        code: (connectError as any)?.code ?? null,
-        shortMessage: (connectError as any)?.shortMessage ?? null,
-        details: (connectError as any)?.details ?? null,
-      },
-    });
-  }, [connectError, pendingConnectorId, pendingConnectorName]);
-
-  useEffect(() => {
-    if (!isPending) {
-      pendingReportKeyRef.current = null;
-      return;
-    }
-
-    const pendingKey = `${pendingConnectorId}:${pendingConnectorName}`;
-    const timeoutId = window.setTimeout(() => {
-      if (pendingReportKeyRef.current === pendingKey) return;
-      pendingReportKeyRef.current = pendingKey;
-      Sentry.withScope((scope) => {
-        scope.setLevel("warning");
-        scope.setTag("kind", "wallet_connect_pending");
-        scope.setTag("walletConnectorId", pendingConnectorId);
-        scope.setTag("walletConnectorName", pendingConnectorName);
-        Sentry.captureMessage("Wallet connection is still pending after timeout");
+  const handleSwitchToTarget = async () => {
+    try {
+      await switchChain({ chainId: targetChainId });
+    } catch (error) {
+      const normalizedError =
+        error instanceof Error ? error : new Error(String(error));
+      Sentry.captureException(normalizedError, {
+        tags: { walletStage: "network_switch" },
       });
-    }, CONNECT_PENDING_SENTRY_TIMEOUT_MS);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [isPending, pendingConnectorId, pendingConnectorName]);
-
-  useEffect(() => {
-    return () => {
-      clearConnectShowWatchdog();
-    };
-  }, [clearConnectShowWatchdog]);
+    }
+  };
 
   return (
-    <>
-      <div className={clsx("flex justify-center", className)}>
-        {!isConnected ? (
-          <Button
-            variant={variant}
-            onClick={async () => {
-              lastConnectAttemptAtRef.current = Date.now();
-              scheduleConnectShowWatchdog();
-              try {
-                const appKitClient = getAppKitClient();
-                if (!appKitClient) {
-                  throw new Error("AppKit client is not initialized");
-                }
-                await appKitClient.open({ view: "Connect", namespace: "eip155" });
-              } catch (error) {
-                lastConnectAttemptAtRef.current = 0;
-                clearConnectShowWatchdog();
-                const normalizedError =
-                  error instanceof Error ? error : new Error(String(error));
-                Sentry.captureException(normalizedError, {
-                  tags: {
-                    walletStage: "connect_show",
-                  },
-                });
-              }
-            }}
-            type="button"
-            className={clsx(
-              "font-semibold",
-              minimal ? "w-auto px-2 min-w-0 aspect-square" : "w-full",
-              size === "small"
-                ? "h-8 lg:h-10 text-sm lg:text-base"
-                : size === "medium"
-                ? "h-10 lg:h-12 text-base lg:text-lg"
-                : "h-12 lg:h-16 text-base lg:text-lg"
-            )}
-          >
-            <Wallet className={clsx(minimal ? "mr-0" : "mr-2 h-4 w-4")} />
-            {!minimal && t.wallet.connectWallet}
-          </Button>
-        ) : isWrongNetwork ? (
-          <Button
-            variant="destructive"
-            type="button"
-            onClick={async () => {
-              try {
-                const appKitClient = getAppKitClient();
-                if (!appKitClient) {
-                  throw new Error("AppKit client is not initialized");
-                }
-                await appKitClient.open({ view: "Networks" });
-              } catch (error) {
-                const normalizedError =
-                  error instanceof Error ? error : new Error(String(error));
-                Sentry.captureException(normalizedError, {
-                  tags: {
-                    walletStage: "network_switch_show",
-                  },
-                });
-              }
-            }}
-            className={clsx(
-              "font-semibold",
-              minimal ? "w-auto px-2 min-w-0 aspect-square" : "w-full",
-              size === "small"
-                ? "h-8 lg:h-10 text-sm lg:text-base"
-                : size === "medium"
-                ? "h-10 lg:h-12 text-base lg:text-lg"
-                : "h-12 lg:h-16 text-base lg:text-lg"
-            )}
-          >
-            <Loader2 className={clsx(minimal ? "mr-0" : "mr-2 h-4 w-4")} />
-            {!minimal && t.wallet.wrongNetwork}
-          </Button>
-        ) : (
-          <Button
-            variant={variant}
-            onClick={async () => {
-              try {
-                const appKitClient = getAppKitClient();
-                if (!appKitClient) {
-                  throw new Error("AppKit client is not initialized");
-                }
-                await appKitClient.open({ view: "Account" });
-              } catch (error) {
-                const normalizedError =
-                  error instanceof Error ? error : new Error(String(error));
-                Sentry.captureException(normalizedError, {
-                  tags: {
-                    walletStage: "account_show",
-                  },
-                });
-              }
-            }}
-            type="button"
-            className={clsx(
-              "font-semibold",
-              minimal ? "w-auto px-2 min-w-0 aspect-square" : "w-full",
-              size === "small"
-                ? "h-8 lg:h-10 text-sm lg:text-base"
-                : size === "medium"
-                ? "h-10 lg:h-12 text-base lg:text-lg"
-                : "h-12 lg:h-16 text-base lg:text-lg"
-            )}
-          >
-            {!minimal ? (
-              address ? `${address.slice(0, 6)}...${address.slice(-4)}` : t.wallet.connected
-            ) : (
-              <div className="h-2 w-2 rounded-full bg-green-500" />
-            )}
-          </Button>
-        )}
-      </div>
-    </>
+    <div className={clsx("flex justify-center", className)}>
+      {!isConnected ? (
+        <Button
+          variant={variant}
+          onClick={() => connectWallet()}
+          type="button"
+          className={buttonSizeClass}
+        >
+          <Wallet className={clsx(minimal ? "mr-0" : "mr-2 h-4 w-4")} />
+          {!minimal && t.wallet.connectWallet}
+        </Button>
+      ) : isWrongNetwork ? (
+        <Button
+          variant="destructive"
+          type="button"
+          onClick={handleSwitchToTarget}
+          disabled={isSwitchingChain}
+          className={buttonSizeClass}
+        >
+          <Loader2 className={clsx(minimal ? "mr-0" : "mr-2 h-4 w-4")} />
+          {!minimal && t.wallet.wrongNetwork}
+        </Button>
+      ) : (
+        <WalletAccountPopover
+          trigger={
+            <Button variant={variant} type="button" className={buttonSizeClass}>
+              {!minimal ? (
+                address ? `${address.slice(0, 6)}...${address.slice(-4)}` : t.wallet.connected
+              ) : (
+                <div className="h-2 w-2 rounded-full bg-green-500" />
+              )}
+            </Button>
+          }
+        />
+      )}
+    </div>
   );
 };

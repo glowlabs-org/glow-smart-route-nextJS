@@ -1,15 +1,12 @@
 "use client";
 
 import React from "react";
-import {
-  WagmiProvider,
-  cookieToInitialState,
-  type Config,
-  type State,
-} from "wagmi";
+import { PrivyProvider } from "@privy-io/react-auth";
+import { WagmiProvider } from "@privy-io/wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/sonner";
 import { wagmiConfig } from "@/lib/wagmi-config";
+import { privyConfig, PRIVY_APP_ID } from "@/lib/privy-config";
 import {
   HUB_RATE_LIMIT_EVENT,
   getHubRateLimitDelayMs,
@@ -27,10 +24,9 @@ function WalletSessionLogger() {
 
 type WagmiWrapperProps = {
   children: React.ReactNode;
-  cookies?: string | null;
 };
 
-export const WagmiWrapper = ({ children, cookies }: WagmiWrapperProps) => {
+export const WagmiWrapper = ({ children }: WagmiWrapperProps) => {
   const [queryClient] = React.useState(
     () =>
       new QueryClient({
@@ -38,7 +34,6 @@ export const WagmiWrapper = ({ children, cookies }: WagmiWrapperProps) => {
           queries: {
             staleTime: 5 * 1000,
             retry: (failureCount, error) => {
-              // Hub GET already does bounded retry with Retry-After handling.
               if (isHubRateLimitError(error)) return false;
               return failureCount < 3;
             },
@@ -51,16 +46,6 @@ export const WagmiWrapper = ({ children, cookies }: WagmiWrapperProps) => {
         },
       })
   );
-
-  const initialState = React.useMemo<State | undefined>(() => {
-    if (!cookies) return undefined;
-
-    try {
-      return cookieToInitialState(wagmiConfig as Config, cookies);
-    } catch {
-      return undefined;
-    }
-  }, [cookies]);
 
   React.useEffect(() => {
     const teardownFetchInterceptor = installBrowserRateLimitFetchInterceptor({
@@ -88,16 +73,14 @@ export const WagmiWrapper = ({ children, cookies }: WagmiWrapperProps) => {
   }, []);
 
   return (
-    <WagmiProvider
-      config={wagmiConfig}
-      initialState={initialState}
-      reconnectOnMount
-    >
+    <PrivyProvider appId={PRIVY_APP_ID} config={privyConfig}>
       <QueryClientProvider client={queryClient}>
-        <Toaster position="bottom-right" />
-        <WalletSessionLogger />
-        {children}
+        <WagmiProvider config={wagmiConfig} reconnectOnMount>
+          <Toaster position="bottom-right" />
+          <WalletSessionLogger />
+          {children}
+        </WagmiProvider>
       </QueryClientProvider>
-    </WagmiProvider>
+    </PrivyProvider>
   );
 };
