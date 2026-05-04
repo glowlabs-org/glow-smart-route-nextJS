@@ -84,6 +84,8 @@ function GctlSkeleton() {
 function RegionSteeringRow({
   regionName,
   userStakedGctl,
+  availableGctl,
+  lockedGctl,
   totalRegionStakedGctl,
   regionWeeklyEmissions,
   isMax,
@@ -92,6 +94,8 @@ function RegionSteeringRow({
 }: {
   regionName: string;
   userStakedGctl: number;
+  availableGctl: number;
+  lockedGctl: number;
   totalRegionStakedGctl: number;
   regionWeeklyEmissions: number;
   isMax: boolean;
@@ -105,12 +109,26 @@ function RegionSteeringRow({
   // Calculate GLW Directed (The Impact)
   const glwDirected = regionWeeklyEmissions * shareOfRegion;
 
+  // Split the row's normalized fill into available + locked segments.
+  const lockedFraction =
+    userStakedGctl > 0
+      ? Math.min(Math.max(lockedGctl / userStakedGctl, 0), 1)
+      : 0;
+  const availableWidth = normalizedWidth * (1 - lockedFraction);
+  const lockedWidth = normalizedWidth * lockedFraction;
+  const hasLocked = lockedGctl > 0;
+
   return (
     <div className="group relative overflow-hidden rounded-xl bg-muted/30 border border-border/20 transition-all hover:bg-muted/40 hover:border-border/40">
-      {/* Background Fill - normalized so the max stake is 100% */}
+      {/* Background Fill - available segment (cyan) */}
       <div
-        className="absolute inset-y-0 left-0 bg-[#22D3EE]/5 transition-all duration-700 ease-out"
-        style={{ width: `${normalizedWidth}%` }}
+        className="absolute inset-y-0 left-0 bg-[#22D3EE]/15 transition-all duration-700 ease-out"
+        style={{ width: `${availableWidth}%` }}
+      />
+      {/* Background Fill - locked segment (amber) */}
+      <div
+        className="absolute inset-y-0 bg-amber-400/25 transition-all duration-700 ease-out"
+        style={{ left: `${availableWidth}%`, width: `${lockedWidth}%` }}
       />
 
       <div className="relative flex items-center justify-between p-3">
@@ -129,8 +147,22 @@ function RegionSteeringRow({
             <div className="font-medium text-sm text-foreground leading-none">
               {regionName}
             </div>
-            <div className="text-[10px] text-muted-foreground/60 font-mono mt-1">
-              {labels.rowGctlStakedSuffix(formatCompact(userStakedGctl))}
+            <div className="text-[10px] text-muted-foreground/60 font-mono mt-1 flex items-center gap-1.5">
+              <span>
+                {labels.rowGctlStakedSuffix(formatCompact(userStakedGctl))}
+              </span>
+              {hasLocked && (
+                <>
+                  <span aria-hidden>•</span>
+                  <span
+                    className="inline-flex items-center gap-1 text-amber-500"
+                    title={labels.lockedTooltip}
+                  >
+                    <Lock className="h-2.5 w-2.5" />
+                    {formatCompact(lockedGctl)} {labels.lockedSuffix}
+                  </span>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -201,6 +233,8 @@ export default function GctlControlWidget({
   );
   const {
     impactEligibleStakedGctlByRegion,
+    availableStakedGctlByRegion,
+    availableStakeByRegion,
     isAvailableStakeMapLoading,
   } = useWalletRegionAvailableStakeMap({
     walletAddress: walletAddress ?? undefined,
@@ -247,10 +281,26 @@ export default function GctlControlWidget({
           const impactEligibleStaked =
             impactEligibleStakedGctlByRegion.get(r.regionId) ?? 0n;
 
+          const snapshot = availableStakeByRegion.get(r.regionId) ?? null;
+          let lockedWei = 0n;
+          if (snapshot) {
+            try {
+              lockedWei += BigInt(snapshot.delegatedSgctlVaultBalance ?? "0");
+              lockedWei += BigInt(snapshot.protocolDepositVaultBalance ?? "0");
+            } catch {
+              // ignore malformed values
+            }
+          }
+          const totalAmount = gctlAmountFromRaw(impactEligibleStaked.toString());
+          const lockedAmount = gctlAmountFromRaw(lockedWei.toString());
+          const availableAmount = Math.max(totalAmount - lockedAmount, 0);
+
           return {
             regionId: r.regionId,
             regionName: r.region?.name || fallbackName,
-            amountGctl: gctlAmountFromRaw(impactEligibleStaked.toString()),
+            amountGctl: totalAmount,
+            availableAmount,
+            lockedAmount,
             totalRegionStaked: regionData?.totalStaked ?? 0,
             weeklyEmissions: regionData?.weeklyEmissions ?? 0,
           };
@@ -258,6 +308,7 @@ export default function GctlControlWidget({
         .sort((a, b) => b.amountGctl - a.amountGctl) ?? []
     );
   }, [
+    availableStakeByRegion,
     impactEligibleStakedGctlByRegion,
     isEnabled,
     regionDataMap,
@@ -270,6 +321,31 @@ export default function GctlControlWidget({
     [stakes]
   );
   const totalBalanceGctl = walletBalanceGctl + stakedTotalGctl;
+
+  // Active sGCTL splits into:
+  //   - Available: free to redelegate to another region
+  //   - Locked:    held in delegated/protocol-deposit vaults until released
+  const availableSgctl = useMemo(() => {
+    let totalWei = 0n;
+    availableStakedGctlByRegion.forEach((wei) => {
+      totalWei += wei;
+    });
+    return gctlAmountFromRaw(totalWei.toString());
+  }, [availableStakedGctlByRegion]);
+
+  const lockedSgctl = useMemo(() => {
+    let totalWei = 0n;
+    availableStakeByRegion.forEach((snapshot) => {
+      if (!snapshot) return;
+      try {
+        totalWei += BigInt(snapshot.delegatedSgctlVaultBalance ?? "0");
+        totalWei += BigInt(snapshot.protocolDepositVaultBalance ?? "0");
+      } catch {
+        // ignore malformed values
+      }
+    });
+    return gctlAmountFromRaw(totalWei.toString());
+  }, [availableStakeByRegion]);
 
   // Calculate shares for normalization (biggest stake = 75% bar width)
   const stakesWithNormalizedWidth = useMemo(() => {
@@ -470,7 +546,7 @@ export default function GctlControlWidget({
               </span>
               <span className="text-xs text-muted-foreground/60">GCTL</span>
             </div>
-            <div className="flex gap-2 text-[10px] text-muted-foreground/60">
+            <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground/60">
               <span
                 className={cn(
                   hasLiquidGctl &&
@@ -479,9 +555,20 @@ export default function GctlControlWidget({
               >
                 {formatCompact(walletBalanceGctl)} {t.widgets.gctlHeatmap.liquidSuffix}
               </span>
-              <span>•</span>
-              <span className="text-[#22D3EE] font-medium">
-                {formatCompact(stakedTotalGctl)} {t.widgets.gctlHeatmap.activeSuffix}
+              <span aria-hidden>•</span>
+              <span
+                className="text-[#22D3EE] font-medium"
+                title={t.widgets.gctlHeatmap.availableTooltip}
+              >
+                {formatCompact(availableSgctl)} {t.widgets.gctlHeatmap.availableSuffix}
+              </span>
+              <span aria-hidden>•</span>
+              <span
+                className="text-amber-500 font-medium inline-flex items-center gap-1"
+                title={t.widgets.gctlHeatmap.lockedTooltip}
+              >
+                <Lock className="h-2.5 w-2.5" />
+                {formatCompact(lockedSgctl)} {t.widgets.gctlHeatmap.lockedSuffix}
               </span>
             </div>
           </div>
@@ -521,6 +608,8 @@ export default function GctlControlWidget({
                   key={stake.regionId}
                   regionName={stake.regionName}
                   userStakedGctl={stake.amountGctl}
+                  availableGctl={stake.availableAmount}
+                  lockedGctl={stake.lockedAmount}
                   totalRegionStakedGctl={stake.totalRegionStaked}
                   regionWeeklyEmissions={stake.weeklyEmissions}
                   isMax={i === 0}

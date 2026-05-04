@@ -331,6 +331,10 @@ export interface WidgetStrings {
     myHoldings: string;
     liquidSuffix: string;
     activeSuffix: string;
+    availableSuffix: string;
+    lockedSuffix: string;
+    availableTooltip: string;
+    lockedTooltip: string;
     steeringScore: string;
     pts: string;
     perGlwRate: string;
@@ -980,6 +984,12 @@ const en: WidgetStrings = {
     myHoldings: "My Holdings",
     liquidSuffix: "Liquid",
     activeSuffix: "Active",
+    availableSuffix: "Available",
+    lockedSuffix: "Locked",
+    availableTooltip:
+      "Active sGCTL that can be moved to another region at any time.",
+    lockedTooltip:
+      "sGCTL locked in vault deposits — still earns steering rewards but can't be redelegated until released.",
     steeringScore: "Steering Score",
     pts: "Pts",
     perGlwRate: "+3 pts / GLW rate",
@@ -1617,6 +1627,11 @@ const ko: WidgetStrings = {
     myHoldings: "내 보유량",
     liquidSuffix: "유동",
     activeSuffix: "활성",
+    availableSuffix: "사용 가능",
+    lockedSuffix: "잠김",
+    availableTooltip: "언제든지 다른 지역으로 이동할 수 있는 활성 sGCTL입니다.",
+    lockedTooltip:
+      "볼트 예치에 잠긴 sGCTL — 스티어링 보상은 계속 받지만 해제되기 전까지 재위임할 수 없습니다.",
     steeringScore: "스티어링 점수",
     pts: "포인트",
     perGlwRate: "GLW당 +3 포인트",
