@@ -5,6 +5,7 @@ import {
   getReadableRpcErrorMessage,
   isInternalRpcError,
   isInsufficientGasError,
+  isNonceTooLowError,
   isWalletInteractionTimeoutError,
   normalizeSwapFailureMessage,
   SLIPPAGE_EXCEEDED_ERROR_MESSAGE,
@@ -75,6 +76,24 @@ describe("rpc-error-utils", () => {
     expect(
       normalizeSwapFailureMessage("UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT")
     ).toBe(SLIPPAGE_EXCEEDED_ERROR_MESSAGE);
+  });
+
+  it("detects nonce too low errors from viem error chain", () => {
+    const realSentryMessage =
+      'The contract function "claimRewardFromBucket" reverted with the following reason:\n' +
+      "nonce=1398 minNonce=1399 txHash=0xdbcbd27493c6ab8c1e8bbd5e4c7b87d339d04380b0116f50b7908353b94efe35: nonce too low\n\n" +
+      "Details: nonce=1398 minNonce=1399 txHash=0xdbcbd27493c6ab8c1e8bbd5e4c7b87d339d04380b0116f50b7908353b94efe35: nonce too low";
+
+    expect(isNonceTooLowError(new Error(realSentryMessage))).toBe(true);
+    expect(isNonceTooLowError(realSentryMessage)).toBe(true);
+    expect(
+      isNonceTooLowError(
+        Object.assign(new Error("anything"), { name: "NonceTooLowError" })
+      )
+    ).toBe(true);
+    expect(isNonceTooLowError(new Error("Insufficient funds for gas"))).toBe(
+      false
+    );
   });
 
   it("retries once on wallet interaction timeout", async () => {

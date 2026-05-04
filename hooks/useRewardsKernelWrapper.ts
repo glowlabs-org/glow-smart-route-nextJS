@@ -27,7 +27,9 @@ import {
 } from "@/lib/api/wallet-reward-claims-index";
 import {
   INSUFFICIENT_GAS_ERROR_MESSAGE,
+  NONCE_TOO_LOW_ERROR_MESSAGE,
   isInsufficientGasError,
+  isNonceTooLowError,
 } from "@/lib/rpc-error-utils";
 
 if (!process.env.NEXT_PUBLIC_CHAIN_ID) {
@@ -484,6 +486,12 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
             status: "error",
             message: INSUFFICIENT_GAS_ERROR_MESSAGE,
           };
+        } else if (isNonceTooLowError(error)) {
+          toast.error(NONCE_TOO_LOW_ERROR_MESSAGE);
+          return {
+            status: "error",
+            message: NONCE_TOO_LOW_ERROR_MESSAGE,
+          };
         }
 
         toast.error("Failed to claim GLW emission rewards", {
@@ -602,6 +610,12 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           return {
             status: "error",
             message: INSUFFICIENT_GAS_ERROR_MESSAGE,
+          };
+        } else if (isNonceTooLowError(error)) {
+          toast.error(NONCE_TOO_LOW_ERROR_MESSAGE);
+          return {
+            status: "error",
+            message: NONCE_TOO_LOW_ERROR_MESSAGE,
           };
         }
 
@@ -1026,6 +1040,8 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           toast.info("Transaction cancelled");
         } else if (isInsufficientGasError(error)) {
           toast.error(INSUFFICIENT_GAS_ERROR_MESSAGE);
+        } else if (isNonceTooLowError(error)) {
+          toast.error(NONCE_TOO_LOW_ERROR_MESSAGE);
         } else {
           toast.error("Failed to claim all protocol deposits", {
             description: errorMessage,

@@ -2,6 +2,8 @@ export const WALLET_INTERACTION_TIMEOUT_MESSAGE =
   "Wallet interaction timed out. Reopen your wallet and try again.";
 export const INSUFFICIENT_GAS_ERROR_MESSAGE =
   "Insufficient ETH for gas. Add more ETH to your wallet and try again.";
+export const NONCE_TOO_LOW_ERROR_MESSAGE =
+  "A previous transaction is still pending in your wallet. Wait for it to confirm before trying again.";
 export const GENERIC_SWAP_FAILURE_MESSAGE =
   "Transaction failed. This could be due to insufficient liquidity, slippage tolerance exceeded, or contract revert. Please try again with a smaller amount or adjust your slippage tolerance.";
 export const SLIPPAGE_EXCEEDED_ERROR_MESSAGE =
@@ -88,6 +90,22 @@ export function isInsufficientGasError(error: unknown): boolean {
     message.includes("insufficient funds for gas") ||
     message.includes("insufficient funds for intrinsic transaction cost") ||
     message.includes("cannot afford txn gas")
+  );
+}
+
+export function isNonceTooLowError(error: unknown): boolean {
+  const name = (error as { name?: string } | null)?.name?.toLowerCase() ?? "";
+  if (name === "noncetoolowerror") return true;
+
+  const message =
+    typeof error === "string"
+      ? error.toLowerCase()
+      : getReadableRpcErrorMessage(error).toLowerCase();
+
+  return (
+    message.includes("nonce too low") ||
+    message.includes("nonce is too low") ||
+    /\bnonce=\d+\s+minnonce=\d+/i.test(message)
   );
 }
 
