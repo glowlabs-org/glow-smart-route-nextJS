@@ -33,7 +33,13 @@ import {
   useChainId,
 } from "wagmi";
 import { formatUnits, parseUnits } from "viem";
-import { AlertTriangle, ArrowDownUp, Info, Settings } from "lucide-react";
+import { mainnet, sepolia } from "wagmi/chains";
+import {
+  useFundWallet,
+  useLogin,
+  usePrivy,
+} from "@privy-io/react-auth";
+import { AlertTriangle, ArrowDownUp, CreditCard, Info, Settings } from "lucide-react";
 import { useSwapUSDCToUSDG } from "@/hooks/useSwapUSDCToUSDG";
 import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
 import { useER20Balances } from "@/hooks/useERC20Balances";
@@ -173,6 +179,80 @@ export function SwapInterface({
   const publicClient = usePublicClient();
   const chainId = useChainId();
   const isEthPayEnabled = chainId === 1 || chainId === 11155111;
+
+  const { authenticated: isPrivyAuthenticated } = usePrivy();
+  // Refs survive a render cycle so onComplete can reach the latest fund target
+  // without causing the useLogin callback identity to change.
+  const pendingCardFundRef = React.useRef<{
+    address: `0x${string}`;
+    amount: string;
+  } | null>(null);
+  const { fundWallet: privyFundWallet } = useFundWallet();
+  const triggerCardFund = React.useCallback(
+    (target: { address: `0x${string}`; amount: string }) => {
+      void privyFundWallet({
+        address: target.address,
+        options: {
+          asset: "USDC",
+          amount: target.amount,
+          chain: mainnet,
+          defaultFundingMethod: "card",
+        },
+      });
+    },
+    [privyFundWallet]
+  );
+  const { login: privyLogin } = useLogin({
+    onComplete: () => {
+      const pending = pendingCardFundRef.current;
+      pendingCardFundRef.current = null;
+      if (pending) triggerCardFund(pending);
+    },
+    onError: (error) => {
+      pendingCardFundRef.current = null;
+      Sentry.captureException(new Error(String(error)), {
+        tags: { walletStage: "card_buy_login" },
+      });
+    },
+  });
+
+  const handleBuyWithCard = React.useCallback(
+    (usdcAmount: string) => {
+      if (!address) {
+        toast.error("Connect a wallet first");
+        return;
+      }
+      if (chainId === sepolia.id) {
+        toast.info("Card purchases are only available on mainnet");
+        return;
+      }
+      trackEvent("buy_card_click", {
+        sell_token: selectedTokenSell.label,
+        buy_token: selectedTokenBuy.label,
+        usdc_amount: usdcAmount,
+        privy_authenticated: isPrivyAuthenticated,
+      });
+      const target = {
+        address: address as `0x${string}`,
+        amount: usdcAmount,
+      };
+      if (!isPrivyAuthenticated) {
+        pendingCardFundRef.current = target;
+        privyLogin();
+        return;
+      }
+      triggerCardFund(target);
+    },
+    [
+      address,
+      chainId,
+      selectedTokenSell.label,
+      selectedTokenBuy.label,
+      isPrivyAuthenticated,
+      privyLogin,
+      triggerCardFund,
+    ]
+  );
   const ethBalanceQuery = useBalance({
     address,
     query: {
@@ -1942,7 +2022,7 @@ export function SwapInterface({
           )}
 
           {/* Enhanced Swap Button */}
-          <div className="pt-5">
+          <div className="pt-5 space-y-3">
             {!isConnected || isConnecting ? (
               <ConnectButton variant="default" />
             ) : (
@@ -1981,6 +2061,50 @@ export function SwapInterface({
                 {pendingTx ? t.swap.processing : buttonProps.label}
               </Button>
             )}
+
+            {(() => {
+              if (!isConnected || isConnecting) return null;
+              if (selectedTokenSell.label !== "USDC") return null;
+              const usdcBalanceUsd =
+                usdcBalance != null
+                  ? Number(formatUnits(usdcBalance, 6))
+                  : 0;
+              const desiredUsdc = Number(amountToSell);
+              if (!Number.isFinite(desiredUsdc) || desiredUsdc <= 0) return null;
+              if (desiredUsdc <= usdcBalanceUsd) return null;
+              const deficitUsd = desiredUsdc - usdcBalanceUsd;
+              // On-ramp providers enforce minimum order amounts that vary by
+              // region and payment method (MoonPay ~$16-20, Coinbase ~$5).
+              // Floor at $20 so the on-ramp always accepts the request; any
+              // surplus stays in the user's wallet as USDC.
+              const MIN_CARD_FUND_USDC = 20;
+              const roundedDeficit = Math.ceil(deficitUsd * 100) / 100;
+              const cardFundAmount = Math.max(
+                MIN_CARD_FUND_USDC,
+                roundedDeficit
+              ).toFixed(2);
+              const isMinimumApplied = roundedDeficit < MIN_CARD_FUND_USDC;
+              return (
+                <div className="space-y-1.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handleBuyWithCard(cardFundAmount)}
+                    disabled={pendingTx}
+                    className="w-full h-11 lg:h-12 gap-2 font-medium"
+                  >
+                    <CreditCard className="h-4 w-4" />
+                    {`Buy ${cardFundAmount} USDC with card`}
+                  </Button>
+                  {isMinimumApplied && (
+                    <p className="text-xs text-muted-foreground text-center">
+                      Card on-ramps require a minimum purchase; the surplus
+                      will stay in your wallet as USDC.
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
 
             {actionErrorMessage && (
               <div className="text-sm text-destructive mt-3">
