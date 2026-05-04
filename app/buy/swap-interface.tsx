@@ -198,6 +198,7 @@ export function SwapInterface({
           amount: target.amount,
           chain: mainnet,
           defaultFundingMethod: "card",
+          card: { preferredProvider: "coinbase" },
         },
       });
     },
