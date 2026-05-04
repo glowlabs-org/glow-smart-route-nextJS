@@ -2085,7 +2085,10 @@ export function SwapInterface({
               ).toFixed(2);
               const isMinimumApplied = roundedDeficit < MIN_CARD_FUND_USDC;
               return (
-                <div className="space-y-1.5">
+                // Hidden on mobile: in-app dApp browsers (MetaMask, Trust)
+                // silently block the on-ramp popup. Card flow is desktop-only
+                // until Privy ships better WebView support.
+                <div className="hidden lg:block space-y-1.5">
                   <Button
                     type="button"
                     variant="outline"

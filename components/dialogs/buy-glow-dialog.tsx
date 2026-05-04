@@ -1694,7 +1694,9 @@ export function BuyGlowDialog({
                 ).toFixed(2);
                 const isMinimumApplied = roundedDeficit < MIN_CARD_FUND_USDC;
                 return (
-                  <div className="space-y-1">
+                  // Hidden on mobile: in-app dApp browsers silently block
+                  // the on-ramp popup; card flow stays desktop-only.
+                  <div className="hidden lg:block space-y-1">
                     <Button
                       type="button"
                       variant="outline"
