@@ -170,6 +170,11 @@ const nextConfig = {
       // Optional deps pulled in by some wallet SDKs; not needed in our bundles.
       encoding: false,
       "pino-pretty": false,
+      // Privy's web bundle references RN + Farcaster mini-app peers that are
+      // only used on those platforms. Stub them so Vercel's webpack build
+      // doesn't fail on the missing modules.
+      "@react-native-async-storage/async-storage": false,
+      "@farcaster/mini-app-solana": false,
     };
 
     // Handle web workers properly
