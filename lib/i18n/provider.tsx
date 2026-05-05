@@ -5,6 +5,7 @@ import {
   DEFAULT_LANG,
   LANG_STORAGE_KEY,
   LEGACY_LANG_STORAGE_KEY,
+  getBcp47,
   isLang,
   type Lang,
 } from "./config";
@@ -63,7 +64,7 @@ export function LangProvider({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     if (typeof document === "undefined") return;
-    document.documentElement.lang = lang === "ko" ? "ko-KR" : "en-US";
+    document.documentElement.lang = getBcp47(lang);
   }, [lang]);
 
   const setLang = React.useCallback((next: Lang) => {

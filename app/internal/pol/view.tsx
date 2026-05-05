@@ -72,7 +72,7 @@ import type {
 
 import { formatUnits } from "viem";
 import { getCurrentWeekNumber } from "@/lib/rewards/weekly-delegations";
-import { useLang } from "@/lib/i18n";
+import { SUPPORTED_LANGS, useLang, type Lang } from "@/lib/i18n";
 
 const MiniBlogGraphButton = dynamic<MiniBlogGraphButtonProps>(
   () =>
@@ -1444,9 +1444,151 @@ const KO_MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
   ]),
 };
 
+const ZH_MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
+  "glow-economy-basics": inheritMiniBlogMeta("glow-economy-basics", "Glow 经济模型", [
+    "就像 Bitcoin 将代币变成挖矿机器一样，Glow 将代币变成太阳能电站。正如 BTC 是 Bitcoin 经济的核心代币，GLW 是 Glow 经济的核心代币。每周都会铸造新的 GLW，并分配给协议上正在建设的太阳能电站。",
+    "Glow 通过出售决定太阳能电站建设地点的控制权来产生收入。参与者支付资金铸造 Glow Control (GCTL) 时，这些资金会用于永久加深 GLW 的流动性。由于这部分流动性无法被移除，所以称为内嵌流动性。",
+  ]),
+  "glw-token-basics": inheritMiniBlogMeta("glw-token-basics", "GLW 代币", [
+    "GLW 是 Glow 协议的原生代币。协议每周铸造 GLW，并分配给三个经济参与方：竞争挖矿奖励的活跃太阳能电站、生态拨款池，以及用于运营支出的 Glow Foundation。",
+    "太阳能电站通过生产经过验证的清洁能源，并按每美元电力收入产生的影响力效率竞争来赚取 GLW。GLW 持有者可以将 GLW 委托给太阳能电站，帮助电站满足协议的资金要求，并分享这些奖励。",
+  ]),
+  "liquidity-basics": inheritMiniBlogMeta("liquidity-basics", "流动性基础", [
+    "流动性池可以理解为一个自动再平衡的投资组合，持有两种资产，在这里是 GLW 和 USDC。有人想卖出时，池子提供买方；有人想买入时，池子提供卖方。作为这项服务的回报，池子会从每笔兑换中收取费用。",
+    "这个投资组合会持续再平衡，以维持两种资产之间的目标比例。如果 GLW 价格下跌，组合中的 USDC 价值相对更高，于是会用部分 USDC 买入 GLW 来恢复平衡。如果 GLW 价格上涨，池子会卖出部分 GLW 换取 USDC。这种自动再平衡让池子始终在市场两侧提供深度，并从经过的每笔交易中赚取费用。",
+  ]),
+  "control-basics": inheritMiniBlogMeta("control-basics", "Glow Control", [
+    "Glow 是一个生产大量太阳能电力的协议，而 Glow Control 代币让利益相关者能够决定这些太阳能电力在世界哪些地区生产。GCTL 持有者将代币质押到特定地理区域，协议按比例分配奖励。某个区域质押的 GCTL 越多，该区域获得的协议资源和电站奖励份额就越大。",
+    "GCTL 被铸造时，支付的资金会直接流入 Glow Endowment，永久加深 GLW 背后的内嵌流动性。这让治理参与和协议强度形成直接联系：每一次决定太阳能建设地点的行为，也会同时强化代币的经济基础。",
+  ]),
+  "solar-installations-basics": inheritMiniBlogMeta("solar-installations-basics", "月度太阳能建设", [
+    "在 Glow 生态中，“太阳能电站”指任何规模的太阳能装置，从 4kW 的住宅屋顶系统到 16MW 的公用事业级阵列都包括在内。每个电站都会根据相对于同一区域其他电站的影响力效率来竞争 GLW 奖励。",
+    "月度太阳能建设衡量 Glow 新增发电容量的速度。它会汇总过去 13 周内在 Glow 上变为活跃状态的所有电站的铭牌容量，将总量折算为 4 周月度平均，并以千瓦为单位展示。",
+    "电站在 Glow 协议上恰好活跃 100 周。在此期间，它们赚取 GLW、在区域内竞争，并根据表现回收委托人的协议存款。100 周后，电站停止获得 GLW 奖励，协议存款也已完全分配，但太阳能装置本身会在之后数十年继续生产清洁能源和经过验证的影响力。",
+  ]),
+  "uniswap-vs-protocol-liquidity": inheritMiniBlogMeta("uniswap-vs-protocol-liquidity", "Uniswap 流动性与内嵌流动性", [
+    "Uniswap 等标准 DEX 上的流动性由个人 LP 拥有。这些 LP 包括交易者、基金和机构，他们存入代币以赚取交易费，并且可以随时撤出流动性。如果市场波动超出预期，理性的 LP 会撤出资金以避免进一步的无常损失。",
+    "这意味着在流动性最重要的时刻，LP 撤出的动机反而最强。如果足够多的 LP 同时撤出，在其他参与者来得及交易之前，池子的可用深度可能会缩水到之前的一小部分。",
+    "内嵌流动性通过完全移除撤出选项来解决这个问题。由于 Glow Endowment 的流动性仓位是永久的，它会在波动、下跌和恐慌性抛售中持续提供市场深度。这部分流动性正是在最需要时存在，并且无论市场状况如何都会通过交易费复利增长。",
+  ]),
+  "glow-endowment": inheritMiniBlogMeta("glow-endowment", "Glow Endowment", [
+    "Glow Endowment 是 GLW/USDC Uniswap 池中的内嵌流动性。当 Glow 获得协议收入时，这些收入会用于在公开市场购买 GLW。得到的 GLW 和剩余 USDC 会一起作为永久流动性仓位提交，且无法撤回。",
+    "由于 Endowment 是 Uniswap LP 仓位，它会通过交易活动自动再平衡。GLW 升值时，池子卖出 GLW 并积累 USDC。GLW 下跌时，池子用 USDC 储备买入 GLW，将其从流通中移除。这种再平衡不需要人工干预，并在各种市场条件下为双向交易提供深度。",
+    "Endowment 从每笔兑换中赚取交易费，这些费用会直接复利回仓位。GCTL 铸造收入添加新资本，交易费在其上继续复利。结果是一个随时间获得动能的流动性仓位，随着规模增长提供更深的市场和更强的价格稳定性。",
+  ]),
+  "embedded-liquidity-growth-basics": inheritMiniBlogMeta("embedded-liquidity-growth-basics", "内嵌流动性增长", [
+    "内嵌流动性增长衡量 Glow Endowment 的永久流动性仓位复利增长的速度。以 APY 表示的增长率反映两类进入仓位的新资本来源：GCTL 铸造收入，以及池中每笔兑换赚取的交易费。",
+    "由于 Endowment 仍处于早期扩张阶段，即使仓位的绝对深度在增加，年化增长率也可能看起来很高。随着基础规模变大，APY 可能会放缓，但每个周期新增的绝对美元金额会继续上升。跟踪这个增长率可以看到协议流动性基础随时间增强的速度。",
+  ]),
+  "circulating-supply-basics": inheritMiniBlogMeta("circulating-supply-basics", "GLW 流通供应量", [
+    "并非所有 GLW 都可以自由交易。最大的两个非流通类别是内嵌 GLW 和已委托 GLW。内嵌 GLW 永久锁定在 Glow Endowment 的流动性仓位中，只有在被换成 USDC 时才可能重新进入流通。已委托 GLW 则被提交到太阳能电站 vault 中，锁定 100 周，在赚回之前无法交易。",
+    "除此之外，协议还在多个合约钱包中持有 GLW，包括 Grants Treasury、Veto Council、GCA 与 Miner Pool，以及 Early Liquidity 分配。流通供应量是在扣除这些余额之后剩下的部分，代表市场参与者在任意时点真正可访问的代币。",
+  ]),
+  "why-liquidity-instead-of-dollars": inheritMiniBlogMeta("why-liquidity-instead-of-dollars", "为什么看流动性而不是美元？", [
+    "对于给定的 LP 仓位，流动性会单调增加。价格变动时，LP 的美元金额和代币数量会变化，但流动性数量会严格保持不变，或因累计交易费而增长。一个从 1,000 单位流动性开始的仓位，无论价格如何变化，都不会低于 1,000 单位流动性。",
+    "以美元计价的指标会随价格波动。如果 GLW 价值翻倍，池中 GLW 储备的美元价值也会翻倍，但由于再平衡，池子会持有更少 GLW 和更多 USDC。即使美元数字上升，池子吸收大额 GLW 卖单的实际能力也可能下降。用流动性而不是美元价格作为代币健康度的参考，可以更好地跟踪 Glow 代币生态的复利增长和稳定性。",
+    "这个特性对 Glow Endowment 尤其重要。Endowment 是 GLW/USDC 池中的永久 LP 仓位，从每笔兑换中赚取费用，并将费用直接复利回仓位。因此，即使没有新的协议收入流入，Endowment 的流动性也会增长。GCTL 铸造收入添加新资本，交易费则在其上继续复利。",
+  ]),
+  "farm-revenue-distribution": inheritMiniBlogMeta("farm-revenue-distribution", "太阳能电站价值", [
+    "每个区域都为 Glow 协议提供价值，而每个太阳能电站也为其所在区域提供价值。这些价值通过三条收入流进入协议的内嵌流动性：矿工销售、GCTL 铸造归因，以及 GCTL 收益归因。",
+    "矿工销售发生在电站出售部分 GLW 奖励流时。扣除支付给电站的运营赏金后，所得进入 Endowment 成为新流动性。GCTL 铸造归因会根据区域内质押的 GCTL 和该区域电站的已验证影响力积分，将部分新 GCTL 铸造收入分配给各电站。GCTL 收益归因方式相同，但分配的是 Endowment 获得的交易费和再平衡收益，而不是新资本。",
+  ]),
+  "wallet-participants-basics": inheritMiniBlogMeta("wallet-participants-basics", "钱包统计", [
+    "协议参与者是在 Glow 生态中进行过有意义链上活动的钱包。钱包第一次执行任何协议操作时就会被视为参与者：购买挖矿份额、出现在奖励分配中，或质押 GCTL。",
+    "参与者可分为三个可能重叠的类别。委托人持有活跃 vault 所有权份额，并已提交 GLW 支持太阳能电站。矿工购买 mining-center 份额，参与竞争性奖励系统。GCTL 持有者保持非零质押，决定协议在哪里建设太阳能基础设施。",
+    "仪表盘会同时跟踪协议参与者总数和每周新钱包活动速度。这让用户既能看到 Glow 经济当前规模，也能看到新参与者进入的节奏。",
+  ]),
+  "delegation-metrics-basics": inheritMiniBlogMeta("delegation-metrics-basics", "聚合委托机制", [
+    "每周，GLW 持有者通过将代币锁入作为协议存款的 vault，把 GLW 委托给太阳能电站。这些存款是电站参与竞争性挖矿系统所必需的。一旦委托，GLW 会在电站 100 周奖励生命周期内被提交，并在存款回收过程中逐步释放回流通。",
+    "已委托 GLW 不计入流通供应量。由于它锁定在 vault 中且无法交易，它会在较长时间内有效地从市场中移除。当前已委托 GLW 总量，加上旧委托释放代币的速度，共同决定委托在任意时点对流通供应量的净影响。",
+  ]),
+  "region-revenue-basics": inheritMiniBlogMeta("region-revenue-basics", "各区域收入", [
+    "Glow 在多个地理区域运营，每个区域都有自己的竞争性太阳能电站池。在每个区域内，电站按已验证的影响力效率竞争。每美元电力收入产生更多影响力的电站，会获得该区域已分配奖励的更大份额。",
+    "每个区域的收入取决于该区域的总影响力，以及 Glow 生态参与者对该区域的整体兴趣。",
+  ]),
+  "network-impact-basics": inheritMiniBlogMeta("network-impact-basics", "网络影响力", [
+    "网络影响力衡量 Glow 协议上所有太阳能装置的总体环境产出。这些数据代表代币经济所支持的电站产生的真实能源生产和碳减排效果。",
+    "仪表盘跟踪四个核心指标：所有电站安装的太阳能面板总数、以兆瓦年计的总发电容量、这些能源可供应的等效家庭数量，以及抵消同等碳量所需的成年树木等效数量。随着新电站加入，现有装置在 100 周奖励窗口之后继续生产清洁能源，这些指标会持续增长。",
+    "这些指标是 Glow 协议的心跳。每一次代币铸造、每一次委托、每一次 GCTL 质押，最终都是为了推动这些影响力数字上升。网络影响力仪表盘把代币经济重新连接到它的物理目的：大规模建设并维持经过验证的太阳能基础设施。",
+  ]),
+  "emissions-schedule": inheritMiniBlogMeta("emissions-schedule", "发行计划", [
+    "Glow 协议每周铸造 230,000 枚新 GLW，并分配给三个群体：175,000 枚给竞争挖矿奖励的活跃太阳能电站，40,000 枚给生态系统开发的拨款池，15,000 枚给 Glow Foundation 用于治理和运营支出。",
+    "这个固定的每周发行是新 GLW 的唯一来源。不存在可变或自由裁量的铸造。可预测的计划让参与者能够确定地建模未来供应，并评估委托奖励、电站经济性和流通供应量将如何演变。",
+  ]),
+  "delegating-tokens": inheritMiniBlogMeta("delegating-tokens", "委托 GLW", [
+    "要参与 Glow 的太阳能挖矿激励，太阳能电站必须提交协议存款。委托允许 GLW 持有者代表电站提供这笔存款，并将 GLW 提交 100 周。作为回报，委托人获得两类奖励：基于电站竞争表现的存款回收，以及电站每周 GLW 通胀奖励的一部分。",
+    "委托人的任务是评估哪些电站相对于其竞争地位提供有吸引力的奖励条件，并据此提交 GLW。",
+  ]),
+  "glw-token-value": inheritMiniBlogMeta("glw-token-value", "GLW 代币价值", [
+    "GLW 的基本价值由其内嵌流动性支撑。Glow Endowment 是一个永久流动性仓位，由 GCTL 铸造收入和复利交易费增长。由于这部分流动性永远不能撤出，它在代币价格下方建立了一个只会随时间增强的市场深度底座。",
+    "从长期看，早期投机消退、交易量恢复正常之后，内嵌流动性仍然存在。它代表由协议经济活动产生并永久提交来支撑代币的真实资本。与周期性的投机需求不同，内嵌流动性是累积的。每一美元进入 Endowment 后都会永久留存，使价格底座随着协议扩展而逐步变强。",
+  ]),
+  "embedded-liquidity": inheritMiniBlogMeta("embedded-liquidity", "内嵌流动性", [
+    "内嵌流动性永久提交到 GLW/USDC 交易池。与个人提供且可随时撤出的标准流动性不同，内嵌流动性是单向提交。一旦进入池子，就无法移除。这保证了无论市场状况如何，GLW 持有者始终有一条基础市场深度可用于交易。",
+    "内嵌流动性随着协议从两个来源产生收入而增长。第一个来源是人们铸造新的 Glow Control (GCTL) 所产生的收入，第二个来源是人们使用交易池时产生的交易费。由于仓位是永久的，这些费用会无限期累积，更大的仓位会赚取更多费用，进而让仓位更快增长。结果是一个自我强化、随时间加深的流动性基础。",
+  ]),
+  "minting-gctl": inheritMiniBlogMeta("minting-gctl", "铸造 GCTL", [
+    "任何人都可以使用 USDC 铸造新的 GCTL 代币。铸造 1 枚 GCTL 的价格等于当前 GLW 代币价格的平方根，并四舍五入到最接近的 5 美分。例如，如果 GLW 价值 9 美元，则 1 枚 GCTL 约需 3 美元；如果 GLW 价值 100 美元，则铸造价格约为 10 美元。",
+    "用于铸造 GCTL 的所有资金都会成为内嵌流动性，为 GLW 代币提供永久流动性支持。每一枚新铸造的 GCTL 都会加深支撑代币市场深度和价格稳定性的内嵌流动性，从而强化 GLW 经济。",
+  ]),
+  "embedded-glw-supply": inheritMiniBlogMeta("embedded-glw-supply", "内嵌 GLW 供应量", [
+    "Glow Endowment 流动性仓位中的 GLW 是永久提交的，不能独立撤回或交易。这部分 GLW 实际上被移出流通，减少了公开市场上可用的代币数量。",
+    "由于 Endowment 是 Uniswap LP 仓位，它的 GLW 余额会随价格变化。GLW 价格下跌时，池子的自动再平衡会用 USDC 储备买入 GLW，增加仓位中持有的 GLW 数量，并进一步减少流通供应。价格上涨时，池子卖出 GLW 换取 USDC，让一部分 GLW 回到市场方向。结果是一种在下跌时自然收紧供应、在上涨时放松供应的结构，为代币经济提供稳定力量。",
+  ]),
+  "constant-product-rule": inheritMiniBlogMeta("constant-product-rule", "恒定乘积规则", [
+    "恒定乘积规则是 Uniswap 等自动做市商背后的数学基础。它规定池中两种代币储备的乘积必须保持恒定：x * y = k，其中 x 是一种代币的数量，y 是另一种代币的数量，k 是只会因累计费用而增长的常数。",
+    "当有人从池中购买 GLW 时，他们加入 USDC 并取走 GLW。USDC 储备增加，GLW 储备减少，但 x * y 仍然等于 k。这个约束迫使价格变化：池中 GLW 越稀缺，每增加一单位 GLW 的价格就越高。该规则保证池子无论交易大小都能报价，并始终有流动性可用。",
+  ]),
+  "superlinear-market-cap": inheritMiniBlogMeta("superlinear-market-cap", "超线性市值", [
+    "在传统市场中，市值随价格线性变化：价格翻倍，市值也翻倍。在具有内嵌流动性的系统中，这种关系会变成超线性。随着 GLW 价格上涨，Endowment 的 USDC 储备会因再平衡而增长，其费用收入也会因更高交易量而增加。这两个效果都会让 Endowment 的深度比价格本身更快复利增长。",
+    "这种超线性动态意味着，在更高估值下，内嵌流动性会提供不成比例地更强支撑。协议的流动性基础不只是跟上增长，而是领先增长，形成不断扩大的市场深度护城河，让代币在扩张时越来越有韧性。",
+  ]),
+  "100-weeks-of-rewards": inheritMiniBlogMeta("100-weeks-of-rewards", "100 周奖励", [
+    "Glow 协议上的每个太阳能电站都有固定的 100 周奖励生命周期。在此窗口内，电站通过与同一区域其他电站竞争已验证影响力效率来赚取 GLW。电站的协议存款也会在此期间根据竞争表现回收。",
+    "100 周后，电站停止获得 GLW 奖励，其协议存款也已完全分配。不过，太阳能装置本身会继续生产清洁能源数十年。100 周窗口定义的是经济参与期，而不是电站的实际使用寿命。新电站会持续进入协议，维持竞争压力，并确保网络效率不断提升。",
+  ]),
+  "durable-liquidity": inheritMiniBlogMeta("durable-liquidity", "持久流动性", [
+    "任何代币经济中的总有效流动性都有两个组成部分：可撤回流动性和内嵌流动性。可撤回流动性是外部 LP 为赚取收益而提供的资本。它具有流动性和逐利性：条件变化时，这些 LP 会撤出。内嵌流动性是协议自身经济活动产生的资本，永久存在且无法移除。",
+    "由于可撤回流动性在压力环境下并不可靠，评估协议实际能依赖多少流动性时，应使用稳定性系数进行折扣。在多数 DeFi 系统中，真正稳定的 LP 资本只占一部分。Glow 的设计目标是让内嵌流动性在稳态下远超可撤回流动性，这意味着协议的市场深度来自真实经济活动，而不是通过排放租来的资本。",
+  ]),
+  "market-cap-exitable": inheritMiniBlogMeta("market-cap-exitable", "可退出市值", [
+    "可退出市值衡量一个代币总市值中，现实中能够在不产生灾难性滑点的情况下转换为美元的部分。对大多数代币而言，可退出比例只是名义市值的一小部分，因为流动性浅，并且由在压力环境下会撤出的流动性 LP 提供。",
+  ]),
+  "endowment-bot": inheritMiniBlogMeta("endowment-bot", "Endowment 机器人", [
+    "Endowment 机器人是管理 Glow Endowment 流动性运营的自动化系统。它处理将协议收入转化为永久流动性仓位的机制，确保每一美元 GCTL 铸造收入和池子赚取的每一笔费用都能高效复利回 Endowment。",
+  ]),
+  "delegations-operational-risk": inheritMiniBlogMeta("delegations-operational-risk", "基于预期的奖励", [
+    "委托人在支持 Glow 协议上的太阳能电站时，会受到保护而不承担运营风险。奖励根据电站经审计的性能能力计算，而不是根据实际能源输出计算，因此天气事件、设备停机或季节变化不会降低委托人回报。",
+    "这种设计将委托的金融风险与太阳能运营的物理风险分离。委托人根据电站的竞争地位、奖励条款和已验证能力来评估电站。电站运营方承担维护设备和最大化输出的运营风险，而委托人的回报则与电站的协议层指标挂钩。",
+  ]),
+  "token-fdv": inheritMiniBlogMeta("token-fdv", "代币 FDV", [
+    "全稀释估值 (FDV) 根据今天的市场价格估算未来所有 GLW 代币的总价值。Glow 协议按照既定发行计划每周铸造 230,000 枚 GLW，FDV 则以当前代币价格投射最终完整供应量的价值。",
+    "重要的是，并非所有 GLW 都应计入有效 FDV。永久内嵌在 Endowment 流动性仓位中的 GLW 被排除在外，因为它永远无法重新进入流通。主动委托到太阳能电站 vault 的 GLW 也被排除，因为它会在电站 100 周生命周期内锁定。结果是一个只反映最终可供市场参与者使用代币的 FDV 数字。",
+  ]),
+  "glw-miners": inheritMiniBlogMeta("glw-miners", "GLW 矿工", [
+    "GLW 矿工向太阳能安装商支付现金激励，以将高影响力电站接入 Glow 协议。作为交换，矿工获得该电站在其生命周期内赚取的 GLW，并与提供所需协议存款的委托人分享一部分奖励。矿工购买 mining-center 份额来参与竞争性奖励系统。",
+    "矿工利润等于其保留的 GLW 减去支付给安装商的现金。最有吸引力的机会通常是边际上可行、同时在协议中竞争力很强的太阳能电站：这些电站需要较少现金激励，却能相对于同一区域其他电站赚取强劲 GLW 奖励。",
+  ]),
+  "gctl-staking": inheritMiniBlogMeta("gctl-staking", "GCTL 质押", [
+    "GCTL 质押是将 Glow Control 代币提交到特定地理区域的过程。已质押 GCTL 决定协议资源和电站奖励如何在各区域分配。某个区域质押的 GCTL 越多，它获得的新电站容量、奖励分配和协议关注份额就越大。",
+  ]),
+};
+
+const MINI_BLOGS_BY_LANG: Record<Lang, Record<MiniBlogId, MiniBlogEntry>> = {
+  en: MINI_BLOGS,
+  ko: KO_MINI_BLOGS,
+  zh: ZH_MINI_BLOGS,
+};
+
+for (const lang of SUPPORTED_LANGS) {
+  if (!MINI_BLOGS_BY_LANG[lang]) {
+    throw new Error(`Missing POL mini-blog translations for ${lang}`);
+  }
+}
+
 function useMiniBlogs() {
   const { lang } = useLang();
-  return lang === "ko" ? KO_MINI_BLOGS : MINI_BLOGS;
+  return MINI_BLOGS_BY_LANG[lang];
 }
 
 const MINI_BLOG_CLUSTERS: Record<MiniBlogId, MiniBlogCluster> = {

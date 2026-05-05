@@ -3,12 +3,18 @@
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
-import { useLang } from "@/lib/i18n";
+import { useLang, type Lang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 interface ThemeToggleProps {
   className?: string;
 }
+
+const THEME_TOGGLE_ARIA_LABELS: Record<Lang, (isDark: boolean) => string> = {
+  en: (isDark) => `Switch to ${isDark ? "light" : "dark"} mode`,
+  ko: (isDark) => `${isDark ? "라이트" : "다크"} 모드로 전환`,
+  zh: (isDark) => `切换到${isDark ? "浅色" : "深色"}模式`,
+};
 
 export function ThemeToggle({ className }: ThemeToggleProps) {
   const { resolvedTheme, setTheme } = useTheme();
@@ -34,10 +40,7 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
   }
 
   const isDark = resolvedTheme === "dark";
-  const ariaLabel =
-    lang === "ko"
-      ? `${isDark ? "라이트" : "다크"} 모드로 전환`
-      : `Switch to ${isDark ? "light" : "dark"} mode`;
+  const ariaLabel = THEME_TOGGLE_ARIA_LABELS[lang](isDark);
 
   return (
     <button
