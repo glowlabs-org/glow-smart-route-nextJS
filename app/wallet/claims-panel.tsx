@@ -541,11 +541,18 @@ function ClaimButtonsWrapper({
 
         if (cancelled) return;
 
-        // Only update parent if status actually changed.
-        if (glwStatus !== glwClaimed || protocolStatus !== protocolClaimed) {
+        // Monotonic update: only "upgrade" false → true (when the backend
+        // or chain confirms a claim). Never downgrade true → false based
+        // on polling, because the backend indexer can lag a freshly
+        // optimistically-marked claim by several seconds — overwriting
+        // would make the panel flicker back to "Ready to claim" until
+        // the indexer catches up.
+        const nextGlw = glwStatus || glwClaimed;
+        const nextProtocol = protocolStatus || protocolClaimed;
+        if (nextGlw !== glwClaimed || nextProtocol !== protocolClaimed) {
           onClaimStatusChange(weekData.week, {
-            glwClaimed: glwStatus,
-            protocolClaimed: protocolStatus,
+            glwClaimed: nextGlw,
+            protocolClaimed: nextProtocol,
           });
         }
       } catch (error) {
