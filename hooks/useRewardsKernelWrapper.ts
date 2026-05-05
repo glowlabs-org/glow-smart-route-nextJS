@@ -649,15 +649,36 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
       }>,
       options?: ClaimWeekRewardsOptions,
     ): Promise<string | null> => {
+      const notifyProgress = (update: ClaimProgressUpdate) =>
+        options?.onProgress?.(update);
+
       if (!walletClient?.account?.address) {
+        // wagmi/Privy can desync: useAccount() reports connected (so the
+        // claim button is enabled) while useWalletClient() returns null.
+        // Without this notification the dialog would stay on its initial
+        // "pending" stages and the parent's success branch would paint a
+        // misleading green checkmark over a claim that never happened.
         toast.error("Please connect your wallet");
+        const walletNotReadyMessage =
+          "Wallet not ready — please reconnect and retry";
+        if (rewards.some((r) => r.type === "glowInflation")) {
+          notifyProgress({
+            stage: "inflation",
+            status: "error",
+            message: walletNotReadyMessage,
+          });
+        }
+        if (rewards.some((r) => r.type === "protocolDeposit")) {
+          notifyProgress({
+            stage: "protocolDeposits",
+            status: "error",
+            message: walletNotReadyMessage,
+          });
+        }
         return null;
       }
 
       setIsClaimingWeek(week);
-
-      const notifyProgress = (update: ClaimProgressUpdate) =>
-        options?.onProgress?.(update);
 
       try {
         const userAddress = walletClient.account.address as `0x${string}`;

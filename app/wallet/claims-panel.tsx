@@ -1742,9 +1742,9 @@ export function ClaimsPanel({
           },
         });
       }
-      if (!hasError) {
+      if (hasSuccess || allSkipped) {
         setClaimDialogStatus("success");
-        if (allSkipped) {
+        if (allSkipped && !hasSuccess) {
           setClaimDialogInfo(t.claims.toastRewardsAlreadyClaimed);
         }
         if (hasSuccess && onClaimSuccess) {
@@ -1753,21 +1753,29 @@ export function ClaimsPanel({
 
         trackEvent("wallet_claim_result", {
           week: activeClaim.weekData.week,
-          result: allSkipped ? "skipped" : "success",
+          result: hasSuccess ? "success" : "skipped",
           inflation_status: inflationStatus,
           protocol_status: protocolStatus,
         });
       } else {
+        // Either an explicit error fired, or no stage progressed at all
+        // (silent failure — the dialog must NOT paint success in that case).
         setClaimDialogStatus("error");
         setClaimDialogError(
-          hasSuccess
-            ? t.claims.toastSomeFailed
+          hasError
+            ? hasSuccess
+              ? t.claims.toastSomeFailed
+              : t.claims.toastUnableToComplete
             : t.claims.toastUnableToComplete
         );
 
         trackEvent("wallet_claim_result", {
           week: activeClaim.weekData.week,
-          result: hasSuccess ? "partial_error" : "error",
+          result: hasError
+            ? hasSuccess
+              ? "partial_error"
+              : "error"
+            : "no_progress",
           inflation_status: inflationStatus,
           protocol_status: protocolStatus,
         });
