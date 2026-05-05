@@ -1830,6 +1830,8 @@ export function ClaimsPanel({
     onClaimSuccess,
     t.claims,
     hasInsufficientSingleClaimGas,
+    claimWalletSnapshot,
+    connector,
   ]);
 
   const handleClaimAllProtocolDeposits = React.useCallback(async () => {
