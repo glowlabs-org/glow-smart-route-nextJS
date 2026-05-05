@@ -314,7 +314,7 @@ export function MintAndStakeGctlDialog({
           amount: target.amount,
           chain: mainnet,
           defaultFundingMethod: "card",
-          card: { preferredProvider: "coinbase" },
+          card: { preferredProvider: "moonpay" },
         },
       });
     },

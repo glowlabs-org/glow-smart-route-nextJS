@@ -12,7 +12,15 @@ import {
   Coins,
   Share2,
   RefreshCw,
+  CreditCard,
 } from "lucide-react";
+import { mainnet, sepolia } from "wagmi/chains";
+import {
+  useFundWallet,
+  useLogin,
+  usePrivy,
+} from "@privy-io/react-auth";
+import { capturePrivyWalletError } from "@/lib/privy-errors";
 import { GlowSymbol } from "@/components/glow-symbol";
 import { cn } from "@/lib/utils";
 import { useAccount, useChainId } from "wagmi";
@@ -410,6 +418,76 @@ export function DepositDialog({
       ),
     [effectiveApplication?.activeFraction, selectedCurrency],
   );
+
+  const { authenticated: isPrivyAuthenticated } = usePrivy();
+  const pendingCardFundRef = React.useRef<{
+    address: `0x${string}`;
+    amount: string;
+  } | null>(null);
+  const { fundWallet: privyFundWallet } = useFundWallet();
+  const triggerCardFund = React.useCallback(
+    (target: { address: `0x${string}`; amount: string }) => {
+      void privyFundWallet({
+        address: target.address,
+        options: {
+          asset: "USDC",
+          amount: target.amount,
+          chain: mainnet,
+          defaultFundingMethod: "card",
+          card: { preferredProvider: "moonpay" },
+        },
+      });
+    },
+    [privyFundWallet],
+  );
+  const { login: privyLogin } = useLogin({
+    onComplete: () => {
+      const pending = pendingCardFundRef.current;
+      pendingCardFundRef.current = null;
+      if (pending) triggerCardFund(pending);
+    },
+    onError: (error) => {
+      pendingCardFundRef.current = null;
+      capturePrivyWalletError(error, "card_buy_login");
+    },
+  });
+  const handleBuyWithCard = React.useCallback(
+    (usdcAmount: string) => {
+      if (!address) {
+        toast.error(t.wallet.connectWalletFirst);
+        return;
+      }
+      if (chainId === sepolia.id) {
+        toast.info(t.wallet.cardPurchasesMainnetOnly);
+        return;
+      }
+      trackEvent("deposit_card_click", {
+        usdc_amount: usdcAmount,
+        runtime_currency: runtimeSelectedCurrency,
+        privy_authenticated: isPrivyAuthenticated,
+      });
+      const target = {
+        address: address as `0x${string}`,
+        amount: usdcAmount,
+      };
+      if (!isPrivyAuthenticated) {
+        pendingCardFundRef.current = target;
+        privyLogin();
+        return;
+      }
+      triggerCardFund(target);
+    },
+    [
+      address,
+      chainId,
+      t,
+      runtimeSelectedCurrency,
+      isPrivyAuthenticated,
+      privyLogin,
+      triggerCardFund,
+    ],
+  );
+
   const regionId = effectiveApplication?.zone?.id ?? null;
   const controlChainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID);
   const delegationStepAtomic = React.useMemo(
@@ -3347,23 +3425,68 @@ export function DepositDialog({
             {!isConnected ? (
               <ConnectButton size="medium" variant="default" />
             ) : (
-              <Button
-                className="w-full h-12"
-                onClick={handleConfirm}
-                disabled={
-                  isSubmitting ||
-                  isPreparingWalletAuthorization ||
-                  isCheckingInitialPositionEligibility ||
-                  sgctlPreparationCutoffGuard.isBlocked ||
-                  initialPositionValueGuard.isBlocked ||
-                  !affordability.canSubmit
-                }
-              >
-                {isSubmitting && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                {ctaLabel}
-              </Button>
+              <div className="space-y-2">
+                <Button
+                  className="w-full h-12"
+                  onClick={handleConfirm}
+                  disabled={
+                    isSubmitting ||
+                    isPreparingWalletAuthorization ||
+                    isCheckingInitialPositionEligibility ||
+                    sgctlPreparationCutoffGuard.isBlocked ||
+                    initialPositionValueGuard.isBlocked ||
+                    !affordability.canSubmit
+                  }
+                >
+                  {isSubmitting && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  {ctaLabel}
+                </Button>
+                {(() => {
+                  if (selectedPaymentMethod !== "USDC") return null;
+                  const usdcBalanceUsd =
+                    usdcBalance != null
+                      ? Number(formatUnits(usdcBalance, 6))
+                      : 0;
+                  const desiredUsdc = costInUSDC(quantity);
+                  if (!Number.isFinite(desiredUsdc) || desiredUsdc <= 0)
+                    return null;
+                  if (desiredUsdc <= usdcBalanceUsd) return null;
+                  const deficitUsd = desiredUsdc - usdcBalanceUsd;
+                  // Floor at $20 to clear MoonPay/Coinbase Onramp minimums.
+                  // Surplus stays in the user's wallet as USDC.
+                  const MIN_CARD_FUND_USDC = 20;
+                  const roundedDeficit = Math.ceil(deficitUsd * 100) / 100;
+                  const cardFundAmount = Math.max(
+                    MIN_CARD_FUND_USDC,
+                    roundedDeficit,
+                  ).toFixed(2);
+                  const isMinimumApplied =
+                    roundedDeficit < MIN_CARD_FUND_USDC;
+                  return (
+                    // Hidden on mobile: in-app dApp browsers silently block
+                    // the on-ramp popup; card flow stays desktop-only.
+                    <div className="hidden lg:block space-y-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => handleBuyWithCard(cardFundAmount)}
+                        disabled={isSubmitting}
+                        className="w-full h-11 gap-2 font-medium rounded-xl"
+                      >
+                        <CreditCard className="h-4 w-4" />
+                        {t.wallet.buyAmountUsdcWithCard(cardFundAmount)}
+                      </Button>
+                      {isMinimumApplied && (
+                        <p className="text-xs text-muted-foreground text-center">
+                          {t.wallet.cardOnRampMinNotice}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
             )}
           </div>
         </div>
