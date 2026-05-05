@@ -1149,7 +1149,8 @@ export function calculateEstimatedRewardsBreakdown(
   quantity: number,
   activeFraction: ActiveFraction | null,
   rewardScore: RewardScore | null,
-  selectedCurrency?: DepositSelectedCurrency | null
+  selectedCurrency?: DepositSelectedCurrency | null,
+  totalSharesOverride?: number | null
 ): EstimatedRewardsBreakdown {
   if (!activeFraction || !rewardScore) {
     return { glw: 0, pd: 0, pdSymbol: null, totalGlwEquivalent: 0 };
@@ -1158,8 +1159,12 @@ export function calculateEstimatedRewardsBreakdown(
   let weeklyPd = 0;
   let pdSymbol: "GLW" | "SGCTL" | null = null;
   const totalShares =
-    resolveLaunchpadRewardShareCountForDialog(activeFraction, selectedCurrency) ||
-    1; // avoid div 0
+    (totalSharesOverride != null && totalSharesOverride > 0
+      ? totalSharesOverride
+      : resolveLaunchpadRewardShareCountForDialog(
+          activeFraction,
+          selectedCurrency
+        )) || 1; // avoid div 0
 
   if ("userWeeklyGlwRewards" in rewardScore) {
     // Launchpad
@@ -1205,6 +1210,7 @@ export function calculateImpactPointsBreakdown(
   options?: {
     includeVaultBonus?: boolean;
     selectedCurrency?: DepositSelectedCurrency | null;
+    totalSharesOverride?: number | null;
   }
 ): ImpactPointsBreakdown {
   if (!activeFraction || !rewardScore) {
@@ -1213,10 +1219,12 @@ export function calculateImpactPointsBreakdown(
 
   const includeVaultBonus = options?.includeVaultBonus ?? true;
   const totalShares =
-    resolveLaunchpadRewardShareCountForDialog(
-      activeFraction,
-      options?.selectedCurrency
-    ) || 1;
+    (options?.totalSharesOverride != null && options.totalSharesOverride > 0
+      ? options.totalSharesOverride
+      : resolveLaunchpadRewardShareCountForDialog(
+          activeFraction,
+          options?.selectedCurrency
+        )) || 1;
 
   if ("userWeeklyGlwRewards" in rewardScore) {
     // Launchpad (delegation) - earns both emission points and vault bonus

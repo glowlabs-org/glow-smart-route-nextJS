@@ -125,6 +125,7 @@ import {
   type SplitActivity,
   type SplitsActivityResponse,
 } from "@/hooks/hub-listings";
+import { resolveLaunchpadDelegationShareCount } from "@/utils/launchpad-rewards";
 import { hubGet } from "@/lib/api/hub-client";
 import type { RewardsBreakdownResponse } from "@/hooks/hub-fractions";
 import { getLaunchpadNowMs } from "@/utils/launchpad-now";
@@ -1169,6 +1170,13 @@ export function DepositDialog({
                 : dd.ctaConfirmDelegation
               : dd.ctaConfirmPurchase;
 
+  const launchpadTotalShares = React.useMemo(
+    () =>
+      effectiveApplication
+        ? resolveLaunchpadDelegationShareCount(effectiveApplication)
+        : 0,
+    [effectiveApplication],
+  );
   const estimatedRewardsBreakdown = React.useMemo(
     () =>
       calculateEstimatedRewardsBreakdown(
@@ -1176,9 +1184,11 @@ export function DepositDialog({
         effectiveApplication?.activeFraction ?? null,
         rewardScore ?? null,
         runtimeSelectedCurrency,
+        launchpadTotalShares,
       ),
     [
       effectiveApplication?.activeFraction,
+      launchpadTotalShares,
       quantity,
       rewardScore,
       runtimeSelectedCurrency,
@@ -1224,6 +1234,7 @@ export function DepositDialog({
         {
           includeVaultBonus: runtimeSelectedCurrency === "GLW",
           selectedCurrency: runtimeSelectedCurrency,
+          totalSharesOverride: launchpadTotalShares,
         },
       ),
     [
@@ -1232,6 +1243,7 @@ export function DepositDialog({
       rewardScore,
       costInGLW,
       runtimeSelectedCurrency,
+      launchpadTotalShares,
     ],
   );
 

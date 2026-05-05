@@ -180,6 +180,41 @@ describe("calculateEstimatedRewards", () => {
       const result = calculateEstimatedRewards(1, fraction, score);
       expect(Number.isFinite(result)).toBe(true);
     });
+
+    it("uses totalSharesOverride for SGCTL listings (regression: dialog used remainingSteps)", () => {
+      // Beacon Knoll-shaped scenario: 84 GLW shares, 504 SGCTL shares,
+      // 11 SGCTL remaining. The dialog used to pass 11 as the divisor (via
+      // remainingSteps), inflating per-step rewards ~45x. The fix threads
+      // the widget's 504 in via totalSharesOverride.
+      const fraction = createFraction({
+        totalSteps: 84,
+        remainingSteps: 11,
+        delegationAsset: "SGCTL",
+      });
+      const score = createLaunchpadScore({
+        userWeeklyGlwRewards: parseUnits("504", 18).toString(),
+        userWeeklyPdRewards: parseUnits("504", 6).toString(),
+      });
+
+      const overridden = calculateEstimatedRewardsBreakdown(
+        1,
+        fraction,
+        score,
+        "SGCTL",
+        504
+      );
+      expect(overridden.glw).toBe(1);
+      expect(overridden.pd).toBe(1);
+
+      const withoutOverride = calculateEstimatedRewardsBreakdown(
+        1,
+        fraction,
+        score,
+        "SGCTL"
+      );
+      // sanity: without override the buggy path returns the inflated value
+      expect(withoutOverride.glw).toBeGreaterThan(overridden.glw);
+    });
   });
 
   describe("mining rewards", () => {
