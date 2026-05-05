@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useAccount, useChainId } from "wagmi";
+import { useAccount, useChainId, useWalletClient } from "wagmi";
 import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -1156,8 +1156,36 @@ export function ClaimsPanel({
   className,
 }: ClaimsPanelProps = {}) {
   const { t } = useLang();
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, connector } = useAccount();
   const chainId = useChainId();
+  const { data: walletClient } = useWalletClient();
+
+  // Snapshot of the connected wallet's identity used for claim diagnostics.
+  // Privy wraps wagmi connectors and silently swallows some sign requests
+  // for specific connector + transport combinations (issue surfaced after
+  // the Privy migration). Capturing this on every claim event lets us
+  // pin down which combinations are affected without needing the user
+  // to reproduce in front of us.
+  const claimWalletSnapshot = React.useMemo(
+    () => ({
+      walletAddress: address ?? null,
+      isConnected,
+      chainId,
+      connectorId: connector?.id ?? null,
+      connectorName: connector?.name ?? null,
+      connectorType: connector?.type ?? null,
+      hasWalletClient: Boolean(walletClient),
+      walletClientChainId: walletClient?.chain?.id ?? null,
+      walletClientAccount: walletClient?.account?.address ?? null,
+      walletClientTransportType:
+        (walletClient as { transport?: { type?: string } } | undefined)
+          ?.transport?.type ?? null,
+      walletClientTransportName:
+        (walletClient as { transport?: { name?: string } } | undefined)
+          ?.transport?.name ?? null,
+    }),
+    [address, isConnected, chainId, connector, walletClient]
+  );
   const [v1ClaimedWeeks, setV1ClaimedWeeks] = React.useState<Set<number>>(
     new Set()
   );
@@ -1516,6 +1544,16 @@ export function ClaimsPanel({
             status: update.status,
             has_tx_hash: Boolean(update.txHash),
           });
+          Sentry.addBreadcrumb({
+            category: "claim_stage",
+            message: `${update.stage}:${update.status}`,
+            level: update.status === "error" ? "error" : "info",
+            data: {
+              week: activeClaim.weekData.week,
+              txHash: update.txHash ?? null,
+              message: update.message ?? null,
+            },
+          });
         }
 
         if (update.txHash) {
@@ -1579,6 +1617,17 @@ export function ClaimsPanel({
       claim_type: activeClaim.claimType,
       rewards_count: activeClaim.rewardsToClaim.length,
     });
+    Sentry.addBreadcrumb({
+      category: "claim",
+      message: "confirm_click",
+      level: "info",
+      data: {
+        week: activeClaim.weekData.week,
+        claimType: activeClaim.claimType,
+        rewardsCount: activeClaim.rewardsToClaim.length,
+        ...claimWalletSnapshot,
+      },
+    });
 
     // Check for smart account before proceeding
     const isSmartAccount = await checkSmartAccount();
@@ -1624,8 +1673,10 @@ export function ClaimsPanel({
         ? undefined
         : activeClaim.userProof.glowInflationEarnedLeafWeight;
 
+    const claimStartedAt = performance.now();
+    let claimReturnValue: string | null = null;
     try {
-      await claimWeekRewards(
+      claimReturnValue = await claimWeekRewards(
         activeClaim.weekData.week,
         activeClaim.rewardsToClaim,
         activeClaim.nonce,
@@ -1648,6 +1699,46 @@ export function ClaimsPanel({
         inflationStatus === "success" || protocolStatus === "success";
       const allSkipped =
         inflationStatus === "skipped" && protocolStatus === "skipped";
+
+      // Silent-failure detector: claim flow returned without firing any
+      // progress callback AND without throwing. Stages remain at their
+      // initial value (typically "pending"), so the existing `!hasError`
+      // branch below would mark the dialog as success even though nothing
+      // happened. Capture full diagnostics so we can correlate which
+      // connector + transport combos hit this path.
+      const noStageProgress =
+        !hasError &&
+        !hasSuccess &&
+        !allSkipped &&
+        claimReturnValue == null;
+      if (noStageProgress) {
+        const elapsedMs = Math.round(performance.now() - claimStartedAt);
+        console.warn(
+          "[Glow claim] Claim flow ended without firing any stage progress",
+          {
+            week: activeClaim.weekData.week,
+            elapsedMs,
+            ...claimWalletSnapshot,
+          }
+        );
+        Sentry.captureMessage("claim_silent_failure_no_progress", {
+          level: "error",
+          tags: {
+            walletStage: "claim_silent_failure",
+            connectorId: connector?.id ?? "unknown",
+            connectorType: connector?.type ?? "unknown",
+          },
+          extra: {
+            week: activeClaim.weekData.week,
+            claimType: activeClaim.claimType,
+            rewardsToClaimCount: activeClaim.rewardsToClaim.length,
+            elapsedMs,
+            inflationStatus,
+            protocolStatus,
+            ...claimWalletSnapshot,
+          },
+        });
+      }
       if (!hasError) {
         setClaimDialogStatus("success");
         if (allSkipped) {
@@ -1688,11 +1779,31 @@ export function ClaimsPanel({
           error instanceof Error
             ? error
             : new Error(String(error?.message || error));
+        const elapsedMs = Math.round(performance.now() - claimStartedAt);
         Sentry.captureException(normalizedError, {
-          tags: { walletStage: "claim_confirmation" },
+          tags: {
+            walletStage: "claim_confirmation",
+            connectorId: connector?.id ?? "unknown",
+            connectorType: connector?.type ?? "unknown",
+          },
           extra: {
             week: activeClaim.weekData.week,
-            walletAddress: address,
+            claimType: activeClaim.claimType,
+            elapsedMs,
+            errorName: error instanceof Error ? error.name : null,
+            errorCode: (error as { code?: unknown })?.code ?? null,
+            errorShortMessage:
+              (error as { shortMessage?: string })?.shortMessage ?? null,
+            errorMetaMessages:
+              (error as { metaMessages?: string[] })?.metaMessages?.join(
+                " | "
+              ) ?? null,
+            errorCauseMessage:
+              (error as { cause?: { message?: string } })?.cause?.message ??
+              null,
+            errorCauseName:
+              (error as { cause?: { name?: string } })?.cause?.name ?? null,
+            ...claimWalletSnapshot,
           },
         });
       }
