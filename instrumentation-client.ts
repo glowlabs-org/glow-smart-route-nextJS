@@ -110,6 +110,8 @@ if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
           filename.includes("inpage-solana-early") ||
           filename.includes("extensionPageScript") ||
           filename.includes("chunk-inject") ||
+          filename.includes("injectLeap") ||
+          filename.includes("inject.chrome.") ||
           /\/in-page\.js(\?|$|:)/.test(filename) ||
           filename.startsWith("chrome-extension://") ||
           filename.startsWith("moz-extension://")
