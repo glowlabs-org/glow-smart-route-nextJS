@@ -334,11 +334,11 @@ export function MintAndStakeGctlDialog({
   const handleBuyWithCard = React.useCallback(
     (usdcAmount: string) => {
       if (!address) {
-        toast.error("Connect a wallet first");
+        toast.error(t.wallet.connectWalletFirst);
         return;
       }
       if (wagmiChainId === sepolia.id) {
-        toast.info("Card purchases are only available on mainnet");
+        toast.info(t.wallet.cardPurchasesMainnetOnly);
         return;
       }
       trackEvent("mint_gctl_card_click", {
@@ -360,6 +360,7 @@ export function MintAndStakeGctlDialog({
     [
       address,
       wagmiChainId,
+      t,
       isPrivyAuthenticated,
       privyLogin,
       triggerCardFund,
@@ -2258,12 +2259,11 @@ export function MintAndStakeGctlDialog({
                               className="w-full h-11 gap-2 font-medium rounded-xl"
                             >
                               <CreditCard className="h-4 w-4" />
-                              {`Buy ${cardFundAmount} USDC with card`}
+                              {t.wallet.buyAmountUsdcWithCard(cardFundAmount)}
                             </Button>
                             {isMinimumApplied && (
                               <p className="text-xs text-muted-foreground text-center">
-                                Card on-ramps require a minimum purchase; the
-                                surplus will stay in your wallet as USDC.
+                                {t.wallet.cardOnRampMinNotice}
                               </p>
                             )}
                           </div>

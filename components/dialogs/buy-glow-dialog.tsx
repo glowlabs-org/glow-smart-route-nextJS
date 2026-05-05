@@ -325,11 +325,11 @@ export function BuyGlowDialog({
   const handleBuyWithCard = React.useCallback(
     (usdcAmount: string) => {
       if (!address) {
-        toast.error("Connect a wallet first");
+        toast.error(t.wallet.connectWalletFirst);
         return;
       }
       if (chainId === sepolia.id) {
-        toast.info("Card purchases are only available on mainnet");
+        toast.info(t.wallet.cardPurchasesMainnetOnly);
         return;
       }
       trackEvent("buy_glw_card_click", {
@@ -352,6 +352,7 @@ export function BuyGlowDialog({
     [
       address,
       chainId,
+      t,
       payToken,
       isPrivyAuthenticated,
       privyLogin,
@@ -1704,12 +1705,11 @@ export function BuyGlowDialog({
                       className="w-full h-11 gap-2 font-medium rounded-xl"
                     >
                       <CreditCard className="h-4 w-4" />
-                      {`Buy ${cardFundAmount} USDC with card`}
+                      {t.wallet.buyAmountUsdcWithCard(cardFundAmount)}
                     </Button>
                     {isMinimumApplied && (
                       <p className="text-xs text-muted-foreground text-center">
-                        Card on-ramps require a minimum purchase; the surplus
-                        will stay in your wallet as USDC.
+                        {t.wallet.cardOnRampMinNotice}
                       </p>
                     )}
                   </div>

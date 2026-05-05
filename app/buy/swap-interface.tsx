@@ -219,11 +219,11 @@ export function SwapInterface({
   const handleBuyWithCard = React.useCallback(
     (usdcAmount: string) => {
       if (!address) {
-        toast.error("Connect a wallet first");
+        toast.error(t.wallet.connectWalletFirst);
         return;
       }
       if (chainId === sepolia.id) {
-        toast.info("Card purchases are only available on mainnet");
+        toast.info(t.wallet.cardPurchasesMainnetOnly);
         return;
       }
       trackEvent("buy_card_click", {
@@ -246,6 +246,7 @@ export function SwapInterface({
     [
       address,
       chainId,
+      t,
       selectedTokenSell.label,
       selectedTokenBuy.label,
       isPrivyAuthenticated,
@@ -2097,12 +2098,11 @@ export function SwapInterface({
                     className="w-full h-11 lg:h-12 gap-2 font-medium"
                   >
                     <CreditCard className="h-4 w-4" />
-                    {`Buy ${cardFundAmount} USDC with card`}
+                    {t.wallet.buyAmountUsdcWithCard(cardFundAmount)}
                   </Button>
                   {isMinimumApplied && (
                     <p className="text-xs text-muted-foreground text-center">
-                      Card on-ramps require a minimum purchase; the surplus
-                      will stay in your wallet as USDC.
+                      {t.wallet.cardOnRampMinNotice}
                     </p>
                   )}
                 </div>

@@ -16,6 +16,7 @@ import {
 import { GlowSymbol } from "@/components/glow-symbol";
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import { hubGet } from "@/lib/api/hub-client";
+import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 type ReferralCodeResponse = {
@@ -74,6 +75,7 @@ export function WalletAccountPopover({ trigger }: WalletAccountPopoverProps) {
   const chainId = useChainId();
   const { disconnect } = useDisconnect();
   const balances = useWalletTokenBalances(address);
+  const { t } = useLang();
 
   const referralQuery = useQuery({
     queryKey: ["wallet-popover-referral-code", address],
@@ -88,23 +90,23 @@ export function WalletAccountPopover({ trigger }: WalletAccountPopoverProps) {
     if (!address) return;
     try {
       await navigator.clipboard.writeText(address);
-      toast.success("Address copied");
+      toast.success(t.wallet.addressCopied);
     } catch {
-      toast.error("Failed to copy address");
+      toast.error(t.wallet.failedToCopyAddress);
     }
   };
 
   const handleCopyReferral = async () => {
     const link = referralQuery.data?.shareableLink;
     if (!link) {
-      toast.error("Referral link not ready");
+      toast.error(t.wallet.referralLinkNotReady);
       return;
     }
     try {
       await navigator.clipboard.writeText(link);
-      toast.success("Referral link copied");
+      toast.success(t.wallet.referralLinkCopied);
     } catch {
-      toast.error("Failed to copy link");
+      toast.error(t.wallet.failedToCopyLink);
     }
   };
 
@@ -131,7 +133,7 @@ export function WalletAccountPopover({ trigger }: WalletAccountPopoverProps) {
               type="button"
               onClick={handleCopyAddress}
               className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
-              aria-label="Copy address"
+              aria-label={t.wallet.copyAddress}
             >
               <Copy className="h-4 w-4" />
             </button>
@@ -140,7 +142,7 @@ export function WalletAccountPopover({ trigger }: WalletAccountPopoverProps) {
               target="_blank"
               rel="noreferrer noopener"
               className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
-              aria-label="Open in block explorer"
+              aria-label={t.wallet.openInExplorer}
             >
               <ExternalLink className="h-4 w-4" />
             </a>
@@ -151,7 +153,7 @@ export function WalletAccountPopover({ trigger }: WalletAccountPopoverProps) {
 
         <div className="px-4 pt-3 pb-2">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-            Balances
+            {t.wallet.balances}
           </p>
         </div>
         <div className="px-2 pb-2 space-y-0.5">
@@ -190,10 +192,10 @@ export function WalletAccountPopover({ trigger }: WalletAccountPopoverProps) {
             disabled={!referralQuery.data?.shareableLink}
           >
             {referralQuery.data?.shareableLink
-              ? "Copy referral link"
+              ? t.wallet.copyReferralLink
               : referralQuery.isLoading
-              ? "Loading referral…"
-              : "Copy referral link"}
+              ? t.wallet.loadingReferral
+              : t.wallet.copyReferralLink}
           </ActionButton>
         </div>
 
@@ -204,7 +206,7 @@ export function WalletAccountPopover({ trigger }: WalletAccountPopoverProps) {
             className="w-full flex items-center justify-center gap-2 rounded-xl bg-muted/40 hover:bg-muted/60 transition-colors py-2.5 text-sm font-medium"
           >
             <LogOut className="h-4 w-4" />
-            Disconnect
+            {t.wallet.disconnect}
           </button>
         </div>
       </PopoverContent>
