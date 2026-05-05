@@ -178,8 +178,69 @@ const ko: ReferralLandingStrings = {
   badgeAt100Points: "100포인트에서",
 };
 
+const zh: ReferralLandingStrings = {
+  programLaunchingSoon: "推荐计划即将上线",
+  referralsOpenOn: (date) => `推荐计划将于 ${date} 开放。`,
+  goToDashboard: "前往控制台",
+
+  youreIn: "您已加入",
+  referralLinkedTo: "推荐已关联至",
+  changeSuccessBody:
+    "您的加成将按原定时间继续有效。达到 100 分后即可解锁 +100 奖励积分。",
+  newSuccessBody:
+    "您的 12 周加成现已开启。每周可多获得 10% 积分,达到 100 分后还能解锁 +100 奖励积分。",
+  startYourOwnNetwork: "开启您自己的网络",
+  inviteFriendsBody:
+    "邀请好友,赚取他们最高 20% 的影响力积分。他们也将获得您刚刚解锁的同样奖励。",
+  copied: "已复制!",
+  copyYourLink: "复制您的链接",
+  toastReferralLinkCopied: "推荐链接已复制!",
+  startEarningPoints: "开始累积积分,解锁您的激活奖励。",
+  heroAlt: "工作人员与太阳能板",
+
+  personalInvitation: "专属邀请",
+  joinPrefix: "加入",
+  inviterMessage:
+    "我正在支持太阳能在最需要的地区扩展,并因此获得回报,现在您也可以加入。立即注册,让我们一起共建更光明的未来。",
+  learnHowItWorks: "了解运作方式",
+
+  checkingLink: "正在检查链接...",
+  retryVerification: "重新验证",
+  invalidLink: "链接无效",
+  switchToThisReferrer: "切换至此推荐人",
+  changing: "切换中...",
+  linking: "关联中...",
+  goToDashboardSuccess: "前往控制台",
+  tryDifferentWallet: "尝试其他钱包",
+  walletAlreadyLinked: "此钱包已关联推荐人",
+  claimBonus: "领取奖励",
+  verifying: "验证中...",
+
+  connectWalletToVerify: "请连接钱包以验证资格",
+  checkingEligibility: "正在检查资格...",
+  linkingStored: "正在自动关联已保存的推荐...",
+  notEligible: "您目前不符合领取资格。",
+  unableToVerify: "暂时无法验证此推荐。",
+  canSwitchPending: "在推荐处于待处理状态时,您可以更换推荐人。",
+
+  badgeActiveNow: "已激活",
+  badgePending: "待处理",
+  badgeBoostingPoints1: "提升您的积分",
+  badgeBoostingPoints2: "持续 12 周",
+  badgeBoostingPointsMobile: "12 周",
+  badgeUnlocksAfter1: "首次达到",
+  badgeUnlocksAfter2: "100 分后解锁",
+  badgeAt100PtsMobile: "达到 100 分时",
+  badgeImpactPointsBonus: "影响力积分奖励",
+  badgeAddedToBase1: "加至您的基础积分",
+  badgeAddedToBase2: "持续 12 周",
+  badgeBonusPoints: "奖励积分",
+  badgeAt100Points: "达到 100 分时",
+};
+
 export const referralLandingTranslations: Record<Lang, ReferralLandingStrings> =
   {
     en,
     ko,
+    zh,
   };

@@ -186,7 +186,67 @@ const ko: BuyGlowStrings = {
   errorInsufficientUsdg: "USDG 잔액이 부족합니다",
 };
 
+const zh: BuyGlowStrings = {
+  title: "购买 GLW",
+  subtitle: "用稳定币或 ETH 兑换 GLW 代币",
+
+  youPay: "支付",
+  youReceive: "获得",
+  max: "最大",
+  insufficientBalance: "余额不足",
+  approximateUsd: (usd) => `≈ $${usd}`,
+  pricePerGlw: (value) => `$${value}/GLW`,
+
+  paymentMethod: "支付方式",
+  usdcLabel: "USD Coin (USDC)",
+  usdgLabel: "USD Glow (USDG)",
+  ethLabel: "Ethereum (ETH)",
+  connectWalletBalance: "连接钱包",
+
+  connectWallet: "连接钱包",
+  buyGlw: "购买 GLW",
+
+  processingTitle: "正在处理购买",
+  processingBody: "正在处理您的交易,请稍候。",
+  failedTitle: "交易失败",
+  failedBody: "处理交易时发生错误。",
+
+  stepSwapEthToUsdcTitle: "兑换 ETH → USDC",
+  stepSwapEthToUsdcDescription: "通过 Uniswap 将 ETH 兑换为 USDC",
+  stepSwapUsdcToUsdgTitle: "兑换 USDC → USDG",
+  stepSwapUsdcToUsdgDescription: "正在将 USDC 兑换为 USDG",
+  stepSwapUsdgToGlwTitle: "兑换 USDG → GLW",
+  stepSwapUsdgToGlwDescription: "通过 Uniswap 将 USDG 兑换为 GLW",
+  stepBondingTitle: "通过 Bonding Curve 购买",
+  stepBondingDescription: "正在从 Bonding Curve 购买 GLW",
+  stepConfirmTitle: "确认交易",
+  stepConfirmDescription: "等待区块链确认",
+
+  close: "关闭",
+  tryAgain: "重试",
+
+  impactBoostedBadge: "影响力分数已提升",
+  impactBoostedBody:
+    "您的 Glow 资产已增加。您正在通过此余额被动累积影响力积分。",
+  sentLabel: "已发送",
+  receivedLabel: "已收到",
+  transactionLabel: "交易",
+
+  toastEnterAmount: "请输入有效金额",
+  toastConnectRequired: "请连接您的钱包以继续",
+  toastEstimateUpdating: "价格估算正在更新,请稍后再试。",
+  toastPurchaseSuccess: "成功购买 GLW!",
+  toastTransactionFailed: "交易失败",
+  toastTransactionRejected: "交易已被拒绝",
+  toastFailedComputeMaxEth: "无法计算最大 ETH 金额",
+
+  errorEthPayNotSupported: "ETH 支付仅支持主网或 Sepolia 网络。",
+  errorInsufficientUsdc: "USDC 余额不足",
+  errorInsufficientUsdg: "USDG 余额不足",
+};
+
 export const buyGlowTranslations: Record<Lang, BuyGlowStrings> = {
   en,
   ko,
+  zh,
 };

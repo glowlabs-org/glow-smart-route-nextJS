@@ -134,7 +134,55 @@ const ko: TosStrings = {
     "도움말은 아래 오류 상세 내용을 확인하세요.",
 };
 
+const zh: TosStrings = {
+  dialogTitle: "欢迎使用 Glow",
+  intro:
+    "为了与 GLW 进行交互并使用 Glow 应用程序,您必须同意我们的服务条款。这能为所有用户提供安全合规的环境。",
+  readFullTos: "阅读完整服务条款",
+  digitalSignatureRequiredLabel: "需要数字签名:",
+  digitalSignatureRequiredBody:
+    '点击"签署并接受"后,系统会请求您使用钱包签署一条消息。该签名即为您对本服务条款具有法律约束力的同意。',
+  declineAndDisconnect: "拒绝并断开",
+  signAndAccept: "签署并接受",
+  signing: "签署中...",
+  switching: "切换中...",
+  connecting: "连接中...",
+  tryAgain: "再试一次",
+  wrongNetworkAlertTitle: "网络错误",
+  wrongNetworkAlertConnected: (network) =>
+    `您的钱包已连接到 ${network}。`,
+  wrongNetworkAlertSuggestion: (network) =>
+    `请切换到 ${network} 以继续。`,
+  wrongNetworkErrorMessage: (network) =>
+    `您的钱包已连接到 ${network}。`,
+  wrongNetworkErrorSuggestion: (network) =>
+    `请切换到 ${network} 以签署服务条款。`,
+  smartWalletTipsLabel: "智能钱包提示:",
+  smartWalletTips: [
+    "确保您的钱包已在链上完全部署",
+    "对于多签钱包,所有所需签名者都必须批准",
+    "如可用,请尝试使用钱包的内置浏览器",
+  ],
+  stillHavingTrouble:
+    "仍有问题?请尝试断开钱包并重新连接,或使用其他钱包。",
+
+  toastWalletRequired: "请确保您的钱包已连接",
+  toastWalletInitializing: "钱包正在初始化,请稍后再试",
+  toastFailedToSign: "签署消息失败",
+  toastFailedToSwitchNetwork: "切换网络失败",
+  toastFailedToSwitchNetworkDescription:
+    "请在钱包中切换网络后重试。",
+  toastTermsAccepted: "已成功接受服务条款",
+  toastTermsAcceptedWithReferral: "条款已接受,推荐人已绑定",
+  toastSignatureRequired: "需要签名",
+  toastSignatureRequiredDescription:
+    "请在钱包中批准签名请求。",
+  toastSmartWalletIssue: "检测到智能钱包问题",
+  toastSmartWalletIssueDescription: "请查看下方错误详情以获取帮助。",
+};
+
 export const tosTranslations: Record<Lang, TosStrings> = {
   en,
   ko,
+  zh,
 };

@@ -42,6 +42,16 @@ const MAP_COPY = {
     toggleFullscreen: "전체 화면 전환",
     resetBearing: "북쪽 방향으로 초기화",
   },
+  zh: {
+    closePopup: "关闭弹窗",
+    close: "关闭",
+    mapMarker: "地图标记",
+    zoomIn: "放大",
+    zoomOut: "缩小",
+    findMyLocation: "定位我的位置",
+    toggleFullscreen: "切换全屏",
+    resetBearing: "重置至正北方向",
+  },
 } as const;
 
 function useMapCopy() {

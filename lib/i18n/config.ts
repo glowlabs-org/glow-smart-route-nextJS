@@ -1,7 +1,7 @@
 // Currently shipped languages. Adding a new one: append the code here, add an
 // entry to LANGUAGE_META, and add the matching block in every namespace file.
 // See docs/TRANSLATION.md for the full checklist.
-export const SUPPORTED_LANGS = ["en", "ko"] as const;
+export const SUPPORTED_LANGS = ["en", "ko", "zh"] as const;
 
 export type Lang = (typeof SUPPORTED_LANGS)[number];
 
@@ -21,6 +21,7 @@ export interface LanguageMeta {
 export const LANGUAGE_META: Record<Lang, LanguageMeta> = {
   en: { label: "English", flag: "\u{1F1FA}\u{1F1F8}", bcp47: "en-US" },
   ko: { label: "한국어", flag: "\u{1F1F0}\u{1F1F7}", bcp47: "ko-KR" },
+  zh: { label: "中文", flag: "\u{1F1E8}\u{1F1F3}", bcp47: "zh-CN" },
 };
 
 export function isLang(value: unknown): value is Lang {

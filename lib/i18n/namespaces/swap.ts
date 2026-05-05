@@ -354,7 +354,123 @@ const ko: SwapStrings = {
   exchangeRateOneToOne: "1:1",
 };
 
+const zh: SwapStrings = {
+  youPay: "支付",
+  youReceive: "获得",
+  balance: "余额：",
+  max: "最大",
+  calculating: "计算中...",
+  pricePerGlw: (price) => `每枚 GLW $${price}`,
+
+  slippageTolerance: "滑点容差",
+  slippageCurrent: "当前：",
+  slippageCustom: "自定义",
+  slippageHighWarning: "已启用高滑点",
+  slippagePriceImpact: (pct) =>
+    `预计价格影响约为 ${pct}%。滑点超过 5% 可能导致成交价格明显恶化。`,
+  slippageHighEnabled: (pct) =>
+    `已启用 ${pct}% 的高滑点。超过 5% 时，成交价格可能显著恶化。`,
+  slippageAboveFive: "滑点超过 5% 可能导致兑换成交价格明显恶化。",
+  slippageAriaLabel: "滑点容差",
+
+  uniswapRoute: "Uniswap 路由",
+  bondingCurve: "联合曲线",
+  estimatedNetworkFee: "预计网络费用",
+
+  processing: "处理中...",
+  earlyLiquidityDisabled: "早期流动性已停用",
+  reconnectWallet: "重新连接钱包",
+  enterAnAmount: "请输入金额",
+  insufficientEthBalance: "ETH 余额不足",
+  insufficientFunds: "余额不足",
+  insufficientBalanceFor: (token) => `${token} 余额不足`,
+  convertUsdcToUsdg: "将 USDC 兑换为 USDG",
+  buy: "购买",
+  swap: "兑换",
+
+  toastHighSlippage: "已启用高滑点",
+  toastHighSlippageBody: "滑点超过 5% 可能导致兑换成交价格明显恶化。",
+  toastHasUsdg: "您拥有充足的 USDG",
+  toastUseUsdgInstead: "是否改用 USDG？",
+  toastYes: "是",
+  toastNo: "否",
+  toastInsufficientUsdc: "USDC 余额不足",
+
+  transactionFailed: "交易失败",
+  failedEstimateSwap: "无法估算兑换金额",
+  failedComputeMaxEth: "无法计算最大 ETH 金额",
+
+  placeholder0: "0.00",
+  placeholderLoadingBalances: "正在加载余额…",
+  placeholderSlippageExample: (value) => `例如 ${value}`,
+
+  dialogTitle: "代币兑换",
+  dialogUnableToLoad: "无法加载兑换数据，请重试。",
+  dialogRetry: "重试",
+
+  reviewSwap: "确认兑换",
+  swapFailed: "兑换失败",
+  processingSwap: "正在处理兑换",
+  reviewSwapDescription: "请在确认前核对您的交易详情",
+  processingSwapDescription: "请稍候，正在为您处理兑换",
+  swapErrorFallback: "我们无法完成您的兑换，请重试。",
+  approveAndSwap: "授权并兑换",
+  approveAndBuy: "授权并购买",
+  approveAndRedeem: "授权并赎回",
+  checking: "检查中…",
+  cancel: "取消",
+  tryAgain: "重试",
+  close: "关闭",
+  viewOnEtherscan: "在 Etherscan 上查看",
+  notEnoughEthSwap: (shortfall) =>
+    `ETH 不足以完成整笔兑换。请向此钱包充入 ${shortfall} 后重试。`,
+  notEnoughEthSwapPurchase: (shortfall) =>
+    `ETH 不足以完成兑换与购买。请向此钱包充入 ${shortfall} 后重试。`,
+  notEnoughEthRedemption: (shortfall) =>
+    `ETH 不足以完成兑换与赎回。请向此钱包充入 ${shortfall} 后重试。`,
+  insufficientGasError: "ETH 不足以支付 Gas。请向钱包充入更多 ETH 后重试。",
+  insufficientGasErrorExplained:
+    "ETH 不足以支付网络费用。以太坊上的网络费用（Gas）只能用 ETH 支付，无法使用 USDC 或其他代币。请向钱包充入一些 ETH 后重试。",
+  smartAccountNotSupported: "暂不支持智能账户。",
+  failedEstimateUsdg: "无法估算 USDG 输出金额",
+  glowWorthIncreasedMessage:
+    "您的 Glow Worth 已增加，现可在此余额上被动赚取 Impact Points。",
+  transactionProgress: "交易进度",
+  youPayLabel: "支付",
+  youReceiveLabel: "获得",
+  sentLabel: "已发送",
+  viaLabel: "途径",
+  receivedLabel: "已收到",
+
+  stepRequestingGlowApproval: "正在请求 GLOW 授权",
+  stepApprovingGlow: "正在授权 GLOW",
+  stepSwappingGlowToUsdg: "正在将 GLOW 兑换为 USDG",
+  stepRequestingUsdgApproval: "正在请求 USDG 授权",
+  stepApprovingUsdg: "正在授权 USDG",
+  stepRedeemingUsdgForUsdc: "正在将 USDG 赎回为 USDC",
+  stepSwapDoneToUsdg: "已成功将 GLOW 兑换为 USDG",
+  stepSwapDoneToUsdc: "已成功将 GLOW 转换为 USDC",
+  stepApprovingUsdgRedeem: "正在授权 USDG 以进行赎回",
+  stepDoneRedeemed: "已成功赎回 USDC",
+
+  redeemUsdg: "赎回 USDG",
+  redeemDescription: "以 1:1 的比例将 USDG 兑换为 USDC",
+  youRedeem: "赎回金额",
+  exchangeRate: "兑换比率",
+  exchangeRateValue: "1 USDG = 1 USDC",
+  processingRedemption: "正在处理赎回...",
+  redeemedFromUsdg: "已从 USDG 赎回",
+  fromLabel: "从",
+  toLabel: "至",
+  usdgBalance: "USDG 余额",
+  usdcWallet: "USDC 钱包",
+  amountRedeemed: "赎回金额",
+  amountReceived: "收到金额",
+  exchangeRateOneToOne: "1:1",
+};
+
 export const swapTranslations: Record<Lang, SwapStrings> = {
   en,
   ko,
+  zh,
 };

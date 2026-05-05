@@ -196,7 +196,75 @@ const ko: WalletViewStrings = {
   checking: "확인 중...",
 };
 
+const zh: WalletViewStrings = {
+  gettingStarted: "开始使用",
+  gettingStartedBody1:
+    "建设真实世界的太阳能项目，赚取链上奖励，在重要之处创造影响力。",
+  gettingStartedBody2: "让我们开始吧。",
+  launchpad: "Launchpad",
+  glowSwap: "Glow 兑换",
+
+  buyGlow: "购买 Glow",
+  buyGlowBlurb:
+    "GLW 是 Glow 生态系统的燃料，为新建太阳能电站提供动力，驱动每周奖励，并代表您对清洁能源的贡献。",
+  buyGlowImageAlt: "购买 Glow",
+  fundSolar: "资助太阳能",
+  fundSolarBlurb:
+    "委托您的 GLW 资助新建太阳能电站，每周获得 GLW 奖励。或使用 USDC 购买预设的矿工头寸，每周赚取 GLW。",
+  fundSolarImageAlt: "资助太阳能",
+
+  quoteText:
+    "如果世界上每个人都拥有 20 美元的 GLW，我们就能在 2030 年前淘汰化石燃料。",
+  quoteAuthor: "David Vorick，Glow 首席执行官",
+  joinDiscord: "加入我们的 Discord",
+
+  faqsHeading: "常见问题",
+  faqQ1: "什么是 Glow？",
+  faqA1:
+    "Glow 是一个由加密技术驱动的协议，旨在帮助资助现实世界中太阳能电站的建设。Glow 专门寻找每一美元资金都能创造最大影响力的太阳能项目。",
+  faqQ2: "什么是 GLW？为什么它很重要？",
+  faqA2:
+    "GLW 是 Glow 生态系统的核心代币。太阳能电站在生产清洁能源时会获得这种代币，同时它也是用于决定 Glow 协议支持哪些电站的代币。",
+  faqQ3: "“将 GLW 委托给太阳能电站”是什么意思？",
+  faqA3:
+    "要参与 Glow 协议，太阳能电站需要证明自己能够高效利用 Glow 提供的资金。GLW 持有者可以通过将代币委托给某个电站来为其效率背书。委托者会因选中高效电站而获得额外的 GLW 代币奖励，但若选中低效电站则可能损失部分代币。这一委托机制确保了 Glow 的所有资金都能流向最优秀的太阳能项目。",
+  faqQ4: "什么是“Glow 矿工”？",
+  faqA4:
+    "Glow 矿工的工作方式与比特币矿工类似。它是 Glow 太阳能电站的一部分，电站每发电一周便会赚取代币。Glow 矿工可用 USDC 购买，并将在 99 周内每周产出 GLW 代币。",
+
+  newsletterHeading: "第一时间了解 Glow 的最新动态。",
+  newsletterSub: "产品更新、新品发布与影响力成果，尽在掌握。",
+  newsletterPlaceholder: "you@example.com",
+  newsletterSubscribed: "✓ 已订阅",
+  newsletterSigningUp: "正在订阅……",
+  newsletterChecking: "检查中……",
+  newsletterSignUp: "订阅",
+
+  toastSubscribed: "已成功订阅时事通讯",
+  toastEnterValidEmail: "请输入有效的电子邮箱。",
+  toastAlreadySubscribed: "您已订阅！",
+  toastSubscribeFailed: "订阅时事通讯失败",
+  toastSubscribeError: "订阅失败，请重试。",
+  toastEnterValidAmount: "请输入有效金额",
+  toastNoUsdc: "没有可用于兑换的 USDC",
+  toastAmountExceedsUsdc: "金额超出 USDC 余额",
+  toastUsdcToUsdgFailed: "准备 USDC 兑换 USDG 失败",
+  toastPriceUnavailable: "价格暂时不可用",
+
+  powerWallet: "Power 钱包",
+  powerWalletSub: "您的 Glow 一站式钱包",
+  networkIssue: "网络异常",
+  retry: "重试",
+  send: "发送",
+  convertToUsdg: "兑换为 USDG",
+  estWeeklyRewards: "预计每周奖励",
+  claims: "领取",
+  gctlStakingBreakdown: "按地区划分的 GCTL 质押明细",
+  checking: "检查中……",
+};
+
 export const walletViewTranslations: Record<Lang, WalletViewStrings> = {
   en,
   ko,
+  zh,
 };

@@ -94,7 +94,39 @@ const ko: WalletStrings = {
     "카드 온램프는 최소 구매 금액이 필요합니다. 초과 금액은 USDC로 지갑에 보관됩니다.",
 };
 
+const zh: WalletStrings = {
+  connectWallet: "连接钱包",
+  connected: "已连接",
+  reconnectWallet: "重新连接钱包",
+  wrongNetwork: "网络错误",
+  switchTo: (network) => `切换到 ${network}`,
+  switching: "切换中...",
+  openWalletAccount: "打开钱包账户",
+  switchedToMainnet: "已切换到以太坊主网",
+  switchedToSepolia: "已切换到 Sepolia 测试网",
+  switchedTo: (network) => `已切换到 ${network}`,
+  failedToSwitchNetwork: "切换网络失败",
+  failedToOpenWallet: "无法打开钱包",
+  disconnect: "断开连接",
+  addressCopied: "地址已复制",
+  copyAddress: "复制地址",
+  openInExplorer: "在区块浏览器中打开",
+  balances: "余额",
+  copyReferralLink: "复制推荐链接",
+  loadingReferral: "推荐链接加载中…",
+  failedToCopyAddress: "复制地址失败",
+  referralLinkNotReady: "推荐链接尚未就绪",
+  referralLinkCopied: "推荐链接已复制",
+  failedToCopyLink: "复制链接失败",
+  connectWalletFirst: "请先连接钱包",
+  cardPurchasesMainnetOnly: "信用卡购买仅在主网可用",
+  buyAmountUsdcWithCard: (amount) => `用信用卡购买 ${amount} USDC`,
+  cardOnRampMinNotice:
+    "信用卡入金渠道需要最低购买金额；多出的部分将以 USDC 形式留在您的钱包中。",
+};
+
 export const walletTranslations: Record<Lang, WalletStrings> = {
   en,
   ko,
+  zh,
 };

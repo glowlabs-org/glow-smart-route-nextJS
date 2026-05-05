@@ -180,7 +180,76 @@ const ko: HeaderStrings = {
   },
 };
 
+const zh: HeaderStrings = {
+  sections: {
+    app: "应用",
+    impact: "影响力",
+    resources: "资源",
+    audits: "审计",
+    data: "数据",
+  },
+
+  openMenu: "打开菜单",
+  closeMenu: "关闭菜单",
+  navigationMenuTitle: "导航菜单",
+  navigationMenuDescription: "主导航菜单,可访问网站的各个板块。",
+
+  home: { title: "首页", description: "返回仪表板" },
+  swap: {
+    title: "兑换",
+    description: "无需离开应用即可购买或兑换代币",
+  },
+  leaderboard: {
+    title: "Glow 排行榜",
+    description: "查看顶级钱包及奖励排行榜",
+  },
+  protocolStats: {
+    title: "协议数据",
+    description: "实时协议指标与市场数据",
+  },
+  ambassadorDashboard: {
+    title: "大使仪表板",
+    description: "佣金追踪与业绩表现",
+  },
+
+  infrastructureProjects: {
+    title: "基础设施项目",
+    description: "查看基础设施项目列表",
+  },
+
+  blog: { title: "博客", description: "最新资讯与深度洞察" },
+  press: { title: "新闻", description: "新闻稿与媒体报道" },
+  branding: { title: "品牌资源", description: "品牌素材与使用规范" },
+
+  solarFarmsMap: {
+    title: "太阳能电站地图",
+    description: "太阳能电站地图",
+  },
+  solarFarmsList: {
+    title: "太阳能电站列表",
+    description: "太阳能电站列表",
+  },
+  gves: {
+    title: "GVE",
+    description: "Glow 验证机构",
+  },
+
+  archives: {
+    title: "档案",
+    description: "查阅历史数据与记录",
+  },
+  weeklyReports: {
+    title: "周报",
+    description: "查看每周详细业绩报告",
+  },
+  rewards: {
+    title: "奖励",
+    description: "查看电站奖励",
+  },
+};
+
 export const headerTranslations: Record<Lang, HeaderStrings> = {
   en,
   ko,
+  zh,
 };

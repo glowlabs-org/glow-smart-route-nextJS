@@ -350,7 +350,119 @@ const ko: ClaimsStrings = {
   viewTransaction: "트랜잭션 보기",
 };
 
+const zh: ClaimsStrings = {
+  heroClaimableLabel: "可领取奖励",
+  heroFarmRewardsLabel: "电站奖励",
+  heroAllClaimed: "所有奖励均已领取",
+  heroWeeksReadyToClaim: (n) => `${n} 周奖励可领取`,
+  cardRewardsAvailable: "可用奖励",
+  cardRewardsHistory: "奖励记录",
+  cardTitleFarmRewards: "电站奖励",
+  cardDescriptionClaimable: "领取您通过太阳能电站委托所获得的奖励",
+  cardDescriptionAllClaimed: "您的电站奖励历史记录",
+
+  totalClaimable: "可领取总额",
+  totalClaimed: "已领取总额",
+  weeksLabel: (n) => `${n} 周`,
+
+  claimAllProtocolDeposits: "领取全部协议存款奖励",
+  claimingProtocolDeposits: "正在领取协议存款奖励...",
+  checking: "正在检查...",
+  claimed: "已领取",
+  claimingInProgress: "正在领取...",
+  loadingProof: "正在加载凭证...",
+  noRewards: "暂无奖励",
+  claimableOn: (dateLabel) => `${dateLabel} 可领取`,
+  pdIn: (countdown) => `PD 将于 ${countdown} 后开放`,
+  claimIn: (countdown) => `${countdown} 后可领取`,
+  claimPd: "领取 PD",
+  claimEmissions: "领取发行奖励",
+  days: (n) => `${n} 天`,
+  dayOne: "1 天",
+  hoursMinutes: (h, m) => `${h} 小时 ${m} 分钟`,
+
+  weeklyBreakdown: "每周明细",
+  weekLabel: (n) => `第 ${n} 周`,
+  ready: "已就绪",
+  readyToClaim: "可领取",
+  emissionsClaimed: "发行奖励已领取",
+  finalizing: "确认中",
+
+  emissionRewards: "发行奖励",
+  protocolDepositRewardsShort: "协议存款奖励",
+  protocolDepositWithCredit: "协议存款 · 已计入质押余额",
+  protocolDepositLabel: "协议存款",
+  claimButton: (type) => `领取${type}`,
+  claimEmissionsShort: "发行奖励",
+  claimPdShort: "PD",
+  emissionsPill: "发行奖励",
+  pdPill: "PD",
+
+  pendingWeeksOne: "1 周奖励正在处理中",
+  pendingWeeksMany: (n) => `${n} 周奖励正在处理中`,
+  pendingNoticeBody: (date) =>
+    `这些奖励正在审核与最终确认中。下次领取预计将于 ${date} 前后开放。`,
+
+  inflationReassuranceTitle: "发行奖励领取状态",
+  inflationReassuranceBody:
+    "您的部分发行奖励显示已领取。这些奖励此前已完成发放。",
+
+  reviewClaimTitle: "确认领取",
+  claimCompleteTitle: "领取完成",
+  claimFailedTitle: "领取失败",
+  processingClaimTitle: "正在处理领取",
+  reviewClaimDescription: "请在确认领取前核对您的奖励。",
+  processingClaimDescription: "正在处理您的领取请求,请稍候。",
+  confirmClaim: "确认领取",
+  cancel: "取消",
+
+  stagePending: "等待中",
+  stageInProgress: "处理中",
+  stageSuccess: "已完成",
+  stageSkipped: "已跳过",
+  stageError: "失败",
+  stageSubmitting: "正在提交交易...",
+  stageConfirmed: "交易已确认",
+  stageUnableToComplete: "无法完成",
+  stageEmissionRewards: "发行奖励",
+  stageProtocolDepositRewards: "协议存款奖励",
+  stageEmissionAlreadyClaimed: "发行奖励已被领取。",
+  stageProtocolAlreadyClaimed: "协议存款奖励已被领取。",
+
+  toastConnectWallet: "请连接钱包以领取奖励。",
+  toastNoRewardsSelection: "当前选择无可领取的奖励",
+  toastNoProof: "未找到本周的领取凭证",
+  toastClaimSuccess: (type, week) =>
+    `已成功领取第 ${week} 周的${type}奖励`,
+  toastSomeFailed: "部分奖励领取失败,您可以重试剩余项目。",
+  toastUnableToComplete: "我们无法完成您的领取,请重试。",
+  toastRewardsAlreadyClaimed: "奖励已领取或不可用。",
+  toastTxHashUnavailable: "此操作的交易哈希不可用。",
+  toastNoProtocolAvailable: "暂无可领取的协议存款奖励。",
+  toastNoClaimableProofs: "未找到可领取的协议存款凭证。",
+  toastUnknownError: "未知错误",
+
+  emissionRewardsWord: "发行",
+  protocolDepositWord: "协议存款",
+
+  rewardTypesTitle: "奖励类型",
+  rewardTypesBody:
+    "发行奖励是每周新增铸造并分发的 GLW。协议存款奖励则是您在存款回收中应得的份额。",
+  aboutClaimsTitle: "关于领取",
+  aboutClaimsBody:
+    "奖励将在链上最终确认后开放领取。领取交易可能需要几分钟才能确认。",
+
+  currencyGlw: "GLOW",
+  currencyUsdc: "USDC",
+  currencyUsdg: "USDG",
+  currencySgctl: "sGCTL",
+
+  live: "实时",
+  viewTransaction: "查看交易",
+};
+
 export const claimsTranslations: Record<Lang, ClaimsStrings> = {
   en,
   ko,
+  zh,
 };

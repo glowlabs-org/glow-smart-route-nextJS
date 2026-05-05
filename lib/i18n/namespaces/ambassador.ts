@@ -245,7 +245,89 @@ const ko: AmbassadorStrings = {
   viewDashboard: "대시보드 보기",
 };
 
+const zh: AmbassadorStrings = {
+  pageTitle: "大使仪表盘",
+  subtitlePrefix: "佣金追踪：",
+  allTime: "全部时间",
+
+  connectPrompt: "请连接您的大使钱包以查看仪表盘。",
+  accessDeniedTitle: "访问被拒绝",
+  accessDeniedPrefix: "已连接的钱包 ",
+  accessDeniedSuffix: " 尚未注册为大使。请使用已批准的钱包连接。",
+  signPromptPrefix: "请签署一条消息以验证 ",
+  signPromptSuffix: " 的所有权并访问您的仪表盘。",
+  verifyButton: "验证身份",
+  signing: "签名中...",
+
+  sales: "销售",
+  volume: "交易额",
+  payback: "返佣",
+  rolling30dDelegated: "近 30 日委托量",
+  paybackRate: "返佣比率",
+
+  delegators: (n) => `${n} 位委托人`,
+  saleAttributionHint: (direct, second) =>
+    `直接 ${direct} 笔，二级 ${second} 笔`,
+  weekRangeHint: (start, end) => `第 ${start} 周 - 第 ${end} 周`,
+  baseCommissionHint: (pct) => `${pct}% 基础佣金`,
+  delegationBonus: (pct) => `+${pct} 委托奖励`,
+  uncertaintyBonus: (pct) => `+${pct} 不确定性奖励`,
+
+  networkBonus: "网络奖励",
+  networkBonusHeadline: (pct) => `您招募的每位大使额外 +${pct}%`,
+  networkBonusDescription: (date, weekNumber) =>
+    `自 ${date}（第 ${weekNumber} 周）起生效。该奖励在您自身佣金之外额外发放，您招募的大使仍可获得全额返佣。`,
+  yourBase: "您的返佣",
+  bonus: "奖励",
+  total: "合计",
+
+  minerSales: "矿工销售",
+  minerSalesLegend: "矿工销售 ($)",
+  delegated30D: "30 日委托 (USD)",
+  delegated30DLegend: "30 日委托 ($, GLW + sGCTL)",
+
+  weeklyBreakdown: "每周明细",
+  weekColumn: "周次",
+  salesColumn: "销售",
+  volumeColumn: "交易额",
+  paybackColumn: "返佣",
+  delegated30DColumn: "30 日委托 ($)",
+  weekLabel: (n) => `第 ${n} 周`,
+  inProgress: "进行中",
+  salesCount: (n) => `${n} 笔`,
+  inclBonus: (amount) => `含 ${amount} 奖励`,
+
+  typeHeader: "类型",
+  buyerHeader: "买方",
+  farmHeader: "农场",
+  amountHeader: "金额",
+  paybackHeader: "返佣",
+  dateHeader: "日期",
+  stepsCount: (n) => `${n} 级`,
+  direct: "直接",
+  secondDeg: "二级",
+
+  refreshing: "刷新中...",
+  unableToLoad: "无法加载仪表盘数据。",
+  retry: "重试",
+  noData: "该时段内未找到您钱包的相关数据。",
+
+  walletCopied: "钱包地址已复制",
+  signFailed: "签名失败，请重试。",
+  adminAccess: "管理员访问",
+  adminPasswordPrompt: "请输入管理员密码以继续。",
+  adminPasswordPlaceholder: "管理员密码",
+  invalidPassword: "密码无效",
+  continue: "继续",
+  back: "返回",
+  admin: "管理员",
+  selectAmbassador: "选择大使",
+  selectAmbassadorPrompt: "选择要查看仪表盘的大使钱包。",
+  viewDashboard: "查看仪表盘",
+};
+
 export const ambassadorTranslations: Record<Lang, AmbassadorStrings> = {
   en,
   ko,
+  zh,
 };

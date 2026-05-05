@@ -173,4 +173,68 @@ const ko: HomeStrings = {
   },
 };
 
-export const homeTranslations: Record<Lang, HomeStrings> = { en, ko };
+const zh: HomeStrings = {
+  sections: {
+    launchpadOpeningSoon: "Launchpad 即将开启",
+    launchpadLive: "Launchpad 进行中",
+    overview: "总览",
+    readOnlyDashboard: (displayName) => `${displayName} 的仪表盘`,
+    miningAndRewards: "挖矿与奖励",
+    growYourImpact: "扩大你的影响力",
+    myImpact: "我的影响力",
+    yourJourney: "你的旅程",
+    myFarms: "我的电站",
+    getStarted: "开始使用",
+    communityAndLeaderboard: "社区与排行榜",
+    protocolMetrics: "协议数据",
+    education: "学习中心",
+    stayConnected: "保持联系",
+  },
+
+  deferred: {
+    impactScore: {
+      title: "影响力评分",
+      description:
+        "影响力分析将在 Launchpad 流量平稳后几秒内加载。",
+    },
+    glowWorth: {
+      title: "Glow 净值",
+      description:
+        "钱包净值与图表历史将在 Launchpad 界面稳定后加载。",
+    },
+    rewards: {
+      title: "奖励",
+      description:
+        "在发布期间,领取与奖励分析将分批加载。",
+    },
+    weeklyStreak: {
+      title: "周连续记录",
+      description:
+        "连续记录与倍数分析将在 Launchpad 流量回落后加载。",
+    },
+    miningSummary: {
+      title: "挖矿概览",
+      description:
+        "在直播窗口期间,投资组合汇总将在 Launchpad 流量之后处理。",
+    },
+  },
+
+  connecting: {
+    kicker: "钱包握手中",
+    title: "正在连接你的钱包",
+    description:
+      "请在钱包扩展中批准或拒绝该请求以继续",
+  },
+
+  toasts: {
+    migrationTitle: "GCTL 配额可领取",
+    migrationDescription: (amount) => `${amount} GCTL 可供领取`,
+    migrationAction: "领取 GCTL",
+    refundsTitle: "你有可领取的退款",
+    refundsDescription: (listings, amountGlw) =>
+      `${listings} 项 · ${amountGlw} GLW`,
+    refundsAction: "领取退款",
+  },
+};
+
+export const homeTranslations: Record<Lang, HomeStrings> = { en, ko, zh };

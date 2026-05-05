@@ -97,6 +97,27 @@ const COPY = {
     farmsPanels: (farms: number, panels: string) =>
       `${farms}개 발전소 · 패널 ${panels}개`,
   },
+  zh: {
+    networkImpact: "网络影响力",
+    description:
+      "基于已验证坐标的 Glow 支持电站实时分布。",
+    openNotes: "打开网络影响力说明",
+    homesPowered: "由清洁能源供电的家庭数",
+    homesPoweredDesc:
+      "活跃 Glow 支持的太阳能输出可供应的等效家庭数。",
+    viewAudits: "查看所有电站审计 ↗",
+    clickToZoom: "点击放大",
+    mapLabel: "点位地图 + 实时电站坐标",
+    loadingMap: "地图加载中",
+    clusters: (count: string) => `${count} 个聚类`,
+    all: "全部",
+    us: "美国",
+    totalPanels: "面板总数",
+    installedCapacity: "装机容量",
+    treesEquivalent: "等效树木数",
+    farmsPanels: (farms: number, panels: string) =>
+      `${farms} 座电站 · ${panels} 块面板`,
+  },
 } as const;
 
 const COARSE_CLUSTER_STEP_DEGREES = 0.4;

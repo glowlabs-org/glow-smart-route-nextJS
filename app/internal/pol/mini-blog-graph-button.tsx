@@ -117,6 +117,28 @@ const GRAPH_COPY = {
       network: "네트워크",
     },
   },
+  zh: {
+    back: "返回",
+    closeDetails: "关闭详情",
+    relatedTopics: "相关主题",
+    readFullBlog: "阅读完整博客",
+    openTopicInModal: "在弹窗中打开主题",
+    protocolTopics: "Glow 协议主题",
+    topicsConnections: (topics: number, connections: number) =>
+      `${topics} 个主题 · ${connections} 条连接`,
+    graphLabel: "迷你博客知识图谱",
+    clickTopic: "点击主题以探索",
+    viewAllTopics: "查看全部主题",
+    knowledgeGraph: "知识图谱",
+    knowledgeGraphDesc: "所有迷你博客主题及其关联的可视化地图。",
+    clusters: {
+      core: "协议核心",
+      liquidity: "流动性",
+      governance: "治理",
+      solar: "太阳能与影响力",
+      network: "网络",
+    },
+  },
 } as const;
 
 function useGraphCopy() {

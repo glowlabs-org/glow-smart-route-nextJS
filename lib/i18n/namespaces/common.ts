@@ -85,7 +85,36 @@ const ko: CommonStrings = {
   },
 };
 
+const zh: CommonStrings = {
+  switchLanguage: "切换语言",
+  language: "语言",
+  close: "关闭",
+  countdown: {
+    days: "天",
+    hours: "时",
+    min: "分",
+    sec: "秒",
+    daysLong: "天",
+    hoursLong: "小时",
+    minutesLong: "分钟",
+    secondsLong: "秒",
+  },
+  widgetErrorBoundary: {
+    somethingWentWrong: "出了点问题",
+    widgetEncounteredError: "此组件出现错误",
+    retry: "重试",
+  },
+  loadingState: {
+    backgroundAlt: "背景",
+    loading: "加载中...",
+    mayTakeFewSeconds: "这可能需要几秒钟。",
+    unableToLoad: "无法加载数据",
+    tryAgain: "再试一次",
+  },
+};
+
 export const commonTranslations: Record<Lang, CommonStrings> = {
   en,
   ko,
+  zh,
 };

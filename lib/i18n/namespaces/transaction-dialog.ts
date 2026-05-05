@@ -81,7 +81,35 @@ const ko: TransactionDialogStrings = {
   toastTxCopied: "트랜잭션 ID를 클립보드에 복사했습니다",
 };
 
+const zh: TransactionDialogStrings = {
+  defaultTitle: "审核并确认",
+  defaultDescription: "请在确认前核对详情",
+  defaultProcessingTitle: "正在处理交易",
+  defaultProcessingDescription: "请稍候,我们正在处理您的交易",
+  defaultSuccessTitle: "交易成功",
+  defaultErrorTitle: "交易失败",
+  defaultErrorDescription:
+    "我们无法处理您的交易。请重试或联系支持团队。",
+  confirm: "确认",
+  cancel: "取消",
+  close: "关闭",
+  transactionLabel: "交易",
+  transactionId: "交易 ID",
+  explorer: "浏览器",
+  viewOnEtherscan: "在 Etherscan 上查看",
+  networkFee: "网络费用",
+  calculating: "计算中...",
+  submitting: "正在提交交易...",
+  eta: (seconds) => `${seconds}秒`,
+  processingShouldComplete: "处理即将完成",
+  percentComplete: (pct) => `已完成 ${pct}% · 每 5 秒检查一次状态`,
+  doNotClose: "请勿关闭此窗口或刷新页面",
+  impactScoreBoosted: "影响力分数已提升",
+  toastTxCopied: "交易 ID 已复制到剪贴板",
+};
+
 export const transactionDialogTranslations: Record<Lang, TransactionDialogStrings> = {
   en,
   ko,
+  zh,
 };
