@@ -1751,6 +1751,28 @@ export function ClaimsPanel({
           onClaimSuccess();
         }
 
+        // Optimistically mark the affected stages as claimed so the panel
+        // updates immediately. The backend indexer can lag the on-chain
+        // claim by several seconds, which made the panel look stale until
+        // a manual page refresh.
+        const claimedWeek = activeClaim.weekData.week;
+        if (inflationStatus === "success") {
+          setV1ClaimedWeeks((prev) => {
+            if (prev.has(claimedWeek)) return prev;
+            const next = new Set(prev);
+            next.add(claimedWeek);
+            return next;
+          });
+        }
+        if (protocolStatus === "success") {
+          setV2ClaimedWeeks((prev) => {
+            if (prev.has(claimedWeek)) return prev;
+            const next = new Set(prev);
+            next.add(claimedWeek);
+            return next;
+          });
+        }
+
         trackEvent("wallet_claim_result", {
           week: activeClaim.weekData.week,
           result: hasSuccess ? "success" : "skipped",
