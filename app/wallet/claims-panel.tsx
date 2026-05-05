@@ -71,7 +71,10 @@ import {
 // to two sequential txs (GLW inflation + protocol deposit). Multicall path
 // claims N protocol-deposit weeks in one tx; budget per-week + small base.
 // The `useEthGasPreflight` hook adds its own 7% safety margin.
-const SINGLE_CLAIM_GAS_UNITS = 400_000n;
+// 750k covers worst-case inflation (~300k) + PD with multi-token transfers
+// (~350k) + headroom. The previous 400k let the preflight pass when only the
+// inflation tx fit, leaving the PD tx to revert on-chain mid-flow.
+const SINGLE_CLAIM_GAS_UNITS = 750_000n;
 const MULTICALL_BASE_GAS_UNITS = 50_000n;
 const MULTICALL_PER_WEEK_GAS_UNITS = 150_000n;
 
