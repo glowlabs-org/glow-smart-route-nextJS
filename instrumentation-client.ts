@@ -242,6 +242,17 @@ if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
         /proposal expired/i.test(exceptionText);
       if (isWalletConnectProposalExpired) return null;
 
+      // Privy's wallet provider wrapper races every RPC call against a
+      // walletTimeout (default 2 min). When the user's underlying wallet
+      // provider hangs (locked phone, dead extension, stale connector),
+      // the timeout rejects out of wagmi's fire-and-forget onDisconnect
+      // callback as an unhandled rejection. It's third-party state, not
+      // actionable from our code — the user needs to reconnect.
+      const isPrivyWalletTimeout =
+        /^Wallet timeout$/i.test(message) ||
+        /Wallet timeout/i.test(exceptionText);
+      if (isPrivyWalletTimeout) return null;
+
       // Filter a known noisy client-side error coming from Sentry Replay network scrapers
       // (e.g. `app:///scrapers/PrebidScraper.js`) attempting to JSON.parse an undefined
       // request/response body.
