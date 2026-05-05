@@ -1980,7 +1980,12 @@ export function DepositDialog({
           address as string,
         );
         const nonce = (Number(latestNonce) + 1).toString();
-        const deadline = Math.floor(Date.now() / 1000 + 3600).toString();
+        // 24h window so the signed payload survives idle tabs / queued retries.
+        // The nonce + per-wallet uniqueness guarantee prevents replay; deadline
+        // length is purely a "submit by when" bound. Server caps at 7 days.
+        const deadline = Math.floor(
+          Date.now() / 1000 + 24 * 60 * 60,
+        ).toString();
         const signatureMessage = buildDelegateSgctlMessage({
           nonce,
           amount: currentSgctlRequiredAmount.toString(),
