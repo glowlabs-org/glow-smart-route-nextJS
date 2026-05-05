@@ -546,17 +546,17 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
       activeRows.sort((a, b) => (b.cost ?? 0) - (a.cost ?? 0));
     }
 
-    // Combine: active first, then sold out to fill minimum of 2
+    // Combine: active first, then sold out to fill minimum of 3
     let finalRows = [...activeRows];
-    if (finalRows.length < 2) {
-      const needed = 2 - finalRows.length;
+    if (finalRows.length < 3) {
+      const needed = 3 - finalRows.length;
       finalRows = [...finalRows, ...soldOutRows.slice(0, needed)];
     }
 
     return finalRows;
   }, [allRows, activeTab]);
 
-  const cardsPerPage = isMobile ? 1 : 2;
+  const cardsPerPage = isMobile ? 1 : 3;
   const pageCount = Math.max(1, Math.ceil(filteredRows.length / cardsPerPage));
   const pagedRows = React.useMemo(() => {
     const start = pageIndex * cardsPerPage;
@@ -618,7 +618,6 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
       : getDelegationPaymentCurrency(application);
     const delegationCurrency = currency === "SGCTL" ? "SGCTL" : "GLW";
     const imageUrl = application.afterInstallPictures?.[0]?.url;
-    const isCompactMobile = !isMiner && isMobile;
     // Some datasets include the same application id for both listing types.
     // Include type + fraction identity to prevent React key collisions.
     const cardKey = `${application._type}:${application.id}:${
@@ -641,7 +640,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
         )}
       >
         {/* Image Section */}
-        <div className="relative aspect-[4/3] sm:aspect-[5/3] md:aspect-[2/1] m-3 mb-0 rounded-xl overflow-hidden">
+        <div className="relative aspect-[3/2] sm:aspect-[16/9] lg:aspect-[5/2] m-3 mb-0 rounded-xl overflow-hidden">
           {imageUrl ? (
             <FallbackImage
               src={imageUrl}
@@ -710,36 +709,55 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
         </div>
 
         {/* Content Section */}
-        <div className="flex flex-col flex-1 px-4 pt-4 pb-5 sm:p-5 md:p-6">
-          {/* Title and Location */}
-          <div className="mb-4">
-            <h3 className="text-xl sm:text-xl md:text-2xl font-bold text-foreground tracking-tight line-clamp-1">
-              {application.farmName || t.widgets.launchpadStatus.unnamedFarm}
-            </h3>
-            <div className="flex items-center gap-1.5 mt-1 sm:mt-1.5 text-muted-foreground text-xs sm:text-sm">
-              <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-              <span>{application.zone?.name || t.widgets.launchpadStatus.unknownRegion}</span>
+        <div className="flex flex-col flex-1 px-4 pt-4 pb-5 sm:p-5 md:p-6 lg:p-4 xl:p-5">
+          {/* Title, Location, and Score */}
+          <div className="mb-3 lg:mb-3 flex items-start gap-3">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-xl md:text-2xl lg:text-lg xl:text-xl font-bold text-foreground tracking-tight line-clamp-1">
+                {application.farmName || t.widgets.launchpadStatus.unnamedFarm}
+              </h3>
+              <div className="flex items-center gap-1.5 mt-1 sm:mt-1.5 text-muted-foreground text-xs sm:text-sm">
+                <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
+                <span className="truncate">{application.zone?.name || t.widgets.launchpadStatus.unknownRegion}</span>
+              </div>
             </div>
+            {!isMiner && !availability.isSoldOut && (
+              isRowScoreLoading ? (
+                <div className="shrink-0 flex flex-col items-end">
+                  <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
+                    {t.widgets.launchpadStatus.score}
+                  </span>
+                  <Skeleton className="h-6 w-10" />
+                </div>
+              ) : rewardScore !== null ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="shrink-0 flex flex-col items-end cursor-help">
+                      <div className="flex items-center gap-1">
+                        <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-medium">
+                          {t.widgets.launchpadStatus.score}
+                        </span>
+                        <Info className="w-2.5 h-2.5 text-muted-foreground/60" />
+                      </div>
+                      <span className="text-2xl lg:text-xl font-bold text-foreground font-mono tabular-nums leading-tight">
+                        {Math.round(rewardScore)}
+                      </span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="text-xs">
+                      {t.widgets.launchpadStatus.rewardScoreTooltip}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              ) : null
+            )}
           </div>
 
-          {/* Stats Grid - 2 cols on mobile (weekly spans full), 3 on desktop for delegations */}
-          <div
-            className={cn(
-              "grid gap-2 mt-auto auto-rows-fr",
-              isMiner
-                ? "grid-cols-2"
-                : isCompactMobile
-                  ? "grid-cols-2"
-                  : "grid-cols-3 sm:grid-cols-[minmax(0,0.95fr)_minmax(0,1.35fr)_minmax(0,0.65fr)]",
-            )}
-          >
+          {/* Stats Grid - always 2 cols (price + weekly/sold-in) */}
+          <div className="grid grid-cols-2 gap-2 mt-auto auto-rows-fr">
             {/* Column 1: Price/Amount */}
-            <div
-              className={cn(
-                "flex min-w-0 flex-col p-3 rounded-lg bg-muted/30 dark:bg-muted/50",
-                isCompactMobile && "order-1",
-              )}
-            >
+            <div className="flex min-w-0 flex-col p-3 lg:px-2.5 lg:py-2 rounded-lg bg-muted/30 dark:bg-muted/50">
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
                 {availability.isSoldOut
                   ? isMiner
@@ -749,8 +767,8 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                     ? t.widgets.launchpadStatus.price
                     : t.widgets.launchpadStatus.amount}
               </span>
-              <div className="flex items-baseline gap-1">
-                <span className="text-xl font-bold text-foreground font-mono tabular-nums leading-tight">
+              <div className="flex flex-wrap items-baseline gap-x-1 gap-y-0">
+                <span className="text-xl lg:text-base xl:text-lg font-bold text-foreground font-mono tabular-nums leading-tight">
                   {availability.isSoldOut ? (
                     <>
                       {isMiner && "$"}
@@ -781,12 +799,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
 
             {/* Column 2: Weekly Rewards or Time to Sell */}
             {availability.isSoldOut ? (
-              <div
-                className={cn(
-                  "flex min-w-0 flex-col p-3 rounded-lg bg-muted/30 dark:bg-muted/50",
-                  isCompactMobile && "order-3 col-span-2",
-                )}
-              >
+              <div className="flex min-w-0 flex-col p-3 lg:px-2.5 lg:py-2 rounded-lg bg-muted/30 dark:bg-muted/50">
                 <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
                   {t.widgets.launchpadStatus.soldIn}
                 </span>
@@ -801,12 +814,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                 </span>
               </div>
             ) : isRowScoreLoading ? (
-              <div
-                className={cn(
-                  "flex min-w-0 flex-col p-3 rounded-lg bg-muted/30 dark:bg-muted/50",
-                  isCompactMobile && "order-3 col-span-2",
-                )}
-              >
+              <div className="flex min-w-0 flex-col p-3 lg:px-2.5 lg:py-2 rounded-lg bg-muted/30 dark:bg-muted/50">
                 <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
                   {t.widgets.launchpadStatus.estWeekly}
                 </span>
@@ -819,12 +827,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                 weeklyPdYield > 0) ? (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div
-                    className={cn(
-                      "flex min-w-0 flex-col p-3 rounded-lg bg-muted/30 dark:bg-muted/50 cursor-help",
-                      isCompactMobile && "order-3 col-span-2",
-                    )}
-                  >
+                  <div className="flex min-w-0 flex-col p-3 lg:px-2.5 lg:py-2 rounded-lg bg-muted/30 dark:bg-muted/50 cursor-help">
                     <div className="flex items-center gap-1 mb-1">
                       <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
                         {t.widgets.launchpadStatus.estWeekly}
@@ -834,7 +837,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                     {isMiner || delegationCurrency !== "SGCTL" ? (
                       <>
                         <div className="flex items-baseline gap-1 flex-wrap">
-                          <span className="text-xl font-bold text-foreground font-mono tabular-nums leading-tight">
+                          <span className="text-xl lg:text-base xl:text-lg font-bold text-foreground font-mono tabular-nums leading-tight">
                             +{formatRewardAmount(weeklyYield)}
                           </span>
                           <span className="text-xs text-muted-foreground font-medium">
@@ -857,7 +860,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                       <>
                         <div className="flex flex-row items-baseline gap-3 flex-wrap">
                           <div className="flex items-baseline gap-1">
-                            <span className="text-xl font-bold text-foreground font-mono tabular-nums leading-tight">
+                            <span className="text-xl lg:text-base xl:text-lg font-bold text-foreground font-mono tabular-nums leading-tight">
                               {formatRewardAmount(weeklyPdYield)}
                             </span>
                             <span className="text-xs text-muted-foreground font-medium">
@@ -865,7 +868,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                             </span>
                           </div>
                           <div className="flex items-baseline gap-1">
-                            <span className="text-xl font-bold text-foreground font-mono tabular-nums leading-tight">
+                            <span className="text-xl lg:text-base xl:text-lg font-bold text-foreground font-mono tabular-nums leading-tight">
                               +{formatRewardAmount(weeklyYield)}
                             </span>
                             <span className="text-xs text-muted-foreground font-medium">
@@ -962,12 +965,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                 </TooltipContent>
               </Tooltip>
             ) : (
-              <div
-                className={cn(
-                  "flex min-w-0 flex-col p-3 rounded-lg bg-muted/30 dark:bg-muted/50",
-                  isCompactMobile && "order-3 col-span-2",
-                )}
-              >
+              <div className="flex min-w-0 flex-col p-3 lg:px-2.5 lg:py-2 rounded-lg bg-muted/30 dark:bg-muted/50">
                 <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
                   {t.widgets.launchpadStatus.estWeekly}
                 </span>
@@ -980,58 +978,6 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
               </div>
             )}
 
-            {/* Column 3: Reward Score (delegations only) */}
-            {!isMiner &&
-              (isRowScoreLoading ? (
-                <div
-                  className={cn(
-                    "flex min-w-0 flex-col p-3 rounded-lg bg-muted/30 dark:bg-muted/50",
-                    isCompactMobile && "order-2",
-                  )}
-                >
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
-                    {t.widgets.launchpadStatus.score}
-                  </span>
-                  <Skeleton className="h-5 w-10 sm:w-12 mb-1" />
-                  <Skeleton className="h-3 w-16 sm:w-20" />
-                </div>
-              ) : rewardScore !== null ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div
-                      className={cn(
-                        "flex min-w-0 flex-col p-3 rounded-lg bg-muted/30 dark:bg-muted/50 cursor-help",
-                        isCompactMobile && "order-2",
-                      )}
-                    >
-                      <div className="flex items-center gap-1 mb-1">
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
-                          {t.widgets.launchpadStatus.score}
-                        </span>
-                        <Info className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-muted-foreground/60" />
-                      </div>
-                      <span className="text-xl font-bold text-foreground font-mono tabular-nums leading-tight">
-                        {Math.round(rewardScore)}
-                      </span>
-                      <span className="text-xs text-muted-foreground font-medium">
-                        {t.widgets.launchpadStatus.rewardScore}
-                      </span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs">
-                    <p className="text-xs">
-                      {t.widgets.launchpadStatus.rewardScoreTooltip}
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              ) : (
-                <div
-                  className={cn(
-                    "flex min-h-[72px] flex-col p-3 rounded-lg bg-muted/30 dark:bg-muted/50",
-                    isCompactMobile && "order-2",
-                  )}
-                />
-              ))}
           </div>
 
           {/* Action Button Row */}
@@ -1040,7 +986,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
               <Button
                 variant="outline"
                 className={cn(
-                  "w-full rounded-xl h-12 text-sm font-semibold",
+                  "w-full rounded-xl h-12 lg:h-10 text-sm font-semibold",
 
                   "transition-all duration-200",
                 )}
@@ -1073,7 +1019,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
             ) : (
               <Button
                 className={cn(
-                  "w-full h-12 text-sm font-semibold rounded-xl",
+                  "w-full h-12 lg:h-10 text-sm font-semibold rounded-xl",
 
                   "transition-all duration-200",
                 )}
@@ -1103,26 +1049,31 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
           <Skeleton className="h-10 w-20 rounded-full" />
         </div>
         {/* Cards skeleton - matching new card structure */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[0, 1].map((i) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[0, 1, 2].map((i) => (
             <div
               key={i}
-              className="rounded-2xl border border-border/20 dark:border-border/40 overflow-hidden"
+              className={cn(
+                "rounded-2xl border border-border/20 dark:border-border/40 overflow-hidden",
+                i === 2 && "hidden lg:block",
+              )}
             >
               <div className="p-3 pb-0">
-                <Skeleton className="aspect-[4/3] sm:aspect-[5/3] md:aspect-[2/1] w-full rounded-xl" />
+                <Skeleton className="aspect-[3/2] sm:aspect-[16/9] lg:aspect-[5/2] w-full rounded-xl" />
               </div>
-              <div className="p-4 sm:p-5 md:p-6 space-y-4">
-                <div className="space-y-2">
-                  <Skeleton className="h-6 w-3/4" />
-                  <Skeleton className="h-4 w-1/3" />
+              <div className="p-4 sm:p-5 md:p-6 lg:p-4 xl:p-5 space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-6 w-3/4" />
+                    <Skeleton className="h-4 w-1/3" />
+                  </div>
+                  <Skeleton className="h-10 w-12 shrink-0" />
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2">
+                <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
                   <Skeleton className="h-16 sm:h-20 rounded-lg" />
                   <Skeleton className="h-16 sm:h-20 rounded-lg" />
-                  <Skeleton className="h-16 sm:h-20 rounded-lg hidden sm:block" />
                 </div>
-                <Skeleton className="h-11 w-full rounded-xl" />
+                <Skeleton className="h-11 lg:h-10 w-full rounded-xl" />
               </div>
             </div>
           ))}
@@ -1224,9 +1175,9 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
         )}
       </div>
 
-      {/* Cards Grid - Always 2 columns on desktop */}
+      {/* Cards Grid - 3 columns on desktop */}
       <div className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {pagedRows.map((row, index) =>
             renderListingCard(row, pageIndex * cardsPerPage + index),
           )}
