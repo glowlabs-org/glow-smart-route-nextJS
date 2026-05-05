@@ -123,6 +123,11 @@ const nextConfig = {
         destination: "/",
         permanent: true,
       },
+      {
+        source: "/leaderboard",
+        destination: "/stats/rewards",
+        permanent: true,
+      },
     ];
   },
   images: {
