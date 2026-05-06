@@ -2,11 +2,17 @@
 
 import * as React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useAccount, useChainId, useSignTypedData } from "wagmi";
+import {
+  useAccount,
+  useConnectorClient,
+  useSignTypedData,
+  useSwitchChain,
+} from "wagmi";
 import { hubGet, hubPost } from "@/lib/api/hub-client";
 import { toast } from "sonner";
 import { trackEvent } from "@/lib/telemetry";
 import { parseReferralError } from "@/lib/referral-errors";
+import { resolveWalletChainId } from "@/lib/tos-chain";
 import * as Sentry from "@sentry/nextjs";
 import {
   clearStoredReferralAttribution,
@@ -63,12 +69,46 @@ type ReferralAutoLinkEventDetail = {
 
 export function useReferral() {
   const { address } = useAccount();
-  const connectedChainId = useChainId();
   const queryClient = useQueryClient();
   const { signTypedDataAsync } = useSignTypedData();
+  const { data: connectorClient } = useConnectorClient();
+  const { switchChainAsync } = useSwitchChain();
   const [autoLinkSucceeded, setAutoLinkSucceeded] = React.useState(false);
-  // Use the connected wallet's chain, falling back to mainnet
-  const chainId = connectedChainId || 1;
+  // Backend verifies signatures against process.env.CHAIN_ID. The frontend MUST
+  // sign with the same value, regardless of which chain the wallet thinks it's
+  // on, otherwise the backend rejects with domain_chain_mismatch.
+  const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID) || 1;
+
+  // Mobile in-wallet browsers (Coinbase WebView, Privy useActiveWallet) often
+  // expose a different active chain than wagmi reports. viem's signTypedData
+  // pre-checks domain.chainId against the wallet's actual chain and throws
+  // InvalidParamsRpcError on mismatch — so we resolve the real chain first and
+  // ask the wallet to switch before signing.
+  const ensureCorrectChain = React.useCallback(async () => {
+    const walletChainId = await resolveWalletChainId({
+      connectorClient: connectorClient as
+        | { request?: (args: { method: string; params?: unknown[] }) => Promise<unknown> }
+        | undefined,
+      fallbackChainId: chainId,
+    });
+
+    if (walletChainId === chainId) return;
+
+    await switchChainAsync({ chainId });
+
+    const switchedChainId = await resolveWalletChainId({
+      connectorClient: connectorClient as
+        | { request?: (args: { method: string; params?: unknown[] }) => Promise<unknown> }
+        | undefined,
+      fallbackChainId: chainId,
+    });
+
+    if (switchedChainId !== chainId) {
+      throw new Error(
+        `Please switch your wallet to chain ${chainId} and try again.`
+      );
+    }
+  }, [chainId, connectorClient, switchChainAsync]);
 
   React.useEffect(() => {
     setAutoLinkSucceeded(false);
@@ -155,6 +195,8 @@ export function useReferral() {
 
       const deadline = Math.floor(Date.now() / 1000 + 3600); // 1 hour
       const nonce = status.nonce;
+
+      await ensureCorrectChain();
 
       const signature = await signTypedDataAsync({
         account: walletAddress,
@@ -266,6 +308,8 @@ export function useReferral() {
 
       const deadline = Math.floor(Date.now() / 1000 + 3600);
       const nonce = status.nonce;
+
+      await ensureCorrectChain();
 
       const signature = await signTypedDataAsync({
         account: walletAddress,

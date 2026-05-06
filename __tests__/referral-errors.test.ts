@@ -28,6 +28,26 @@ describe("referral error helpers", () => {
     expect(parsed.message.toLowerCase()).toContain("network");
   });
 
+  it("classifies viem InvalidParamsRpcError thrown when wallet is on the wrong chain", () => {
+    const parsed = parseReferralError(
+      new Error(
+        "Invalid parameters were provided to the RPC method.\nDouble check you have provided the correct parameters.\n\nDetails: Invalid parameters: active chainId is different than the one provided.\nVersion: viem@2.47.12"
+      )
+    );
+
+    expect(parsed.type).toBe("wrong_chain");
+    expect(parsed.isUserRejection).toBe(false);
+  });
+
+  it("classifies the manual switch-required error thrown by ensureCorrectChain", () => {
+    const parsed = parseReferralError(
+      new Error("Please switch your wallet to chain 1 and try again.")
+    );
+
+    expect(parsed.type).toBe("wrong_chain");
+    expect(parsed.isUserRejection).toBe(false);
+  });
+
   it("classifies deadline expiration errors", () => {
     const parsed = parseReferralError(new Error("Signature deadline has expired."));
 

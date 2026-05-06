@@ -69,12 +69,14 @@ export function parseReferralError(error: unknown): ParsedReferralError {
 
   if (
     lower.includes("domain_chain_mismatch") ||
-    (lower.includes("different chain") && lower.includes("signature"))
+    (lower.includes("different chain") && lower.includes("signature")) ||
+    lower.includes("active chainid is different than the one provided") ||
+    lower.includes("please switch your wallet to chain")
   ) {
     return {
       type: "wrong_chain",
       message:
-        "Signature was produced on a different network. Please switch wallet network and try again.",
+        "Wrong network. Please switch your wallet to the Glow network and try again.",
       isUserRejection: false,
       isValidationError: false,
     };
