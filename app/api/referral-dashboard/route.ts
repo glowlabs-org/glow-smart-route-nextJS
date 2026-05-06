@@ -5,6 +5,7 @@ import {
 } from "@/lib/referral-dashboard-auth";
 
 const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL;
+const HUB_API_KEY = process.env.GUARDED_API_KEY;
 
 if (!HUB_URL) {
   throw new Error("NEXT_PUBLIC_HUB_URL is not set");
@@ -16,9 +17,17 @@ export async function GET(request: NextRequest) {
       return createReferralDashboardUnauthorizedResponse();
     }
 
+    if (!HUB_API_KEY) {
+      return NextResponse.json(
+        { error: "Server misconfigured: GUARDED_API_KEY not set" },
+        { status: 500 }
+      );
+    }
+
     const url = `${HUB_URL}/referral/internal/dashboard`;
     const response = await fetch(url, {
       cache: "no-store",
+      headers: { "x-api-key": HUB_API_KEY },
     });
 
     if (!response.ok) {
