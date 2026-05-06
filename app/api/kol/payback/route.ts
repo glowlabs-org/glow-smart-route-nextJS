@@ -4,6 +4,7 @@ import { isKolWallet } from "@/lib/kol";
 import { isValidReferralDashboardPassword } from "@/lib/referral-dashboard-auth";
 
 const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL;
+const HUB_API_KEY = process.env.GUARDED_API_KEY;
 
 if (!HUB_URL) {
   throw new Error("NEXT_PUBLIC_HUB_URL is not set");
@@ -72,7 +73,17 @@ export async function POST(request: NextRequest) {
       backendUrl.searchParams.set("rangePreset", body.rangePreset || "all_time");
     }
 
-    const response = await fetch(backendUrl.toString(), { cache: "no-store" });
+    if (!HUB_API_KEY) {
+      return NextResponse.json(
+        { error: "Server misconfigured: GUARDED_API_KEY not set" },
+        { status: 500 }
+      );
+    }
+
+    const response = await fetch(backendUrl.toString(), {
+      cache: "no-store",
+      headers: { "x-api-key": HUB_API_KEY },
+    });
 
     if (!response.ok) {
       const errorText = await response.text();

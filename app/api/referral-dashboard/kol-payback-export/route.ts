@@ -5,6 +5,7 @@ import {
 } from "@/lib/referral-dashboard-auth";
 
 const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL;
+const HUB_API_KEY = process.env.GUARDED_API_KEY;
 
 if (!HUB_URL) {
   throw new Error("NEXT_PUBLIC_HUB_URL is not set");
@@ -18,6 +19,13 @@ export async function GET(request: NextRequest) {
       return createReferralDashboardUnauthorizedResponse();
     }
 
+    if (!HUB_API_KEY) {
+      return NextResponse.json(
+        { error: "Server misconfigured: GUARDED_API_KEY not set" },
+        { status: 500 }
+      );
+    }
+
     const url = new URL(`${HUB_URL}/fractions/mining-center-kol-payback-export`);
 
     for (const key of ALLOWED_QUERY_KEYS) {
@@ -29,6 +37,7 @@ export async function GET(request: NextRequest) {
 
     const response = await fetch(url.toString(), {
       cache: "no-store",
+      headers: { "x-api-key": HUB_API_KEY },
     });
 
     if (!response.ok) {
