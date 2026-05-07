@@ -162,12 +162,31 @@ export function RewardsBreakdownPanel({
 
   const pendingMiningWeeklyGlwByFarmId = React.useMemo(() => {
     const map = new Map<string, number>();
+    const rewardedMiningFarmIds = new Set(
+      (data?.farmDetails ?? [])
+        .filter((detail) => detail.type === "mining-center")
+        .map((detail) => detail.farmId),
+    );
 
     for (const entry of pendingMiningPurchasesByApplication.values()) {
-      const estimatedWeeklyGlw = estimateMiningCenterWeeklyGlw({
-        miningScore: miningScoreMap.get(entry.applicationId),
-        userSteps: entry.userSteps,
-      });
+      const farmMetadata = purchasedFarms.find((f) => f.farmId === entry.farmId);
+      const canUseCurrentMinerRewardEstimate =
+        !rewardedMiningFarmIds.has(entry.farmId) &&
+        Boolean(farmMetadata?.userWeeklyRewards?.glwInflationRewardsFromMiner);
+      const estimatedWeeklyGlw = canUseCurrentMinerRewardEstimate
+        ? Number(
+            formatUnits(
+              BigInt(
+                farmMetadata?.userWeeklyRewards?.glwInflationRewardsFromMiner ??
+                  "0",
+              ),
+              DECIMALS_BY_TOKEN["GLW"],
+            ),
+          )
+        : estimateMiningCenterWeeklyGlw({
+            miningScore: miningScoreMap.get(entry.applicationId),
+            userSteps: entry.userSteps,
+          });
       if (estimatedWeeklyGlw <= 0) continue;
 
       map.set(
@@ -177,7 +196,7 @@ export function RewardsBreakdownPanel({
     }
 
     return map;
-  }, [miningScoreMap, pendingMiningPurchasesByApplication]);
+  }, [data?.farmDetails, miningScoreMap, pendingMiningPurchasesByApplication, purchasedFarms]);
 
   const formatGlwEstimate = React.useCallback((value: number) => {
     if (!Number.isFinite(value) || value <= 0) return "0.00";

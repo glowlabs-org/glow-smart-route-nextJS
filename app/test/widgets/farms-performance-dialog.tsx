@@ -1748,8 +1748,24 @@ export function FarmsPerformanceDialogContent({
         item.fractionType === "mining-center"
           ? miningScoreMap.get(item.applicationId) ?? null
           : null;
+      const hasRewardedMinerRow = rewardedFarmTypeKeys.has(
+        `${item.farmId}:mining-center`,
+      );
+      const canUseCurrentMinerRewardEstimate =
+        item.fractionType === "mining-center" &&
+        !hasRewardedMinerRow &&
+        Boolean(farmData?.userWeeklyRewards?.glwInflationRewardsFromMiner);
 
-      if (pendingMiningScore && item.totalStepsPurchased > 0) {
+      if (canUseCurrentMinerRewardEstimate) {
+        // For brand-new miner purchases on farms that do not yet have any
+        // settled miner reward history for this wallet, prefer the current
+        // wallet-specific split from Control. The marketplace listing's
+        // activeFraction can move on to a newer fraction on the same
+        // application, which underestimates the owned pending position.
+        estimatedUserWeeklyGlw = parseGlwFromWei(
+          farmData?.userWeeklyRewards?.glwInflationRewardsFromMiner ?? "0",
+        );
+      } else if (pendingMiningScore && item.totalStepsPurchased > 0) {
         estimatedUserWeeklyGlw = estimateMiningCenterWeeklyGlw({
           miningScore: pendingMiningScore,
           userSteps: item.totalStepsPurchased,
