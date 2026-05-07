@@ -61,7 +61,7 @@ interface CommunityActivityWidgetProps {
 interface AggregatedFarm {
   farmId: string;
   farmName: string;
-  totalDelegatedGlw: number;
+  finalProtocolFeeUsd: number | null;
   rewardScore: number | null;
   fundingDurationMs: number;
   firstPurchaseDate: Date;
@@ -106,6 +106,16 @@ function formatCompactNumber(n: number): string {
   return formatNumber(n, 0);
 }
 
+// finalProtocolFee is stored as USDC6 atomic units (e.g. "1500000000" = $1,500).
+function finalProtocolFeeToUsd(raw: string | null | undefined): number | null {
+  if (!raw) return null;
+  try {
+    return Number(formatUnits(BigInt(raw), 6));
+  } catch {
+    return null;
+  }
+}
+
 export default function CommunityActivityWidget({
   className,
   variant = "default",
@@ -131,7 +141,7 @@ export default function CommunityActivityWidget({
       {
         farmId: string;
         farmName: string;
-        totalDelegatedWei: bigint;
+        finalProtocolFeeUsd: number | null;
         rewardScore: number | null;
         timestamps: number[];
       }
@@ -146,21 +156,23 @@ export default function CommunityActivityWidget({
       if (!farmId) continue;
 
       const existing = farmMap.get(farmId);
-      const amountWei = BigInt(purchase.amount || "0");
       const timestamp = purchase.timestamp * 1000;
+      const feeUsd = finalProtocolFeeToUsd(purchase.finalProtocolFee);
 
       if (existing) {
-        existing.totalDelegatedWei += amountWei;
         existing.timestamps.push(timestamp);
         // Use the first non-null reward score
         if (existing.rewardScore === null && purchase.rewardScore !== null) {
           existing.rewardScore = purchase.rewardScore;
         }
+        if (existing.finalProtocolFeeUsd === null && feeUsd !== null) {
+          existing.finalProtocolFeeUsd = feeUsd;
+        }
       } else {
         farmMap.set(farmId, {
           farmId,
           farmName: purchase.farmName,
-          totalDelegatedWei: amountWei,
+          finalProtocolFeeUsd: feeUsd,
           rewardScore: purchase.rewardScore,
           timestamps: [timestamp],
         });
@@ -180,13 +192,10 @@ export default function CommunityActivityWidget({
       const fundingDurationMs =
         lastPurchaseDate.getTime() - firstPurchaseDate.getTime();
 
-      // Convert from wei (18 decimals) to GLW
-      const totalDelegatedGlw = Number(formatUnits(data.totalDelegatedWei, 18));
-
       farms.push({
         farmId: data.farmId,
         farmName: data.farmName,
-        totalDelegatedGlw,
+        finalProtocolFeeUsd: data.finalProtocolFeeUsd,
         rewardScore: data.rewardScore,
         fundingDurationMs,
         firstPurchaseDate,
@@ -326,12 +335,17 @@ export default function CommunityActivityWidget({
                         {farm.farmName}
                       </h3>
 
-                      {/* Delegated amount - prominent */}
+                      {/* Total raised — farm's finalProtocolFee in USD */}
                       <div className="flex items-baseline gap-1.5">
-                        <span className="font-mono text-lg font-bold text-delegation-purple">
-                          {formatCompactNumber(farm.totalDelegatedGlw)}
-                        </span>
-                        <span className="text-xs text-muted-foreground">GLW</span>
+                        {farm.finalProtocolFeeUsd !== null ? (
+                          <span className="font-mono text-lg font-bold text-delegation-purple">
+                            ${formatCompactNumber(farm.finalProtocolFeeUsd)}
+                          </span>
+                        ) : (
+                          <span className="font-mono text-lg font-bold text-muted-foreground">
+                            —
+                          </span>
+                        )}
                       </div>
 
                       {/* Secondary stats row */}

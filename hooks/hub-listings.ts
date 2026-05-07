@@ -424,6 +424,9 @@ export interface SplitActivity {
   applicationId: string;
   farmId?: string | null;
   farmName: string;
+  // USDC6 atomic string ("1500000000" = $1,500). Null for older payloads or
+  // applications that never had a finalProtocolFee set.
+  finalProtocolFee?: string | null;
   fractionType?: "mining-center" | "launchpad";
   fractionStatus: string;
   currency: PaymentCurrency;
