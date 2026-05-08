@@ -4,7 +4,7 @@ import { getGeoContextFromRequest } from "@/lib/geo-context";
 // Regex for referral landing path /r/<code>, where <code> is a URL-safe slug.
 const REFERRAL_PATH = /^\/r\/([a-zA-Z0-9_-]+)\/?$/;
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const accept = request.headers.get("accept") || "";
   const isDocumentRequest = accept.includes("text/html");
   if (!isDocumentRequest) return NextResponse.next();

@@ -99,11 +99,6 @@ const nextConfig = {
       "framer-motion",
     ],
   },
-  eslint: {
-    // Next's ESLint rules have been crashing on route handlers in CI/Vercel.
-    // Keep `pnpm lint` for local usage; don't fail production builds on linter runtime errors.
-    ignoreDuringBuilds: true,
-  },
   async redirects() {
     return [
       {
@@ -136,11 +131,6 @@ const nextConfig = {
     minimumCacheTTL: 60 * 60 * 24, // 24h CDN cache for optimized images
     deviceSizes: [320, 640, 768, 1024, 1280, 1536],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
-    domains: [
-      "images.unsplash.com",
-      "lh3.googleusercontent.com",
-      "pub-e71c2d06062242109db2bdd6b0bb5ee0.r2.dev",
-    ],
     remotePatterns: [
       {
         protocol: "https",
