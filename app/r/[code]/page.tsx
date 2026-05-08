@@ -23,7 +23,11 @@ import { storeReferralAttribution } from "@/lib/referral-attribution";
 import { LANG_STORAGE_KEY, useLang } from "@/lib/i18n";
 import { LangToggle } from "@/components/lang-toggle";
 
-const KR_DEFAULT_REFERRAL_CODES = new Set(["eungo", "joshiker"]);
+// KR-audience KOLs whose referral landing should default to Korean for fresh
+// visitors. Codes are the live referralCodes.code values, not the KOL's name.
+//   pkbu9m2k   -> Eungo    (0xd7f5...ecec9)
+//   mr.sunshine -> Joshiker (0x8f2c...bb93)
+const KR_DEFAULT_REFERRAL_CODES = new Set(["pkbu9m2k", "mr.sunshine"]);
 
 interface ValidateCodeResponse {
   valid: boolean;
