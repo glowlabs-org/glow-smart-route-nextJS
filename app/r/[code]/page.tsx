@@ -20,7 +20,10 @@ import { REFERRAL_LAUNCH_LABEL } from "@/lib/referral-launch";
 import { parseReferralError } from "@/lib/referral-errors";
 import { toast } from "sonner";
 import { storeReferralAttribution } from "@/lib/referral-attribution";
-import { useLang } from "@/lib/i18n";
+import { LANG_STORAGE_KEY, useLang } from "@/lib/i18n";
+import { LangToggle } from "@/components/lang-toggle";
+
+const KR_DEFAULT_REFERRAL_CODES = new Set(["eungo", "joshiker"]);
 
 interface ValidateCodeResponse {
   valid: boolean;
@@ -50,11 +53,19 @@ const heroPanelClassName =
   "order-1 lg:order-2 h-[36svh] min-h-[280px] sm:h-[42svh] lg:h-auto lg:flex-1 p-3 sm:p-4 lg:p-8 lg:min-h-screen";
 
 export default function ReferralLandingPage() {
-  const { t } = useLang();
+  const { t, setLang } = useLang();
   const r = t.referralLanding;
   const params = useParams();
   const router = useRouter();
   const code = params.code as string;
+
+  React.useEffect(() => {
+    if (typeof window === "undefined" || !code) return;
+    if (window.localStorage.getItem(LANG_STORAGE_KEY)) return;
+    if (KR_DEFAULT_REFERRAL_CODES.has(code.toLowerCase())) {
+      setLang("ko");
+    }
+  }, [code, setLang]);
   const { isConnected, address } = useAccount();
   const { disconnect } = useDisconnect();
   const {
@@ -226,6 +237,7 @@ export default function ReferralLandingPage() {
   if (!isReferralLive) {
     return (
       <div className="min-h-screen bg-white dark:bg-background">
+        <LangToggle className="fixed right-4 top-4 z-30" />
         <div className="min-h-screen flex items-center justify-center p-4 sm:p-8">
           <div className="max-w-md w-full rounded-2xl sm:rounded-3xl border border-border/20 dark:border-border/40 bg-card px-6 py-8 sm:px-8 sm:py-10 text-center space-y-4">
             <div className="mx-auto flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50">
@@ -251,6 +263,7 @@ export default function ReferralLandingPage() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-background">
+      <LangToggle className="fixed right-4 top-4 z-30" />
       <AnimatePresence mode="wait">
         {isSuccess ? (
           <motion.div
