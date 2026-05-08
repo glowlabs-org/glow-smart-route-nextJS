@@ -66,6 +66,7 @@ import { useDebouncedAsync } from "@/hooks/useDebouncedAsync";
 import { useLang } from "@/lib/i18n";
 import { useImpactWalletStats } from "@/hooks/hub-impact";
 import { getGctlDialogErrorMessage } from "@/lib/gctl-dialog-error-message";
+import { isInsufficientGasError } from "@/lib/rpc-error-utils";
 import { capturePrivyWalletError } from "@/lib/privy-errors";
 import { trackEvent } from "@/lib/telemetry";
 import { bucketEth, bucketToken, bucketUsd } from "@/lib/telemetry-buckets";
@@ -1211,10 +1212,11 @@ export function MintAndStakeGctlDialog({
       if (activeStep)
         updateStakeStepStatus(activeStep.id, "error", { errorMessage: msg });
 
-      // Report to Sentry (exclude user rejections)
+      // Report to Sentry (exclude user-side issues we can't act on)
       const isUserRejected =
         msg?.includes("User rejected") || (error as any)?.code === 4001;
-      if (!isUserRejected) {
+      const isInsufficientGas = isInsufficientGasError(error);
+      if (!isUserRejected && !isInsufficientGas) {
         const normalizedError =
           error instanceof Error && error.message === msg
             ? error
@@ -1429,10 +1431,11 @@ export function MintAndStakeGctlDialog({
       if (activeStep)
         updateStakeStepStatus(activeStep.id, "error", { errorMessage: msg });
 
-      // Report to Sentry (exclude user rejections)
+      // Report to Sentry (exclude user-side issues we can't act on)
       const isUserRejected =
         msg?.includes("User rejected") || (error as any)?.code === 4001;
-      if (!isUserRejected) {
+      const isInsufficientGas = isInsufficientGasError(error);
+      if (!isUserRejected && !isInsufficientGas) {
         const normalizedError =
           error instanceof Error && error.message === msg
             ? error

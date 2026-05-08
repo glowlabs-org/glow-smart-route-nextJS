@@ -1,4 +1,8 @@
-import { isInternalRpcError } from "@/lib/rpc-error-utils";
+import {
+  INSUFFICIENT_GAS_ERROR_MESSAGE,
+  isInsufficientGasError,
+  isInternalRpcError,
+} from "@/lib/rpc-error-utils";
 
 const RPC_RATE_LIMIT_MESSAGE =
   "Your wallet's RPC provider is being rate limited, so the app can't verify your balance or allowance right now. Switch to a different RPC endpoint in your wallet, or wait a moment and try again.";
@@ -102,6 +106,13 @@ export function getGctlDialogErrorMessage(error: unknown) {
     // revert (0xe450d38c). Don't claim "Approval succeeded" — that's wrong for
     // the pre-approval path and confusing in the post-approval one.
     return "Insufficient token balance. Reduce the amount and try again.";
+  }
+
+  // Must run before the internal-RPC fallback: viem surfaces "gas required
+  // exceeds allowance" wrapped as TransactionExecutionError, which would
+  // otherwise hit the generic "Please retry or switch RPC" branch.
+  if (isInsufficientGasError(error)) {
+    return INSUFFICIENT_GAS_ERROR_MESSAGE;
   }
 
   if (normalizedMessage.includes("user rejected")) {

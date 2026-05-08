@@ -4,6 +4,7 @@ import {
   GCTL_RPC_INTERNAL_ERROR_MESSAGE,
   RPC_RATE_LIMIT_MESSAGE,
 } from "../lib/gctl-dialog-error-message";
+import { INSUFFICIENT_GAS_ERROR_MESSAGE } from "../lib/rpc-error-utils";
 
 describe("getGctlDialogErrorMessage", () => {
   it("surfaces a clear wallet RPC rate-limit message for nested provider errors", () => {
@@ -52,6 +53,26 @@ describe("getGctlDialogErrorMessage", () => {
     expect(
       getGctlDialogErrorMessage(new Error("User rejected the request"))
     ).toBe("Transaction was rejected in your wallet.");
+  });
+
+  it("maps insufficient-gas viem revert to the add-ETH guidance", () => {
+    // viem rewraps node-level "gas required exceeds allowance" as a
+    // TransactionExecutionError, which used to fall through to the generic
+    // "RPC/provider error" branch. Should land on the add-ETH message.
+    const error = {
+      name: "TransactionExecutionError",
+      shortMessage:
+        'The contract function "forward" reverted with the following reason:',
+      details: "gas required exceeds allowance (65487)",
+      cause: {
+        code: -32603,
+        message: "gas required exceeds allowance (65487)",
+      },
+    };
+
+    expect(getGctlDialogErrorMessage(error)).toBe(
+      INSUFFICIENT_GAS_ERROR_MESSAGE
+    );
   });
 
   it("maps generic TransactionExecutionError to the RPC/provider guidance", () => {

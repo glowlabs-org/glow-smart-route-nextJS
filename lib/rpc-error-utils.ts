@@ -188,7 +188,12 @@ export async function withInternalRpcRetry<T>(
       return await fn();
     } catch (error) {
       const isLastAttempt = attempt >= maxRetries;
-      if (isLastAttempt || !isInternalRpcError(error)) {
+      // Insufficient-gas and nonce-too-low are deterministic; viem reports
+      // them inside a TransactionExecutionError so isInternalRpcError() would
+      // otherwise loop on them.
+      const isDeterministic =
+        isInsufficientGasError(error) || isNonceTooLowError(error);
+      if (isLastAttempt || isDeterministic || !isInternalRpcError(error)) {
         throw error;
       }
       options.onRetry?.(attempt + 1);
