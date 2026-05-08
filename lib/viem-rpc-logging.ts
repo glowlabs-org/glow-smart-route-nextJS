@@ -54,6 +54,7 @@ const shouldReportRpcError = (error: unknown, source?: string): boolean => {
   const name = errorAny?.name ?? "";
   const causeName = errorAny?.cause?.name ?? "";
   const details = typeof errorAny?.details === "string" ? errorAny.details : "";
+  const message = typeof errorAny?.message === "string" ? errorAny.message : "";
 
   if (name === "AbortError" || causeName === "AbortError") return false;
   if (details.includes("Fetch is aborted")) return false;
@@ -61,11 +62,16 @@ const shouldReportRpcError = (error: unknown, source?: string): boolean => {
   // publicClient and wagmi read hooks are background read-only polling that
   // callers already retry/swallow. Per-visitor network blips would just
   // create noise.
-  if (
-    (source === "publicClient" || source === "wagmi") &&
-    (name === "TimeoutError" || causeName === "TimeoutError")
-  ) {
-    return false;
+  const isBackgroundRead = source === "publicClient" || source === "wagmi";
+  if (isBackgroundRead) {
+    if (name === "TimeoutError" || causeName === "TimeoutError") return false;
+    // HttpRequestError wrapping "TypeError: Failed to fetch" is a browser
+    // network blip (lost connectivity, CORS preflight, DNS hiccup). The
+    // fallback transport already retries; the bare single-attempt failure
+    // just floods Sentry from mobile users on flaky networks (APP-GLOW-ORG-D5).
+    const isFetchFailure =
+      /failed to fetch/i.test(details) || /failed to fetch/i.test(message);
+    if (isFetchFailure) return false;
   }
 
   return true;
