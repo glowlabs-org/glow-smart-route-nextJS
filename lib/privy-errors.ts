@@ -6,6 +6,9 @@ import * as Sentry from "@sentry/nextjs";
 // the cancellation cases and downgrades remaining failures to warning so
 // they're visible without paging anyone.
 
+// Privy fires `generic_connect_wallet_error` from ConnectOnlyLandingScreen's
+// onClose handler whenever the user dismisses the connect modal, so it shows
+// up alongside the real benign-cancellation codes.
 const BENIGN_PRIVY_ERROR_CODES = new Set([
   "user_rejected_connection_request",
   "user_rejected_request",
@@ -14,6 +17,7 @@ const BENIGN_PRIVY_ERROR_CODES = new Set([
   "exited_auth_flow",
   "exited_link_flow",
   "must_be_authenticated",
+  "generic_connect_wallet_error",
 ]);
 
 function getPrivyErrorCode(error: unknown): string {
