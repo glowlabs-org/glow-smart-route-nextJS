@@ -74,6 +74,12 @@ const securityHeaders = [
     key: "Strict-Transport-Security",
     value: "max-age=63072000; includeSubDomains; preload",
   },
+  // Coinbase Smart Wallet (and other popup-based wallet connectors) need
+  // window.opener to be accessible from the popup. Without an explicit COOP
+  // header, Next 16 / the host platform can apply same-origin isolation that
+  // strips window.opener and breaks the connect flow with the
+  // "This app doesn't support smart wallets" error.
+  { key: "Cross-Origin-Opener-Policy", value: "same-origin-allow-popups" },
   {
     key: "Content-Security-Policy-Report-Only",
     value: cspDirectives.join("; "),
