@@ -31,7 +31,13 @@ export interface ApplicationPriceQuoteLike {
 }
 
 export type DepositSelectedCurrency = "GLW" | "SGCTL" | "USDC";
-export type DepositPaymentMethod = "GLW" | "SGCTL" | "GCTL" | "USDC" | "ETH";
+export type DepositPaymentMethod =
+  | "GLW"
+  | "SGCTL"
+  | "GCTL"
+  | "USDC"
+  | "ETH"
+  | "UNCLAIMED_REWARDS";
 export type DepositDialogMode =
   | "miners"
   | "glw_delegation"
@@ -61,6 +67,10 @@ export interface AffordabilityInput {
   stakedGctlBalance?: bigint;
   usdcBalance: bigint;
   ethBalance: bigint;
+  // Total GLW available across unclaimed inflation + PD-in-GLW weeks for the
+  // connected wallet. Used by the "use unclaimed rewards" payment method on
+  // GLW launchpad delegations. Defaults to 0n when omitted.
+  unclaimedGlwBalance?: bigint;
 }
 
 export interface AffordabilityResult {
@@ -820,6 +830,7 @@ export function calculateAffordability(
     stakedGctlBalance = 0n,
     usdcBalance,
     ethBalance,
+    unclaimedGlwBalance = 0n,
   } = input;
 
   const qty = BigInt(Math.max(0, Math.floor(quantity)));
@@ -847,6 +858,7 @@ export function calculateAffordability(
     GCTL: gctlBalance + stakedGctlBalance,
     USDC: usdcBalance,
     ETH: ethBalance,
+    UNCLAIMED_REWARDS: unclaimedGlwBalance,
   } as const;
 
   const requiredByMethod: Record<DepositPaymentMethod, bigint | null> = {
@@ -855,6 +867,7 @@ export function calculateAffordability(
     GCTL: null,
     USDC: null,
     ETH: null,
+    UNCLAIMED_REWARDS: null,
   };
 
   if (!activeFraction || qty <= 0n) {
@@ -867,6 +880,7 @@ export function calculateAffordability(
         GCTL: false,
         USDC: false,
         ETH: false,
+        UNCLAIMED_REWARDS: false,
       },
       canSubmit: false,
     };
@@ -875,6 +889,9 @@ export function calculateAffordability(
   // GLW required (delegate directly)
   if (selectedCurrency === "GLW") {
     requiredByMethod.GLW = resolvedDelegationStepAtomic * qty;
+    // Unclaimed-rewards payment delivers GLW into the same delegate call, so
+    // the GLW requirement is identical.
+    requiredByMethod.UNCLAIMED_REWARDS = requiredByMethod.GLW;
   }
 
   const gctlNeeded =
@@ -951,6 +968,9 @@ export function calculateAffordability(
     USDC:
       requiredByMethod.USDC != null && balances.USDC >= requiredByMethod.USDC,
     ETH: requiredByMethod.ETH != null && balances.ETH >= requiredByMethod.ETH,
+    UNCLAIMED_REWARDS:
+      requiredByMethod.UNCLAIMED_REWARDS != null &&
+      balances.UNCLAIMED_REWARDS >= requiredByMethod.UNCLAIMED_REWARDS,
   };
 
   const canSubmit = hasEnoughByMethod[selectedPaymentMethod];
@@ -1490,4 +1510,219 @@ export function calculateSuccessMetrics(
   } catch {
     return null;
   }
+}
+
+// ============================================================================
+// Early-claim selection (claim-and-delegate flow)
+// ============================================================================
+
+export type ClaimableGlwSource = "glowInflation" | "protocolDeposit";
+
+export interface ClaimableGlwItem {
+  week: number;
+  source: ClaimableGlwSource;
+  glwAmountWei: bigint;
+}
+
+export interface ClaimSetSelection {
+  pdWeeks: ClaimableGlwItem[];
+  inflationWeeks: ClaimableGlwItem[];
+  totalGlwWei: bigint;
+  shortfallGlwWei: bigint;
+  txCount: number;
+}
+
+// Brute-force subset search is O(2^n * n). 2^20 = ~1M masks finishes in tens of
+// ms on modern hardware. Beyond that we fall back to greedy.
+const CLAIM_SET_BRUTE_FORCE_THRESHOLD = 20;
+
+/**
+ * Picks unclaimed weeks to fund a GLW delegation in the early-claim window.
+ * PD-in-GLW weeks first (one multicall, free to add), then inflation weeks
+ * (one tx each) chosen with minimum cardinality covering the deficit and
+ * minimum overshoot as tiebreaker.
+ */
+export function selectClaimSetForGlwDelegation(
+  unclaimed: ClaimableGlwItem[],
+  targetGlwWei: bigint
+): ClaimSetSelection {
+  if (targetGlwWei <= 0n) {
+    return {
+      pdWeeks: [],
+      inflationWeeks: [],
+      totalGlwWei: 0n,
+      shortfallGlwWei: 0n,
+      txCount: 0,
+    };
+  }
+
+  const pdItems = unclaimed.filter(
+    (item) => item.source === "protocolDeposit" && item.glwAmountWei > 0n
+  );
+  const inflationItems = unclaimed.filter(
+    (item) => item.source === "glowInflation" && item.glwAmountWei > 0n
+  );
+
+  const pdTotal = sumGlwAmount(pdItems);
+  const pdSubset =
+    pdTotal <= targetGlwWei
+      ? pdItems
+      : pdSubsetMaximizingUnderTarget(pdItems, targetGlwWei);
+  const pdSum = sumGlwAmount(pdSubset);
+
+  if (pdSum >= targetGlwWei) {
+    return {
+      pdWeeks: pdSubset,
+      inflationWeeks: [],
+      totalGlwWei: pdSum,
+      shortfallGlwWei: 0n,
+      txCount: pdSubset.length > 0 ? 1 : 0,
+    };
+  }
+
+  const deficit = targetGlwWei - pdSum;
+  const inflationSubset = inflationSubsetCoveringDeficit(
+    inflationItems,
+    deficit
+  );
+  const inflationSum = sumGlwAmount(inflationSubset);
+  const total = pdSum + inflationSum;
+  const shortfall = total >= targetGlwWei ? 0n : targetGlwWei - total;
+
+  return {
+    pdWeeks: pdSubset,
+    inflationWeeks: inflationSubset,
+    totalGlwWei: total,
+    shortfallGlwWei: shortfall,
+    txCount: (pdSubset.length > 0 ? 1 : 0) + inflationSubset.length,
+  };
+}
+
+function sumGlwAmount(items: ClaimableGlwItem[]): bigint {
+  let total = 0n;
+  for (const item of items) total += item.glwAmountWei;
+  return total;
+}
+
+function pdSubsetMaximizingUnderTarget(
+  items: ClaimableGlwItem[],
+  target: bigint
+): ClaimableGlwItem[] {
+  if (items.length === 0) return [];
+  if (items.length > CLAIM_SET_BRUTE_FORCE_THRESHOLD) {
+    return greedyPdSubset(items, target);
+  }
+
+  const n = items.length;
+  let bestSum = 0n;
+  let bestMask = 0;
+  const total = 1 << n;
+  for (let mask = 1; mask < total; mask++) {
+    let sum = 0n;
+    for (let i = 0; i < n; i++) {
+      if ((mask >>> i) & 1) sum += items[i].glwAmountWei;
+    }
+    if (sum <= target && sum > bestSum) {
+      bestSum = sum;
+      bestMask = mask;
+    }
+  }
+
+  return collectMaskedItems(items, bestMask);
+}
+
+function greedyPdSubset(
+  items: ClaimableGlwItem[],
+  target: bigint
+): ClaimableGlwItem[] {
+  const sorted = [...items].sort((a, b) =>
+    compareBigintDesc(a.glwAmountWei, b.glwAmountWei)
+  );
+  const subset: ClaimableGlwItem[] = [];
+  let sum = 0n;
+  for (const item of sorted) {
+    if (sum + item.glwAmountWei <= target) {
+      subset.push(item);
+      sum += item.glwAmountWei;
+    }
+  }
+  return subset;
+}
+
+function inflationSubsetCoveringDeficit(
+  items: ClaimableGlwItem[],
+  deficit: bigint
+): ClaimableGlwItem[] {
+  if (deficit <= 0n) return [];
+  if (items.length === 0) return [];
+  if (items.length > CLAIM_SET_BRUTE_FORCE_THRESHOLD) {
+    return greedyInflationSubset(items, deficit);
+  }
+
+  const n = items.length;
+  let bestCard = Infinity;
+  let bestSum = 0n;
+  let bestMask = -1;
+  const total = 1 << n;
+  for (let mask = 1; mask < total; mask++) {
+    let sum = 0n;
+    let card = 0;
+    for (let i = 0; i < n; i++) {
+      if ((mask >>> i) & 1) {
+        sum += items[i].glwAmountWei;
+        card++;
+      }
+    }
+    if (sum < deficit) continue;
+    if (
+      bestMask < 0 ||
+      card < bestCard ||
+      (card === bestCard && sum < bestSum)
+    ) {
+      bestCard = card;
+      bestSum = sum;
+      bestMask = mask;
+    }
+  }
+
+  if (bestMask < 0) {
+    // Pool cannot cover the deficit; return everything as a best effort and
+    // let the caller surface the shortfall.
+    return [...items];
+  }
+  return collectMaskedItems(items, bestMask);
+}
+
+function greedyInflationSubset(
+  items: ClaimableGlwItem[],
+  deficit: bigint
+): ClaimableGlwItem[] {
+  const sorted = [...items].sort((a, b) =>
+    compareBigintDesc(a.glwAmountWei, b.glwAmountWei)
+  );
+  const subset: ClaimableGlwItem[] = [];
+  let sum = 0n;
+  for (const item of sorted) {
+    if (sum >= deficit) break;
+    subset.push(item);
+    sum += item.glwAmountWei;
+  }
+  return subset;
+}
+
+function collectMaskedItems(
+  items: ClaimableGlwItem[],
+  mask: number
+): ClaimableGlwItem[] {
+  if (mask <= 0) return [];
+  const subset: ClaimableGlwItem[] = [];
+  for (let i = 0; i < items.length; i++) {
+    if ((mask >>> i) & 1) subset.push(items[i]);
+  }
+  return subset;
+}
+
+function compareBigintDesc(a: bigint, b: bigint): number {
+  if (a === b) return 0;
+  return a > b ? -1 : 1;
 }

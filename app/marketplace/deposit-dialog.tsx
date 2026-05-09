@@ -109,15 +109,27 @@ import {
   requiresSmartAccountCheck,
   resolveDelegationStepAtomic,
   resolveRuntimeSelectedCurrency,
+  selectClaimSetForGlwDelegation,
   SPLIT_CONFIRMATION_DELAYED_MESSAGE,
   updateTransactionStepStatus,
   withInternalRpcRetry,
+  type ClaimableGlwItem,
+  type ClaimSetSelection,
   type DepositPaymentMethod,
   type DepositSelectedCurrency,
   type SgctlSourceMode,
   type SuccessMetrics,
   type TransactionStep,
 } from "./deposit-dialog-utils";
+import { useUnclaimedGlwForDelegation } from "@/hooks/useUnclaimedGlwForDelegation";
+import { useRewardsKernelWrapper } from "@/hooks/useRewardsKernelWrapper";
+import {
+  fetchWeeklyReportData,
+  getHotWalletAddress,
+  weekToNonce,
+  type ReadableLeafReward,
+} from "@/hooks/useMerkleProofs";
+import type { ClaimableReward } from "@/hooks/control-wallets";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
@@ -799,6 +811,11 @@ export function DepositDialog({
     }
     return <Coins className="h-6 w-6" />;
   }
+  const unclaimedGlw = useUnclaimedGlwForDelegation(
+    runtimeSelectedCurrency === "GLW" ? address : undefined,
+  );
+  const rewardsKernelWrapper = useRewardsKernelWrapper();
+
   const affordability = React.useMemo(
     () =>
       calculateAffordability({
@@ -815,6 +832,7 @@ export function DepositDialog({
         stakedGctlBalance,
         usdcBalance: usdcBalance ?? 0n,
         ethBalance: ethBalance ?? 0n,
+        unclaimedGlwBalance: unclaimedGlw.totalGlwWei,
       }),
     [
       application?.activeFraction,
@@ -830,8 +848,26 @@ export function DepositDialog({
       glwSpotPrice,
       usdcBalance,
       ethBalance,
+      unclaimedGlw.totalGlwWei,
     ],
   );
+
+  const targetGlwForUnclaimed = React.useMemo<bigint>(() => {
+    if (runtimeSelectedCurrency !== "GLW") return 0n;
+    const required = affordability.requiredByMethod.UNCLAIMED_REWARDS;
+    return required ?? 0n;
+  }, [
+    affordability.requiredByMethod.UNCLAIMED_REWARDS,
+    runtimeSelectedCurrency,
+  ]);
+
+  const claimSetSelection = React.useMemo<ClaimSetSelection>(
+    () => selectClaimSetForGlwDelegation(unclaimedGlw.items, targetGlwForUnclaimed),
+    [unclaimedGlw.items, targetGlwForUnclaimed],
+  );
+
+  const showUnclaimedRewardsOption =
+    runtimeSelectedCurrency === "GLW" && unclaimedGlw.totalGlwWei > 0n;
 
   const formatTokenAmount = React.useCallback(
     (
@@ -883,6 +919,11 @@ export function DepositDialog({
         18,
         costInETH(quantity).toFixed(4),
       )} ETH`,
+      UNCLAIMED_REWARDS: `${formatTokenAmount(
+        affordability.requiredByMethod.UNCLAIMED_REWARDS,
+        18,
+        costInGLW(quantity).toLocaleString(),
+      )} GLW`,
     }),
     [
       affordability.requiredByMethod,
@@ -943,6 +984,10 @@ export function DepositDialog({
         usdcBalance,
       ),
       ETH: calculateShortfall(affordability.requiredByMethod.ETH, ethBalance),
+      UNCLAIMED_REWARDS: calculateShortfall(
+        affordability.requiredByMethod.UNCLAIMED_REWARDS,
+        unclaimedGlw.totalGlwWei,
+      ),
     } as const;
   }, [
     affordability.balances.GCTL,
@@ -950,6 +995,7 @@ export function DepositDialog({
     ethBalance,
     glwBalance,
     stakedGctlBalance,
+    unclaimedGlw.totalGlwWei,
     usdcBalance,
   ]);
 
@@ -1864,8 +1910,12 @@ export function DepositDialog({
         return;
       }
 
+      const isUnclaimedRewardsPayment =
+        selectedPaymentMethod === "UNCLAIMED_REWARDS";
       const isSwapDelegate =
-        runtimeSelectedCurrency === "GLW" && selectedPaymentMethod !== "GLW";
+        runtimeSelectedCurrency === "GLW" &&
+        selectedPaymentMethod !== "GLW" &&
+        !isUnclaimedRewardsPayment;
       const currentDelegationStepAtomic = resolveDelegationStepAtomic({
         activeFraction,
         applicationPriceQuotes: currentApplication.applicationPriceQuotes,
@@ -1885,6 +1935,7 @@ export function DepositDialog({
         stakedGctlBalance,
         usdcBalance: usdcBalance ?? 0n,
         ethBalance: ethBalance ?? 0n,
+        unclaimedGlwBalance: unclaimedGlw.totalGlwWei,
       });
       const currentSgctlRequiredAmount =
         currentAffordability.requiredByMethod.SGCTL ?? 0n;
@@ -2172,6 +2223,94 @@ export function DepositDialog({
 
         // We should now have enough GLW.
         updateStepStatus("DELEGATE_GLW", "waiting_signature");
+      } else if (isUnclaimedRewardsPayment) {
+        if (claimSetSelection.shortfallGlwWei > 0n) {
+          throw new Error(
+            "Not enough unclaimed GLW to fund this delegation. Lower the amount or pick another payment method.",
+          );
+        }
+
+        const fromAddress = getHotWalletAddress();
+        const allSelectedWeeks = Array.from(
+          new Set(
+            [
+              ...claimSetSelection.pdWeeks,
+              ...claimSetSelection.inflationWeeks,
+            ].map((w) => w.week),
+          ),
+        );
+
+        const userProofsByWeek = new Map<number, ReadableLeafReward>();
+        for (const week of allSelectedWeeks) {
+          const data = await fetchWeeklyReportData(week);
+          const proof = data.readableLeaves.find(
+            (leaf) =>
+              leaf.user.toLowerCase() === userAddress.toLowerCase(),
+          );
+          if (!proof) {
+            throw new Error(
+              `Missing merkle proof for week ${week}. Please retry in a moment.`,
+            );
+          }
+          userProofsByWeek.set(week, proof);
+        }
+
+        if (claimSetSelection.pdWeeks.length > 0) {
+          const pdWeeklyData = claimSetSelection.pdWeeks.map((item) => {
+            const proof = userProofsByWeek.get(item.week)!;
+            return {
+              week: item.week,
+              nonce: weekToNonce(item.week),
+              v2Proof: proof.v2MerkleProof as `0x${string}`[],
+              fromAddress,
+              onchainAssetsEarned: proof.onchainAssetsEarned,
+            };
+          });
+          const pdTxHash =
+            await rewardsKernelWrapper.claimAllProtocolDepositsInOneTx(
+              pdWeeklyData,
+            );
+          if (!pdTxHash) {
+            throw new Error("Failed to claim protocol deposit rewards");
+          }
+        }
+
+        for (const item of claimSetSelection.inflationWeeks) {
+          const proof = userProofsByWeek.get(item.week)!;
+          const inflationOnlyRewards: ClaimableReward[] = [
+            {
+              week: item.week,
+              currency: "GLW",
+              amount: "",
+              amountRaw: proof.glowInflationEarned,
+              type: "glowInflation",
+            },
+          ];
+          const txHash = await rewardsKernelWrapper.claimWeekRewards(
+            item.week,
+            inflationOnlyRewards,
+            weekToNonce(item.week),
+            proof.v1MerkleProof as `0x${string}`[],
+            proof.v2MerkleProof as `0x${string}`[],
+            fromAddress,
+            proof.glowInflationEarnedLeafWeight,
+            undefined,
+            {
+              suppressWeekSuccessToast: true,
+              throwOnUserRejected: true,
+            },
+          );
+          if (!txHash) {
+            throw new Error(
+              `Failed to claim emission rewards for week ${item.week}`,
+            );
+          }
+        }
+
+        await refetchBalances();
+        unclaimedGlw.refetch();
+
+        updateStepStatus("BUY_FRACTIONS", "waiting_signature");
       } else {
         updateStepStatus("BUY_FRACTIONS", "waiting_signature");
       }
@@ -3284,6 +3423,37 @@ export function DepositDialog({
                   }
                 />
               )}
+              {showUnclaimedRewardsOption && (
+                <>
+                  <PaymentOption
+                    label={`Use unclaimed rewards (${parseFloat(
+                      formatUnits(unclaimedGlw.totalGlwWei, 18),
+                    ).toLocaleString()} GLW available)`}
+                    balance={`${parseFloat(
+                      formatUnits(unclaimedGlw.totalGlwWei, 18),
+                    ).toLocaleString()} GLW unclaimed`}
+                    icon={<TokenIcon symbol="GLW" />}
+                    selected={
+                      selectedPaymentMethod === "UNCLAIMED_REWARDS"
+                    }
+                    onSelect={() =>
+                      setSelectedPaymentMethod("UNCLAIMED_REWARDS")
+                    }
+                    isBalanceInsufficient={
+                      isConnected &&
+                      selectedPaymentMethod === "UNCLAIMED_REWARDS" &&
+                      !affordability.canSubmit
+                    }
+                    pricePreview={requiredDisplayByMethod.UNCLAIMED_REWARDS}
+                    previewLabel={dd.previewDelegationAmount}
+                  />
+                  {selectedPaymentMethod === "UNCLAIMED_REWARDS" && (
+                    <UnclaimedRewardsBreakdown
+                      selection={claimSetSelection}
+                    />
+                  )}
+                </>
+              )}
               {runtimeSelectedCurrency === "SGCTL" &&
                 showStakedSgctlOption && (
                 <PaymentOption
@@ -3591,6 +3761,61 @@ function PaymentOption({
           <div className="h-2 w-2 rounded-full bg-[color:var(--color-glow-orange)] ml-auto mt-1" />
         )}
       </div>
+    </div>
+  );
+}
+
+function UnclaimedRewardsBreakdown({
+  selection,
+}: {
+  selection: ClaimSetSelection;
+}) {
+  const { pdWeeks, inflationWeeks, totalGlwWei, shortfallGlwWei, txCount } =
+    selection;
+  const totalGlw = parseFloat(formatUnits(totalGlwWei, 18));
+  const hasAny = pdWeeks.length > 0 || inflationWeeks.length > 0;
+
+  if (!hasAny && shortfallGlwWei === 0n) {
+    return null;
+  }
+
+  const pdWeeksLabel = pdWeeks
+    .map((w) => w.week)
+    .sort((a, b) => a - b)
+    .join(", ");
+  const inflationWeeksLabel = inflationWeeks
+    .map((w) => w.week)
+    .sort((a, b) => a - b)
+    .join(", ");
+
+  return (
+    <div className="rounded-xl border border-border/20 dark:border-border/40 bg-muted/20 dark:bg-muted/40 px-3 py-2 text-xs text-muted-foreground space-y-1">
+      {pdWeeks.length > 0 && (
+        <div>
+          1 multicall claiming PD weeks {pdWeeksLabel}
+        </div>
+      )}
+      {inflationWeeks.length > 0 && (
+        <div>
+          {inflationWeeks.length} emission tx for week
+          {inflationWeeks.length === 1 ? "" : "s"} {inflationWeeksLabel}
+        </div>
+      )}
+      <div className="text-foreground font-mono">
+        Total: {totalGlw.toLocaleString(undefined, { maximumFractionDigits: 4 })}{" "}
+        GLW, {txCount} signature{txCount === 1 ? "" : "s"}
+        {" + 1 delegation tx"}
+      </div>
+      {shortfallGlwWei > 0n && (
+        <div className="text-red-500">
+          Short by{" "}
+          {parseFloat(formatUnits(shortfallGlwWei, 18)).toLocaleString(
+            undefined,
+            { maximumFractionDigits: 4 },
+          )}{" "}
+          GLW. Lower the amount or use another payment method.
+        </div>
+      )}
     </div>
   );
 }
