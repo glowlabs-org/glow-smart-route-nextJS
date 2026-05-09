@@ -85,6 +85,18 @@ export interface ProtocolDepositMulticallWeek {
   }>;
 }
 
+// Result of claimAllProtocolDepositsInOneTx. `txHash` is the multicall tx
+// hash when the wrapper actually broadcasts a claim. `alreadyClaimedWeeks`
+// is the subset of `weeklyData` that the kernel reports as already-claimed
+// on-chain at the time of the call. Callers should treat both signals as
+// "this week is now in the claimed state" and apply their optimistic UI
+// update accordingly — that way a retry after a dropped modal still
+// reconciles the UI even though the indexer has not caught up yet.
+export interface ClaimAllProtocolDepositsResult {
+  txHash: string | null;
+  alreadyClaimedWeeks: number[];
+}
+
 type ClaimAttemptResult =
   | {
       status: "success";
@@ -136,7 +148,7 @@ export interface UseRewardsKernelWrapperResult {
   ) => Promise<string[]>;
   claimAllProtocolDepositsInOneTx: (
     weeklyData: ProtocolDepositMulticallWeek[],
-  ) => Promise<string | null>;
+  ) => Promise<ClaimAllProtocolDepositsResult>;
   isClaimingWeek: number | null;
   isClaimingAll: boolean;
   checkIfClaimed: (
@@ -970,15 +982,20 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
   const claimAllProtocolDepositsInOneTx = useCallback(
     async (
       weeklyData: ProtocolDepositMulticallWeek[],
-    ): Promise<string | null> => {
+    ): Promise<ClaimAllProtocolDepositsResult> => {
+      const empty: ClaimAllProtocolDepositsResult = {
+        txHash: null,
+        alreadyClaimedWeeks: [],
+      };
+
       if (!walletClient?.account?.address) {
         toast.error("Please connect your wallet");
-        return null;
+        return empty;
       }
 
       if (!weeklyData.length) {
         toast.info("No protocol deposit rewards available to claim");
-        return null;
+        return empty;
       }
 
       setIsClaimingAll(true);
@@ -986,6 +1003,8 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
       try {
         const userAddress = walletClient.account.address as `0x${string}`;
         const claims: ClaimPayoutParams[] = [];
+        const claimWeeks: number[] = [];
+        const alreadyClaimedWeeks: number[] = [];
         const skippedWeeks: number[] = [];
 
         for (const weekData of weeklyData) {
@@ -999,7 +1018,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
             weekData.nonce,
           );
           if (alreadyClaimed) {
-            skippedWeeks.push(weekData.week);
+            alreadyClaimedWeeks.push(weekData.week);
             continue;
           }
 
@@ -1017,11 +1036,21 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
             userAddress,
           );
           claims.push(claimParams);
+          claimWeeks.push(weekData.week);
         }
 
         if (!claims.length) {
-          toast.info("All protocol deposit rewards are already claimed");
-          return null;
+          // Common case after a tx that actually succeeded but the indexer
+          // has not picked it up yet: the kernel says all weeks are already
+          // claimed. Report them so the caller can mark them as claimed
+          // optimistically instead of leaving the UI in the "ready to claim"
+          // state that produced the retry.
+          if (alreadyClaimedWeeks.length > 0) {
+            toast.info("All protocol deposit rewards are already claimed");
+          } else {
+            toast.info("No protocol deposit rewards available to claim");
+          }
+          return { txHash: null, alreadyClaimedWeeks };
         }
 
         const txHash = await rewardsKernel.claimPayoutsMulticall({ claims });
@@ -1035,9 +1064,11 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           console.error("Error waiting for claim-all receipt:", error);
         }
 
+        const skippedAndAlreadyClaimedCount =
+          skippedWeeks.length + alreadyClaimedWeeks.length;
         const skippedDescription =
-          skippedWeeks.length > 0
-            ? `${skippedWeeks.length} week(s) were skipped (already claimed or not finalized).`
+          skippedAndAlreadyClaimedCount > 0
+            ? `${skippedAndAlreadyClaimedCount} week(s) were skipped (already claimed or not finalized).`
             : undefined;
 
         toast.success(
@@ -1047,7 +1078,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           },
         );
 
-        return txHash;
+        return { txHash, alreadyClaimedWeeks };
       } catch (error: any) {
         console.error("Claim all protocol deposits error:", error);
         const errorMessage =
@@ -1069,7 +1100,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           });
         }
 
-        return null;
+        return empty;
       } finally {
         setIsClaimingAll(false);
       }

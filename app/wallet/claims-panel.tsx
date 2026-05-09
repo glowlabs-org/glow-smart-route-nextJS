@@ -1983,12 +1983,24 @@ export function ClaimsPanel({
         return;
       }
 
-      const txHash = await claimAllProtocolDepositsInOneTx(weeklyData);
+      const { txHash, alreadyClaimedWeeks } =
+        await claimAllProtocolDepositsInOneTx(weeklyData);
 
-      if (txHash) {
+      // Optimistically mark every week the kernel reports as claimed
+      // on-chain, whether the wrapper just landed the multicall or merely
+      // observed the prior tx. This stops the UI from inviting the user
+      // back into a re-claim attempt while the indexer catches up.
+      const claimedNow = txHash
+        ? weeklyData
+            .filter((w) => !alreadyClaimedWeeks.includes(w.week))
+            .map((w) => w.week)
+        : [];
+      const claimedTotal = [...claimedNow, ...alreadyClaimedWeeks];
+
+      if (claimedTotal.length > 0) {
         setV2ClaimedWeeks((prev) => {
           const next = new Set(prev);
-          weeklyData.forEach((week) => next.add(week.week));
+          claimedTotal.forEach((week) => next.add(week));
           return next;
         });
 

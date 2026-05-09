@@ -2266,11 +2266,21 @@ export function DepositDialog({
               onchainAssetsEarned: proof.onchainAssetsEarned,
             };
           });
-          const pdTxHash =
+          const pdResult =
             await rewardsKernelWrapper.claimAllProtocolDepositsInOneTx(
               pdWeeklyData,
             );
-          if (!pdTxHash) {
+          // The wrapper may report no new tx hash because every selected
+          // week was already claimed on-chain (e.g., a previous attempt
+          // landed but the user retried before the indexer caught up). That
+          // is functionally success for the delegate-from-rewards path — the
+          // GLW from those PD weeks is already in the wallet — so only fail
+          // when the wrapper neither broadcast a tx nor saw matching
+          // already-claimed weeks.
+          const pdEffectiveCovered =
+            pdResult.txHash != null ||
+            pdResult.alreadyClaimedWeeks.length === pdWeeklyData.length;
+          if (!pdEffectiveCovered) {
             throw new Error("Failed to claim protocol deposit rewards");
           }
         }
