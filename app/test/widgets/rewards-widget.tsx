@@ -374,6 +374,7 @@ export default function RewardsWidget({
               <DialogContent
                 className="bg-card rounded-[24px] p-0 sm:max-w-[980px] w-full border border-border/20 dark:border-border/40 overflow-hidden"
                 onInteractOutside={(e) => e.preventDefault()}
+                onEscapeKeyDown={(e) => e.preventDefault()}
               >
                 <DialogTitle className="sr-only">{t.widgets.rewardsWidget.dialogSrOnlyTitle}</DialogTitle>
                 <ClaimsPanel
