@@ -62,6 +62,7 @@ import {
   type TransactionDetail,
 } from "@/components/dialogs/transaction-dialog";
 import { getCurrentEpoch, GENESIS_TIMESTAMP } from "@/utils/getCurrentEpoch";
+import { getNextWednesdayAt1pmET } from "@/utils/nextTuesdayET";
 import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-warning-dialog";
 import { trackEvent } from "@/lib/telemetry";
 import { formatRewardPipelineDate } from "@/utils/reward-pipeline";
@@ -171,6 +172,20 @@ function formatWeekDate(week: number): string {
     day: "numeric",
     year: "numeric",
   });
+}
+
+// Per the early-claim-delegation mechanic, raw claims unlock the Wednesday at
+// 1pm ET that follows the protocol's Saturday-night-ET finalization. The
+// Tuesday launchpad delegation window sits between the two, giving users a
+// claim-and-delegate path that opens before the standalone unlock.
+function computeClaimUnlockTimestampMs(
+  week: number,
+  weeksToWait: number,
+): number {
+  const weekSeconds = 7 * 86_400;
+  const finalizationMs =
+    (GENESIS_TIMESTAMP + (week + weeksToWait) * weekSeconds) * 1000;
+  return getNextWednesdayAt1pmET(new Date(finalizationMs)).getTime();
 }
 
 // Helper to get Etherscan URL based on chain ID
@@ -339,12 +354,10 @@ function WeekClaimButton({
 
   const weeksToWait =
     claimType === "v2Only" || hasProtocolDeposits ? 4 : 3;
-  const targetTimestampMs = React.useMemo(() => {
-    const weekSeconds = 7 * 86_400;
-    return (
-      (GENESIS_TIMESTAMP + (weekData.week + weeksToWait) * weekSeconds) * 1000
-    );
-  }, [weekData.week, weeksToWait]);
+  const targetTimestampMs = React.useMemo(
+    () => computeClaimUnlockTimestampMs(weekData.week, weeksToWait),
+    [weekData.week, weeksToWait],
+  );
 
   // Avoid any ticking state here (it causes visible “flicker” across many rows).
   // This will update whenever the component re-renders for other reasons.
@@ -641,11 +654,11 @@ function ClaimButtonsWrapper({
   }
 
   if (!isGlwFinalized && !isPdFinalized) {
-    const weekSeconds = 7 * 86_400;
     const pendingWeeksToWait = hasProtocolDeposits ? 4 : 3;
-    const claimableTs =
-      (GENESIS_TIMESTAMP + (weekData.week + pendingWeeksToWait) * weekSeconds) *
-      1000;
+    const claimableTs = computeClaimUnlockTimestampMs(
+      weekData.week,
+      pendingWeeksToWait,
+    );
     const claimableDateLabel = new Date(claimableTs).toLocaleDateString(
       getBcp47(lang),
       { month: "short", day: "numeric" }
@@ -729,9 +742,7 @@ function WeekRewardsContent({
     (!hasProtocolRewards || (isPdFinalized && !isEpoch121PdDelayed));
   const protocolUnlockDateLabel = React.useMemo(() => {
     if (weekData.week === 121) return "Apr 18";
-    const weekSeconds = 7 * 86_400;
-    const claimableTimestamp =
-      (GENESIS_TIMESTAMP + (weekData.week + 4) * weekSeconds) * 1000;
+    const claimableTimestamp = computeClaimUnlockTimestampMs(weekData.week, 4);
     return formatRewardPipelineDate(claimableTimestamp, {
       month: "short",
       day: "numeric",
@@ -1118,10 +1129,10 @@ function PendingRewardsNotice({
     (r) => r.type === "protocolDeposit"
   );
   const earliestWait = earliestHasPd ? 4 : 3;
-  const weekSeconds = 7 * 86_400;
-  const claimableTimestamp =
-    (GENESIS_TIMESTAMP + (earliestPending.week + earliestWait) * weekSeconds) *
-    1000;
+  const claimableTimestamp = computeClaimUnlockTimestampMs(
+    earliestPending.week,
+    earliestWait,
+  );
   const dateLabel = formatRewardPipelineDate(claimableTimestamp, {
     month: "short",
     day: "numeric",
