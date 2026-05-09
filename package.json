@@ -7,7 +7,7 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx --ignore-pattern .next --ignore-pattern out --ignore-pattern node_modules",
     "generate": "drizzle-kit generate:pg",
     "db:push": "drizzle-kit push:pg",
     "studio": "npx drizzle-kit studio",

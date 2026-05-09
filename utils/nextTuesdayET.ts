@@ -2,6 +2,7 @@ import { getLaunchpadNowMs } from "@/utils/launchpad-now";
 
 const ET_TIME_ZONE = "America/New_York";
 const TUESDAY = 2;
+const WEDNESDAY = 3;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 const etFormatter = new Intl.DateTimeFormat("en-US", {
@@ -140,6 +141,47 @@ export function getNextTuesdayAt1amET(fromDate: Date = new Date()): Date {
 // If today is Tuesday but past 1:00 PM ET, it returns next week's Tuesday.
 export function getNextTuesdayAt1pmET(fromDate: Date = new Date()): Date {
   return getNextTuesdayAtETHour(13, fromDate);
+}
+
+// Computes the next Wednesday at the given ET hour, from the supplied moment.
+// If the supplied moment is a Wednesday but past the target hour, the result
+// is next week's Wednesday. Used by the claims panel to push the per-week
+// unlock from Saturday night ET to the Wednesday following the launchpad
+// delegation window.
+export function getNextWednesdayAtETTime(
+  hour: number,
+  minute: number,
+  fromDate?: Date,
+): Date {
+  const baseDate = fromDate ?? new Date(getLaunchpadNowMs());
+  const now = new Date(baseDate.getTime());
+  const etNow = getETParts(now);
+  let addDays = (WEDNESDAY - etNow.weekday + 7) % 7;
+
+  if (addDays === 0) {
+    const isPastTargetTime =
+      etNow.hour > hour ||
+      (etNow.hour === hour && etNow.minute > minute) ||
+      (etNow.hour === hour &&
+        etNow.minute === minute &&
+        etNow.second > 0);
+    if (isPastTargetTime) addDays = 7;
+  }
+
+  const candidate = new Date(now.getTime() + addDays * MS_PER_DAY);
+  const etCandidate = getETParts(candidate);
+
+  return buildDateForETWallTime({
+    year: etCandidate.year,
+    month: etCandidate.month,
+    day: etCandidate.day,
+    hour,
+    minute,
+  });
+}
+
+export function getNextWednesdayAt1pmET(fromDate?: Date): Date {
+  return getNextWednesdayAtETTime(13, 0, fromDate);
 }
 
 export function getNextMiningCenterBatchAtET(
