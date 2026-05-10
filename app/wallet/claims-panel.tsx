@@ -699,6 +699,7 @@ type WeekRewardsContentProps = {
   isClaimable: boolean;
   isClaimingWeek: number | null;
   isClaimingAll: boolean;
+  isClaimGateActive?: boolean;
   claimDialogStatus: ClaimDialogStatus;
   address?: string;
   onInitiateClaim: (payload: ClaimInitiationPayload) => void;
@@ -712,6 +713,7 @@ function WeekRewardsContent({
   isClaimable,
   isClaimingWeek,
   isClaimingAll,
+  isClaimGateActive = false,
   claimDialogStatus,
   address,
   onInitiateClaim,
@@ -931,7 +933,8 @@ function WeekRewardsContent({
                   isClaimingWeek === weekData.week ||
                   isClaimingAll ||
                   claimDialogStatus === "processing" ||
-                  claimingRewardType !== null
+                  claimingRewardType !== null ||
+                  isClaimGateActive
                 }
               >
                 {claimingRewardType ===
@@ -2654,6 +2657,7 @@ export function ClaimsPanel({
                     isClaimable={isClaimable}
                     isClaimingWeek={isClaimingWeek}
                     isClaimingAll={isBulkClaiming}
+                    isClaimGateActive={isClaimGateActive}
                     claimDialogStatus={claimDialogStatus}
                     address={address}
                     onInitiateClaim={handleInitiateClaim}
