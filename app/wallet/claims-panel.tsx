@@ -2557,7 +2557,19 @@ export function ClaimsPanel({
               (!hasGlwRewards || isGlwFinalized) &&
               (!hasProtocolRewards || isPdFinalized);
 
-            const isClaimable = !isClaimed && weekData.isFinalized;
+            // The expanded-row claim buttons must respect the same
+            // Wednesday-at-1pm-ET unlock floor as the row's countdown button.
+            // Without this, a week shows "Claim in 3 days" on the main row
+            // while the per-reward buttons inside the row stay live.
+            const expandedRowWeeksToWait = hasProtocolRewards ? 4 : 3;
+            const expandedRowUnlockMs = computeClaimUnlockTimestampMs(
+              weekData.week,
+              expandedRowWeeksToWait,
+            );
+            const isClaimable =
+              !isClaimed &&
+              weekData.isFinalized &&
+              Date.now() >= expandedRowUnlockMs;
 
             const totalGlwNum = parseFloat(weekData.totalGlw || "0");
             const totalProtocolNum = Array.from(
