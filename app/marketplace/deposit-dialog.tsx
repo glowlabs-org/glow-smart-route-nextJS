@@ -866,8 +866,11 @@ export function DepositDialog({
     [unclaimedGlw.items, targetGlwForUnclaimed],
   );
 
-  const showUnclaimedRewardsOption =
-    runtimeSelectedCurrency === "GLW" && unclaimedGlw.totalGlwWei > 0n;
+  // Temporarily hidden while the claim-and-delegate flow is held back; the
+  // supporting hooks (useUnclaimedGlwForDelegation, useRewardsKernelWrapper)
+  // and the submit branch stay wired so restoring is a one-line revert to:
+  //   runtimeSelectedCurrency === "GLW" && unclaimedGlw.totalGlwWei > 0n;
+  const showUnclaimedRewardsOption = false;
 
   const formatTokenAmount = React.useCallback(
     (
