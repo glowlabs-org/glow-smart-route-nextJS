@@ -7,6 +7,27 @@ export type WalletChainProvider = {
   getNetwork?: () => Promise<{ chainId?: unknown }>;
 };
 
+export function chainIdToName(chainId: number): string {
+  switch (chainId) {
+    case 1:
+      return "Ethereum Mainnet";
+    case 11155111:
+      return "Sepolia";
+    case 8453:
+      return "Base";
+    case 84532:
+      return "Base Sepolia";
+    case 10:
+      return "Optimism";
+    case 137:
+      return "Polygon";
+    case 42161:
+      return "Arbitrum";
+    default:
+      return `chain ${chainId}`;
+  }
+}
+
 export function normalizeChainId(value: unknown): number | undefined {
   if (typeof value === "number") {
     if (Number.isSafeInteger(value) && value > 0) return value;

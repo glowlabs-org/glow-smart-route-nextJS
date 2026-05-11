@@ -12,7 +12,7 @@ import { hubGet, hubPost } from "@/lib/api/hub-client";
 import { toast } from "sonner";
 import { trackEvent } from "@/lib/telemetry";
 import { parseReferralError } from "@/lib/referral-errors";
-import { resolveWalletChainId } from "@/lib/tos-chain";
+import { chainIdToName, resolveWalletChainId } from "@/lib/tos-chain";
 import * as Sentry from "@sentry/nextjs";
 import {
   clearStoredReferralAttribution,
@@ -80,34 +80,66 @@ export function useReferral() {
   const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID) || 1;
 
   // Mobile in-wallet browsers (Coinbase WebView, Privy useActiveWallet) often
-  // expose a different active chain than wagmi reports. viem's signTypedData
-  // pre-checks domain.chainId against the wallet's actual chain and throws
-  // InvalidParamsRpcError on mismatch — so we resolve the real chain first and
-  // ask the wallet to switch before signing.
+  // expose a different active chain than wagmi reports. The wallet's own
+  // eth_signTypedData_v4 pre-check rejects when domain.chainId doesn't match
+  // the active chain ("Provided chainId ... must match the active chainId ..."),
+  // so we resolve the real chain first and ask the wallet to switch.
+  //
+  // Two known footguns we guard against here:
+  //   1. resolveWalletChainId can return `undefined` (provider rejects
+  //      eth_chainId) — never treat unknown as "already on the right chain."
+  //   2. switchChainAsync sometimes resolves before the underlying wallet has
+  //      actually switched (Privy + external mobile wallets) — poll for
+  //      confirmation post-switch instead of trusting the resolution.
   const ensureCorrectChain = React.useCallback(async () => {
-    const walletChainId = await resolveWalletChainId({
-      connectorClient: connectorClient as
-        | { request?: (args: { method: string; params?: unknown[] }) => Promise<unknown> }
-        | undefined,
-      fallbackChainId: chainId,
-    });
+    const connector = connectorClient as
+      | { request?: (args: { method: string; params?: unknown[] }) => Promise<unknown> }
+      | undefined;
+    const provider =
+      typeof window !== "undefined"
+        ? (window as unknown as {
+            ethereum?: {
+              request?: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+            };
+          }).ethereum
+        : undefined;
 
-    if (walletChainId === chainId) return;
+    const targetName = chainIdToName(chainId);
 
-    await switchChainAsync({ chainId });
+    const readChain = () =>
+      resolveWalletChainId({
+        connectorClient: connector,
+        signerProvider:
+          provider?.request
+            ? {
+                // Wrap in a closure so the provider keeps its `this` binding
+                // (some wallets implement request() as a non-bound method).
+                send: (method, params) =>
+                  provider.request!({ method, params: params ?? [] }),
+              }
+            : undefined,
+      });
 
-    const switchedChainId = await resolveWalletChainId({
-      connectorClient: connectorClient as
-        | { request?: (args: { method: string; params?: unknown[] }) => Promise<unknown> }
-        | undefined,
-      fallbackChainId: chainId,
-    });
+    const reported = await readChain();
+    if (reported === chainId) return;
 
-    if (switchedChainId !== chainId) {
-      throw new Error(
-        `Please switch your wallet to chain ${chainId} and try again.`
-      );
+    try {
+      await switchChainAsync({ chainId });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (/user rejected|user denied|rejected the request/i.test(message)) {
+        throw err;
+      }
+      throw new Error(`Please switch your wallet to ${targetName} and try again.`);
     }
+
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const confirmed = await readChain();
+      if (confirmed === chainId) return;
+      await new Promise((r) => setTimeout(r, 250));
+    }
+
+    throw new Error(`Please switch your wallet to ${targetName} and try again.`);
   }, [chainId, connectorClient, switchChainAsync]);
 
   React.useEffect(() => {

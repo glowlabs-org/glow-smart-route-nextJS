@@ -41,11 +41,23 @@ describe("referral error helpers", () => {
 
   it("classifies the manual switch-required error thrown by ensureCorrectChain", () => {
     const parsed = parseReferralError(
-      new Error("Please switch your wallet to chain 1 and try again.")
+      new Error("Please switch your wallet to Ethereum Mainnet and try again.")
     );
 
     expect(parsed.type).toBe("wrong_chain");
     expect(parsed.isUserRejection).toBe(false);
+  });
+
+  it("classifies wallet-side chain mismatch errors (MetaMask / viem wrapper)", () => {
+    const parsed = parseReferralError(
+      new Error(
+        'Provided chainId "1" must match the active chainId "8453"\nVersion: viem@2.47.12'
+      )
+    );
+
+    expect(parsed.type).toBe("wrong_chain");
+    expect(parsed.isUserRejection).toBe(false);
+    expect(parsed.message.toLowerCase()).toContain("network");
   });
 
   it("classifies deadline expiration errors", () => {

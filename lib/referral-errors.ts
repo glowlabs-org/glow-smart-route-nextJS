@@ -1,3 +1,10 @@
+import { chainIdToName } from "@/lib/tos-chain";
+
+function targetChainName(): string {
+  const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID) || 1;
+  return chainIdToName(chainId);
+}
+
 export type ReferralErrorType =
   | "signature_rejected"
   | "signature_mismatch"
@@ -71,12 +78,15 @@ export function parseReferralError(error: unknown): ParsedReferralError {
     lower.includes("domain_chain_mismatch") ||
     (lower.includes("different chain") && lower.includes("signature")) ||
     lower.includes("active chainid is different than the one provided") ||
-    lower.includes("please switch your wallet to chain")
+    lower.includes("must match the active chainid") ||
+    (lower.includes("provided chainid") && lower.includes("active chainid")) ||
+    lower.includes("chainmismatcherror") ||
+    lower.includes("does not match the target chain") ||
+    lower.includes("please switch your wallet to")
   ) {
     return {
       type: "wrong_chain",
-      message:
-        "Wrong network. Please switch your wallet to the Glow network and try again.",
+      message: `Your wallet is on the wrong network. Please switch it to ${targetChainName()} and try again.`,
       isUserRejection: false,
       isValidationError: false,
     };
