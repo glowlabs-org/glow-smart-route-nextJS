@@ -11,6 +11,7 @@ import {
 } from "@glowlabs-org/utils/browser";
 import type { Kickstarter } from "@glowlabs-org/utils/browser";
 import {
+  getControlApiUrl,
   getFarmsRouter,
   getKickstarterRouter,
 } from "@/lib/api/control-routers";
@@ -83,6 +84,65 @@ export function useWalletFarms(params: {
         );
       } catch (error) {
         console.error("Error fetching wallet farms:", error);
+        return [];
+      }
+    },
+  });
+
+  return {
+    farms: query.data || [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+  } as const;
+}
+
+/**
+ * Fetch wallet farms with the simulator evaluated at a specific historical
+ * epoch instead of the current one. Used by the wallet view to surface the
+ * just-ended week's locked estimate for pending-start cards (the live
+ * estimate dilutes as new delegators land in the current epoch).
+ *
+ * Uses a direct fetch instead of the SDK because the SDK helper does not
+ * yet forward the `week` query param.
+ */
+export function useWalletFarmsAtWeek(params: {
+  walletAddress?: string;
+  week?: number;
+  enabled?: boolean;
+}) {
+  const { walletAddress, week, enabled = true } = params;
+  const isConfigured = Boolean(process.env.NEXT_PUBLIC_CONTROL_API_URL);
+  const isWeekValid =
+    typeof week === "number" && Number.isInteger(week) && week >= 0;
+
+  const query = useQuery({
+    queryKey: ["wallets", "farms", walletAddress, "week", week] as const,
+    enabled: enabled && isConfigured && Boolean(walletAddress) && isWeekValid,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchOnMount: true,
+    queryFn: async (): Promise<FarmWithRewards[]> => {
+      if (!walletAddress || !isWeekValid) return [];
+      try {
+        const baseUrl = getControlApiUrl().replace(/\/$/, "");
+        const url = `${baseUrl}/farms/wallet/${encodeURIComponent(
+          walletAddress
+        )}/farms-with-rewards?week=${week}`;
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(
+            `farms-with-rewards@week=${week} returned ${response.status}`
+          );
+        }
+        const data = (await response.json()) as {
+          farms?: FarmWithRewards[];
+        };
+        return data.farms ?? [];
+      } catch (error) {
+        console.error("Error fetching wallet farms at week:", error);
         return [];
       }
     },

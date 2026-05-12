@@ -64,11 +64,13 @@ import {
   useGlowLaunchpad,
   useRewardsBreakdown,
   useWalletFarms,
+  useWalletFarmsAtWeek,
   useRegions,
   useSplitsActivity,
   useMiningCenter,
   useMiningScore,
 } from "@/hooks";
+import { getCurrentEpoch } from "@/utils/getCurrentEpoch";
 import { useWalletLaunchpadInProgress } from "@/hooks/use-wallet-launchpad-in-progress";
 import { useQuery } from "@tanstack/react-query";
 import { getRegionRouter } from "@/lib/api/control-routers";
@@ -1987,6 +1989,29 @@ export default function MyFarmsGridSection({
     enabled: hasWallet,
   });
 
+  // Last-epoch snapshot of per-wallet weekly rewards. Used by pending-start
+  // cards so the displayed estimate is the value locked at the end of the
+  // just-ended week, not the current-week live value which dilutes as more
+  // delegators land on the farm (e.g. Beacon Knoll dropped from ~14k to
+  // ~5.98k GLW between Sunday and Monday). Audited rewards for the previous
+  // epoch don't post until Thursday; this fills the gap.
+  const previousEpoch = React.useMemo(
+    () => Math.max(getCurrentEpoch() - 1, 0),
+    [],
+  );
+  const { farms: purchasedFarmsLastWeek } = useWalletFarmsAtWeek({
+    walletAddress: walletAddress ?? undefined,
+    week: previousEpoch,
+    enabled: hasWallet,
+  });
+  const purchasedFarmsLastWeekById = React.useMemo(() => {
+    const map = new Map<string, (typeof purchasedFarmsLastWeek)[number]>();
+    for (const f of purchasedFarmsLastWeek) {
+      map.set(f.farmId, f);
+    }
+    return map;
+  }, [purchasedFarmsLastWeek]);
+
   const { regions, isRegionsLoading } = useRegions();
 
   const otherFarmIds = React.useMemo(() => {
@@ -2448,7 +2473,15 @@ export default function MyFarmsGridSection({
 
     pendingByFarm.forEach((item) => {
       // Try to find images from purchasedFarms first, then sponsorListings/miningCenterListings
-      const farmMetadata = purchasedFarms.find((f) => f.farmId === item.farmId);
+      const currentFarmMetadata = purchasedFarms.find(
+        (f) => f.farmId === item.farmId,
+      );
+      // Prefer the previous-epoch simulation for the rewards estimate so the
+      // pending-start card doesn't shift as same-week delegators dilute the
+      // live per-share. Fall back to the current-week metadata if the wallet
+      // didn't yet hold this farm last week (e.g. fresh delegation today).
+      const lastWeekFarmMetadata = purchasedFarmsLastWeekById.get(item.farmId);
+      const farmMetadata = lastWeekFarmMetadata ?? currentFarmMetadata;
       const pendingLaunchpadListing = sponsorListingById.get(item.applicationId);
       const pendingMiningCenterListing = miningCenterListingById.get(
         item.applicationId
@@ -2773,6 +2806,7 @@ export default function MyFarmsGridSection({
     miningCenterInProgressWithEstimates,
     otherFarmsMap,
     purchasedFarms,
+    purchasedFarmsLastWeekById,
     regions,
     rewardsBreakdown,
     rewardedFarmTypeKeys,
