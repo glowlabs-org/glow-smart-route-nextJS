@@ -46,9 +46,11 @@ export function shouldIncludePendingStartCard(params: {
     // Mining-center purchases can legitimately have both:
     // 1. an existing rewarded farm card for older miner splits, and
     // 2. a newer pending purchase on the same farm that has not begun earning.
-    // Once that newer purchase is already claimable, the rewarded/active card
-    // should take over again instead of rendering a duplicate claim-ready card.
-    if (phase === "claimable") {
+    // The "not begun earning" condition is the epoch phase — the purchase
+    // week hasn't ended yet, so no inflation has accrued. Past that point
+    // the split's earnings flow into the rewarded card and a parallel
+    // pending-start card would just duplicate the position.
+    if (phase !== "epoch") {
       return false;
     }
   }
