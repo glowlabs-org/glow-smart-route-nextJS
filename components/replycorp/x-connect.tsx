@@ -12,6 +12,9 @@ import { cn } from "@/lib/utils";
 
 const PIXEL_SCRIPT_SRC = "https://cdn.replycorp.io/pixel.js";
 const BRAND_ID = process.env.NEXT_PUBLIC_REPLYCORP_BRAND_ID || "glow";
+// pixel.js otherwise queries the wrong host for /api/v1/pixel/config.
+const API_BASE =
+  process.env.NEXT_PUBLIC_REPLYCORP_API_BASE || "https://prod.api.replycorp.io";
 const DEFAULT_CAPTION =
   "Connect your X account to earn bonus Influence Points with your purchase.";
 
@@ -102,6 +105,7 @@ export function XConnect({
         src={PIXEL_SCRIPT_SRC}
         strategy="afterInteractive"
         data-brand-id={BRAND_ID}
+        data-api-base={API_BASE}
         onLoad={() => trackEvent("replycorp_widget_loaded", { brand: BRAND_ID })}
       />
       <div
