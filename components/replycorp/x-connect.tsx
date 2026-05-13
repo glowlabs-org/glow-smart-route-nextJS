@@ -52,25 +52,36 @@ export function XConnect({
     mutateRef.current = linkMutation.mutate;
   }, [linkMutation.mutate]);
 
+  // Pixel.js documentation says the event fires on `window`, but observed
+  // behaviour suggests it may fire on `document` (or neither, when state is
+  // restored from cache). Register on both surfaces and dedupe by twitterId
+  // so we always catch it without firing two signature prompts.
+  const lastSeenTwitterIdRef = React.useRef<string | null>(null);
   React.useEffect(() => {
     function onConnected(event: Event) {
       const detail = (event as CustomEvent<ReplycorpConnectedEventDetail>)
         .detail;
-      if (!detail?.twitterId) return;
+      const twitterId = detail?.twitterId;
+      if (!twitterId) return;
+      if (lastSeenTwitterIdRef.current === twitterId) return;
+      lastSeenTwitterIdRef.current = twitterId;
       trackEvent("replycorp_connected_event", {
-        twitterId: detail.twitterId,
+        twitterId,
         handle: detail.handle,
+        surface: event.currentTarget === window ? "window" : "document",
       });
       mutateRef.current({
-        twitterId: detail.twitterId,
+        twitterId,
         twitterHandle: detail.handle,
         displayName: detail.name,
         avatarUrl: detail.avatarUrl,
       });
     }
     window.addEventListener("replycorp:connected", onConnected);
+    document.addEventListener("replycorp:connected", onConnected);
     return () => {
       window.removeEventListener("replycorp:connected", onConnected);
+      document.removeEventListener("replycorp:connected", onConnected);
     };
   }, []);
 
