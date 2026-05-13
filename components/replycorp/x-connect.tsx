@@ -15,13 +15,14 @@ const BRAND_ID = process.env.NEXT_PUBLIC_REPLYCORP_BRAND_ID || "glow";
 // pixel.js otherwise queries the wrong host for /api/v1/pixel/config.
 const API_BASE =
   process.env.NEXT_PUBLIC_REPLYCORP_API_BASE || "https://prod.api.replycorp.io";
-const DEFAULT_CAPTION =
-  "Connect your X account to earn bonus Influence Points with your purchase.";
-
 export interface XConnectProps {
   /** Tailwind class string applied to the outer wrapper. */
   className?: string;
-  /** Override the default unlinked-state caption. */
+  /**
+   * Optional caption shown above the widget. By default no caption renders
+   * because pixel.js already shows its own CTA ("Connect X for $5 free
+   * credits") and competing copy is more noise than help.
+   */
   caption?: string;
   /** Compact mode: pill-only, no caption (for dashboard chips). */
   compact?: boolean;
@@ -37,7 +38,7 @@ export interface XConnectProps {
  */
 export function XConnect({
   className,
-  caption = DEFAULT_CAPTION,
+  caption,
   compact = false,
 }: XConnectProps) {
   const { address } = useAccount();
