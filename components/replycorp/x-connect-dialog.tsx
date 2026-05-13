@@ -253,15 +253,15 @@ export function ReplycorpLinkDialog({
             >
               {pendingTwitter ? (
                 <div className="flex items-center gap-3 rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-3">
-                  <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center">
+                  <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center shrink-0">
                     <MessageCircle className="w-4 h-4 text-muted-foreground" />
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium truncate">
                       {pendingTwitter.handle}
                     </div>
                     <div className="text-xs text-muted-foreground truncate">
-                      X user ID {pendingTwitter.userId}
+                      {pendingTwitter.provider === "x" ? "X" : pendingTwitter.provider} · ID {truncateId(pendingTwitter.userId)}
                     </div>
                   </div>
                 </div>
@@ -413,4 +413,9 @@ function ActionPanel({
 function shortenAddress(addr: string): string {
   if (!addr || addr.length < 10) return addr;
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+}
+
+function truncateId(id: string): string {
+  if (!id || id.length <= 10) return id;
+  return `${id.slice(0, 4)}…${id.slice(-4)}`;
 }
