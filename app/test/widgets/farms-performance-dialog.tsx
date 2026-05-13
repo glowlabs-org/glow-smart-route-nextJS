@@ -1636,6 +1636,44 @@ export function FarmsPerformanceDialogContent({
     );
   }, [rewardsBreakdown]);
 
+  // Mirror of my-farms-grid-section: when the rewards-breakdown's
+  // amountInvested for a mining-center farm already covers the wallet's
+  // total mining-center splits on it, the rewarded row represents the
+  // whole position. A parallel pending row would duplicate it and would
+  // estimate its weekly GLW from the *current* listing's per-step price
+  // (which has no relation to the fraction the wallet actually bought).
+  const fullyAccountedMiningCenterFarmIds = React.useMemo(() => {
+    const accounted = new Set<string>();
+    if (!rewardsBreakdown) return accounted;
+    const splitSumByFarmId = new Map<string, bigint>();
+    for (const evt of splitsActivity) {
+      if (evt.fractionType !== "mining-center") continue;
+      if (!evt.farmId) continue;
+      try {
+        const amount = BigInt(evt.amount ?? "0");
+        splitSumByFarmId.set(
+          evt.farmId,
+          (splitSumByFarmId.get(evt.farmId) ?? 0n) + amount,
+        );
+      } catch {
+        // Skip splits with unparseable amounts.
+      }
+    }
+    for (const farm of rewardsBreakdown.farmDetails) {
+      if (farm.type !== "mining-center") continue;
+      try {
+        const invested = BigInt(farm.amountInvested ?? "0");
+        const splitSum = splitSumByFarmId.get(farm.farmId) ?? 0n;
+        if (splitSum > 0n && invested >= splitSum) {
+          accounted.add(farm.farmId);
+        }
+      } catch {
+        // Skip farms with unparseable amountInvested.
+      }
+    }
+    return accounted;
+  }, [rewardsBreakdown, splitsActivity]);
+
   const pendingStartRows = React.useMemo<PerformanceRowData[]>(() => {
     if (!splitsActivity.length) return [];
 
@@ -1689,6 +1727,11 @@ export function FarmsPerformanceDialogContent({
 
       if (rewardedFarmTypeKeys.has(farmTypeKey)) {
         if (fractionType !== "launchpad") {
+          // If the rewarded row's amountInvested already covers every
+          // mining-center dollar this wallet has on the farm, skip the
+          // pending row entirely — the rewarded row represents the full
+          // position end-to-end.
+          if (fullyAccountedMiningCenterFarmIds.has(farmId)) continue;
           const phase = evt.purchaseDate
             ? buildPendingRewardTimeline({ purchaseDate: evt.purchaseDate }).phase
             : null;
@@ -1913,6 +1956,7 @@ export function FarmsPerformanceDialogContent({
     regions,
     purchasedFarms,
     rewardedFarmTypeKeys,
+    fullyAccountedMiningCenterFarmIds,
     splitsActivity,
     sponsorListingById,
     launchpadCurrenciesByFarmId,
