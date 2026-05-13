@@ -99,81 +99,59 @@ export function ReplycorpLinkDialog({
     };
   }, [open]);
 
-  // Listen on both window and document — pixel.js's docs say `window` but
-  // observed behaviour suggests it can vary, so we hedge to be safe and
-  // dedupe by twitterId.
+  // Capture pixel.js's connected identity. Per ReplyCorp (Tim, 2026-05-13):
+  //   - Event fires on `window` with detail `{ provider, handle, userId }`.
+  //   - `window.ReplyCorp.onConnected(cb)` is the preferred API and also
+  //     fires for cached sessions, which the event alone does not.
+  // We register both, dedupe by userId, and let whichever fires first win.
   React.useEffect(() => {
     if (!open) return;
-    console.log("[ReplycorpLinkDialog] listener attached");
-    function onConnected(event: Event) {
-      const surface = event.currentTarget === window ? "window" : "document";
-      console.log(
-        `[ReplycorpLinkDialog] replycorp:connected on ${surface}`,
-        event,
-      );
-      const detail = (event as CustomEvent<ReplycorpConnectedEventDetail>)
-        .detail;
-      console.log("[ReplycorpLinkDialog] event.detail:", detail);
-      if (!detail?.twitterId) {
-        console.warn(
-          "[ReplycorpLinkDialog] event has no twitterId — payload shape mismatch?",
-          detail,
-        );
-        return;
-      }
+
+    function handleIdentity(detail: ReplycorpConnectedEventDetail | undefined) {
+      if (!detail?.userId) return;
       trackEvent("replycorp_connected_event", {
-        twitterId: detail.twitterId,
+        userId: detail.userId,
         handle: detail.handle,
-        surface,
+        provider: detail.provider,
       });
       setPendingTwitter((prev) =>
-        prev?.twitterId === detail.twitterId ? prev : detail,
+        prev?.userId === detail.userId ? prev : detail,
       );
     }
-    // Catch-all sniffer so we can see ANY `replycorp:*` event pixel.js
-    // fires, even if its name isn't `replycorp:connected`.
-    function sniff(event: Event) {
-      if (!event.type.startsWith("replycorp")) return;
-      const surface =
-        event.currentTarget === window ? "window" : "document";
-      console.log(
-        `[ReplycorpLinkDialog] sniffed ${event.type} on ${surface}`,
-        (event as CustomEvent).detail,
-      );
+
+    function onConnectedEvent(event: Event) {
+      const detail = (event as CustomEvent<ReplycorpConnectedEventDetail>)
+        .detail;
+      handleIdentity(detail);
     }
-    window.addEventListener("replycorp:connected", onConnected);
-    document.addEventListener("replycorp:connected", onConnected);
-    // Catch-all wildcard isn't supported by addEventListener; instead, hook
-    // the prototypes so we see all dispatchEvent calls in this lifecycle.
-    const origWindowDispatch = window.dispatchEvent.bind(window);
-    const origDocDispatch = document.dispatchEvent.bind(document);
-    window.dispatchEvent = function (e: Event) {
-      if (e?.type?.startsWith("replycorp")) {
-        console.log(
-          `[ReplycorpLinkDialog] (window.dispatch) ${e.type}`,
-          (e as CustomEvent).detail,
-        );
+
+    window.addEventListener("replycorp:connected", onConnectedEvent);
+
+    // Try the imperative API too (it works for cached sessions where no
+    // event re-fires). Poll briefly because pixel.js may not have attached
+    // window.ReplyCorp yet at this moment.
+    let cancelled = false;
+    let attempts = 0;
+    function pollForApi() {
+      if (cancelled) return;
+      const pixel = (window as unknown as {
+        ReplyCorp?: {
+          onConnected?: (cb: (detail: ReplycorpConnectedEventDetail) => void) => void;
+        };
+      }).ReplyCorp;
+      if (pixel?.onConnected) {
+        pixel.onConnected((detail) => handleIdentity(detail));
+        return;
       }
-      return origWindowDispatch(e);
-    };
-    document.dispatchEvent = function (e: Event) {
-      if (e?.type?.startsWith("replycorp")) {
-        console.log(
-          `[ReplycorpLinkDialog] (document.dispatch) ${e.type}`,
-          (e as CustomEvent).detail,
-        );
-      }
-      return origDocDispatch(e);
-    };
+      attempts++;
+      if (attempts < 40) setTimeout(pollForApi, 250); // up to ~10s
+    }
+    pollForApi();
+
     return () => {
-      console.log("[ReplycorpLinkDialog] listener detached");
-      window.removeEventListener("replycorp:connected", onConnected);
-      document.removeEventListener("replycorp:connected", onConnected);
-      window.dispatchEvent = origWindowDispatch;
-      document.dispatchEvent = origDocDispatch;
+      cancelled = true;
+      window.removeEventListener("replycorp:connected", onConnectedEvent);
     };
-    // Reference sniff so the unused-var lint doesn't trip.
-    void sniff;
   }, [open]);
 
   const currentStep: StepId = status?.linked
@@ -184,11 +162,12 @@ export function ReplycorpLinkDialog({
 
   const handleSign = React.useCallback(() => {
     if (!pendingTwitter) return;
+    // pixel.js gives us handle with the leading "@"; backend stores
+    // the bare handle.
+    const bareHandle = pendingTwitter.handle.replace(/^@/, "");
     linkMutation.mutate({
-      twitterId: pendingTwitter.twitterId,
-      twitterHandle: pendingTwitter.handle,
-      displayName: pendingTwitter.name,
-      avatarUrl: pendingTwitter.avatarUrl,
+      twitterId: pendingTwitter.userId,
+      twitterHandle: bareHandle,
     });
   }, [pendingTwitter, linkMutation]);
 
@@ -268,30 +247,21 @@ export function ReplycorpLinkDialog({
               title="Step 2 of 2: Sign to link your wallet"
               description={
                 pendingTwitter
-                  ? `Connected as @${pendingTwitter.handle}. Sign in your wallet to bind the link to ${shortenAddress(address ?? "")}.`
+                  ? `Connected as ${pendingTwitter.handle}. Sign in your wallet to bind the link to ${shortenAddress(address ?? "")}.`
                   : "Sign in your wallet to bind the link."
               }
             >
               {pendingTwitter ? (
                 <div className="flex items-center gap-3 rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-3">
-                  {pendingTwitter.avatarUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={pendingTwitter.avatarUrl}
-                      alt={`@${pendingTwitter.handle}`}
-                      className="h-9 w-9 rounded-full"
-                    />
-                  ) : (
-                    <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center">
-                      <MessageCircle className="w-4 h-4 text-muted-foreground" />
-                    </div>
-                  )}
+                  <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center">
+                    <MessageCircle className="w-4 h-4 text-muted-foreground" />
+                  </div>
                   <div className="min-w-0">
                     <div className="text-sm font-medium truncate">
-                      {pendingTwitter.name || pendingTwitter.handle}
+                      {pendingTwitter.handle}
                     </div>
                     <div className="text-xs text-muted-foreground truncate">
-                      @{pendingTwitter.handle}
+                      X user ID {pendingTwitter.userId}
                     </div>
                   </div>
                 </div>

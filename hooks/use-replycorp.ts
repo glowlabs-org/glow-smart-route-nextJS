@@ -38,11 +38,15 @@ export interface ReplycorpStatus {
   linkedAt?: string;
 }
 
+/**
+ * Shape of `event.detail` for `replycorp:connected` (per Tim/ReplyCorp,
+ * 2026-05-13 — the bot earlier hallucinated `twitterId`/`name`/`avatarUrl`).
+ * `handle` includes the leading `@` (e.g., `@username`).
+ */
 export interface ReplycorpConnectedEventDetail {
-  twitterId: string;
-  handle: string;
-  name: string;
-  avatarUrl: string;
+  provider: string; // typically "x"
+  handle: string;   // "@username"
+  userId: string;   // X numeric ID, treated as the canonical twitterId
 }
 
 export interface LinkPayload {
