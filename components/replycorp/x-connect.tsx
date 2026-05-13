@@ -31,7 +31,7 @@ const DEFAULT_LABEL = "Bonus offer";
  *     once a wallet is bound).
  *   - A linked-state chip (handle + check), when the wallet already has a
  *     `twitter_links` row on the backend.
- *   - A "Link X for $5 free credits" button that opens
+ *   - A "Link to earn with ReplyCorp" button that opens
  *     {@link ReplycorpLinkDialog}, otherwise.
  *
  * The actual pixel.js widget and EIP-712 signing flow live inside the
@@ -90,7 +90,7 @@ export function XConnect({
           onClick={() => setDialogOpen(true)}
         >
           <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-          Link X
+          Link ReplyCorp
         </Button>
         <ReplycorpLinkDialog open={dialogOpen} onOpenChange={setDialogOpen} />
       </>
@@ -146,7 +146,7 @@ export function XConnect({
         >
           <Sparkles className="w-4 h-4 mr-2 text-[color:var(--color-glow-orange)]" />
           <span className="text-sm font-medium">
-            Link X to earn $5 in bonus credits
+            Link to earn with ReplyCorp
           </span>
         </Button>
       )}
