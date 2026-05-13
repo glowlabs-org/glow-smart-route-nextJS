@@ -143,6 +143,7 @@ import type { RewardsBreakdownResponse } from "@/hooks/hub-fractions";
 import { getLaunchpadNowMs } from "@/utils/launchpad-now";
 import { normalizeMinerWeeksRemainingDisplay } from "@/lib/mining-score";
 import { useLang } from "@/lib/i18n";
+import { XConnect } from "@/components/replycorp/x-connect";
 
 export type LaunchpadRewardScore = {
   userWeeklyGlwRewards: string;
@@ -3626,6 +3627,7 @@ export function DepositDialog({
               <ConnectButton size="medium" variant="default" />
             ) : (
               <div className="space-y-2">
+                {selectedCurrency === "USDC" ? <XConnect /> : null}
                 <Button
                   className="w-full h-12"
                   onClick={handleConfirm}
