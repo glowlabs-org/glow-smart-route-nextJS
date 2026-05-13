@@ -19,14 +19,16 @@ export interface XConnectProps {
   /** Tailwind class string applied to the outer wrapper. */
   className?: string;
   /**
-   * Optional caption shown above the widget. By default no caption renders
-   * because pixel.js already shows its own CTA ("Connect X for $5 free
-   * credits") and competing copy is more noise than help.
+   * Small uppercase section label rendered above the widget, matching the
+   * dialog's "SELECT CURRENCY" / "EST. WEEKLY REWARDS" header style.
+   * Defaults to "Bonus offer". Pass `null` to hide the label and divider.
    */
-  caption?: string;
-  /** Compact mode: pill-only, no caption (for dashboard chips). */
+  label?: string | null;
+  /** Compact mode: pill-only, no label or divider (for dashboard chips). */
   compact?: boolean;
 }
+
+const DEFAULT_LABEL = "Bonus offer";
 
 /**
  * ReplyCorp Connect on X widget. Lazy-loads pixel.js, renders the widget
@@ -38,7 +40,7 @@ export interface XConnectProps {
  */
 export function XConnect({
   className,
-  caption,
+  label = DEFAULT_LABEL,
   compact = false,
 }: XConnectProps) {
   const { address } = useAccount();
@@ -110,11 +112,16 @@ export function XConnect({
         onLoad={() => trackEvent("replycorp_widget_loaded", { brand: BRAND_ID })}
       />
       <div
-        className={cn(compact ? "" : "space-y-2", className)}
+        className={cn(
+          compact ? "" : "flex flex-col gap-2 border-t border-border/40 pt-3",
+          className,
+        )}
         data-testid="replycorp-x-connect-target"
       >
-        {!compact && caption ? (
-          <p className="text-sm text-muted-foreground">{caption}</p>
+        {!compact && label ? (
+          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            {label}
+          </span>
         ) : null}
         <div data-replycorp-connect />
       </div>
