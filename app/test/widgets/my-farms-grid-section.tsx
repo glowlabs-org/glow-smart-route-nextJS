@@ -2216,6 +2216,44 @@ export default function MyFarmsGridSection({
     );
   }, [rewardsBreakdown]);
 
+  // For each mining-center farm, check whether the rewards-breakdown's
+  // amountInvested already covers the wallet's total mining-center split
+  // amount on that farm. When it does, a pending-start card is redundant
+  // and its marketplace-step-price-based estimate is misleading (it uses
+  // the *current* listing's step price, not the fraction the wallet
+  // actually bought). Suppress those pending-start cards.
+  const fullyAccountedMiningCenterFarmIds = React.useMemo(() => {
+    const accounted = new Set<string>();
+    if (!rewardsBreakdown) return accounted;
+    const splitSumByFarmId = new Map<string, bigint>();
+    for (const evt of splitsActivity) {
+      if (evt.fractionType !== "mining-center") continue;
+      if (!evt.farmId) continue;
+      try {
+        const amount = BigInt(evt.amount ?? "0");
+        splitSumByFarmId.set(
+          evt.farmId,
+          (splitSumByFarmId.get(evt.farmId) ?? 0n) + amount,
+        );
+      } catch {
+        // Skip splits with unparseable amounts.
+      }
+    }
+    for (const farm of rewardsBreakdown.farmDetails) {
+      if (farm.type !== "mining-center") continue;
+      try {
+        const invested = BigInt(farm.amountInvested ?? "0");
+        const splitSum = splitSumByFarmId.get(farm.farmId) ?? 0n;
+        if (splitSum > 0n && invested >= splitSum) {
+          accounted.add(farm.farmId);
+        }
+      } catch {
+        // Skip farms with unparseable amountInvested.
+      }
+    }
+    return accounted;
+  }, [rewardsBreakdown, splitsActivity]);
+
   const unsortedFarmCards = React.useMemo<FarmCardData[]>(() => {
     const cards: FarmCardData[] = [];
 
@@ -2399,6 +2437,9 @@ export default function MyFarmsGridSection({
             })
           : undefined;
       const hasCurrentOwnership = purchasedFarms.some((f) => f.farmId === farmId);
+      const isAccountedForByRewards =
+        fractionType === "mining-center" &&
+        fullyAccountedMiningCenterFarmIds.has(farmId);
       const includePendingStartCard = shouldIncludePendingStartCard({
         fractionType,
         status,
@@ -2406,6 +2447,7 @@ export default function MyFarmsGridSection({
         rewardedFarmTypeKeys,
         hasCurrentOwnership,
         purchaseDate: evt.purchaseDate ?? null,
+        isAccountedForByRewards,
       });
 
       if (!includePendingStartCard) {
@@ -2810,6 +2852,7 @@ export default function MyFarmsGridSection({
     regions,
     rewardsBreakdown,
     rewardedFarmTypeKeys,
+    fullyAccountedMiningCenterFarmIds,
     splitsActivity,
     inProgressAmountByApplicationType,
     launchpadDelegatedAmountsByFarmId,

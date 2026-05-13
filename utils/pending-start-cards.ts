@@ -23,6 +23,16 @@ export function shouldIncludePendingStartCard(params: {
   rewardedFarmTypeKeys: Set<string>;
   hasCurrentOwnership: boolean;
   purchaseDate?: string | null;
+  /**
+   * True when the rewards-breakdown's `amountInvested` for this farm already
+   * covers the wallet's total mining-center splits on it. When the rewarded
+   * card already represents every dollar the wallet has on the farm, a
+   * parallel pending-start card is redundant and its marketplace-per-step
+   * estimate is wrong (it uses the *current* listing's step price, not the
+   * fraction the wallet actually bought into). Only meaningful for
+   * mining-center; ignored for launchpad.
+   */
+  isAccountedForByRewards?: boolean;
 }): boolean {
   const {
     fractionType,
@@ -30,12 +40,19 @@ export function shouldIncludePendingStartCard(params: {
     farmTypeKey,
     rewardedFarmTypeKeys,
     purchaseDate,
+    isAccountedForByRewards,
   } = params;
 
   if (!fractionType) return false;
 
   if (rewardedFarmTypeKeys.has(farmTypeKey)) {
     if (fractionType !== "mining-center") {
+      return false;
+    }
+
+    if (isAccountedForByRewards) {
+      // The rewarded card already represents this dollar amount; the
+      // simulator's per-wallet weekly value covers the whole position.
       return false;
     }
 

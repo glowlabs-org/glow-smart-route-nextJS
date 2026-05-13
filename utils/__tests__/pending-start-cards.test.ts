@@ -50,6 +50,40 @@ describe("shouldIncludePendingStartCard", () => {
     ).toBe(false);
   });
 
+  it("suppresses pending-start when rewards-breakdown already accounts for the full mining-center position", () => {
+    // Even in the epoch phase, if the rewards-breakdown's amountInvested
+    // already includes every dollar the wallet spent on this farm, the
+    // rewarded card represents the position end-to-end. A second card
+    // would just double-count and would compute its estimate from the
+    // wrong listing's step price.
+    expect(
+      shouldIncludePendingStartCard({
+        fractionType: "mining-center",
+        status: "filled",
+        farmTypeKey: "farm-1:mining-center",
+        rewardedFarmTypeKeys: new Set(["farm-1:mining-center"]),
+        hasCurrentOwnership: true,
+        purchaseDate: new Date().toISOString(),
+        isAccountedForByRewards: true,
+      })
+    ).toBe(false);
+  });
+
+  it("ignores isAccountedForByRewards for launchpad delegations", () => {
+    // Launchpad already takes the early-return path; isAccountedForByRewards
+    // is a mining-center concept and should not change launchpad behavior.
+    expect(
+      shouldIncludePendingStartCard({
+        fractionType: "launchpad",
+        status: "filled",
+        farmTypeKey: "farm-1:launchpad",
+        rewardedFarmTypeKeys: new Set<string>(),
+        hasCurrentOwnership: true,
+        isAccountedForByRewards: true,
+      })
+    ).toBe(true);
+  });
+
   it("still suppresses launchpad pending-start for already rewarded same-type farms", () => {
     expect(
       shouldIncludePendingStartCard({
