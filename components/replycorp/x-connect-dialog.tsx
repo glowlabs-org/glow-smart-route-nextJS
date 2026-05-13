@@ -1,9 +1,8 @@
 "use client";
 
 import * as React from "react";
-import Script from "next/script";
 import { useAccount } from "wagmi";
-import { Check, Loader2, MessageCircle, PenLine, Sparkles } from "lucide-react";
+import { Check, Loader2, MessageCircle, PenLine } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +18,7 @@ import {
   useReplycorp,
   type ReplycorpConnectedEventDetail,
 } from "@/hooks/use-replycorp";
+import { ReplycorpLogo } from "./replycorp-logo";
 
 const PIXEL_SCRIPT_SRC = "https://cdn.replycorp.io/pixel.js";
 const BRAND_ID = process.env.NEXT_PUBLIC_REPLYCORP_BRAND_ID || "glow";
@@ -69,6 +69,36 @@ export function ReplycorpLinkDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  // pixel.js's init code only runs once per page (browser caches by src).
+  // next/script honors that cache, which means a connect div mounted later
+  // in the page lifecycle isn't picked up. We sidestep that by manually
+  // re-injecting the script every time the dialog opens, after clearing the
+  // prior render. Costs one extra cdn fetch per open, which is negligible.
+  React.useEffect(() => {
+    if (!open) return;
+
+    document.querySelectorAll("script[data-glow-replycorp-pixel]").forEach((s) =>
+      s.remove(),
+    );
+    document
+      .querySelectorAll("[data-replycorp-connect]")
+      .forEach((el) => ((el as HTMLElement).innerHTML = ""));
+
+    const script = document.createElement("script");
+    script.src = PIXEL_SCRIPT_SRC;
+    script.async = true;
+    script.dataset.brandId = BRAND_ID;
+    script.dataset.apiBase = API_BASE;
+    script.setAttribute("data-glow-replycorp-pixel", "");
+    script.onload = () =>
+      trackEvent("replycorp_widget_loaded", { brand: BRAND_ID });
+    document.head.appendChild(script);
+
+    return () => {
+      script.remove();
+    };
+  }, [open]);
+
   // Listen on both window and document — pixel.js's docs say `window` but
   // observed behaviour suggests it can vary, so we hedge to be safe and
   // dedupe by twitterId.
@@ -117,15 +147,13 @@ export function ReplycorpLinkDialog({
         {/* Header */}
         <div className="border-b border-border/20 dark:border-border/40 px-6 pt-8 pb-6">
           <div className="flex flex-col items-center text-center space-y-3">
-            <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-[color:var(--color-glow-orange)]/10">
-              <Sparkles className="w-5 h-5 text-[color:var(--color-glow-orange)]" />
-            </div>
+            <ReplycorpLogo size={48} className="rounded-xl" />
             <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-              Link X for bonus rewards
+              Link to earn with ReplyCorp
             </DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground max-w-sm">
-              Earn bonus Influence Points (redeemable for gift cards) on your
-              mining-center purchases when you connect your X account.
+              Earn bonus credits (redeemable for gift cards) on your
+              mining-center purchases when you link your X account.
             </DialogDescription>
           </div>
         </div>
@@ -176,15 +204,6 @@ export function ReplycorpLinkDialog({
               title="Step 1 of 2: Connect on X"
               description="Use the ReplyCorp widget below. After signing in to X, you'll be sent back here to confirm."
             >
-              <Script
-                src={PIXEL_SCRIPT_SRC}
-                strategy="afterInteractive"
-                data-brand-id={BRAND_ID}
-                data-api-base={API_BASE}
-                onLoad={() =>
-                  trackEvent("replycorp_widget_loaded", { brand: BRAND_ID })
-                }
-              />
               <div className="flex justify-center pt-1">
                 <div data-replycorp-connect />
               </div>

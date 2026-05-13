@@ -2,12 +2,13 @@
 
 import * as React from "react";
 import { useAccount } from "wagmi";
-import { Sparkles, Check } from "lucide-react";
+import { Check } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useReplycorp } from "@/hooks/use-replycorp";
 import { ReplycorpLinkDialog } from "./x-connect-dialog";
+import { ReplycorpLogo } from "./replycorp-logo";
 
 export interface XConnectProps {
   /** Tailwind class string applied to the outer wrapper. */
@@ -89,7 +90,7 @@ export function XConnect({
           className={className}
           onClick={() => setDialogOpen(true)}
         >
-          <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+          <ReplycorpLogo size={14} className="mr-1.5" />
           Link ReplyCorp
         </Button>
         <ReplycorpLinkDialog open={dialogOpen} onOpenChange={setDialogOpen} />
@@ -140,14 +141,12 @@ export function XConnect({
         <Button
           type="button"
           variant="outline"
-          className="w-full justify-start h-12"
           onClick={() => setDialogOpen(true)}
           disabled={isStatusLoading}
+          className="w-full h-11 gap-2 font-medium rounded-xl"
         >
-          <Sparkles className="w-4 h-4 mr-2 text-[color:var(--color-glow-orange)]" />
-          <span className="text-sm font-medium">
-            Link to earn with ReplyCorp
-          </span>
+          <ReplycorpLogo size={16} />
+          Link to earn with ReplyCorp
         </Button>
       )}
       <ReplycorpLinkDialog open={dialogOpen} onOpenChange={setDialogOpen} />
