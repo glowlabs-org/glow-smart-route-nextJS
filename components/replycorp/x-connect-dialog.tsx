@@ -104,25 +104,76 @@ export function ReplycorpLinkDialog({
   // dedupe by twitterId.
   React.useEffect(() => {
     if (!open) return;
+    console.log("[ReplycorpLinkDialog] listener attached");
     function onConnected(event: Event) {
+      const surface = event.currentTarget === window ? "window" : "document";
+      console.log(
+        `[ReplycorpLinkDialog] replycorp:connected on ${surface}`,
+        event,
+      );
       const detail = (event as CustomEvent<ReplycorpConnectedEventDetail>)
         .detail;
-      if (!detail?.twitterId) return;
+      console.log("[ReplycorpLinkDialog] event.detail:", detail);
+      if (!detail?.twitterId) {
+        console.warn(
+          "[ReplycorpLinkDialog] event has no twitterId — payload shape mismatch?",
+          detail,
+        );
+        return;
+      }
       trackEvent("replycorp_connected_event", {
         twitterId: detail.twitterId,
         handle: detail.handle,
-        surface: event.currentTarget === window ? "window" : "document",
+        surface,
       });
       setPendingTwitter((prev) =>
         prev?.twitterId === detail.twitterId ? prev : detail,
       );
     }
+    // Catch-all sniffer so we can see ANY `replycorp:*` event pixel.js
+    // fires, even if its name isn't `replycorp:connected`.
+    function sniff(event: Event) {
+      if (!event.type.startsWith("replycorp")) return;
+      const surface =
+        event.currentTarget === window ? "window" : "document";
+      console.log(
+        `[ReplycorpLinkDialog] sniffed ${event.type} on ${surface}`,
+        (event as CustomEvent).detail,
+      );
+    }
     window.addEventListener("replycorp:connected", onConnected);
     document.addEventListener("replycorp:connected", onConnected);
+    // Catch-all wildcard isn't supported by addEventListener; instead, hook
+    // the prototypes so we see all dispatchEvent calls in this lifecycle.
+    const origWindowDispatch = window.dispatchEvent.bind(window);
+    const origDocDispatch = document.dispatchEvent.bind(document);
+    window.dispatchEvent = function (e: Event) {
+      if (e?.type?.startsWith("replycorp")) {
+        console.log(
+          `[ReplycorpLinkDialog] (window.dispatch) ${e.type}`,
+          (e as CustomEvent).detail,
+        );
+      }
+      return origWindowDispatch(e);
+    };
+    document.dispatchEvent = function (e: Event) {
+      if (e?.type?.startsWith("replycorp")) {
+        console.log(
+          `[ReplycorpLinkDialog] (document.dispatch) ${e.type}`,
+          (e as CustomEvent).detail,
+        );
+      }
+      return origDocDispatch(e);
+    };
     return () => {
+      console.log("[ReplycorpLinkDialog] listener detached");
       window.removeEventListener("replycorp:connected", onConnected);
       document.removeEventListener("replycorp:connected", onConnected);
+      window.dispatchEvent = origWindowDispatch;
+      document.dispatchEvent = origDocDispatch;
     };
+    // Reference sniff so the unused-var lint doesn't trip.
+    void sniff;
   }, [open]);
 
   const currentStep: StepId = status?.linked
