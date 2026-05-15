@@ -11,6 +11,7 @@ import {
   Sparkles,
   Gift,
   Clock,
+  Coins,
   ExternalLink,
 } from "lucide-react";
 import { CashMinerIcon, DelegationIcon } from "@/components/impact-icons";
@@ -27,6 +28,11 @@ import {
 import { formatUnits } from "viem";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import type { SwapActivity } from "@/hooks/useRecentActivityFeed";
+import {
+  useV2PointsLedger,
+  POINTS_EVENT_LABELS,
+  type V2PointsLedgerRow,
+} from "@/hooks/v2-points";
 import { useWalletRewardClaims } from "@/hooks/useWalletRewardClaims";
 import { useWalletSgctlClaimSettlements } from "@/hooks/useWalletSgctlClaimSettlements";
 import { SDKAddresses } from "@/web3/constants/addresses";
@@ -49,7 +55,8 @@ type ActivityKind =
   | "unstake"
   | "fraction-purchase"
   | "swap"
-  | "claim";
+  | "claim"
+  | "points";
 
 interface ActivityItem {
   id: string;
@@ -396,6 +403,28 @@ function buildSwapActivity(
   };
 }
 
+function buildPointsActivity(row: V2PointsLedgerRow): ActivityItem | null {
+  const timestampMs = new Date(row.createdAt).getTime();
+  if (!Number.isFinite(timestampMs)) return null;
+
+  const delta = Number(row.pointsDelta);
+  const isCredit = Number.isFinite(delta) ? delta >= 0 : true;
+  const magnitude = Number.isFinite(delta) ? Math.abs(delta) : 0;
+  const label = POINTS_EVENT_LABELS[row.eventType] ?? row.eventType;
+
+  return {
+    id: `points-${row.id}`,
+    kind: "points",
+    timestampMs,
+    title: `${isCredit ? "+" : "-"}${formatCompactNumber(magnitude, 2)} points`,
+    subtitle: label,
+    icon: <Coins className="w-5 h-5" />,
+    iconClassName: isCredit
+      ? "text-emerald-400 bg-emerald-500/10"
+      : "text-amber-400 bg-amber-500/10",
+  };
+}
+
 export function RecentActivity({
   walletAddress,
   splitsActivity,
@@ -434,6 +463,12 @@ export function RecentActivity({
     includeWalletDetails: false,
     includeMigrationAmount: false,
   });
+
+  // V2 point-ledger activity (earnings + spends) folded into the feed.
+  const { data: pointsLedger } = useV2PointsLedger(
+    shouldFetchWalletActivity ? walletAddress : null,
+    { limit: 50 },
+  );
 
   const { claims, isLoading: isClaimsLoading } = useWalletRewardClaims(
     walletAddress,
@@ -558,6 +593,11 @@ export function RecentActivity({
       if (item) all.push(item);
     });
 
+    (pointsLedger?.rows ?? []).forEach((row) => {
+      const item = buildPointsActivity(row);
+      if (item) all.push(item);
+    });
+
     return all.sort((a, b) => {
       const timeDiff = b.timestampMs - a.timestampMs;
       if (timeDiff !== 0) return timeDiff;
@@ -569,7 +609,15 @@ export function RecentActivity({
 
       return 0;
     });
-  }, [claimActivityGroups, labels, mintedEvents, stakeEvents, splitsActivity, swapsActivity]);
+  }, [
+    claimActivityGroups,
+    labels,
+    mintedEvents,
+    stakeEvents,
+    splitsActivity,
+    swapsActivity,
+    pointsLedger,
+  ]);
 
   const isLoading =
     (Boolean(walletAddress) && !isCardInView) ||

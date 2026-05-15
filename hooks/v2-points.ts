@@ -43,6 +43,21 @@ export type V2PointsEventType =
   | "shop_purchase"
   | "admin_correction";
 
+/**
+ * Plain, user-facing labels for each ledger event type. The V2 spec
+ * requires ledger rows to read as plain reasons, not internal codes.
+ * Shared so the points balance UI and the activity feed agree.
+ */
+export const POINTS_EVENT_LABELS: Record<V2PointsEventType, string> = {
+  legacy_migration: "Legacy points migration",
+  glw_delegation: "GLW delegation",
+  sgctl_delegation: "sGCTL delegation",
+  miner_purchase: "Miner purchase",
+  weekly_streak: "Weekly streak",
+  shop_purchase: "Shop purchase",
+  admin_correction: "Admin correction",
+};
+
 export interface V2PointsLedgerRow {
   id: string;
   createdAt: string;

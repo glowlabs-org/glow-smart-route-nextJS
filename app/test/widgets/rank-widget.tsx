@@ -44,6 +44,8 @@ import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import { useReferralLaunch } from "@/hooks/use-referral-launch";
 import { formatTopPercentile } from "@/utils/impact";
+import { getCurrentEpoch } from "@/utils/getCurrentEpoch";
+import { useV2PointsBalance } from "@/hooks/v2-points";
 import { ArrowTopRightIcon } from "@radix-ui/react-icons";
 import { useLang } from "@/lib/i18n";
 
@@ -271,6 +273,11 @@ export function RankWidget({
 
   const impactScore = impactScoreQuery.data ?? null;
 
+  // V2 spendable point balance — drives the hero "points" number.
+  const v2PointsQuery = useV2PointsBalance(
+    isValidWalletAddress ? walletAddress : null,
+  );
+
   const totalsPoints = impactScore?.totals?.totalPoints ?? undefined;
 
   const totalPointsNumber = React.useMemo(() => {
@@ -295,12 +302,22 @@ export function RankWidget({
   const shouldShowBreakdownButton =
     Boolean(impactScore) && !impactScoreQuery.isLoading && hasPositiveScore;
 
+  // Hero number = the wallet's V2 spendable point balance (available
+  // points), not the legacy impact-score total.
   const pointsHeroText = React.useMemo(() => {
-    if (impactScoreQuery.isLoading) return t.widgets.rankWidget.emptyPoints;
-    const formatted = formatPoints(totalsPoints, { maximumFractionDigits: 0 });
-    if (formatted === "—") return t.widgets.rankWidget.emptyPoints;
+    if (v2PointsQuery.isLoading) return t.widgets.rankWidget.emptyPoints;
+    const available = v2PointsQuery.data?.availablePoints;
+    if (available == null || !Number.isFinite(available))
+      return t.widgets.rankWidget.emptyPoints;
+    const formatted = new Intl.NumberFormat("en-US", {
+      maximumFractionDigits: 0,
+    }).format(available);
     return `${formatted} pts`;
-  }, [impactScoreQuery.isLoading, totalsPoints, t.widgets.rankWidget.emptyPoints]);
+  }, [
+    v2PointsQuery.isLoading,
+    v2PointsQuery.data,
+    t.widgets.rankWidget.emptyPoints,
+  ]);
 
   const selfLeaderboardRow = React.useMemo(() => {
     if (!normalizedWalletAddress) return null;
@@ -469,7 +486,7 @@ export function RankWidget({
             <div className="flex flex-col gap-3">
               <div className="flex flex-col items-center justify-center text-center px-1 select-none">
                 <div className="font-mono text-xs uppercase tracking-wider text-muted-foreground blur-[1px] opacity-60">
-                  {t.widgets.rankWidget.totalPoints}
+                  {t.widgets.rankWidget.availablePoints}
                 </div>
                 <div className="mt-2 font-mono text-5xl md:text-6xl font-bold tracking-tighter text-foreground tabular-nums blur-[2px] opacity-60">
                   {t.widgets.rankWidget.emptyPoints}
@@ -510,7 +527,7 @@ export function RankWidget({
                     isHero ? "text-xs" : "text-[10px]",
                   )}
                 >
-                  {t.widgets.rankWidget.totalPoints}
+                  {t.widgets.rankWidget.availablePoints}
                 </div>
                 <div
                   className={cn(

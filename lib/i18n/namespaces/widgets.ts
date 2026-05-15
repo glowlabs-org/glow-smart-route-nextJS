@@ -200,6 +200,7 @@ export interface WidgetStrings {
   rankWidget: {
     title: string;
     totalPoints: string;
+    availablePoints: string;
     emptyPoints: string;
     rank: string;
     percentile: string;
@@ -852,6 +853,7 @@ const en: WidgetStrings = {
   rankWidget: {
     title: "Impact Score",
     totalPoints: "Total points",
+    availablePoints: "Available points",
     emptyPoints: "— pts",
     rank: "Rank",
     percentile: "Percentile",
@@ -1495,6 +1497,7 @@ const ko: WidgetStrings = {
   rankWidget: {
     title: "임팩트 점수",
     totalPoints: "총 포인트",
+    availablePoints: "사용 가능한 포인트",
     emptyPoints: "— pts",
     rank: "순위",
     percentile: "퍼센타일",
@@ -2137,6 +2140,7 @@ const zh: WidgetStrings = {
   rankWidget: {
     title: "影响力评分",
     totalPoints: "总积分",
+    availablePoints: "可用积分",
     emptyPoints: "— 分",
     rank: "排名",
     percentile: "百分位",
