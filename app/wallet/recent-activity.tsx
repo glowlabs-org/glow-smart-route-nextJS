@@ -611,7 +611,7 @@ export function RecentActivity({
     : activities;
 
   return (
-    <div ref={cardRef}>
+    <div ref={cardRef} className="w-full h-full">
       <Card
         className={cn(
           "h-full lg:max-h-[380px] overflow-hidden flex flex-col gap-4 pt-6 pb-0",
