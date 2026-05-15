@@ -165,4 +165,36 @@ export const QUERY_KEYS = {
         ? (["unclaimed-glw-rewards", wallet, eligibleWeeksKey] as const)
         : (["unclaimed-glw-rewards", wallet] as const),
   },
+  // --- V2 Points & Impact Overhaul ---
+  v2: {
+    pointsBalance: (wallet?: string | null) =>
+      ["v2", "points-balance", wallet?.toLowerCase() ?? null] as const,
+    pointsLedger: (wallet?: string | null, limit?: number) =>
+      [
+        "v2",
+        "points-ledger",
+        wallet?.toLowerCase() ?? null,
+        limit ?? null,
+      ] as const,
+    pointsRates: () => ["v2", "points-rates"] as const,
+    shopCurrent: () => ["v2", "shop-current"] as const,
+    shopPurchases: (wallet?: string | null) =>
+      ["v2", "shop-purchases", wallet?.toLowerCase() ?? null] as const,
+    earlyAccess: (wallet?: string | null) =>
+      ["v2", "early-access", wallet?.toLowerCase() ?? null] as const,
+    impactLeaderboard: (
+      sort?: string | null,
+      dir?: string | null,
+      limit?: number | null,
+    ) =>
+      [
+        "v2",
+        "impact-leaderboard",
+        sort ?? null,
+        dir ?? null,
+        limit ?? null,
+      ] as const,
+    impactWallet: (wallet?: string | null) =>
+      ["v2", "impact-wallet", wallet?.toLowerCase() ?? null] as const,
+  },
 } as const;
