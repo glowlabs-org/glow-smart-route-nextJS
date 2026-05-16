@@ -7,7 +7,7 @@ import { ShopView } from "@/app/shop/view";
 export const metadata: Metadata = buildPageMetadata({
   title: "Points Shop - Glow",
   description:
-    "Spend your Glow points in the weekly points shop — miner, watts, mega, and early-access prizes. Restocks every Tuesday.",
+    "Spend your Glow points in the weekly points shop: miner, watts, mega, and early-access prizes. Restocks every Tuesday.",
   path: "/shop",
 });
 

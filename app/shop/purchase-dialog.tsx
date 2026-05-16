@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import { useAccount, useChainId, useSignTypedData } from "wagmi";
-import { Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Ticket } from "lucide-react";
 
 import {
   Dialog,
@@ -23,6 +24,49 @@ import {
   type V2ShopItem,
   type V2ShopPurchaseResult,
 } from "@/hooks/v2-points-shop";
+import { shopItemMeta } from "@/app/shop/shop-item-meta";
+
+/** The prize visual shown at the top of the purchase flow. */
+function ItemBanner({ item }: { item: V2ShopItem }) {
+  const meta = shopItemMeta(item);
+
+  if (meta.image) {
+    return (
+      <div className="relative h-32 w-full overflow-hidden rounded-xl">
+        <Image
+          src={meta.image}
+          alt={item.label}
+          fill
+          sizes="480px"
+          className="object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-black/5" />
+        <span className="absolute left-3 top-3 rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-white ring-1 ring-white/25 backdrop-blur-md">
+          {meta.eyebrow}
+        </span>
+        <div className="absolute inset-x-0 bottom-0 p-3">
+          <p className="text-base font-semibold leading-tight text-white">
+            {meta.headline}
+          </p>
+          <p className="mt-0.5 text-[11px] text-white/75">{meta.tagline}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="glow-gradient-b relative flex h-32 w-full flex-col justify-end overflow-hidden rounded-xl p-3">
+      <Ticket className="absolute right-3 top-3 h-5 w-5 text-black/55" />
+      <span className="mb-1 w-fit rounded-full bg-black/80 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-white">
+        {meta.eyebrow}
+      </span>
+      <p className="text-base font-semibold leading-tight text-black/85">
+        {meta.headline}
+      </p>
+      <p className="mt-0.5 text-[11px] text-black/55">{meta.tagline}</p>
+    </div>
+  );
+}
 
 interface PurchaseDialogProps {
   item: V2ShopItem | null;
@@ -46,12 +90,12 @@ function errorMessageForCode(code: string | undefined, fallback: string): string
     case "ITEM_DISABLED":
       return "This item is no longer available.";
     case "BAD_NONCE":
-      return "Purchase conflict — please try again.";
+      return "Purchase conflict. Please try again.";
     case "FOUNDATION_WATTS_INSUFFICIENT":
     case "FOUNDATION_SPLIT_INSUFFICIENT":
       return "This prize is temporarily unavailable. Try again later.";
     case "IDEMPOTENCY_KEY_REUSED_DIFFERENT_BODY":
-      return "Purchase conflict — please close this and start over.";
+      return "Purchase conflict. Please close this and start over.";
     case "INVALID_SIGNATURE":
       return "Signature verification failed. Please try again.";
     default:
@@ -74,7 +118,7 @@ function GrantSummary({ result }: { result: V2ShopPurchaseResult }) {
         <p className="text-sm text-muted-foreground">
           {formatNumber(Number(g.wattsGranted))} watts added to your impact
           {g.newWalletWatts != null
-            ? ` — you now hold ${formatNumber(Number(g.newWalletWatts))} watts.`
+            ? `, you now hold ${formatNumber(Number(g.newWalletWatts))} watts.`
             : "."}
         </p>
       );
@@ -87,7 +131,7 @@ function GrantSummary({ result }: { result: V2ShopPurchaseResult }) {
     case "early_access":
       return (
         <p className="text-sm text-muted-foreground">
-          Early access active — {g.earlyAccessMinutes} minutes early on miner
+          Early access active: {g.earlyAccessMinutes} minutes early on miner
           windows, valid until {new Date(g.expiresAt).toLocaleDateString()}.
         </p>
       );
@@ -111,7 +155,7 @@ export function PurchaseDialog({
   const [result, setResult] = React.useState<V2ShopPurchaseResult | null>(null);
   const [errorMsg, setErrorMsg] = React.useState<string>("");
 
-  // One idempotency key per dialog session — stable across retries so a
+  // One idempotency key per dialog session, stable across retries so a
   // lost-response retry is deduped server-side.
   const idempotencyKeyRef = React.useRef<string>("");
 
@@ -169,7 +213,7 @@ export function PurchaseDialog({
           message,
         });
       } catch {
-        // User rejected the signature (or wallet error) — return to confirm,
+        // User rejected the signature (or wallet error); return to confirm,
         // no error state.
         setPhase("confirm");
         return;
@@ -212,12 +256,15 @@ export function PurchaseDialog({
       <DialogContent className="sm:max-w-md">
         {phase === "success" && result ? (
           <>
+            <ItemBanner item={item} />
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <CheckCircle2 className="h-5 w-5 text-emerald-500" />
                 Purchase complete
               </DialogTitle>
-              <DialogDescription>{item.label}</DialogDescription>
+              <DialogDescription>
+                Your prize is recorded and on its way.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-3 py-2">
               <GrantSummary result={result} />
@@ -255,9 +302,12 @@ export function PurchaseDialog({
           </>
         ) : (
           <>
+            <ItemBanner item={item} />
             <DialogHeader>
               <DialogTitle>Confirm purchase</DialogTitle>
-              <DialogDescription>{item.label}</DialogDescription>
+              <DialogDescription>
+                Spend your points to redeem this prize.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-2 py-2 text-sm">
               <div className="flex justify-between">
@@ -273,7 +323,7 @@ export function PurchaseDialog({
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Balance after</span>
                 <span className="tabular-nums">
-                  {canAfford ? formatNumber(balanceAfter) : "—"}
+                  {canAfford ? formatNumber(balanceAfter) : "-"}
                 </span>
               </div>
               {!canAfford ? (
