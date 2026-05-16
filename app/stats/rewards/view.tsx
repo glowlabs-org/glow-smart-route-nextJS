@@ -25,7 +25,7 @@ const REWARDS_TABS: RewardsTabConfig[] = [
   {
     value: "impact",
     label: "Impact",
-    description: "Weekly impact score + leaderboard",
+    description: "Leaderboard ranked by watts & carbon credits",
     Icon: ImpactStreakIcon,
   },
   {

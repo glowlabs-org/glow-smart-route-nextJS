@@ -186,6 +186,8 @@ export const QUERY_KEYS = {
       sort?: string | null,
       dir?: string | null,
       limit?: number | null,
+      regionId?: number | null,
+      offset?: number | null,
     ) =>
       [
         "v2",
@@ -193,6 +195,8 @@ export const QUERY_KEYS = {
         sort ?? null,
         dir ?? null,
         limit ?? null,
+        regionId ?? null,
+        offset ?? null,
       ] as const,
     impactWallet: (wallet?: string | null) =>
       ["v2", "impact-wallet", wallet?.toLowerCase() ?? null] as const,
