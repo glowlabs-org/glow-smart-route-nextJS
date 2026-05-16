@@ -35,7 +35,7 @@ export interface V2PointsBalance {
 
 /** A `points_ledger` row event type. `admin_correction` is rare. */
 export type V2PointsEventType =
-  | "legacy_migration"
+  | "legacy_points_migration"
   | "glw_delegation"
   | "sgctl_delegation"
   | "miner_purchase"
@@ -49,7 +49,7 @@ export type V2PointsEventType =
  * Shared so the points balance UI and the activity feed agree.
  */
 export const POINTS_EVENT_LABELS: Record<V2PointsEventType, string> = {
-  legacy_migration: "Legacy points migration",
+  legacy_points_migration: "Legacy points migration",
   glw_delegation: "GLW delegation",
   sgctl_delegation: "sGCTL delegation",
   miner_purchase: "Miner purchase",
