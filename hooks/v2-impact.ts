@@ -11,13 +11,19 @@
  * backend) — never parse them with `Number()` for display math that
  * needs precision; format the string directly.
  */
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { v2ApiGet } from "@/lib/api/v2-api-client";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { STALE_TIMES } from "@/hooks/query-config";
 
-/** Matches the backend's accepted `sort` query values exactly. */
-export type V2LeaderboardSort = "totalWatts" | "carbonCredits";
+/**
+ * Matches the backend's accepted `sort` query values exactly.
+ * `policyCredits` is only valid when a `regionId` filter is supplied.
+ */
+export type V2LeaderboardSort =
+  | "totalWatts"
+  | "carbonCredits"
+  | "policyCredits";
 export type V2SortDir = "asc" | "desc";
 
 export interface V2LeaderboardRow {
@@ -25,6 +31,8 @@ export interface V2LeaderboardRow {
   wallet: string;
   totalWatts: string;
   totalCarbonCredits: string;
+  /** Numeric string when the leaderboard is region-scoped, `null` otherwise. */
+  totalPolicyCredits: string | null;
 }
 
 export interface V2LeaderboardResponse {
@@ -74,6 +82,9 @@ export interface UseV2ImpactLeaderboardOptions {
   sort?: V2LeaderboardSort;
   dir?: V2SortDir;
   limit?: number;
+  offset?: number;
+  /** When set, the leaderboard is ranked within that region only. */
+  regionId?: number | null;
 }
 
 export function useV2ImpactLeaderboard(
@@ -81,15 +92,27 @@ export function useV2ImpactLeaderboard(
 ) {
   const sort = options.sort ?? "totalWatts";
   const dir = options.dir ?? "desc";
-  const limit = options.limit ?? 100;
+  const limit = options.limit ?? 50;
+  const offset = options.offset ?? 0;
+  const regionId = options.regionId ?? null;
   return useQuery({
-    queryKey: QUERY_KEYS.v2.impactLeaderboard(sort, dir, limit),
-    queryFn: () =>
-      v2ApiGet<V2LeaderboardResponse>(
-        `/api/impact/leaderboard?sort=${sort}&dir=${dir}&limit=${limit}`,
-      ),
+    queryKey: QUERY_KEYS.v2.impactLeaderboard(sort, dir, limit, regionId, offset),
+    queryFn: () => {
+      const params = new URLSearchParams({
+        sort,
+        dir,
+        limit: String(limit),
+        offset: String(offset),
+      });
+      if (regionId !== null) params.set("regionId", String(regionId));
+      return v2ApiGet<V2LeaderboardResponse>(
+        `/api/impact/leaderboard?${params.toString()}`,
+      );
+    },
     staleTime: STALE_TIMES.SLOW,
     refetchOnWindowFocus: false,
+    // Keep the prior page visible while the next page / sort loads.
+    placeholderData: keepPreviousData,
   });
 }
 
