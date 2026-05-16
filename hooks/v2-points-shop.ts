@@ -14,6 +14,30 @@ import { v2ApiGet, v2ApiPost } from "@/lib/api/v2-api-client";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { STALE_TIMES } from "@/hooks/query-config";
 
+// --- EIP-712 purchase signing ----------------------------------------------
+// The `/points-shop/purchase` POST is authenticated by an EIP-712 signature
+// over the Purchase struct, signed by the buyer wallet. Mirrors the
+// referral-router signing pattern (see hooks/use-referral.ts). The backend
+// verifies against this exact domain + type.
+
+export const pointsShopEIP712Domain = (chainId: number) =>
+  ({
+    name: "GlowPointsShop",
+    version: "1",
+    chainId,
+    verifyingContract: "0x0000000000000000000000000000000000000000" as const,
+  }) as const;
+
+export const purchaseEIP712Types = {
+  Purchase: [
+    { name: "wallet", type: "address" },
+    { name: "itemId", type: "string" },
+    { name: "quantity", type: "uint256" },
+    { name: "idempotencyKey", type: "string" },
+    { name: "nonce", type: "uint256" },
+  ],
+} as const;
+
 export type V2ShopItemKind = "miner" | "watts" | "mega" | "early_access";
 
 export interface V2ShopItem {

@@ -182,6 +182,22 @@ export function HeaderHamburgerMenu({
                         Protocol Stats
                       </Link>
                     </DrawerClose>
+                    <DrawerClose asChild>
+                      <Link
+                        href="/shop"
+                        onClick={() => {
+                          setTimeout(() => {
+                            window.scrollTo({
+                              top: 0,
+                              behavior: "smooth",
+                            });
+                          }, 100);
+                        }}
+                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        Points Shop
+                      </Link>
+                    </DrawerClose>
                   </div>
                 </div>
 
@@ -438,6 +454,9 @@ export function Header({
                       </ListItem>
                       <ListItem href="/stats" title="Protocol Stats">
                         Real-time protocol metrics and market data
+                      </ListItem>
+                      <ListItem href="/shop" title="Points Shop">
+                        Spend your points on this week&apos;s prizes
                       </ListItem>
                       {showKolLink && (
                         <ListItem href="/ambassador" title="Ambassador Dashboard">
