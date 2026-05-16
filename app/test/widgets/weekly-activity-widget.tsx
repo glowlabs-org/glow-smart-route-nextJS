@@ -33,6 +33,7 @@ import {
   normalizeDelegationCurrency,
   parseTokenAmountFromBaseUnits,
 } from "@/utils/launchpad-rewards";
+import { useV2PointsBalance } from "@/hooks/v2-points";
 import { useAccount } from "wagmi";
 import { useLang, type Strings } from "@/lib/i18n";
 
@@ -158,13 +159,14 @@ interface WeeklyActivityWidgetProps {
   variant?: "default" | "flow" | "minimal";
 }
 
-const DISPLAY_WEEKS_CAP = 4;
-const GRID_COLUMNS = 4;
+// V2 streak caps at 20 weeks; show one slot per week up to that cap.
+const DISPLAY_WEEKS_CAP = 20;
+const GRID_COLUMNS = 5;
 
 function WeeklyActivitySkeleton() {
   const { t } = useLang();
   return (
-    <Card className="overflow-hidden h-full lg:max-h-[280px] bg-card dark:bg-card border-border/20 pt-6 pb-0">
+    <Card className="overflow-hidden h-full bg-card dark:bg-card border-border/20 pt-6 pb-0">
       <CardHeader className="py-0 px-6">
         <CardTitle className="text-center">{t.widgets.weeklyActivity.title}</CardTitle>
       </CardHeader>
@@ -196,6 +198,11 @@ export default function WeeklyActivityWidget({
   const isMinimal = variant === "minimal";
   const { isConnecting, isReconnecting } = useAccount();
   const isWalletConnecting = isConnecting || isReconnecting;
+
+  // V2 streak is the authoritative streak count (seed-aware, derived from
+  // the points ledger). The on-chain week cells below are still shown as a
+  // visual delegation/miner history.
+  const { data: v2Balance } = useV2PointsBalance(walletAddress);
 
   const impactLeaderboardQuery = useImpactLeaderboardQuery({
     enabled: hasWallet,
@@ -423,6 +430,14 @@ export default function WeeklyActivityWidget({
     return { streakWeeks: streak, isStreakAtRisk: atRisk };
   }, [currentWeek, weekCells, weekRange]);
 
+  // Prefer the V2 streak when available; fall back to the on-chain
+  // cell-derived streak otherwise.
+  const v2Streak = v2Balance?.currentStreak ?? null;
+  const displayStreakWeeks = v2Streak ? v2Streak.streakWeek : streakWeeks;
+  const displayAtRisk = v2Streak
+    ? displayStreakWeeks > 0 && !v2Streak.qualified
+    : isStreakAtRisk;
+
   const displayMultiplier = React.useMemo(() => {
     if (currentMultiplier) return currentMultiplier;
 
@@ -461,7 +476,7 @@ export default function WeeklyActivityWidget({
           ? "bg-muted/20 dark:bg-muted/30 border border-border/10 dark:border-border/20 rounded-2xl h-full"
           : isFlow
           ? "bg-card/30 border-border/20 min-h-[280px]"
-          : "h-full lg:max-h-[280px] bg-card dark:bg-card border-border/20"
+          : "h-full bg-card dark:bg-card border-border/20"
       )}
     >
       <CardHeader className="py-0 px-6">
@@ -484,17 +499,20 @@ export default function WeeklyActivityWidget({
               </div>
 
               <div className="mt-4 flex flex-1 min-h-0 items-center justify-center">
-                <div className="grid grid-cols-4 gap-3">
-                  {[0, 1, 2, 3].map((idx) => (
-                    <div
-                      key={`empty-${idx}`}
-                      className={cn(
-                        "relative h-10 w-10 sm:h-12 sm:w-12 rounded-xl",
-                        "border-2 border-dashed border-foreground/10 bg-foreground/[0.02]",
-                        idx === 3 && "ring-2 ring-foreground/10"
-                      )}
-                    />
-                  ))}
+                <div className="grid grid-cols-5 gap-1.5">
+                  {Array.from({ length: DISPLAY_WEEKS_CAP }, (_, i) => i).map(
+                    (idx) => (
+                      <div
+                        key={`empty-${idx}`}
+                        className={cn(
+                          "relative h-8 w-8 sm:h-9 sm:w-9 rounded-lg",
+                          "border-2 border-dashed border-foreground/10 bg-foreground/[0.02]",
+                          idx === DISPLAY_WEEKS_CAP - 1 &&
+                            "ring-2 ring-foreground/10"
+                        )}
+                      />
+                    )
+                  )}
                 </div>
               </div>
 
@@ -551,17 +569,20 @@ export default function WeeklyActivityWidget({
               </div>
 
               <div className="mt-4 flex flex-1 min-h-0 items-center justify-center">
-                <div className="grid grid-cols-4 gap-3">
-                  {[0, 1, 2, 3].map((idx) => (
-                    <div
-                      key={`empty-${idx}`}
-                      className={cn(
-                        "relative h-10 w-10 sm:h-12 sm:w-12 rounded-xl",
-                        "border-2 border-dashed border-foreground/10 bg-foreground/[0.02]",
-                        idx === 3 && "ring-2 ring-foreground/10"
-                      )}
-                    />
-                  ))}
+                <div className="grid grid-cols-5 gap-1.5">
+                  {Array.from({ length: DISPLAY_WEEKS_CAP }, (_, i) => i).map(
+                    (idx) => (
+                      <div
+                        key={`empty-${idx}`}
+                        className={cn(
+                          "relative h-8 w-8 sm:h-9 sm:w-9 rounded-lg",
+                          "border-2 border-dashed border-foreground/10 bg-foreground/[0.02]",
+                          idx === DISPLAY_WEEKS_CAP - 1 &&
+                            "ring-2 ring-foreground/10"
+                        )}
+                      />
+                    )
+                  )}
                 </div>
               </div>
 
@@ -588,7 +609,7 @@ export default function WeeklyActivityWidget({
             <>
               <div className="flex flex-col items-center justify-center text-center select-none">
                 <div className="font-mono text-6xl font-semibold tracking-tight text-foreground leading-none">
-                  {streakWeeks}
+                  {displayStreakWeeks}
                   <span className="ml-2 text-sm font-mono font-medium text-muted-foreground/50 uppercase tracking-widest align-middle">
                     {t.widgets.weeklyActivity.wks}
                   </span>
@@ -600,7 +621,7 @@ export default function WeeklyActivityWidget({
 
               <div className="mt-4 flex flex-1 min-h-0 items-center justify-center">
                 <TooltipProvider delayDuration={200}>
-                  <div className="grid grid-cols-4 gap-3">
+                  <div className="grid grid-cols-5 gap-1.5">
                     {weekCells.map((cell) => {
                       const isCurrentWeek = cell.week === currentWeek;
                       const isMissed = cell.status === "missed";
@@ -611,7 +632,7 @@ export default function WeeklyActivityWidget({
                           <TooltipTrigger asChild>
                             <div
                               className={cn(
-                                "relative h-10 w-10 sm:h-12 sm:w-12 rounded-xl",
+                                "relative h-8 w-8 sm:h-9 sm:w-9 rounded-lg",
                                 "outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                                 "hover:ring-2 hover:ring-foreground/20 hover:ring-offset-2 hover:ring-offset-background",
                                 "transition-shadow",
@@ -625,7 +646,7 @@ export default function WeeklyActivityWidget({
                                 cell.status === "both" && "bg-[#4ADE80]",
                                 isCurrentWeek && "ring-2 ring-foreground/20",
                                 isCurrentWeek &&
-                                  isStreakAtRisk &&
+                                  displayAtRisk &&
                                   "ring-2 ring-amber-500/70 border-amber-500/50"
                               )}
                             >
@@ -703,7 +724,7 @@ export default function WeeklyActivityWidget({
                 </TooltipProvider>
               </div>
 
-              {isStreakAtRisk ? (
+              {displayAtRisk ? (
                 <div className="mt-4 space-y-2">
                   <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">
                     <div className="flex items-center justify-between gap-2">
@@ -877,7 +898,10 @@ export default function WeeklyActivityWidget({
                       </Tooltip>
                     ) : (
                       <div className="text-[10px] font-mono uppercase tracking-wider text-foreground/70">
-                        {t.widgets.weeklyActivity.streakCounter(streakWeeks)}
+                        {t.widgets.weeklyActivity.streakCounter(
+                          displayStreakWeeks,
+                          DISPLAY_WEEKS_CAP,
+                        )}
                       </div>
                     )}
                   </div>

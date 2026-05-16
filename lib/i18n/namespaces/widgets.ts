@@ -597,7 +597,7 @@ export interface WidgetStrings {
     startYourStreak: string;
     streakAtRiskBold: string;
     streakAtRiskBody: string;
-    streakCounter: (n: number) => string;
+    streakCounter: (n: number, cap: number) => string;
     // Multiplier tooltip
     currentMultiplier: string;
     multiplierBase: string;
@@ -1245,7 +1245,7 @@ const en: WidgetStrings = {
     startYourStreak: "Delegate GLW or buy a miner to start your streak!",
     streakAtRiskBold: "Streak at risk!",
     streakAtRiskBody: "Delegate GLW or buy a miner this week.",
-    streakCounter: (n) => `Streak ${n}/4`,
+    streakCounter: (n, cap) => `Streak ${n}/${cap}`,
     currentMultiplier: "Current Multiplier",
     multiplierBase: "Base",
     multiplierMinerSuffix: "(Miner)",
@@ -1888,7 +1888,7 @@ const ko: WidgetStrings = {
     startYourStreak: "GLW를 위임하거나 마이너를 구매해 연속 기록을 시작하세요!",
     streakAtRiskBold: "연속 기록 위험!",
     streakAtRiskBody: "이번 주에 GLW를 위임하거나 마이너를 구매하세요.",
-    streakCounter: (n) => `연속 기록 ${n}/4`,
+    streakCounter: (n, cap) => `연속 기록 ${n}/${cap}`,
     currentMultiplier: "현재 배수",
     multiplierBase: "기본",
     multiplierMinerSuffix: "(마이너)",
@@ -2532,7 +2532,7 @@ const zh: WidgetStrings = {
     startYourStreak: "委托 GLW 或购买矿机以开启您的连续记录!",
     streakAtRiskBold: "连续记录有风险!",
     streakAtRiskBody: "本周委托 GLW 或购买矿机。",
-    streakCounter: (n) => `连续 ${n}/4`,
+    streakCounter: (n, cap) => `连续 ${n}/${cap}`,
     currentMultiplier: "当前倍数",
     multiplierBase: "基础",
     multiplierMinerSuffix: "(矿机)",

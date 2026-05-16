@@ -72,7 +72,6 @@ import {
   TransactionStepper,
   type StepStatus,
 } from "@/components/transaction-stepper";
-import { EmissionsIcon, VaultIcon } from "@/components/impact-icons";
 
 import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
 import { usePatchedOffchainFractions } from "@/hooks/usePatchedOffchainFractions";
@@ -86,7 +85,6 @@ import {
   calculateCostInUSDC,
   calculateEstimatedRewardsBreakdown,
   calculateShortfall,
-  calculateImpactPointsBreakdown,
   calculateSuccessMetrics,
   clampQuantity,
   coerceToBigInt,
@@ -131,6 +129,7 @@ import {
 } from "@/hooks/useMerkleProofs";
 import type { ClaimableReward } from "@/hooks/control-wallets";
 import { QUERY_KEYS } from "@/hooks/query-keys";
+import { useV2PointsBalance } from "@/hooks/v2-points";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   resolveFractionRemainingSteps,
@@ -577,6 +576,14 @@ export function DepositDialog({
   const [successMetrics, setSuccessMetrics] =
     React.useState<SuccessMetrics | null>(null);
   const postSuccessRefreshTimeoutsRef = React.useRef<number[]>([]);
+
+  // V2 points: snapshot the wallet's balance before the purchase so the
+  // success screen can show the points this action granted. The award is
+  // credited asynchronously once the on-chain delegation is processed, so
+  // the delta may still be 0 at the moment the success screen renders;
+  // invalidating the balance query lets it update live.
+  const { data: v2PointsBalance } = useV2PointsBalance(address);
+  const pointsBeforeRef = React.useRef<number | null>(null);
   const [launchpadNowMs, setLaunchpadNowMs] = React.useState(() =>
     getLaunchpadNowMs(),
   );
@@ -742,8 +749,22 @@ export function DepositDialog({
       setErrorMessage(null);
       setIsInsufficientSharesError(false);
       setSuccessMetrics(null);
+      pointsBeforeRef.current = null;
     }
   }, [open, runtimeSelectedCurrency]);
+
+  // Snapshot the V2 points balance once, before the purchase completes, so
+  // the success screen can show the delta this action granted.
+  React.useEffect(() => {
+    if (
+      open &&
+      phase !== "success" &&
+      v2PointsBalance &&
+      pointsBeforeRef.current === null
+    ) {
+      pointsBeforeRef.current = v2PointsBalance.availablePoints;
+    }
+  }, [open, phase, v2PointsBalance]);
 
   React.useEffect(() => {
     if (!open || !application?.id) {
@@ -1256,6 +1277,14 @@ export function DepositDialog({
     estimatedRewardsBreakdown.pd > 0;
   const hasAnyEstimatedRewards =
     estimatedRewardsBreakdown.glw > 0 || estimatedRewardsBreakdown.pd > 0;
+
+  // V2 points granted by this purchase: the balance delta since the
+  // pre-purchase snapshot. Often still 0 when the success screen first
+  // renders (the award is credited asynchronously on-chain).
+  const v2PointsGranted =
+    pointsBeforeRef.current != null && v2PointsBalance
+      ? Math.max(0, v2PointsBalance.availablePoints - pointsBeforeRef.current)
+      : 0;
   const estimatedRewardsUsdValue =
     estimatedRewardsBreakdown.glw * (glwSpotPrice || 0) +
     estimatedRewardsBreakdown.pd *
@@ -1276,32 +1305,6 @@ export function DepositDialog({
     }
     return dd.weeklyFor100Weeks;
   }, [dd, runtimeSelectedCurrency, rewardScore]);
-
-  // Estimated weekly impact points based on GLOW-IMPACT-SCORE.md rules:
-  // - Emissions: +1 point per GLW earned in emission rewards
-  // - Vault bonus: +0.005 points per week per GLW delegated (launchpad only)
-  const impactPointsBreakdown = React.useMemo(
-    () =>
-      calculateImpactPointsBreakdown(
-        quantity,
-        effectiveApplication?.activeFraction ?? null,
-        rewardScore ?? null,
-        costInGLW,
-        {
-          includeVaultBonus: runtimeSelectedCurrency === "GLW",
-          selectedCurrency: runtimeSelectedCurrency,
-          totalSharesOverride: launchpadTotalShares,
-        },
-      ),
-    [
-      quantity,
-      effectiveApplication?.activeFraction,
-      rewardScore,
-      costInGLW,
-      runtimeSelectedCurrency,
-      launchpadTotalShares,
-    ],
-  );
 
   const maxQuantity = resolveFractionRemainingSteps(
     effectiveApplication?.activeFraction,
@@ -1635,6 +1638,14 @@ export function DepositDialog({
         queryClient.invalidateQueries({
           queryKey: QUERY_KEYS.impact.leaderboard(),
           refetchType: "none",
+        }),
+        // V2 points: refetch the balance + ledger so the success screen
+        // reflects the points this purchase grants once they land.
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.v2.pointsBalance(address),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.v2.pointsLedger(address),
         }),
         queryClient.invalidateQueries({
           queryKey: QUERY_KEYS.balances.tokens(chainId, address),
@@ -2966,77 +2977,41 @@ export function DepositDialog({
                 </div>
               </div>
 
-              {/* Impact Points Section */}
-              {impactPointsBreakdown.total > 0 ? (
+              {/* Glow Points (V2) */}
+              {address ? (
                 <div className="px-5 py-4 border-t border-border/20 dark:border-border/40">
-                  <div className="flex justify-between items-center mb-3">
+                  <div className="flex justify-between items-center">
                     <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
-                      {dd.successEstWeeklyImpactPoints}
+                      Glow Points Earned
                     </div>
                     <div className="flex items-baseline gap-1">
                       <span className="text-lg font-mono font-semibold text-foreground leading-none">
-                        +
-                        {impactPointsBreakdown.total.toLocaleString(undefined, {
-                          maximumFractionDigits: 2,
-                        })}
+                        {v2PointsGranted > 0
+                          ? `+${v2PointsGranted.toLocaleString(undefined, {
+                              maximumFractionDigits: 2,
+                            })}`
+                          : "Pending"}
                       </span>
-                      <span className="text-xs font-mono text-muted-foreground">
-                        {dd.successPtsUnit}
-                      </span>
+                      {v2PointsGranted > 0 ? (
+                        <span className="text-xs font-mono text-muted-foreground">
+                          pts
+                        </span>
+                      ) : null}
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    {/* Emissions Row */}
-                    <div className="flex items-center justify-between py-1">
-                      <div className="flex items-center gap-2.5">
-                        <div className="flex items-center justify-center w-6 h-6 rounded-lg shrink-0 bg-[color:var(--color-miner)]/10 text-[color:var(--color-miner)]">
-                          <EmissionsIcon className="w-3.5 h-3.5" />
-                        </div>
-                        <span className="text-sm text-muted-foreground">
-                          {dd.successEmissions}
-                        </span>
-                      </div>
-                      <span className="font-mono text-sm font-medium text-[color:var(--color-miner)]">
-                        +
-                        {impactPointsBreakdown.emissionPoints.toLocaleString(
-                          undefined,
-                          { maximumFractionDigits: 2 },
-                        )}
-                      </span>
-                    </div>
-
-                    {/* Vault Bonus Row (only for delegations) */}
-                    {impactPointsBreakdown.vaultBonusPoints > 0 ? (
-                      <div className="flex items-center justify-between py-1">
-                        <div className="flex items-center gap-2.5">
-                          <div className="flex items-center justify-center w-6 h-6 rounded-lg shrink-0 bg-[color:var(--delegation-purple)]/10 text-[color:var(--delegation-purple)]">
-                            <VaultIcon className="w-3.5 h-3.5" />
-                          </div>
-                          <span className="text-sm text-muted-foreground">
-                            {dd.successVaultBonus}
-                          </span>
-                        </div>
-                        <span className="font-mono text-sm font-medium text-[color:var(--delegation-purple)]">
-                          +
-                          {impactPointsBreakdown.vaultBonusPoints.toLocaleString(
-                            undefined,
-                            { maximumFractionDigits: 2 },
-                          )}
-                        </span>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  {/* Miner bonus note */}
-                  {runtimeSelectedCurrency === "USDC" ? (
-                    <div className="mt-3 pt-2.5 border-t border-border/20 dark:border-border/40 text-[11px] text-muted-foreground/50 dark:text-muted-foreground/70">
-                      <span className="text-[color:var(--color-miner)] font-medium">
-                        {dd.successMinerBonusPrefix}
-                      </span>{" "}
-                      {dd.successMinerBonusSuffix}
-                    </div>
-                  ) : null}
+                  <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground/70 dark:text-muted-foreground/80">
+                    {v2PointsGranted > 0
+                      ? "Points for this "
+                      : "Points for this "}
+                    {runtimeSelectedCurrency === "USDC"
+                      ? "miner purchase"
+                      : "delegation"}
+                    {v2PointsGranted > 0
+                      ? " have been credited to your balance."
+                      : " are credited shortly after the transaction is processed on-chain."}{" "}
+                    Your farm impact accrues once the farm fully funds.
+                  </p>
                 </div>
               ) : null}
             </div>
