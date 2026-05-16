@@ -21,6 +21,7 @@ export interface HeaderStrings {
   swap: { title: string; description: string };
   leaderboard: { title: string; description: string };
   protocolStats: { title: string; description: string };
+  pointsShop: { title: string; description: string };
   ambassadorDashboard: { title: string; description: string };
 
   // Impact section
@@ -69,6 +70,10 @@ const en: HeaderStrings = {
   protocolStats: {
     title: "Protocol Stats",
     description: "Real-time protocol metrics and market data",
+  },
+  pointsShop: {
+    title: "Points Shop",
+    description: "Spend your points on this week's prizes",
   },
   ambassadorDashboard: {
     title: "Ambassador Dashboard",
@@ -139,6 +144,10 @@ const ko: HeaderStrings = {
     title: "프로토콜 통계",
     description: "실시간 프로토콜 지표와 마켓 데이터",
   },
+  pointsShop: {
+    title: "포인트 상점",
+    description: "이번 주 상품에 포인트를 사용하세요",
+  },
   ambassadorDashboard: {
     title: "앰배서더 대시보드",
     description: "커미션 추적 및 실적",
@@ -206,6 +215,10 @@ const zh: HeaderStrings = {
   protocolStats: {
     title: "协议数据",
     description: "实时协议指标与市场数据",
+  },
+  pointsShop: {
+    title: "积分商店",
+    description: "使用积分兑换本周奖品",
   },
   ambassadorDashboard: {
     title: "大使仪表板",

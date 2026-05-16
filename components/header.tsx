@@ -183,6 +183,22 @@ export function HeaderHamburgerMenu({
                       >
                         {t.header.protocolStats.title}                      </Link>
                     </DrawerClose>
+                    <DrawerClose asChild>
+                      <Link
+                        href="/shop"
+                        onClick={() => {
+                          setTimeout(() => {
+                            window.scrollTo({
+                              top: 0,
+                              behavior: "smooth",
+                            });
+                          }, 100);
+                        }}
+                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        Points Shop
+                      </Link>
+                    </DrawerClose>
                   </div>
                 </div>
 
@@ -425,9 +441,14 @@ export function Header({
                         onClick={() => setIsSwapDialogOpen(true)}
                       />
                       <ListItem href="/stats/rewards" title={t.header.leaderboard.title}>
-                        {t.header.leaderboard.description}                      </ListItem>
+                        {t.header.leaderboard.description}
+                      </ListItem>
                       <ListItem href="/stats" title={t.header.protocolStats.title}>
-                        {t.header.protocolStats.description}                      </ListItem>
+                        {t.header.protocolStats.description}
+                      </ListItem>
+                      <ListItem href="/shop" title={t.header.pointsShop.title}>
+                        {t.header.pointsShop.description}
+                      </ListItem>
                       {showKolLink && (
                         <ListItem href="/ambassador" title={t.header.ambassadorDashboard.title}>
                           {t.header.ambassadorDashboard.description}                        </ListItem>
