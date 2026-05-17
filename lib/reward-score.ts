@@ -18,6 +18,9 @@ export interface ApplicationRewardScore {
   userWeeklyPdRewardsUsd: string;
   userEstimatedWeeklyCash: string;
   userProtocolDeposit: string;
+  /** The wallet's share of farm GLW inflation, scaled6. Lets a caller
+   *  re-base `userWeeklyGlwRewards` onto a different split. */
+  userGlowSplitPercent: string;
   error?: string;
 }
 
@@ -132,6 +135,7 @@ function getMissingRewardScore(applicationId: string): ApplicationRewardScore {
     userWeeklyPdRewardsUsd: "0",
     userEstimatedWeeklyCash: "0",
     userProtocolDeposit: "0",
+    userGlowSplitPercent: "0",
     error: "Missing required data for calculation",
   };
 }
@@ -231,6 +235,7 @@ export function mapRewardScoresBatchToApplications(params: {
         userWeeklyPdRewardsUsd: result.data.userWeeklyPdRewardsUsd,
         userEstimatedWeeklyCash: result.data.userEstimatedWeeklyCash,
         userProtocolDeposit: result.data.userProtocolDeposit,
+        userGlowSplitPercent: result.data.userGlowSplitPercent,
       });
       return;
     }

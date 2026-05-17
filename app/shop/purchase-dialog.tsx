@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { FallbackImage } from "@/components/ui/fallback-image";
 import { formatNumber } from "@/utils/format";
 import { trackEvent } from "@/lib/telemetry";
 import { V2ApiError } from "@/lib/api/v2-api-client";
@@ -25,14 +26,55 @@ import {
   type V2ShopPurchaseResult,
 } from "@/hooks/v2-points-shop";
 import { shopItemMeta } from "@/app/shop/shop-item-meta";
+import type { ShopMinerFarmInfo } from "@/hooks/v2-shop-miner";
+
+function formatGlwAmount(value: number): string {
+  return value.toLocaleString("en-US", {
+    maximumFractionDigits: value > 0 && value < 1 ? 4 : 2,
+  });
+}
 
 /** The prize visual shown at the top of the purchase flow. */
-function ItemBanner({ item }: { item: V2ShopItem }) {
+function ItemBanner({
+  item,
+  minerFarm,
+}: {
+  item: V2ShopItem;
+  minerFarm?: ShopMinerFarmInfo;
+}) {
   const meta = shopItemMeta(item);
+  const farmImage =
+    item.kind === "miner" && minerFarm?.resolved ? minerFarm.imageUrl : null;
+  const tagline =
+    item.kind === "miner" && minerFarm?.resolved && minerFarm.farmName
+      ? minerFarm.farmName
+      : meta.tagline;
 
-  if (meta.image) {
+  if (meta.isTicket) {
     return (
-      <div className="relative h-32 w-full overflow-hidden rounded-xl">
+      <div className="glow-gradient-b relative flex h-36 w-full flex-col justify-end overflow-hidden rounded-2xl p-4">
+        <Ticket className="absolute right-4 top-4 h-6 w-6 text-black/55" />
+        <span className="mb-1.5 w-fit rounded-full bg-black/80 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-white">
+          {meta.eyebrow}
+        </span>
+        <p className="text-lg font-semibold leading-tight text-black/85">
+          {meta.headline}
+        </p>
+        <p className="mt-0.5 text-xs text-black/55">{tagline}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative h-36 w-full overflow-hidden rounded-2xl">
+      {farmImage ? (
+        <FallbackImage
+          src={farmImage}
+          alt={tagline ?? item.label}
+          widthForProxy={640}
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      ) : meta.image ? (
         <Image
           src={meta.image}
           alt={item.label}
@@ -40,30 +82,50 @@ function ItemBanner({ item }: { item: V2ShopItem }) {
           sizes="480px"
           className="object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-black/5" />
-        <span className="absolute left-3 top-3 rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-white ring-1 ring-white/25 backdrop-blur-md">
-          {meta.eyebrow}
-        </span>
-        <div className="absolute inset-x-0 bottom-0 p-3">
-          <p className="text-base font-semibold leading-tight text-white">
-            {meta.headline}
-          </p>
-          <p className="mt-0.5 text-[11px] text-white/75">{meta.tagline}</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="glow-gradient-b relative flex h-32 w-full flex-col justify-end overflow-hidden rounded-xl p-3">
-      <Ticket className="absolute right-3 top-3 h-5 w-5 text-black/55" />
-      <span className="mb-1 w-fit rounded-full bg-black/80 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-white">
+      ) : null}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-black/5" />
+      <span className="absolute left-4 top-4 rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-white ring-1 ring-white/25 backdrop-blur-md">
         {meta.eyebrow}
       </span>
-      <p className="text-base font-semibold leading-tight text-black/85">
-        {meta.headline}
-      </p>
-      <p className="mt-0.5 text-[11px] text-black/55">{meta.tagline}</p>
+      <div className="absolute inset-x-0 bottom-0 p-4">
+        <p className="text-lg font-semibold leading-tight text-white">
+          {meta.headline}
+        </p>
+        <p className="mt-0.5 text-xs text-white/75">{tagline}</p>
+      </div>
+    </div>
+  );
+}
+
+/** A compact "what you get" strip for a farm-linked miner. */
+function MinerEstimateStrip({ minerFarm }: { minerFarm: ShopMinerFarmInfo }) {
+  if (!minerFarm.resolved) return null;
+  const reward =
+    minerFarm.weeklyGlwRewards != null
+      ? `${formatGlwAmount(minerFarm.weeklyGlwRewards)} GLW/wk`
+      : null;
+  const weeks =
+    minerFarm.weeksRemaining != null ? `${minerFarm.weeksRemaining} weeks` : null;
+  if (!reward && !weeks) return null;
+
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      <div className="rounded-xl border border-border/50 bg-muted/30 px-3 py-2 dark:border-white/10 dark:bg-zinc-900">
+        <p className="text-[10px] uppercase tracking-wide text-muted-foreground/70">
+          Est. reward
+        </p>
+        <p className="mt-0.5 text-sm font-semibold tabular-nums">
+          {reward ?? "-"}
+        </p>
+      </div>
+      <div className="rounded-xl border border-border/50 bg-muted/30 px-3 py-2 dark:border-white/10 dark:bg-zinc-900">
+        <p className="text-[10px] uppercase tracking-wide text-muted-foreground/70">
+          Weeks left
+        </p>
+        <p className="mt-0.5 text-sm font-semibold tabular-nums">
+          {weeks ?? "-"}
+        </p>
+      </div>
     </div>
   );
 }
@@ -72,6 +134,8 @@ interface PurchaseDialogProps {
   item: V2ShopItem | null;
   /** Wallet's available point balance, for the affordability check + display. */
   availablePoints: number | null;
+  /** Resolved source-farm info when the item is a farm-linked miner. */
+  minerFarm?: ShopMinerFarmInfo;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -143,6 +207,7 @@ function GrantSummary({ result }: { result: V2ShopPurchaseResult }) {
 export function PurchaseDialog({
   item,
   availablePoints,
+  minerFarm,
   open,
   onOpenChange,
 }: PurchaseDialogProps) {
@@ -178,6 +243,7 @@ export function PurchaseDialog({
   const balance = availablePoints ?? 0;
   const canAfford = balance >= price;
   const balanceAfter = Math.max(0, balance - price);
+  const showMinerEstimate = item.kind === "miner" && Boolean(minerFarm?.resolved);
 
   async function handleConfirm() {
     if (!address || !item) return;
@@ -253,108 +319,131 @@ export function PurchaseDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-sm">
         {phase === "success" && result ? (
-          <>
-            <ItemBanner item={item} />
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                Purchase complete
-              </DialogTitle>
-              <DialogDescription>
-                Your prize is recorded and on its way.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-3 py-2">
+          <div className="flex flex-col">
+            <div className="p-3">
+              <ItemBanner item={item} minerFarm={minerFarm} />
+            </div>
+            <div className="flex flex-col gap-4 px-6 pb-6">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                  Purchase complete
+                </DialogTitle>
+                <DialogDescription>
+                  Your prize is recorded and on its way.
+                </DialogDescription>
+              </DialogHeader>
               <GrantSummary result={result} />
-              <div className="rounded-xl bg-muted/40 px-3 py-2 text-sm">
-                New point balance:{" "}
-                <span className="font-semibold tabular-nums">
+              <div className="flex items-center justify-between rounded-2xl border border-border/60 bg-muted/30 px-4 py-3 text-sm dark:border-white/10 dark:bg-zinc-900">
+                <span className="text-muted-foreground">New point balance</span>
+                <span className="text-base font-semibold tabular-nums">
                   {formatNumber(Number(result.newPointsBalance))}
                 </span>
               </div>
+              <DialogFooter>
+                <Button className="w-full" onClick={() => onOpenChange(false)}>
+                  Done
+                </Button>
+              </DialogFooter>
             </div>
-            <DialogFooter>
-              <Button onClick={() => onOpenChange(false)}>Done</Button>
-            </DialogFooter>
-          </>
+          </div>
         ) : phase === "error" ? (
-          <>
+          <div className="flex flex-col gap-4 p-6">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <XCircle className="h-5 w-5 text-red-500" />
                 Purchase failed
               </DialogTitle>
+              <DialogDescription>{errorMsg}</DialogDescription>
             </DialogHeader>
-            <div className="space-y-2 py-2">
-              <p className="text-sm">{errorMsg}</p>
-              <p className="text-xs text-muted-foreground">
-                Your points were not spent.
-              </p>
-            </div>
+            <p className="rounded-2xl border border-border/60 bg-muted/30 px-4 py-3 text-xs text-muted-foreground dark:border-white/10 dark:bg-zinc-900">
+              Your points were not spent.
+            </p>
             <DialogFooter className="gap-2">
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Close
               </Button>
               <Button onClick={() => setPhase("confirm")}>Try again</Button>
             </DialogFooter>
-          </>
+          </div>
         ) : (
-          <>
-            <ItemBanner item={item} />
-            <DialogHeader>
-              <DialogTitle>Confirm purchase</DialogTitle>
-              <DialogDescription>
-                Spend your points to redeem this prize.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-2 py-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Cost</span>
-                <span className="font-semibold tabular-nums">
-                  {formatNumber(price)} points
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Your balance</span>
-                <span className="tabular-nums">{formatNumber(balance)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Balance after</span>
-                <span className="tabular-nums">
-                  {canAfford ? formatNumber(balanceAfter) : "-"}
-                </span>
-              </div>
-              {!canAfford ? (
-                <p className="pt-1 text-xs text-red-600">
-                  You don't have enough points for this item.
-                </p>
-              ) : null}
+          <div className="flex flex-col">
+            <div className="p-3">
+              <ItemBanner item={item} minerFarm={minerFarm} />
             </div>
-            <DialogFooter className="gap-2">
-              <Button
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={phase === "pending"}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleConfirm}
-                disabled={!canAfford || phase === "pending" || !address}
-              >
-                {phase === "pending" ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Confirming…
-                  </>
-                ) : (
-                  "Confirm purchase"
-                )}
-              </Button>
-            </DialogFooter>
-          </>
+            <div className="flex flex-col gap-4 px-6 pb-6">
+              <DialogHeader>
+                <DialogTitle>Confirm purchase</DialogTitle>
+                <DialogDescription>
+                  Review and redeem this week's prize.
+                </DialogDescription>
+              </DialogHeader>
+
+              {showMinerEstimate && minerFarm ? (
+                <MinerEstimateStrip minerFarm={minerFarm} />
+              ) : null}
+
+              {/* Cost summary */}
+              <div className="rounded-2xl border border-border/60 bg-muted/30 p-4 dark:border-white/10 dark:bg-zinc-900">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/60">
+                    Cost
+                  </span>
+                  <span className="text-2xl font-semibold tabular-nums leading-none">
+                    {formatNumber(price)}{" "}
+                    <span className="text-sm font-normal text-muted-foreground">
+                      points
+                    </span>
+                  </span>
+                </div>
+                <div className="my-3 border-t border-border/50 dark:border-white/10" />
+                <div className="space-y-1.5 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Your balance</span>
+                    <span className="tabular-nums">
+                      {formatNumber(balance)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Balance after</span>
+                    <span className="font-semibold tabular-nums">
+                      {canAfford ? formatNumber(balanceAfter) : "-"}
+                    </span>
+                  </div>
+                </div>
+                {!canAfford ? (
+                  <p className="mt-2.5 text-xs font-medium text-red-600">
+                    You don't have enough points for this prize.
+                  </p>
+                ) : null}
+              </div>
+
+              <DialogFooter className="gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                  disabled={phase === "pending"}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleConfirm}
+                  disabled={!canAfford || phase === "pending" || !address}
+                >
+                  {phase === "pending" ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Confirming
+                    </>
+                  ) : (
+                    "Confirm purchase"
+                  )}
+                </Button>
+              </DialogFooter>
+            </div>
+          </div>
         )}
       </DialogContent>
     </Dialog>
