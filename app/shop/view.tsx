@@ -36,6 +36,11 @@ import {
 } from "@/hooks/v2-points-shop";
 import { shopItemMeta } from "@/app/shop/shop-item-meta";
 import { PurchaseDialog } from "@/app/shop/purchase-dialog";
+import {
+  useShopMinerFarms,
+  type ShopMinerFarmInfo,
+} from "@/hooks/v2-shop-miner";
+import { FallbackImage } from "@/components/ui/fallback-image";
 
 const KIND_ICON: Record<
   V2ShopItemKind,
@@ -96,15 +101,28 @@ function inventoryLabel(item: V2ShopItem): string {
   return `${item.inventoryRemaining} left`;
 }
 
-function StatTile({ label, value }: { label: string; value: string }) {
+function StatTile({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
   return (
     <div className="rounded-xl border border-border/50 bg-muted/30 px-3 py-2.5 dark:border-white/10 dark:bg-zinc-900">
       <p className="text-[10px] uppercase tracking-wide text-muted-foreground/70">
         {label}
       </p>
-      <p className="mt-0.5 text-base font-semibold tabular-nums">{value}</p>
+      <div className="mt-0.5 text-base font-semibold tabular-nums">{value}</div>
     </div>
   );
+}
+
+/** Compact GLW amount: more precision for sub-1 values. */
+function formatGlwAmount(value: number): string {
+  return value.toLocaleString("en-US", {
+    maximumFractionDigits: value > 0 && value < 1 ? 4 : 2,
+  });
 }
 
 function BuyButton({
@@ -176,16 +194,57 @@ function PrizeSlide({
   isConnected,
   canAfford,
   onBuy,
+  minerFarm,
 }: {
   item: V2ShopItem;
   isConnected: boolean;
   canAfford: boolean;
   onBuy: (item: V2ShopItem) => void;
+  minerFarm?: ShopMinerFarmInfo;
 }) {
   const meta = shopItemMeta(item);
   const Icon = KIND_ICON[item.kind] ?? Coins;
   const soldOut =
     item.inventoryRemaining !== null && item.inventoryRemaining <= 0;
+
+  // A miner item linked to a real farm shows the farm's after-install photo
+  // and a live launchpad reward estimate in place of the static placeholder.
+  const farmMiner = item.kind === "miner" ? minerFarm : undefined;
+  const farmImageUrl =
+    farmMiner && farmMiner.resolved ? farmMiner.imageUrl : null;
+  const tagline =
+    farmMiner && farmMiner.resolved && farmMiner.farmName
+      ? farmMiner.farmName
+      : meta.tagline;
+
+  let stats: { label: string; value: React.ReactNode }[];
+  if (farmMiner && farmMiner.isLoading) {
+    stats = [
+      { label: "Est. reward", value: <Skeleton className="h-5 w-24" /> },
+      { label: "Weeks left", value: <Skeleton className="h-5 w-16" /> },
+    ];
+  } else if (farmMiner && farmMiner.resolved) {
+    stats = [
+      {
+        label: "Est. reward",
+        value:
+          farmMiner.weeklyGlwRewards != null
+            ? `${formatGlwAmount(farmMiner.weeklyGlwRewards)} GLW/wk`
+            : "-",
+      },
+      {
+        label: "Weeks left",
+        value:
+          farmMiner.weeksRemaining != null
+            ? `${farmMiner.weeksRemaining} ${
+                farmMiner.weeksRemaining === 1 ? "week" : "weeks"
+              }`
+            : "-",
+      },
+    ];
+  } else {
+    stats = meta.stats;
+  }
 
   return (
     <div className="relative">
@@ -199,7 +258,19 @@ function PrizeSlide({
       >
       {/* Visual pane */}
       <div className="relative min-h-[220px] md:min-h-[400px]">
-        {meta.image ? (
+        {meta.isTicket ? (
+          <TicketVisual />
+        ) : farmImageUrl ? (
+          <FallbackImage
+            src={farmImageUrl}
+            alt={tagline ?? item.label}
+            widthForProxy={760}
+            className={cn(
+              "absolute inset-0 h-full w-full object-cover",
+              soldOut && "grayscale",
+            )}
+          />
+        ) : meta.image ? (
           <Image
             src={meta.image}
             alt={item.label}
@@ -244,18 +315,16 @@ function PrizeSlide({
           <h3 className="text-2xl font-semibold leading-tight tracking-tight md:text-3xl">
             {meta.headline}
           </h3>
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            {meta.tagline}
-          </p>
+          <p className="mt-1.5 text-sm text-muted-foreground">{tagline}</p>
         </div>
 
         <p className="text-sm leading-relaxed text-muted-foreground">
           {meta.blurb}
         </p>
 
-        {meta.stats.length > 0 ? (
+        {stats.length > 0 ? (
           <div className="grid grid-cols-2 gap-3">
-            {meta.stats.map((s) => (
+            {stats.map((s) => (
               <StatTile key={s.label} label={s.label} value={s.value} />
             ))}
           </div>
@@ -337,11 +406,13 @@ function ShopCarousel({
   isConnected,
   canAfford,
   onBuy,
+  minerFarms,
 }: {
   items: V2ShopItem[];
   isConnected: boolean;
   canAfford: (item: V2ShopItem) => boolean;
   onBuy: (item: V2ShopItem) => void;
+  minerFarms: Map<string, ShopMinerFarmInfo>;
 }) {
   const [api, setApi] = React.useState<CarouselApi>();
   const [selected, setSelected] = React.useState(0);
@@ -393,6 +464,7 @@ function ShopCarousel({
                       isConnected={isConnected}
                       canAfford={canAfford(item)}
                       onBuy={onBuy}
+                      minerFarm={minerFarms.get(item.itemId)}
                     />
                   </div>
                 </div>
@@ -594,6 +666,12 @@ export function ShopView() {
   const lifetimeSpent = balanceQuery.data?.lifetimeSpentPoints ?? null;
   const streakWeeks = balanceQuery.data?.currentStreak?.streakWeek ?? null;
 
+  const shopItems = React.useMemo(
+    () => shopQuery.data?.items ?? [],
+    [shopQuery.data],
+  );
+  const minerFarms = useShopMinerFarms(shopItems);
+
   const handleBuy = React.useCallback(
     (item: V2ShopItem) => {
       trackEvent("shop_item_clicked", {
@@ -655,12 +733,16 @@ export function ShopView() {
           isConnected={isConnected}
           canAfford={canAfford}
           onBuy={handleBuy}
+          minerFarms={minerFarms}
         />
       )}
 
       <PurchaseDialog
         item={selectedItem}
         availablePoints={availablePoints}
+        minerFarm={
+          selectedItem ? minerFarms.get(selectedItem.itemId) : undefined
+        }
         open={dialogOpen}
         onOpenChange={setDialogOpen}
       />
