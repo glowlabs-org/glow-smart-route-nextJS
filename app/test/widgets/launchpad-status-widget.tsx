@@ -76,6 +76,8 @@ import { formatUnits } from "viem";
 import { LaunchpadStatsDialog } from "@/app/marketplace/launchpad-stats-dialog";
 import { MiningStatsDialog } from "@/app/marketplace/mining-stats-dialog";
 import { getListingVisibleStartAtMs } from "@/utils/launchpad";
+import { useV2EarlyAccess } from "@/hooks/v2-points-shop";
+import { useMinerEarlyAccessSignature } from "@/hooks/v2-early-access";
 
 const DEFINED_POOL_ACTIVITY_URL =
   "https://www.defined.fi/eth/0x6fa09ffc45f1ddc95c1bc192956717042f142c5d";
@@ -269,10 +271,24 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
     filters: { includeFilled: true },
   });
 
+  // V2 miner early access: an entitled wallet that signs (opt-in) sees
+  // mining-center listings up to its window before public visibility.
+  const earlyAccessQuery = useV2EarlyAccess(address);
+  const minerEarlyAccess = useMinerEarlyAccessSignature();
+  const activeMinerEntitlement = React.useMemo(
+    () =>
+      (earlyAccessQuery.data?.entitlements ?? []).find(
+        (e) => e.active && e.scope === "miner",
+      ) ?? null,
+    [earlyAccessQuery.data],
+  );
+  const earlyAccessMinutes = activeMinerEntitlement?.earlyAccessMinutes ?? 15;
+
   // Fetch miners
   const { applications: minerApplications, isLoading: isMinersLoading } =
     useMiningCenter({
       filters: { paymentCurrency: "USDC", includeFilled: true },
+      earlyAccessHeader: minerEarlyAccess.header,
     });
 
   // Tag applications with their type
@@ -598,6 +614,15 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
       rewardScore,
     } = row;
     const isMiner = application._type === "miners";
+    // V2 early access: a miner listing whose public visible-at is still in
+    // the future was revealed early for this (entitled, signed) wallet.
+    const minerVisibleAtMs = isMiner
+      ? Date.parse(application.activeFraction?.marketplaceVisibleAt ?? "")
+      : NaN;
+    const isEarlyAccessReveal =
+      isMiner &&
+      Number.isFinite(minerVisibleAtMs) &&
+      getLaunchpadNowMs() < minerVisibleAtMs;
     const isRowScoreLoading = isMiner
       ? isMiningScoresLoading
       : isRewardScoresLoading;
@@ -644,8 +669,8 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
           {/* Light gradient for badge visibility */}
           <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-transparent rounded-xl" />
 
-          {/* Top Left: Category Badge */}
-          <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-10">
+          {/* Top Left: Category Badge (+ early-access pill) */}
+          <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-10 flex items-center gap-2">
             <div
               className={cn(
                 "flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-semibold backdrop-blur-xl shadow-sm",
@@ -662,6 +687,12 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
               />
               {isMiner ? "Miner" : "Delegation"}
             </div>
+            {isEarlyAccessReveal ? (
+              <div className="flex items-center gap-1 rounded-full border border-white/20 bg-[color:var(--color-miner)]/90 px-2.5 py-1 text-[10px] font-semibold text-white shadow-sm backdrop-blur-xl sm:text-xs">
+                <Sparkles className="h-3 w-3" />
+                Early access
+              </div>
+            ) : null}
           </div>
 
           {/* Top Right: Stats Button or Sold Out Badge */}
@@ -1207,6 +1238,40 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
           </button>
         )}
       </div>
+
+      {/* V2 miner early access: opt-in unlock banner for entitled wallets */}
+      {activeMinerEntitlement ? (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[color:var(--color-miner)]/30 bg-[color:var(--color-miner)]/10 px-4 py-3">
+          <div className="flex items-center gap-2.5">
+            <Sparkles className="h-4 w-4 shrink-0 text-[color:var(--color-miner-contrast)]" />
+            <span className="text-sm text-foreground">
+              {minerEarlyAccess.isUnlocked
+                ? `Early access active. Miner windows open ${earlyAccessMinutes} minutes early.`
+                : `You have miner early access. Unlock to see windows ${earlyAccessMinutes} minutes early.`}
+            </span>
+          </div>
+          {!minerEarlyAccess.isUnlocked ? (
+            <Button
+              type="button"
+              size="sm"
+              disabled={minerEarlyAccess.isSigning}
+              onClick={async () => {
+                const ok = await minerEarlyAccess.unlock();
+                if (ok) {
+                  trackEvent("early_access_used", {
+                    source,
+                    wallet_connected: isConnected,
+                    wallet_address: walletAddress,
+                    early_access_minutes: earlyAccessMinutes,
+                  });
+                }
+              }}
+            >
+              {minerEarlyAccess.isSigning ? "Unlocking" : "Unlock early access"}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
 
       {/* Cards Grid - Always 2 columns on desktop */}
       <div className="space-y-4">
