@@ -208,6 +208,11 @@ export interface UseSponsorListingsParams {
     refetchInterval?: number | false;
     refetchIntervalInBackground?: boolean;
   };
+  /**
+   * Base64 EIP-712 payload (V2 miner early access). When present, the
+   * backend may reveal mining-center listings before public visibility.
+   */
+  earlyAccessHeader?: string | null;
 }
 
 const SPONSOR_LISTINGS_PROXY_PATH = "/api/applications/sponsor-listings-applications";
@@ -247,9 +252,13 @@ function buildSponsorListingsProxyUrl(
 
 export async function fetchSponsorListings(
   filters: SponsorListingsFilters = {},
+  earlyAccessHeader?: string | null,
 ): Promise<AuctionApplication[]> {
   const response = await fetch(buildSponsorListingsProxyUrl(filters), {
     cache: "no-store",
+    headers: earlyAccessHeader
+      ? { "x-glow-early-access": earlyAccessHeader }
+      : undefined,
   });
 
   if (!response.ok) {
@@ -263,10 +272,18 @@ export async function fetchSponsorListings(
 }
 
 export function useSponsorListings(params: UseSponsorListingsParams = {}) {
-  const { filters = {}, enabled = true, query: queryOptions } = params;
+  const {
+    filters = {},
+    enabled = true,
+    query: queryOptions,
+    earlyAccessHeader,
+  } = params;
 
   const query = useQuery({
-    queryKey: QUERY_KEYS.listings.sponsor(filters),
+    queryKey: [
+      ...QUERY_KEYS.listings.sponsor(filters),
+      earlyAccessHeader ? "early-access" : "public",
+    ],
     enabled,
     staleTime: 0,
     refetchOnMount: true,
@@ -275,7 +292,7 @@ export function useSponsorListings(params: UseSponsorListingsParams = {}) {
     refetchInterval: queryOptions?.refetchInterval,
     refetchIntervalInBackground: queryOptions?.refetchIntervalInBackground,
     queryFn: async (): Promise<AuctionApplication[]> =>
-      await fetchSponsorListings(filters),
+      await fetchSponsorListings(filters, earlyAccessHeader),
   });
 
   return {
@@ -323,16 +340,18 @@ export interface UseMiningCenterParams {
   filters?: MiningCenterFilters;
   enabled?: boolean;
   query?: UseSponsorListingsParams["query"];
+  earlyAccessHeader?: string | null;
 }
 
 // mining-center listings require `type=mining-center`
 export function useMiningCenter(params: UseMiningCenterParams = {}) {
-  const { filters = {}, enabled = true, query } = params;
+  const { filters = {}, enabled = true, query, earlyAccessHeader } = params;
   const { paymentCurrency: _paymentCurrency, ...restFilters } = filters;
   return useSponsorListings({
     filters: { ...restFilters, type: "mining-center" },
     enabled,
     query,
+    earlyAccessHeader,
   });
 }
 

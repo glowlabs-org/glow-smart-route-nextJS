@@ -13,6 +13,8 @@ export function buildForwardHeaders(
 
   copyHeader(request.headers, headers, "user-agent");
   copyHeader(request.headers, headers, "referer");
+  // V2 miner early access: signed payload proving wallet ownership.
+  copyHeader(request.headers, headers, "x-glow-early-access");
   copyHeader(request.headers, headers, "origin");
   copyHeader(request.headers, headers, "cf-connecting-ip");
   copyHeader(request.headers, headers, "x-forwarded-for");
