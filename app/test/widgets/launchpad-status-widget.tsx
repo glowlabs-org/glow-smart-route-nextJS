@@ -50,6 +50,7 @@ import {
   type AuctionApplication,
 } from "@/hooks";
 import { getLaunchpadNowMs } from "@/utils/launchpad-now";
+import { getNextTuesdayAt1amET } from "@/utils/nextTuesdayET";
 import {
   calculateLaunchpadPerShareRewards,
   parseDelegationStepAmount,
@@ -512,8 +513,33 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
 
     // Partition into active and sold out
     const activeRows = filtered.filter((r) => !r.availability.isSoldOut);
+
+    // Only surface sold-out listings that sold out during the current
+    // launchpad week. Last week's sold-out farms roll off so the section
+    // never shows stale listings as filler. The week boundary is the most
+    // recent Tuesday 1 AM ET (the weekly batch release), computed against
+    // the launchpad clock so it respects LAUNCHPAD_TIME_OVERRIDE_ISO.
+    const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+    const launchpadNowMs = getLaunchpadNowMs();
+    const nextWeekStartMs = getNextTuesdayAt1amET(
+      new Date(launchpadNowMs),
+    ).getTime();
+    const currentWeekStartMs =
+      nextWeekStartMs <= launchpadNowMs
+        ? nextWeekStartMs
+        : nextWeekStartMs - WEEK_MS;
+
     const soldOutRows = filtered
       .filter((r) => r.availability.isSoldOut)
+      .filter((r) => {
+        const fraction = r.application.activeFraction;
+        const soldOutAtRaw = fraction?.filledAt ?? fraction?.createdAt;
+        if (!soldOutAtRaw) return false;
+        const soldOutAtMs = new Date(soldOutAtRaw).getTime();
+        return (
+          Number.isFinite(soldOutAtMs) && soldOutAtMs >= currentWeekStartMs
+        );
+      })
       .sort((a, b) => {
         const aTime = new Date(
           a.application.activeFraction?.filledAt ||
@@ -1175,9 +1201,16 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
         )}
       </div>
 
-      {/* Cards Grid - 3 columns on desktop */}
+      {/* Cards Grid - up to 3 columns on desktop. With only two cards on the
+          page, drop to two columns so they span the full width instead of
+          leaving an empty third slot. */}
       <div className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div
+          className={cn(
+            "grid grid-cols-1 md:grid-cols-2 gap-4",
+            pagedRows.length === 2 ? "lg:grid-cols-2" : "lg:grid-cols-3",
+          )}
+        >
           {pagedRows.map((row, index) =>
             renderListingCard(row, pageIndex * cardsPerPage + index),
           )}
