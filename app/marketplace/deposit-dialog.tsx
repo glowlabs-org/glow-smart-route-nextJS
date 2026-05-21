@@ -1030,7 +1030,11 @@ export function DepositDialog({
     [estimatedPurchaseValueUsd, hasExistingMinerOrDelegation],
   );
   const shortfallDecimals =
-    selectedPaymentMethod === "ETH" || selectedPaymentMethod === "GLW" ? 18 : 6;
+    selectedPaymentMethod === "ETH" ||
+    selectedPaymentMethod === "GLW" ||
+    selectedPaymentMethod === "UNCLAIMED_REWARDS"
+      ? 18
+      : 6;
   const showShortfallInCta =
     isConnected &&
     !isSubmitting &&
