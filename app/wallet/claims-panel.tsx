@@ -39,11 +39,6 @@ import {
   type WeeklyClaimableRewards,
 } from "@/hooks";
 import {
-  resolveFractionRemainingSteps,
-  useGlowLaunchpad,
-} from "@/hooks/hub-listings";
-import Link from "next/link";
-import {
   useRewardsKernelWrapper,
   type ClaimProgressUpdate,
   type ClaimStage,
@@ -246,7 +241,6 @@ type WeekClaimButtonProps = {
   glwClaimed: boolean;
   isClaimed: boolean;
   isClaimingAll: boolean;
-  isClaimGateActive?: boolean;
   isClaimingThisWeek: boolean;
   isConnected: boolean;
   onInitiateClaim: (payload: ClaimInitiationPayload) => void;
@@ -263,7 +257,6 @@ function WeekClaimButton({
   glwClaimed,
   isClaimed,
   isClaimingAll,
-  isClaimGateActive = false,
   isClaimingThisWeek,
   isConnected,
   onInitiateClaim,
@@ -385,8 +378,7 @@ function WeekClaimButton({
     !userProof ||
     claimDialogStatus === "processing" ||
     remainingMs > 0 ||
-    !isConnected ||
-    isClaimGateActive;
+    !isConnected;
 
   const buttonLabel = React.useMemo(() => {
     if (!isConnected) {
@@ -489,7 +481,6 @@ type ClaimButtonsWrapperProps = {
   claimDialogStatus: ClaimDialogStatus;
   glwClaimed: boolean;
   isClaimingAll: boolean;
-  isClaimGateActive?: boolean;
   isClaimingWeek: number | null;
   isConnected: boolean;
   onClaimStatusChange: (week: number, status: ClaimStatusSummary) => void;
@@ -505,7 +496,6 @@ function ClaimButtonsWrapper({
   claimDialogStatus,
   glwClaimed,
   isClaimingAll,
-  isClaimGateActive = false,
   isClaimingWeek,
   isConnected,
   onClaimStatusChange,
@@ -641,7 +631,6 @@ function ClaimButtonsWrapper({
           glwClaimed={glwClaimed}
           isClaimed={false}
           isClaimingAll={isClaimingAll}
-          isClaimGateActive={isClaimGateActive}
           isClaimingThisWeek={isClaimingThisWeek}
           isConnected={isConnected}
           onInitiateClaim={onInitiateClaim}
@@ -681,7 +670,6 @@ function ClaimButtonsWrapper({
         glwClaimed={glwClaimed}
         isClaimed={fullyClaimed}
         isClaimingAll={isClaimingAll}
-        isClaimGateActive={isClaimGateActive}
         isClaimingThisWeek={isClaimingThisWeek}
         isConnected={isConnected}
         onInitiateClaim={onInitiateClaim}
@@ -699,7 +687,6 @@ type WeekRewardsContentProps = {
   isClaimable: boolean;
   isClaimingWeek: number | null;
   isClaimingAll: boolean;
-  isClaimGateActive?: boolean;
   claimDialogStatus: ClaimDialogStatus;
   address?: string;
   onInitiateClaim: (payload: ClaimInitiationPayload) => void;
@@ -713,7 +700,6 @@ function WeekRewardsContent({
   isClaimable,
   isClaimingWeek,
   isClaimingAll,
-  isClaimGateActive = false,
   claimDialogStatus,
   address,
   onInitiateClaim,
@@ -933,8 +919,7 @@ function WeekRewardsContent({
                   isClaimingWeek === weekData.week ||
                   isClaimingAll ||
                   claimDialogStatus === "processing" ||
-                  claimingRewardType !== null ||
-                  isClaimGateActive
+                  claimingRewardType !== null
                 }
               >
                 {claimingRewardType ===
@@ -1232,23 +1217,6 @@ export function ClaimsPanel({
   // Fetch claimable rewards
   const { aggregatedTotals, weeklyBreakdown, isLoading, isError, refetch } =
     useClaimableRewards(address);
-
-  // Listing-presence claim gate. When a GLW launchpad delegation is live,
-  // direct claims are gated; users must claim-and-delegate via the marketplace
-  // dialog instead, which keeps the GLW from being dumped post-claim.
-  const launchpad = useGlowLaunchpad();
-  const liveGlwListing = React.useMemo(() => {
-    return launchpad.applications.find((app) => {
-      const fraction = app.activeFraction;
-      if (!fraction) return false;
-      if (fraction.delegationAsset && fraction.delegationAsset !== "GLW") {
-        return false;
-      }
-      const remaining = resolveFractionRemainingSteps(fraction);
-      return remaining > 0;
-    });
-  }, [launchpad.applications]);
-  const isClaimGateActive = Boolean(liveGlwListing);
 
   // Rewards claiming functionality
   const {
@@ -2440,8 +2408,7 @@ export function ClaimsPanel({
   const isClaimAllProtocolDisabled =
     claimableProtocolWeeks.length === 0 ||
     isBulkClaimBusy ||
-    hasInsufficientMulticallGas ||
-    isClaimGateActive;
+    hasInsufficientMulticallGas;
 
   // Don't show panel if not connected
   if (!isConnected || !address) {
@@ -2468,28 +2435,6 @@ export function ClaimsPanel({
                 Need ~{Number(gasShortfallEth).toFixed(6)} ETH more.
               </div>
             )}
-          </div>
-        </div>
-      )}
-      {isClaimGateActive && (
-        <div className="flex items-start gap-2 rounded-md border border-[color:var(--color-glow-orange)]/40 bg-[color:var(--color-glow-orange)]/10 p-3 text-sm">
-          <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--color-glow-orange)]" />
-          <div className="space-y-1">
-            <div className="font-medium text-foreground">
-              A GLW launchpad delegation is live now.
-            </div>
-            <div className="text-xs text-muted-foreground">
-              Claims are paused while the listing is open. Claim and delegate
-              your unclaimed GLW in one flow on the launchpad to keep your
-              capital working.
-            </div>
-            <Link
-              href="/marketplace"
-              className="inline-flex items-center gap-1 text-xs font-medium text-[color:var(--color-glow-orange)] hover:underline"
-            >
-              Go to launchpad
-              <ExternalLink className="h-3 w-3" />
-            </Link>
           </div>
         </div>
       )}
@@ -2652,7 +2597,6 @@ export function ClaimsPanel({
                     claimDialogStatus={claimDialogStatus}
                     glwClaimed={glwClaimed}
                     isClaimingAll={isBulkClaiming}
-                    isClaimGateActive={isClaimGateActive}
                     isClaimingWeek={isClaimingWeek}
                     isConnected={isConnected}
                     onClaimStatusChange={handleClaimStatusChange}
@@ -2669,7 +2613,6 @@ export function ClaimsPanel({
                     isClaimable={isClaimable}
                     isClaimingWeek={isClaimingWeek}
                     isClaimingAll={isBulkClaiming}
-                    isClaimGateActive={isClaimGateActive}
                     claimDialogStatus={claimDialogStatus}
                     address={address}
                     onInitiateClaim={handleInitiateClaim}
