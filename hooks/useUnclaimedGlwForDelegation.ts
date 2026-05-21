@@ -1,19 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useClaimableRewards } from "@/hooks/control-wallets";
-import {
-  DEFAULT_WALLET_CLAIMS_LIMIT,
-  buildWalletRewardClaimsIndex,
-  fetchWalletRewardClaims,
-  walletRewardClaimsQueryKey,
-} from "@/lib/api/wallet-reward-claims-index";
+import { useRewardsKernelWrapper } from "@/hooks/useRewardsKernelWrapper";
 import { weekToNonce } from "@/hooks/useMerkleProofs";
 import type { ClaimableGlwItem } from "@/app/marketplace/deposit-dialog-utils";
-
-const POSITIONS_API_BASE =
-  process.env.NEXT_PUBLIC_POSITIONS_API_BASE || "http://localhost:42069";
 
 export interface UseUnclaimedGlwForDelegationResult {
   totalGlwWei: bigint;
@@ -23,9 +14,28 @@ export interface UseUnclaimedGlwForDelegationResult {
   refetch: () => void;
 }
 
+interface InflationCandidate {
+  week: number;
+  glwAmountWei: bigint;
+}
+
+interface PdCandidate {
+  week: number;
+  nonce: bigint;
+  glwAmountWei: bigint;
+}
+
 /**
  * Aggregates the GLW the connected wallet could deliver into a delegation
  * by claiming unclaimed inflation weeks plus PD weeks paid in GLW.
+ *
+ * Claimed-status is resolved through `checkIfGlwClaimed` / `checkIfClaimed`,
+ * which consult the off-chain claims index and fall back to an on-chain read.
+ * That fallback matters: the positions indexer returns a null bucket id for
+ * minerPool (inflation) claims, so the index alone never knows which weeks of
+ * emissions a wallet already claimed and the pool would over-count every
+ * finalized inflation week. The same helpers back the standalone claims panel,
+ * keeping the two surfaces consistent.
  *
  * Pure data: no proofs are fetched here. The submission flow fetches
  * per-week merkle proofs only for the selected subset.
@@ -33,97 +43,150 @@ export interface UseUnclaimedGlwForDelegationResult {
 export function useUnclaimedGlwForDelegation(
   walletAddress?: string,
 ): UseUnclaimedGlwForDelegationResult {
-  const normalizedAddress = walletAddress?.toLowerCase();
+  const normalizedAddress = walletAddress?.toLowerCase() as
+    | `0x${string}`
+    | undefined;
   const claimable = useClaimableRewards(walletAddress);
+  const { checkIfClaimed, checkIfGlwClaimed } = useRewardsKernelWrapper();
 
-  const claimsIndexQuery = useQuery({
-    queryKey: normalizedAddress
-      ? walletRewardClaimsQueryKey(
-          normalizedAddress,
-          DEFAULT_WALLET_CLAIMS_LIMIT,
-        )
-      : (["wallet-reward-claims", "disabled"] as const),
-    queryFn: async () => {
-      if (!normalizedAddress) throw new Error("walletAddress is required");
-      return fetchWalletRewardClaims({
-        walletAddress: normalizedAddress as `0x${string}`,
-        limit: DEFAULT_WALLET_CLAIMS_LIMIT,
-        baseUrl: POSITIONS_API_BASE,
-      });
-    },
-    enabled: Boolean(normalizedAddress),
-    staleTime: 60_000,
-    gcTime: 10 * 60_000,
-    retry: 1,
-  });
+  // Finalized weeks that carry GLW-denominated rewards, before filtering out
+  // anything already claimed. Memoized so the resolver effect below only
+  // re-runs when the underlying reward set actually changes.
+  const { inflationCandidates, pdCandidates } = React.useMemo(() => {
+    const inflation: InflationCandidate[] = [];
+    const pd: PdCandidate[] = [];
 
-  const items = React.useMemo<ClaimableGlwItem[]>(() => {
-    if (!claimable.weeklyBreakdown.length) return [];
-    const index = claimsIndexQuery.data
-      ? buildWalletRewardClaimsIndex(claimsIndexQuery.data)
-      : null;
-
-    const result: ClaimableGlwItem[] = [];
     for (const week of claimable.weeklyBreakdown) {
       if (!week.isFinalized) continue;
 
-      let v2Nonce: string | null = null;
+      let nonce: bigint;
       try {
-        v2Nonce = weekToNonce(week.week).toString();
+        nonce = weekToNonce(week.week);
       } catch {
         continue;
       }
-      // The minerPool v1 bucket id is week + 1 (see useRewardsKernelWrapper's
-      // claim path and checkIfGlwClaimed, which queries claimedV1Buckets with
-      // week + 1). Without the +1 the already-claimed lookup never matches and
-      // every finalized inflation week is mis-counted as still claimable.
-      const v1Bucket = BigInt(week.week + 1).toString();
 
-      const pdAlreadyClaimed = Boolean(
-        index?.indexingComplete && index.claimedV2Nonces.has(v2Nonce),
+      const inflationReward = week.rewards.find(
+        (r) => r.type === "glowInflation",
       );
-      const inflationAlreadyClaimed = Boolean(
-        index?.indexingComplete &&
-          index.hasMinerPoolBucketIds &&
-          index.claimedV1Buckets.has(v1Bucket),
-      );
-
-      if (!inflationAlreadyClaimed) {
-        const inflationReward = week.rewards.find(
-          (r) => r.type === "glowInflation",
-        );
-        if (inflationReward && inflationReward.amountRaw !== "0") {
-          try {
-            result.push({
-              week: week.week,
-              source: "glowInflation",
-              glwAmountWei: BigInt(inflationReward.amountRaw),
-            });
-          } catch {
-            // Skip malformed amounts rather than crash the dialog.
-          }
+      if (inflationReward && inflationReward.amountRaw !== "0") {
+        try {
+          inflation.push({
+            week: week.week,
+            glwAmountWei: BigInt(inflationReward.amountRaw),
+          });
+        } catch {
+          // Skip malformed amounts rather than crash the dialog.
         }
       }
 
-      if (!pdAlreadyClaimed) {
-        const pdGlwReward = week.rewards.find(
-          (r) => r.type === "protocolDeposit" && r.currency === "GLW",
-        );
-        if (pdGlwReward && pdGlwReward.amountRaw !== "0") {
-          try {
-            result.push({
-              week: week.week,
-              source: "protocolDeposit",
-              glwAmountWei: BigInt(pdGlwReward.amountRaw),
-            });
-          } catch {
-            // Skip malformed amounts.
-          }
+      const pdGlwReward = week.rewards.find(
+        (r) => r.type === "protocolDeposit" && r.currency === "GLW",
+      );
+      if (pdGlwReward && pdGlwReward.amountRaw !== "0") {
+        try {
+          pd.push({
+            week: week.week,
+            nonce,
+            glwAmountWei: BigInt(pdGlwReward.amountRaw),
+          });
+        } catch {
+          // Skip malformed amounts.
         }
       }
     }
-    return result;
-  }, [claimable.weeklyBreakdown, claimsIndexQuery.data]);
+
+    return { inflationCandidates: inflation, pdCandidates: pd };
+  }, [claimable.weeklyBreakdown]);
+
+  const [items, setItems] = React.useState<ClaimableGlwItem[]>([]);
+  const [isResolving, setIsResolving] = React.useState(false);
+  const [isResolveError, setIsResolveError] = React.useState(false);
+  const [refreshTick, setRefreshTick] = React.useState(0);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    if (
+      !normalizedAddress ||
+      (inflationCandidates.length === 0 && pdCandidates.length === 0)
+    ) {
+      setItems([]);
+      setIsResolving(false);
+      setIsResolveError(false);
+      return;
+    }
+
+    setIsResolving(true);
+    setIsResolveError(false);
+
+    (async () => {
+      try {
+        const [inflationClaimed, pdClaimed] = await Promise.all([
+          Promise.all(
+            inflationCandidates.map((candidate) =>
+              // The minerPool v1 bucket id is week + 1.
+              checkIfGlwClaimed(candidate.week + 1, normalizedAddress).catch(
+                () => false,
+              ),
+            ),
+          ),
+          Promise.all(
+            pdCandidates.map((candidate) =>
+              checkIfClaimed(normalizedAddress, candidate.nonce).catch(
+                () => false,
+              ),
+            ),
+          ),
+        ]);
+
+        if (cancelled) return;
+
+        const next: ClaimableGlwItem[] = [];
+        inflationCandidates.forEach((candidate, idx) => {
+          if (!inflationClaimed[idx]) {
+            next.push({
+              week: candidate.week,
+              source: "glowInflation",
+              glwAmountWei: candidate.glwAmountWei,
+            });
+          }
+        });
+        pdCandidates.forEach((candidate, idx) => {
+          if (!pdClaimed[idx]) {
+            next.push({
+              week: candidate.week,
+              source: "protocolDeposit",
+              glwAmountWei: candidate.glwAmountWei,
+            });
+          }
+        });
+
+        setItems(next);
+        setIsResolving(false);
+      } catch (error) {
+        if (cancelled) return;
+        console.error(
+          "Failed to resolve unclaimed GLW for delegation",
+          error,
+        );
+        setItems([]);
+        setIsResolving(false);
+        setIsResolveError(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    normalizedAddress,
+    inflationCandidates,
+    pdCandidates,
+    refreshTick,
+    checkIfClaimed,
+    checkIfGlwClaimed,
+  ]);
 
   const totalGlwWei = React.useMemo(() => {
     let sum = 0n;
@@ -133,14 +196,14 @@ export function useUnclaimedGlwForDelegation(
 
   const refetch = React.useCallback(() => {
     claimable.refetch();
-    claimsIndexQuery.refetch();
-  }, [claimable, claimsIndexQuery]);
+    setRefreshTick((tick) => tick + 1);
+  }, [claimable]);
 
   return {
     totalGlwWei,
     items,
-    isLoading: claimable.isLoading || claimsIndexQuery.isLoading,
-    isError: claimable.isError || claimsIndexQuery.isError,
+    isLoading: claimable.isLoading || isResolving,
+    isError: claimable.isError || isResolveError,
     refetch,
   };
 }
