@@ -73,7 +73,11 @@ export function useUnclaimedGlwForDelegation(
       } catch {
         continue;
       }
-      const v1Bucket = BigInt(week.week).toString();
+      // The minerPool v1 bucket id is week + 1 (see useRewardsKernelWrapper's
+      // claim path and checkIfGlwClaimed, which queries claimedV1Buckets with
+      // week + 1). Without the +1 the already-claimed lookup never matches and
+      // every finalized inflation week is mis-counted as still claimable.
+      const v1Bucket = BigInt(week.week + 1).toString();
 
       const pdAlreadyClaimed = Boolean(
         index?.indexingComplete && index.claimedV2Nonces.has(v2Nonce),
