@@ -1041,15 +1041,21 @@ export function DepositDialog({
     !initialPositionValueGuard.isBlocked &&
     !affordability.canSubmit &&
     selectedShortfall > 0n;
+  // Unclaimed rewards are GLW-denominated, so the shortfall reads as GLW
+  // rather than the raw "UNCLAIMED_REWARDS" payment-method key.
+  const shortfallSymbol =
+    selectedPaymentMethod === "UNCLAIMED_REWARDS"
+      ? "GLW"
+      : selectedPaymentMethod;
   const disabledCtaLabel =
     runtimeSelectedCurrency === "GLW" && selectedPaymentMethod === "USDC"
       ? dd.shortfallNeedSwapBuffer(
           formatTokenAmount(selectedShortfall, shortfallDecimals, "0", 6),
-          selectedPaymentMethod,
+          shortfallSymbol,
         )
       : dd.shortfallNeed(
           formatTokenAmount(selectedShortfall, shortfallDecimals, "0", 6),
-          selectedPaymentMethod,
+          shortfallSymbol,
         );
   const initialPositionMinimumMessage =
     initialPositionValueGuard.message ??
