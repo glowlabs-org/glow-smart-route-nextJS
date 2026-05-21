@@ -3789,26 +3789,18 @@ function UnclaimedRewardsBreakdown({
     return null;
   }
 
-  const pdWeeksLabel = pdWeeks
-    .map((w) => w.week)
-    .sort((a, b) => a - b)
-    .join(", ");
-  const inflationWeeksLabel = inflationWeeks
-    .map((w) => w.week)
-    .sort((a, b) => a - b)
-    .join(", ");
-
   return (
     <div className="rounded-xl border border-border/20 dark:border-border/40 bg-muted/20 dark:bg-muted/40 px-3 py-2 text-xs text-muted-foreground space-y-1">
       {pdWeeks.length > 0 && (
         <div>
-          1 multicall claiming PD weeks {pdWeeksLabel}
+          Claiming protocol deposits from {pdWeeks.length} week
+          {pdWeeks.length === 1 ? "" : "s"}
         </div>
       )}
       {inflationWeeks.length > 0 && (
         <div>
-          {inflationWeeks.length} emission tx for week
-          {inflationWeeks.length === 1 ? "" : "s"} {inflationWeeksLabel}
+          Claiming emissions from {inflationWeeks.length} week
+          {inflationWeeks.length === 1 ? "" : "s"}
         </div>
       )}
       <div className="text-foreground font-mono">
