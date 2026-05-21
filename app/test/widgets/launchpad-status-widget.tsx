@@ -727,7 +727,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
             {isEarlyAccessReveal ? (
               <div className="flex items-center gap-1 rounded-full border border-white/20 bg-[color:var(--color-miner)]/90 px-2.5 py-1 text-[10px] font-semibold text-white shadow-sm backdrop-blur-xl sm:text-xs">
                 <Sparkles className="h-3 w-3" />
-                Early access
+                {t.widgets.launchpadStatus.earlyAccessBadge}
               </div>
             ) : null}
           </div>
@@ -1239,8 +1239,10 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
             <Sparkles className="h-4 w-4 shrink-0 text-[color:var(--color-miner-contrast)]" />
             <span className="text-sm text-foreground">
               {minerEarlyAccess.isUnlocked
-                ? `Early access active. Miner windows open ${earlyAccessMinutes} minutes early.`
-                : `You have miner early access. Unlock to see windows ${earlyAccessMinutes} minutes early.`}
+                ? t.widgets.launchpadStatus.earlyAccessActive(earlyAccessMinutes)
+                : t.widgets.launchpadStatus.earlyAccessAvailable(
+                    earlyAccessMinutes,
+                  )}
             </span>
           </div>
           {!minerEarlyAccess.isUnlocked ? (
@@ -1260,7 +1262,9 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                 }
               }}
             >
-              {minerEarlyAccess.isSigning ? "Unlocking" : "Unlock early access"}
+              {minerEarlyAccess.isSigning
+                ? t.widgets.launchpadStatus.earlyAccessUnlocking
+                : t.widgets.launchpadStatus.earlyAccessUnlock}
             </Button>
           ) : null}
         </div>

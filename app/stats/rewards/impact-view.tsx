@@ -44,6 +44,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/lib/i18n";
 import { formatNumber } from "@/utils/format";
 import { trackEvent } from "@/lib/telemetry";
 import { useEnsNames } from "@/hooks/useEnsNames";
@@ -59,6 +60,9 @@ import { WalletImpactDialog } from "./wallet-impact-dialog";
 
 const PAGE_SIZE = 50;
 
+/** The slice of translated strings this view reads. */
+type LeaderboardStrings = ReturnType<typeof useLang>["t"]["routes"]["impactLeaderboard"];
+
 /** parseFloat is fine here — these strings are only used for display. */
 function fmtMetric(value: string | null | undefined, decimals = 2): string {
   if (value == null) return "-";
@@ -67,14 +71,16 @@ function fmtMetric(value: string | null | undefined, decimals = 2): string {
   return formatNumber(n, { maximumFractionDigits: decimals });
 }
 
-const SORT_LABEL: Record<V2LeaderboardSort, string> = {
-  totalWatts: "total watts",
-  carbonCredits: "carbon credits",
-  policyCredits: "policy credits",
-};
-
 /** Rank cell: a colored badge for the top 3, a percentile for the rest. */
-function RankCell({ rank, total }: { rank: number; total: number }) {
+function RankCell({
+  rank,
+  total,
+  t,
+}: {
+  rank: number;
+  total: number;
+  t: LeaderboardStrings;
+}) {
   if (rank === 1 || rank === 2 || rank === 3) {
     const tint =
       rank === 1
@@ -89,14 +95,14 @@ function RankCell({ rank, total }: { rank: number; total: number }) {
           tint,
         )}
       >
-        Rank {rank}
+        {t.rankN(String(rank))}
       </span>
     );
   }
   const pct = total > 0 ? (rank / total) * 100 : NaN;
   return (
     <span className="font-mono text-xs text-muted-foreground">
-      Top {formatTopPercentile(pct)}
+      {t.topPercentile(formatTopPercentile(pct))}
     </span>
   );
 }
@@ -161,12 +167,14 @@ function WalletCell({
   isSelf,
   isTop3,
   onCopy,
+  t,
 }: {
   wallet: string;
   ens: string | null | undefined;
   isSelf: boolean;
   isTop3: boolean;
   onCopy: (wallet: string) => void;
+  t: LeaderboardStrings;
 }) {
   return (
     <div className="inline-flex items-center gap-2">
@@ -201,7 +209,7 @@ function WalletCell({
           variant="outline"
           className="font-mono text-[10px] uppercase tracking-wider border-[color:var(--color-glow-orange)]/40 bg-[color:var(--color-glow-orange)]/15 text-[color:var(--color-glow-orange)]"
         >
-          You
+          {t.you}
         </Badge>
       ) : null}
       <Button
@@ -213,7 +221,7 @@ function WalletCell({
           e.stopPropagation();
           onCopy(wallet);
         }}
-        aria-label="Copy wallet address"
+        aria-label={t.copyWalletAddress}
       >
         <Copy className="h-4 w-4" />
       </Button>
@@ -222,8 +230,16 @@ function WalletCell({
 }
 
 export function ImpactView() {
+  const { t } = useLang();
+  const lb = t.routes.impactLeaderboard;
   const { address } = useAccount();
   const connectedWallet = address?.toLowerCase() ?? null;
+
+  const sortLabel: Record<V2LeaderboardSort, string> = {
+    totalWatts: lb.v2SortTotalWatts,
+    carbonCredits: lb.v2SortCarbonCredits,
+    policyCredits: lb.v2SortPolicyCredits,
+  };
 
   const [sortRaw, setSort] = useQueryState(
     "sort",
@@ -307,12 +323,15 @@ export function ImpactView() {
     setDetailOpen(true);
   }, []);
 
-  const handleCopy = React.useCallback((wallet: string) => {
-    copyTextToClipboard(wallet, { successMessage: "Copied" });
-  }, []);
+  const handleCopy = React.useCallback(
+    (wallet: string) => {
+      copyTextToClipboard(wallet, { successMessage: lb.copied });
+    },
+    [lb.copied],
+  );
 
   const regionName = (id: number): string =>
-    regions.find((r) => r.id === id)?.name ?? `Region ${id}`;
+    regions.find((r) => r.id === id)?.name ?? lb.v2RegionFallback(String(id));
 
   const isRefreshing = query.isPlaceholderData;
 
@@ -323,17 +342,20 @@ export function ImpactView() {
         <div className="flex flex-col gap-4 border-b border-border/20 px-6 py-6 dark:border-white/10 sm:flex-row sm:items-end sm:justify-between sm:px-8">
           <div className="space-y-1">
             <h3 className="font-mono text-xs uppercase tracking-widest text-muted-foreground/60">
-              Impact Leaderboard
+              {lb.v2Title}
             </h3>
             {query.isLoading ? (
               <Skeleton className="h-4 w-72 rounded-md" />
             ) : (
               <p className="font-mono text-sm text-muted-foreground">
-                Ranked by {SORT_LABEL[sort]}
+                {lb.v2RankedBy(sortLabel[sort])}
                 <span className="text-muted-foreground/40"> · </span>
-                Showing {total === 0 ? 0 : `${startIdx}-${endIdx}`} of{" "}
-                {formatNumber(total)} wallet{total === 1 ? "" : "s"}
-                {regionScoped ? ` in ${regionName(regionId!)}` : ""}
+                {lb.v2ShowingCount(
+                  total === 0 ? "0" : `${startIdx}-${endIdx}`,
+                  formatNumber(total),
+                  total,
+                )}
+                {regionScoped ? lb.v2InRegion(regionName(regionId!)) : ""}
               </p>
             )}
           </div>
@@ -345,10 +367,10 @@ export function ImpactView() {
               onValueChange={handleRegionChange}
             >
               <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="All regions" />
+                <SelectValue placeholder={lb.v2AllRegions} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All regions</SelectItem>
+                <SelectItem value="all">{lb.v2AllRegions}</SelectItem>
                 {regions.map((r) => (
                   <SelectItem key={r.id} value={String(r.id)}>
                     {r.name}
@@ -362,7 +384,7 @@ export function ImpactView() {
         {/* Body */}
         {query.isError ? (
           <p className="px-6 py-16 text-center text-sm text-muted-foreground">
-            The impact leaderboard is unavailable right now. Try again shortly.
+            {lb.v2Error}
           </p>
         ) : query.isLoading ? (
           <div className="space-y-3 p-6 sm:p-8">
@@ -372,9 +394,7 @@ export function ImpactView() {
           </div>
         ) : rows.length === 0 ? (
           <p className="px-6 py-16 text-center text-sm text-muted-foreground">
-            {regionScoped
-              ? "No impact recorded in this region yet."
-              : "No wallets to rank yet."}
+            {regionScoped ? lb.v2EmptyRegion : lb.v2EmptyNoWallets}
           </p>
         ) : (
           <>
@@ -410,32 +430,33 @@ export function ImpactView() {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 space-y-2">
-                        <RankCell rank={row.rank} total={total} />
+                        <RankCell rank={row.rank} total={total} t={lb} />
                         <WalletCell
                           wallet={row.wallet}
                           ens={ensNames[row.wallet]}
                           isSelf={isSelf}
                           isTop3={isTop3}
                           onCopy={handleCopy}
+                          t={lb}
                         />
                       </div>
                     </div>
                     <div className="mt-3 font-mono text-2xl font-bold tabular-nums tracking-tight">
                       {fmtMetric(row.totalWatts)}
                       <span className="ml-1.5 text-xs font-normal text-muted-foreground">
-                        watts
+                        {lb.v2WattsUnit}
                       </span>
                     </div>
                     <div className="mt-1.5 flex items-center justify-between gap-3 font-mono text-xs text-muted-foreground">
                       <span>
-                        Carbon:{" "}
+                        {lb.v2CarbonLabel}{" "}
                         <span className="tabular-nums text-foreground">
                           {fmtMetric(row.totalCarbonCredits)}
                         </span>
                       </span>
                       {regionScoped ? (
                         <span>
-                          Policy:{" "}
+                          {lb.v2PolicyLabel}{" "}
                           <span className="tabular-nums text-foreground">
                             {fmtMetric(row.totalPolicyCredits)}
                           </span>
@@ -458,13 +479,13 @@ export function ImpactView() {
                 <TableHeader>
                   <TableRow className="bg-muted/40 hover:bg-muted/40 dark:bg-zinc-800">
                     <TableHead className="h-11 w-24 rounded-tl-xl px-4 font-mono text-xs uppercase tracking-wider text-muted-foreground">
-                      Rank
+                      {lb.v2ColRank}
                     </TableHead>
                     <TableHead className="h-11 min-w-[220px] px-3 font-mono text-xs uppercase tracking-wider text-muted-foreground">
-                      Wallet
+                      {lb.v2ColWallet}
                     </TableHead>
                     <SortHeader
-                      label="Total watts"
+                      label={lb.v2ColTotalWatts}
                       column="totalWatts"
                       activeSort={sort}
                       dir={dir}
@@ -472,7 +493,7 @@ export function ImpactView() {
                       className="h-11 w-[180px]"
                     />
                     <SortHeader
-                      label="Carbon credits"
+                      label={lb.v2ColCarbonCredits}
                       column="carbonCredits"
                       activeSort={sort}
                       dir={dir}
@@ -484,7 +505,7 @@ export function ImpactView() {
                     />
                     {regionScoped ? (
                       <SortHeader
-                        label="Policy credits"
+                        label={lb.v2ColPolicyCredits}
                         column="policyCredits"
                         activeSort={sort}
                         dir={dir}
@@ -509,7 +530,7 @@ export function ImpactView() {
                         )}
                       >
                         <TableCell className="px-4 py-3">
-                          <RankCell rank={row.rank} total={total} />
+                          <RankCell rank={row.rank} total={total} t={lb} />
                         </TableCell>
                         <TableCell className="px-3 py-3">
                           <WalletCell
@@ -518,6 +539,7 @@ export function ImpactView() {
                             isSelf={isSelf}
                             isTop3={isTop3}
                             onCopy={handleCopy}
+                            t={lb}
                           />
                         </TableCell>
                         <TableCell
@@ -549,7 +571,7 @@ export function ImpactView() {
             {totalPages > 1 ? (
               <div className="flex items-center justify-between gap-3 border-t border-border/20 px-6 py-6 dark:border-white/10 sm:px-8">
                 <span className="font-mono text-xs text-muted-foreground">
-                  Page {safePage} of {totalPages}
+                  {lb.pageOf(String(safePage), String(totalPages))}
                 </span>
                 <Pagination className="mx-0 w-auto justify-end">
                   <PaginationContent>

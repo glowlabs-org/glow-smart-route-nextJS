@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatNumber } from "@/utils/format";
 import { formatAddress } from "@/lib/utils";
+import { useLang } from "@/lib/i18n";
 import { useRegions } from "@/hooks/control-regions";
 import { useV2ImpactWallet } from "@/hooks/v2-impact";
 
@@ -51,15 +52,17 @@ export function WalletImpactDialog({
   open,
   onOpenChange,
 }: WalletImpactDialogProps) {
+  const { t } = useLang();
+  const lb = t.routes.impactLeaderboard;
   const query = useV2ImpactWallet(open ? wallet : null);
   const { regions } = useRegions();
 
   const regionName = React.useCallback(
     (regionId: number): string => {
       const match = regions.find((r) => r.id === regionId);
-      return match?.name ?? `Region ${regionId}`;
+      return match?.name ?? lb.v2RegionFallback(String(regionId));
     },
-    [regions],
+    [regions, lb],
   );
 
   const data = query.data;
@@ -68,7 +71,7 @@ export function WalletImpactDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Wallet impact</DialogTitle>
+          <DialogTitle>{lb.v2WalletTitle}</DialogTitle>
           <DialogDescription className="font-mono text-xs">
             {ensName ?? (wallet ? formatAddress(wallet) : "")}
           </DialogDescription>
@@ -84,21 +87,23 @@ export function WalletImpactDialog({
           </div>
         ) : query.isError ? (
           <p className="py-6 text-sm text-muted-foreground">
-            Could not load impact details for this wallet. Try again shortly.
+            {lb.v2WalletError}
           </p>
         ) : !data || data.farms.length === 0 ? (
           <p className="py-6 text-sm text-muted-foreground">
-            No farm impact recorded for this wallet yet. Impact is earned when a
-            delegated or mined farm fully funds.
+            {lb.v2WalletEmpty}
           </p>
         ) : (
           <ScrollArea className="-mr-4 flex-1 pr-4">
             <div className="space-y-5 py-1">
               {/* Totals */}
               <div className="grid grid-cols-2 gap-3">
-                <StatBlock label="Total watts" value={fmt(data.totalWatts)} />
                 <StatBlock
-                  label="Carbon credits"
+                  label={lb.v2WalletTotalWatts}
+                  value={fmt(data.totalWatts)}
+                />
+                <StatBlock
+                  label={lb.v2WalletCarbonCredits}
                   value={fmt(data.totalCarbonCredits)}
                 />
               </div>
@@ -108,7 +113,7 @@ export function WalletImpactDialog({
                 <section>
                   <h3 className="mb-2 flex items-center gap-1.5 text-sm font-medium">
                     <MapPin className="h-4 w-4 text-muted-foreground" />
-                    Watts by region
+                    {lb.v2WalletWattsByRegion}
                   </h3>
                   <div className="space-y-1">
                     {data.wattsByRegion.map((r) => (
@@ -117,7 +122,9 @@ export function WalletImpactDialog({
                         className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2 text-sm"
                       >
                         <span>{regionName(r.regionId)}</span>
-                        <span className="tabular-nums">{fmt(r.watts)} W</span>
+                        <span className="tabular-nums">
+                          {fmt(r.watts)} {lb.v2WalletWattsUnit}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -128,7 +135,7 @@ export function WalletImpactDialog({
               {data.policyCreditsByRegion.length > 0 ? (
                 <section>
                   <h3 className="mb-2 text-sm font-medium">
-                    Policy credits by region
+                    {lb.v2WalletPolicyByRegion}
                   </h3>
                   <div className="space-y-1">
                     {data.policyCreditsByRegion.map((r) => (
@@ -150,22 +157,26 @@ export function WalletImpactDialog({
               <section>
                 <h3 className="mb-2 flex items-center gap-1.5 text-sm font-medium">
                   <Sun className="h-4 w-4 text-muted-foreground" />
-                  Farm breakdown
+                  {lb.v2WalletFarmBreakdown}
                 </h3>
                 <div className="overflow-hidden rounded-xl border border-border/40">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border/40 bg-muted/30 text-left text-[11px] uppercase tracking-wider text-muted-foreground">
-                        <th className="px-3 py-2 font-medium">Farm</th>
-                        <th className="px-3 py-2 font-medium">Region</th>
-                        <th className="px-3 py-2 text-right font-medium">
-                          Watts
+                        <th className="px-3 py-2 font-medium">
+                          {lb.v2WalletColFarm}
+                        </th>
+                        <th className="px-3 py-2 font-medium">
+                          {lb.v2WalletColRegion}
                         </th>
                         <th className="px-3 py-2 text-right font-medium">
-                          Carbon
+                          {lb.v2WalletColWatts}
                         </th>
                         <th className="px-3 py-2 text-right font-medium">
-                          Policy
+                          {lb.v2WalletColCarbon}
+                        </th>
+                        <th className="px-3 py-2 text-right font-medium">
+                          {lb.v2WalletColPolicy}
                         </th>
                       </tr>
                     </thead>
@@ -201,7 +212,9 @@ export function WalletImpactDialog({
 
               {data.updatedAt ? (
                 <p className="text-[11px] text-muted-foreground">
-                  Updated {new Date(data.updatedAt).toLocaleString()}
+                  {lb.v2WalletUpdated(
+                    new Date(data.updatedAt).toLocaleString(),
+                  )}
                 </p>
               ) : null}
             </div>

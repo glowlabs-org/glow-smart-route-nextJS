@@ -593,6 +593,43 @@ export interface RoutesStrings {
     glowWorth: string;
     pageOf: (page: string, total: string) => string;
     failedLoadScoreToast: string;
+    // V2 Impact Leaderboard (Impact tab of /stats/rewards)
+    v2Title: string;
+    v2SortTotalWatts: string;
+    v2SortCarbonCredits: string;
+    v2SortPolicyCredits: string;
+    v2RankedBy: (label: string) => string;
+    v2ShowingCount: (range: string, total: string, count: number) => string;
+    v2InRegion: (name: string) => string;
+    v2AllRegions: string;
+    v2RegionFallback: (id: string) => string;
+    v2Error: string;
+    v2EmptyRegion: string;
+    v2EmptyNoWallets: string;
+    v2WattsUnit: string;
+    v2CarbonLabel: string;
+    v2PolicyLabel: string;
+    v2ColRank: string;
+    v2ColWallet: string;
+    v2ColTotalWatts: string;
+    v2ColCarbonCredits: string;
+    v2ColPolicyCredits: string;
+    // V2 wallet impact drill-down dialog
+    v2WalletTitle: string;
+    v2WalletError: string;
+    v2WalletEmpty: string;
+    v2WalletTotalWatts: string;
+    v2WalletCarbonCredits: string;
+    v2WalletWattsByRegion: string;
+    v2WalletPolicyByRegion: string;
+    v2WalletFarmBreakdown: string;
+    v2WalletColFarm: string;
+    v2WalletColRegion: string;
+    v2WalletColWatts: string;
+    v2WalletColCarbon: string;
+    v2WalletColPolicy: string;
+    v2WalletWattsUnit: string;
+    v2WalletUpdated: (timestamp: string) => string;
   };
 
   walletsLeaderboard: {
@@ -801,6 +838,10 @@ export interface RoutesStrings {
     successProjectedWeeklyRewards: string;
     successEstWeeklyImpactPoints: string;
     successPtsUnit: string;
+    successGlowPointsEarned: string;
+    successPointsPending: string;
+    successPointsPtsUnit: string;
+    successPointsCreditedBody: (isMiner: boolean, isCredited: boolean) => string;
     successEmissions: string;
     successVaultBonus: string;
     successMinerBonusPrefix: string;
@@ -1563,6 +1604,45 @@ const en: RoutesStrings = {
     glowWorth: "Glow Worth",
     pageOf: (page, total) => `Page ${page} of ${total}`,
     failedLoadScoreToast: "Failed to load your Impact Score",
+    v2Title: "Impact Leaderboard",
+    v2SortTotalWatts: "total watts",
+    v2SortCarbonCredits: "carbon credits",
+    v2SortPolicyCredits: "policy credits",
+    v2RankedBy: (label) => `Ranked by ${label}`,
+    v2ShowingCount: (range, total, count) =>
+      `Showing ${range} of ${total} wallet${count === 1 ? "" : "s"}`,
+    v2InRegion: (name) => ` in ${name}`,
+    v2AllRegions: "All regions",
+    v2RegionFallback: (id) => `Region ${id}`,
+    v2Error:
+      "The impact leaderboard is unavailable right now. Try again shortly.",
+    v2EmptyRegion: "No impact recorded in this region yet.",
+    v2EmptyNoWallets: "No wallets to rank yet.",
+    v2WattsUnit: "watts",
+    v2CarbonLabel: "Carbon:",
+    v2PolicyLabel: "Policy:",
+    v2ColRank: "Rank",
+    v2ColWallet: "Wallet",
+    v2ColTotalWatts: "Total watts",
+    v2ColCarbonCredits: "Carbon credits",
+    v2ColPolicyCredits: "Policy credits",
+    v2WalletTitle: "Wallet impact",
+    v2WalletError:
+      "Could not load impact details for this wallet. Try again shortly.",
+    v2WalletEmpty:
+      "No farm impact recorded for this wallet yet. Impact is earned when a delegated or mined farm fully funds.",
+    v2WalletTotalWatts: "Total watts",
+    v2WalletCarbonCredits: "Carbon credits",
+    v2WalletWattsByRegion: "Watts by region",
+    v2WalletPolicyByRegion: "Policy credits by region",
+    v2WalletFarmBreakdown: "Farm breakdown",
+    v2WalletColFarm: "Farm",
+    v2WalletColRegion: "Region",
+    v2WalletColWatts: "Watts",
+    v2WalletColCarbon: "Carbon",
+    v2WalletColPolicy: "Policy",
+    v2WalletWattsUnit: "W",
+    v2WalletUpdated: (timestamp) => `Updated ${timestamp}`,
   },
   walletsLeaderboard: {
     delegatorRewards: "Delegator Rewards",
@@ -1798,6 +1878,15 @@ const en: RoutesStrings = {
     successProjectedWeeklyRewards: "Projected Weekly Rewards",
     successEstWeeklyImpactPoints: "Est. Weekly Impact Points",
     successPtsUnit: "pts",
+    successGlowPointsEarned: "Glow Points Earned",
+    successPointsPending: "Pending",
+    successPointsPtsUnit: "pts",
+    successPointsCreditedBody: (isMiner, isCredited) =>
+      `Points for this ${isMiner ? "miner purchase" : "delegation"} ${
+        isCredited
+          ? "have been credited to your balance."
+          : "are credited shortly after the transaction is processed on-chain."
+      } Your farm impact accrues once the farm fully funds.`,
     successEmissions: "Emissions",
     successVaultBonus: "Vault Bonus",
     successMinerBonusPrefix: "3x miner bonus",
@@ -2555,6 +2644,43 @@ const ko: RoutesStrings = {
     glowWorth: "Glow Worth",
     pageOf: (page, total) => `${total} 페이지 중 ${page} 페이지`,
     failedLoadScoreToast: "임팩트 점수를 불러오지 못했습니다",
+    v2Title: "임팩트 리더보드",
+    v2SortTotalWatts: "총 와트",
+    v2SortCarbonCredits: "탄소 크레딧",
+    v2SortPolicyCredits: "정책 크레딧",
+    v2RankedBy: (label) => `${label} 기준 순위`,
+    v2ShowingCount: (range, total) =>
+      `${total}개 지갑 중 ${range} 표시`,
+    v2InRegion: (name) => ` (${name})`,
+    v2AllRegions: "모든 지역",
+    v2RegionFallback: (id) => `지역 ${id}`,
+    v2Error: "지금은 임팩트 리더보드를 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.",
+    v2EmptyRegion: "이 지역에는 아직 기록된 임팩트가 없습니다.",
+    v2EmptyNoWallets: "아직 순위를 매길 지갑이 없습니다.",
+    v2WattsUnit: "와트",
+    v2CarbonLabel: "탄소:",
+    v2PolicyLabel: "정책:",
+    v2ColRank: "순위",
+    v2ColWallet: "지갑",
+    v2ColTotalWatts: "총 와트",
+    v2ColCarbonCredits: "탄소 크레딧",
+    v2ColPolicyCredits: "정책 크레딧",
+    v2WalletTitle: "지갑 임팩트",
+    v2WalletError: "이 지갑의 임팩트 정보를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.",
+    v2WalletEmpty:
+      "이 지갑에는 아직 기록된 발전소 임팩트가 없습니다. 임팩트는 위임 또는 마이닝한 발전소가 완전히 펀딩되면 적립됩니다.",
+    v2WalletTotalWatts: "총 와트",
+    v2WalletCarbonCredits: "탄소 크레딧",
+    v2WalletWattsByRegion: "지역별 와트",
+    v2WalletPolicyByRegion: "지역별 정책 크레딧",
+    v2WalletFarmBreakdown: "발전소별 내역",
+    v2WalletColFarm: "발전소",
+    v2WalletColRegion: "지역",
+    v2WalletColWatts: "와트",
+    v2WalletColCarbon: "탄소",
+    v2WalletColPolicy: "정책",
+    v2WalletWattsUnit: "W",
+    v2WalletUpdated: (timestamp) => `업데이트 ${timestamp}`,
   },
   walletsLeaderboard: {
     delegatorRewards: "위임자 리워드",
@@ -2788,6 +2914,15 @@ const ko: RoutesStrings = {
     successProjectedWeeklyRewards: "예상 주간 리워드",
     successEstWeeklyImpactPoints: "예상 주간 임팩트 포인트",
     successPtsUnit: "pts",
+    successGlowPointsEarned: "획득한 Glow 포인트",
+    successPointsPending: "대기 중",
+    successPointsPtsUnit: "pts",
+    successPointsCreditedBody: (isMiner, isCredited) =>
+      `이 ${isMiner ? "마이너 구매" : "위임"}에 대한 포인트가 ${
+        isCredited
+          ? "잔액에 적립되었습니다."
+          : "트랜잭션이 온체인에서 처리된 직후 적립됩니다."
+      } 발전소가 완전히 펀딩되면 발전소 임팩트가 적립되기 시작합니다.`,
     successEmissions: "발행분",
     successVaultBonus: "볼트 보너스",
     successMinerBonusPrefix: "3배 마이너 보너스",
@@ -3550,6 +3685,42 @@ const zh: RoutesStrings = {
     glowWorth: "Glow Worth",
     pageOf: (page, total) => `第 ${page} 页,共 ${total} 页`,
     failedLoadScoreToast: "加载您的影响力分数失败",
+    v2Title: "影响力排行榜",
+    v2SortTotalWatts: "总瓦数",
+    v2SortCarbonCredits: "碳信用",
+    v2SortPolicyCredits: "政策信用",
+    v2RankedBy: (label) => `按${label}排名`,
+    v2ShowingCount: (range, total) => `显示 ${range},共 ${total} 个钱包`,
+    v2InRegion: (name) => `(${name})`,
+    v2AllRegions: "所有地区",
+    v2RegionFallback: (id) => `地区 ${id}`,
+    v2Error: "影响力排行榜目前暂不可用。请稍后再试。",
+    v2EmptyRegion: "该地区尚无影响力记录。",
+    v2EmptyNoWallets: "暂无可排名的钱包。",
+    v2WattsUnit: "瓦",
+    v2CarbonLabel: "碳:",
+    v2PolicyLabel: "政策:",
+    v2ColRank: "排名",
+    v2ColWallet: "钱包",
+    v2ColTotalWatts: "总瓦数",
+    v2ColCarbonCredits: "碳信用",
+    v2ColPolicyCredits: "政策信用",
+    v2WalletTitle: "钱包影响力",
+    v2WalletError: "无法加载该钱包的影响力详情。请稍后再试。",
+    v2WalletEmpty:
+      "该钱包尚无农场影响力记录。当委托或挖矿的农场完全募满时即可获得影响力。",
+    v2WalletTotalWatts: "总瓦数",
+    v2WalletCarbonCredits: "碳信用",
+    v2WalletWattsByRegion: "各地区瓦数",
+    v2WalletPolicyByRegion: "各地区政策信用",
+    v2WalletFarmBreakdown: "农场明细",
+    v2WalletColFarm: "农场",
+    v2WalletColRegion: "地区",
+    v2WalletColWatts: "瓦数",
+    v2WalletColCarbon: "碳",
+    v2WalletColPolicy: "政策",
+    v2WalletWattsUnit: "W",
+    v2WalletUpdated: (timestamp) => `更新于 ${timestamp}`,
   },
   walletsLeaderboard: {
     delegatorRewards: "委托人奖励",
@@ -3785,6 +3956,15 @@ const zh: RoutesStrings = {
     successProjectedWeeklyRewards: "预计每周奖励",
     successEstWeeklyImpactPoints: "预计每周影响力积分",
     successPtsUnit: "分",
+    successGlowPointsEarned: "已获得 Glow 积分",
+    successPointsPending: "待定",
+    successPointsPtsUnit: "分",
+    successPointsCreditedBody: (isMiner, isCredited) =>
+      `本次${isMiner ? "矿工购买" : "委托"}的积分${
+        isCredited
+          ? "已计入您的余额。"
+          : "将在交易于链上处理完成后不久计入。"
+      }待农场完全募满后,您的农场影响力将开始累积。`,
     successEmissions: "排放",
     successVaultBonus: "金库奖励",
     successMinerBonusPrefix: "3 倍矿工奖励",

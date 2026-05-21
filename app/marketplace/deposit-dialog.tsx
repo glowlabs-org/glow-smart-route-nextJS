@@ -2982,7 +2982,7 @@ export function DepositDialog({
                 <div className="px-5 py-4 border-t border-border/20 dark:border-border/40">
                   <div className="flex justify-between items-center">
                     <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
-                      Glow Points Earned
+                      {dd.successGlowPointsEarned}
                     </div>
                     <div className="flex items-baseline gap-1">
                       <span className="text-lg font-mono font-semibold text-foreground leading-none">
@@ -2990,27 +2990,21 @@ export function DepositDialog({
                           ? `+${v2PointsGranted.toLocaleString(undefined, {
                               maximumFractionDigits: 2,
                             })}`
-                          : "Pending"}
+                          : dd.successPointsPending}
                       </span>
                       {v2PointsGranted > 0 ? (
                         <span className="text-xs font-mono text-muted-foreground">
-                          pts
+                          {dd.successPointsPtsUnit}
                         </span>
                       ) : null}
                     </div>
                   </div>
 
                   <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground/70 dark:text-muted-foreground/80">
-                    {v2PointsGranted > 0
-                      ? "Points for this "
-                      : "Points for this "}
-                    {runtimeSelectedCurrency === "USDC"
-                      ? "miner purchase"
-                      : "delegation"}
-                    {v2PointsGranted > 0
-                      ? " have been credited to your balance."
-                      : " are credited shortly after the transaction is processed on-chain."}{" "}
-                    Your farm impact accrues once the farm fully funds.
+                    {dd.successPointsCreditedBody(
+                      runtimeSelectedCurrency === "USDC",
+                      v2PointsGranted > 0,
+                    )}
                   </p>
                 </div>
               ) : null}

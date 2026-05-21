@@ -99,6 +99,12 @@ export interface WidgetStrings {
     // Prep section shown next to the pre-launch countdown
     beReadyTitle: string;
     beReadyBody: string;
+    // V2 miner early access
+    earlyAccessBadge: string;
+    earlyAccessActive: (minutes: number) => string;
+    earlyAccessAvailable: (minutes: number) => string;
+    earlyAccessUnlock: string;
+    earlyAccessUnlocking: string;
   };
 
   blogFeatured: {
@@ -691,6 +697,13 @@ const en: WidgetStrings = {
     beReadyTitle: "Be ready for Tuesday launchpad windows.",
     beReadyBody:
       "Launchpad listings open in sGCTL at Tuesday 1:00 AM ET, then shift to GLW at Tuesday 1:00 PM ET. Listings created after 1:00 AM ET join at the 1:00 PM ET GLW release.",
+    earlyAccessBadge: "Early access",
+    earlyAccessActive: (minutes) =>
+      `Early access active. Miner windows open ${minutes} minutes early.`,
+    earlyAccessAvailable: (minutes) =>
+      `You have miner early access. Unlock to see windows ${minutes} minutes early.`,
+    earlyAccessUnlock: "Unlock early access",
+    earlyAccessUnlocking: "Unlocking",
   },
 
   blogFeatured: {
@@ -1336,6 +1349,13 @@ const ko: WidgetStrings = {
     beReadyTitle: "화요일 런치패드 오픈을 준비하세요.",
     beReadyBody:
       "런치패드 등록은 화요일 오전 1시(동부시간)에 sGCTL로 오픈되며, 이후 화요일 오후 1시(동부시간)에 GLW로 전환됩니다. 오전 1시(동부시간) 이후에 생성된 등록은 오후 1시(동부시간) GLW 오픈에 합류합니다.",
+    earlyAccessBadge: "얼리 액세스",
+    earlyAccessActive: (minutes) =>
+      `얼리 액세스가 활성화되었습니다. 마이너 창이 ${minutes}분 일찍 열립니다.`,
+    earlyAccessAvailable: (minutes) =>
+      `마이너 얼리 액세스가 있습니다. 잠금을 해제하면 창을 ${minutes}분 일찍 볼 수 있습니다.`,
+    earlyAccessUnlock: "얼리 액세스 잠금 해제",
+    earlyAccessUnlocking: "잠금 해제 중",
   },
 
   blogFeatured: {
@@ -1979,6 +1999,13 @@ const zh: WidgetStrings = {
     beReadyTitle: "为周二启动板窗口做好准备。",
     beReadyBody:
       "启动板列表于美东时间周二凌晨 1:00 以 sGCTL 形式开放,随后在美东时间周二下午 1:00 转为 GLW。在凌晨 1:00 之后创建的列表将与下午 1:00 的 GLW 释放一同上线。",
+    earlyAccessBadge: "抢先体验",
+    earlyAccessActive: (minutes) =>
+      `抢先体验已激活。矿工窗口将提前 ${minutes} 分钟开放。`,
+    earlyAccessAvailable: (minutes) =>
+      `您拥有矿工抢先体验权限。解锁后可提前 ${minutes} 分钟查看窗口。`,
+    earlyAccessUnlock: "解锁抢先体验",
+    earlyAccessUnlocking: "解锁中",
   },
 
   blogFeatured: {
