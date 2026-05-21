@@ -83,6 +83,7 @@ function createRewardScore(
     userWeeklyPdRewardsUsd: "50",
     userEstimatedWeeklyCash: "0",
     userProtocolDeposit: "0",
+    userGlowSplitPercent: "0",
     ...overrides,
   };
 }

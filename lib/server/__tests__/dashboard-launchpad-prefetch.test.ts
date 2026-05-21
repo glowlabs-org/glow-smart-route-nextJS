@@ -199,7 +199,7 @@ describe("prefetchDashboardLaunchpadData", () => {
       return {
         results: [
           {
-            success: true,
+            success: true as const,
             data: {
               rewardScore: 55,
               userWeeklyGlwRewards: parseUnits("7", 18).toString(),
@@ -208,6 +208,7 @@ describe("prefetchDashboardLaunchpadData", () => {
               userWeeklyPdRewardsUsd: "4",
               userEstimatedWeeklyCash: "0",
               userProtocolDeposit: "1000",
+              userGlowSplitPercent: "0",
             },
           },
         ],
