@@ -301,21 +301,23 @@ export function WalletImpactDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[min(56rem,calc(100%-4rem))] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <DialogContent className="bg-white dark:bg-card sm:max-w-[min(56rem,calc(100%-4rem))] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <DialogHeader>
-          {data && data.farms.length > 0 ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleShareOnX}
-              className="h-8 w-fit gap-1.5 rounded-full px-3 text-xs font-medium"
-            >
-              <XLogo className="h-3 w-3" />
-              {lb.v2WalletShareOnX}
-            </Button>
-          ) : null}
-          <DialogTitle>{lb.v2WalletTitle}</DialogTitle>
+          <div className="flex items-center gap-2.5">
+            <DialogTitle>{lb.v2WalletTitle}</DialogTitle>
+            {data && data.farms.length > 0 ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleShareOnX}
+                className="h-7 w-fit gap-1.5 rounded-full px-2.5 text-xs font-medium"
+              >
+                <XLogo className="h-3 w-3" />
+                {lb.v2WalletShareOnX}
+              </Button>
+            ) : null}
+          </div>
           <DialogDescription className="font-mono text-xs">
             {ensName ?? (wallet ? formatAddress(wallet) : "")}
           </DialogDescription>
