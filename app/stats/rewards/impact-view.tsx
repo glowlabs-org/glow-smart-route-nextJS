@@ -13,11 +13,14 @@
  */
 import React from "react";
 import { useQueryState, parseAsInteger, parseAsString } from "nuqs";
-import { useAccount } from "wagmi";
-import { ArrowDown, ArrowUp, Copy, MapPin } from "lucide-react";
+import { useAccount, useEnsAddress } from "wagmi";
+import { ArrowDown, ArrowUp, Copy, MapPin, Search } from "lucide-react";
+import { isAddress } from "viem";
+import { normalize } from "viem/ens";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -284,6 +287,25 @@ export function ImpactView() {
   const [detailWallet, setDetailWallet] = React.useState<string | null>(null);
   const [detailOpen, setDetailOpen] = React.useState(false);
 
+  // Wallet / ENS lookup -> opens that wallet's impact detail.
+  const [search, setSearch] = React.useState("");
+  const [searchError, setSearchError] = React.useState<string | null>(null);
+  const trimmedSearch = search.trim();
+  const isEnsQuery = /\.eth$/i.test(trimmedSearch);
+  const normalizedEns = React.useMemo(() => {
+    if (!isEnsQuery) return undefined;
+    try {
+      return normalize(trimmedSearch);
+    } catch {
+      return undefined;
+    }
+  }, [isEnsQuery, trimmedSearch]);
+  const ensAddressQuery = useEnsAddress({
+    name: normalizedEns,
+    chainId: 1,
+    query: { enabled: Boolean(normalizedEns) },
+  });
+
   const handleSort = React.useCallback(
     (column: V2LeaderboardSort) => {
       const nextDir: V2SortDir =
@@ -314,6 +336,49 @@ export function ImpactView() {
     setDetailWallet(wallet);
     setDetailOpen(true);
   }, []);
+
+  const handleSearch = React.useCallback(
+    (e?: React.FormEvent) => {
+      e?.preventDefault();
+      const v = trimmedSearch;
+      if (!v) return;
+      let addr: string | null = null;
+      if (isAddress(v)) {
+        addr = v;
+      } else if (isEnsQuery) {
+        if (!normalizedEns) {
+          setSearchError("Invalid ENS name");
+          return;
+        }
+        if (ensAddressQuery.isLoading) {
+          setSearchError("Resolving ENS…");
+          return;
+        }
+        addr = ensAddressQuery.data ?? null;
+        if (!addr) {
+          setSearchError("That ENS name didn't resolve");
+          return;
+        }
+      } else {
+        setSearchError("Enter a 0x address or a .eth name");
+        return;
+      }
+      setSearchError(null);
+      trackEvent("leaderboard_wallet_lookup", {
+        query: v,
+        source: "stats_rewards_impact",
+      });
+      setDetailWallet(addr.toLowerCase());
+      setDetailOpen(true);
+    },
+    [
+      trimmedSearch,
+      isEnsQuery,
+      normalizedEns,
+      ensAddressQuery.isLoading,
+      ensAddressQuery.data,
+    ],
+  );
 
   const handleCopy = React.useCallback(
     (wallet: string) => {
@@ -352,24 +417,52 @@ export function ImpactView() {
             )}
           </div>
 
-          <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-muted-foreground" />
-            <Select
-              value={regionId === null ? "all" : String(regionId)}
-              onValueChange={handleRegionChange}
-            >
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder={lb.v2AllRegions} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{lb.v2AllRegions}</SelectItem>
-                {regions.map((r) => (
-                  <SelectItem key={r.id} value={String(r.id)}>
-                    {r.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <form onSubmit={handleSearch} className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                      if (searchError) setSearchError(null);
+                    }}
+                    placeholder="Search wallet or ENS"
+                    spellCheck={false}
+                    autoCapitalize="none"
+                    className="w-[200px] pl-8"
+                  />
+                </div>
+                <Button type="submit" size="sm" variant="outline">
+                  Look up
+                </Button>
+              </div>
+              {searchError ? (
+                <span className="pl-1 text-[11px] text-destructive">
+                  {searchError}
+                </span>
+              ) : null}
+            </form>
+            <div className="flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-muted-foreground" />
+              <Select
+                value={regionId === null ? "all" : String(regionId)}
+                onValueChange={handleRegionChange}
+              >
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder={lb.v2AllRegions} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{lb.v2AllRegions}</SelectItem>
+                  {regions.map((r) => (
+                    <SelectItem key={r.id} value={String(r.id)}>
+                      {r.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
 
