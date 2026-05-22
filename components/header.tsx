@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Sparkles } from "lucide-react";
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -30,6 +30,11 @@ import { useLang } from "@/lib/i18n";
 import { GlowLockup } from "./glow-lockup";
 import { SwapDialog } from "./dialogs/swap-dialog";
 import { TosDialog } from "./tos-dialog";
+import { WhatsNewModal } from "./whats-new-modal";
+import { useReferral } from "@/hooks/use-referral";
+import { useTosStatus } from "@/hooks/use-tos-status";
+import { hubPost } from "@/lib/api/hub-client";
+import { useQueryClient } from "@tanstack/react-query";
 import { ThemeToggle } from "./ui/theme-toggle";
 import { LangToggle } from "./lang-toggle";
 import { WalletStatus } from "./wallet-status";
@@ -411,6 +416,32 @@ export function Header({
   const showKolLink = isKolWallet(address);
   const [isSwapDialogOpen, setIsSwapDialogOpen] = React.useState(false);
 
+  // What's New modal: auto-shows once until the wallet has gone through every
+  // slide (reuses the feature-launch "seen" flag), and is always re-openable
+  // from the button below.
+  const [isWhatsNewOpen, setIsWhatsNewOpen] = React.useState(false);
+  const { status: referralStatus } = useReferral();
+  const { hasAcceptedTos } = useTosStatus(address);
+  const queryClient = useQueryClient();
+  const hasSeenWhatsNew = !!referralStatus?.featureLaunchModal?.seen;
+  const autoOpenedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (autoOpenedRef.current) return;
+    if (address && hasAcceptedTos && referralStatus && !hasSeenWhatsNew) {
+      autoOpenedRef.current = true;
+      setIsWhatsNewOpen(true);
+    }
+  }, [address, hasAcceptedTos, referralStatus, hasSeenWhatsNew]);
+  const markWhatsNewSeen = React.useCallback(async () => {
+    if (!address) return;
+    try {
+      await hubPost("/referral/feature-launch-seen", { walletAddress: address });
+      queryClient.invalidateQueries({ queryKey: ["referral-status", address] });
+    } catch {
+      // non-fatal: the modal can re-show next visit
+    }
+  }, [address, queryClient]);
+
   const headerClassName = cn(
     "relative isolate z-50 h-[72px] w-full border-b border-border/40 bg-card/95 backdrop-blur-sm supports-[backdrop-filter]:bg-card/90",
     !withIsScrolled && "bg-transparent border-transparent backdrop-blur-0",
@@ -576,12 +607,28 @@ export function Header({
           </nav>
 
           <div className="hidden lg:flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsWhatsNewOpen(true)}
+              className="flex items-center gap-1.5 rounded-xl border border-border/20 dark:border-border/40 bg-background/80 px-3 py-2 text-sm font-medium text-zinc-900 dark:text-zinc-100 backdrop-blur-sm transition-colors hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100"
+            >
+              <Sparkles className="h-4 w-4" />
+              What&apos;s new
+            </button>
             <LangToggle />
             <ThemeToggle />
             <WalletStatus />
           </div>
 
           <div className="flex items-center gap-2 lg:hidden">
+            <button
+              type="button"
+              onClick={() => setIsWhatsNewOpen(true)}
+              aria-label="What's new"
+              className="p-2 rounded-xl border border-border/20 dark:border-border/40 bg-background/80 backdrop-blur-sm text-zinc-900 dark:text-zinc-100 hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+            >
+              <Sparkles className="h-5 w-5" />
+            </button>
             <LangToggle />
             <WalletStatus />
             <Drawer direction="right" shouldScaleBackground={false}>
@@ -914,6 +961,11 @@ export function Header({
         onOpenChange={setIsSwapDialogOpen}
       />
       <TosDialog />
+      <WhatsNewModal
+        open={isWhatsNewOpen}
+        onOpenChange={setIsWhatsNewOpen}
+        onComplete={markWhatsNewSeen}
+      />
     </>
   );
 }

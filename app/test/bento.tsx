@@ -53,7 +53,6 @@ import { useGlowSpotPriceSummary } from "@/hooks/useGlowSpotPriceSummary";
 import ImpactAccumulatorWidget from "./widgets/impact-accumulator-widget";
 import SolarCollectorWidget from "./widgets/solar-collector";
 import { WidgetErrorBoundary } from "@/components/widget-error-boundary";
-import { FeatureLaunchModal } from "@/components/referral/feature-launch-modal";
 import { ActivationCelebrationModal } from "@/components/referral/activation-celebration-modal";
 import { useReferralLaunch } from "@/hooks/use-referral-launch";
 import { useEnsNames } from "@/hooks/useEnsNames";
@@ -524,12 +523,7 @@ export default function GlowSoftDashboard({
 
   return (
     <div className="min-h-screen bg-background text-foreground selection:bg-[color:var(--color-glow-yellow)] selection:text-foreground">
-      {isReferralLive ? (
-        <>
-          <ActivationCelebrationModal />
-          <FeatureLaunchModal />
-        </>
-      ) : null}
+      {isReferralLive ? <ActivationCelebrationModal /> : null}
       <div className="max-w-screen-2xl mx-auto px-4 py-6 sm:px-6 sm:py-8 lg:px-12 lg:py-10">
         <AnimatePresence mode="wait" initial={false}>
           {hasWallet ? (
