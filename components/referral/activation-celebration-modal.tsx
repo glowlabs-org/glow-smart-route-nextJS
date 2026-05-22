@@ -173,10 +173,11 @@ export function ActivationCelebrationModal({
             </motion.div>
             <div className="space-y-2">
               <DialogTitle className="text-2xl font-bold tracking-tight">
-                Activation Bonus Unlocked
+                Referral Activated
               </DialogTitle>
               <DialogDescription className="text-sm text-muted-foreground">
-                You just earned a one-time +100 Impact Points bonus.
+                Your referral is now active. Your referrer now earns a share of
+                your points, at no cost to you.
               </DialogDescription>
             </div>
             <motion.div
