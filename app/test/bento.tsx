@@ -39,6 +39,7 @@ import {
 import { RefundClaimsPanel } from "@/app/wallet/refund-claims-panel";
 import { MigrationClaimPanel } from "@/app/wallet/migration-claim-panel";
 import { useLaunchpadStatus } from "@/hooks/useLaunchpadStatus";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { getLaunchpadNowMs } from "@/utils/launchpad-now";
 import { trackEvent } from "@/lib/telemetry";
 import { useCountdownTo } from "@/app/components/animated-countdown";
@@ -342,10 +343,11 @@ export default function GlowSoftDashboard({
     filters: {},
     enabled: isLaunchpadLive,
   });
-  const { applications: minerApplications } = useMiningCenter({
-    filters: { paymentCurrency: "USDC" },
-    enabled: isLaunchpadLive,
-  });
+  const { applications: minerApplications, isLoading: minersLoading } =
+    useMiningCenter({
+      filters: { paymentCurrency: "USDC" },
+      enabled: isLaunchpadLive,
+    });
 
   const shouldShowLaunchpadLiveSection = React.useMemo(() => {
     if (!isLaunchpadLive) return false;
@@ -511,6 +513,60 @@ export default function GlowSoftDashboard({
     setSelectedApplicationForDeposit(null);
     setSelectedRewardScore(null);
   }, []);
+
+  // "Earn points" deep-link (?earn=1) from the What's New modal: open the
+  // fastest earning path. If the launchpad is live with miners available,
+  // open the deposit dialog on the cheapest one; otherwise mint & stake.
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const earnIntent = searchParams.get("earn") === "1";
+  const earnHandledRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!earnIntent) {
+      earnHandledRef.current = false;
+      return;
+    }
+    if (earnHandledRef.current) return;
+    if (!isLaunchpadLive) {
+      earnHandledRef.current = true;
+      setIsMintAndStakeOpen(true);
+      router.replace(pathname);
+      return;
+    }
+    if (minersLoading) return;
+    const priceOf = (a: {
+      activeFraction?: { stepPrice?: string | null } | null;
+    }) => {
+      const v = Number(a.activeFraction?.stepPrice);
+      return Number.isFinite(v) ? v : Infinity;
+    };
+    const available = minerApplications.filter((a) => {
+      const f = a.activeFraction;
+      return Boolean(f && !f.isFilled && (f.remainingSteps ?? 0) > 0);
+    });
+    earnHandledRef.current = true;
+    if (available.length > 0) {
+      const cheapest = available.reduce((min, a) =>
+        priceOf(a) < priceOf(min) ? a : min,
+      );
+      handlePayDeposit({
+        ...cheapest,
+        _type: "miners",
+      } as TaggedAuctionApplication);
+    } else {
+      setIsMintAndStakeOpen(true);
+    }
+    router.replace(pathname);
+  }, [
+    earnIntent,
+    isLaunchpadLive,
+    minersLoading,
+    minerApplications,
+    handlePayDeposit,
+    router,
+    pathname,
+  ]);
 
   const handleBuyGlowClick = React.useCallback(() => {
     trackEvent("dashboard_buy_glw_click", {

@@ -83,7 +83,7 @@ const CTAS: {
   href: string;
   Icon: React.ComponentType<{ className?: string }>;
 }[] = [
-  { label: "Earn points", href: "/marketplace", Icon: Coins },
+  { label: "Earn points", href: "/?earn=1", Icon: Coins },
   { label: "View the leaderboard", href: "/stats/rewards", Icon: Trophy },
   { label: "Open the Points Shop", href: "/shop", Icon: ShoppingBag },
 ];
@@ -143,7 +143,7 @@ export function WhatsNewModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="p-0 gap-0 overflow-hidden border border-border/60 shadow-2xl sm:max-w-[460px] rounded-3xl"
+        className="p-0 gap-0 overflow-hidden border border-border/60 shadow-2xl sm:max-w-[480px] rounded-3xl bg-white dark:bg-card"
       >
         <DialogTitle className="sr-only">What&apos;s new in Glow</DialogTitle>
         <DialogDescription className="sr-only">
@@ -152,16 +152,15 @@ export function WhatsNewModal({
         </DialogDescription>
 
         {/* Banner */}
-        <div className="relative h-36 w-full shrink-0">
+        <div className="relative h-44 w-full shrink-0">
           <Image
             src={BANNER}
             alt=""
             fill
             priority
-            sizes="460px"
+            sizes="480px"
             className="object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-card via-card/50 to-transparent" />
           <span className="absolute left-4 top-4 rounded-full bg-background/70 px-2.5 py-1 text-[10px] font-mono font-medium uppercase tracking-widest text-foreground backdrop-blur-sm">
             What&apos;s new
           </span>
@@ -176,7 +175,7 @@ export function WhatsNewModal({
         </div>
 
         {/* Body */}
-        <div className="min-h-[224px] px-6 pt-5 pb-2">
+        <div className="min-h-[268px] px-7 pt-7 pb-3">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={step}
@@ -195,7 +194,7 @@ export function WhatsNewModal({
         </div>
 
         {/* Footer: back · dots · next/done */}
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-6 pb-6 pt-2">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-7 pb-7 pt-3">
           <div className="justify-self-start">
             {step > 0 && (
               <button
@@ -246,9 +245,9 @@ export function WhatsNewModal({
 
 function OverviewStep() {
   return (
-    <div className="space-y-4">
-      <div className="space-y-1">
-        <h2 className="text-xl font-bold tracking-tight">
+    <div className="space-y-5">
+      <div className="space-y-1.5">
+        <h2 className="text-2xl font-bold tracking-tight">
           What&apos;s new in Glow
         </h2>
         <p className="text-sm text-muted-foreground">
@@ -256,16 +255,16 @@ function OverviewStep() {
           everything that&apos;s new.
         </p>
       </div>
-      <ul className="space-y-2.5">
+      <ul className="space-y-3.5">
         {FEATURES.map((f) => (
-          <li key={f.key} className="flex items-center gap-3">
+          <li key={f.key} className="flex items-center gap-3.5">
             <span
               className={cn(
-                "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+                "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
                 f.chip,
               )}
             >
-              <f.Icon className="h-4 w-4" />
+              <f.Icon className="h-[18px] w-[18px]" />
             </span>
             <div className="min-w-0">
               <div className="text-sm font-semibold text-foreground">
@@ -282,22 +281,22 @@ function OverviewStep() {
 
 function FeatureStep({ feature }: { feature: Feature }) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <span
         className={cn(
-          "flex h-11 w-11 items-center justify-center rounded-2xl",
+          "flex h-12 w-12 items-center justify-center rounded-2xl",
           feature.chip,
         )}
       >
-        <feature.Icon className="h-5 w-5" />
+        <feature.Icon className="h-6 w-6" />
       </span>
-      <div className="space-y-1.5">
-        <h2 className="text-xl font-bold tracking-tight">{feature.heading}</h2>
+      <div className="space-y-2">
+        <h2 className="text-2xl font-bold tracking-tight">{feature.heading}</h2>
         <p className="text-sm leading-relaxed text-muted-foreground">
           {feature.body}
         </p>
       </div>
-      <ul className="space-y-2">
+      <ul className="space-y-2.5">
         {feature.highlights.map((h) => (
           <li key={h} className="flex items-center gap-2.5 text-sm">
             <Check className="h-4 w-4 shrink-0 text-[#16a34a] dark:text-[#4ade80]" />
@@ -311,14 +310,14 @@ function FeatureStep({ feature }: { feature: Feature }) {
 
 function GetStartedStep({ onNavigate }: { onNavigate: () => void }) {
   return (
-    <div className="space-y-4">
-      <div className="space-y-1">
-        <h2 className="text-xl font-bold tracking-tight">You&apos;re all set</h2>
+    <div className="space-y-5">
+      <div className="space-y-1.5">
+        <h2 className="text-2xl font-bold tracking-tight">You&apos;re all set</h2>
         <p className="text-sm text-muted-foreground">
           Jump straight into the new experience.
         </p>
       </div>
-      <div className="space-y-2.5">
+      <div className="space-y-3">
         {CTAS.map((cta) => (
           <Link
             key={cta.href}
