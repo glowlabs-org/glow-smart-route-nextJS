@@ -376,7 +376,6 @@ function WeeklyPointsChart({
     .map((w) => ({
       week: `W${w.weekNumber}`,
       referrer: Number(w.totalReferrerPoints),
-      bonus: Number(w.totalRefereeBonusPoints),
       referees: w.uniqueReferees,
     }));
 
@@ -396,10 +395,6 @@ function WeeklyPointsChart({
             <linearGradient id="referrerGradient" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#a855f7" stopOpacity={0.3} />
               <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
-            </linearGradient>
-            <linearGradient id="bonusGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border)/0.2)" />
@@ -422,9 +417,9 @@ function WeeklyPointsChart({
               borderRadius: "12px",
               fontSize: "12px",
             }}
-            formatter={(value: number, name: string) => [
+            formatter={(value: number) => [
               formatPoints(String(value)),
-              name === "referrer" ? "Referrer Points" : "Referee Bonus",
+              "Referrer Points",
             ]}
           />
           <Area
@@ -434,23 +429,12 @@ function WeeklyPointsChart({
             strokeWidth={2}
             fill="url(#referrerGradient)"
           />
-          <Area
-            type="monotone"
-            dataKey="bonus"
-            stroke="#22c55e"
-            strokeWidth={2}
-            fill="url(#bonusGradient)"
-          />
         </AreaChart>
       </ResponsiveContainer>
       <div className="flex items-center justify-center gap-6 text-xs text-muted-foreground/60 dark:text-muted-foreground/80">
         <span className="flex items-center gap-2">
           <span className="w-3 h-0.5 bg-[#a855f7] rounded-full" />
           Referrer Points
-        </span>
-        <span className="flex items-center gap-2">
-          <span className="w-3 h-0.5 bg-[#22c55e] rounded-full" />
-          Referee Bonus
         </span>
       </div>
     </div>
@@ -1795,9 +1779,7 @@ export function ReferralDashboard() {
   };
 
   const totalPointsAllTime = weeklyStatsQuery.data
-    ? Number(weeklyStatsQuery.data.totalPointsAllTime.referrerPoints) +
-      Number(weeklyStatsQuery.data.totalPointsAllTime.refereeBonusPoints) +
-      Number(weeklyStatsQuery.data.totalPointsAllTime.activationBonusPoints)
+    ? Number(weeklyStatsQuery.data.totalPointsAllTime.referrerPoints)
     : null;
 
   return (
@@ -1875,7 +1857,7 @@ export function ReferralDashboard() {
                       ? "—"
                       : formatPoints(String(totalPointsAllTime))
                   }
-                  subtitle={`${overviewQuery.data.overview.activationBonusesAwarded} activation bonuses`}
+                  subtitle="Tiered referrer share"
                   icon={<Gift className="h-4 w-4" />}
                 />
               </div>
