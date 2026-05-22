@@ -13,8 +13,6 @@ import {
   VaultIcon,
   GlwWorthIcon,
   ReferralIcon,
-  ReferralBonusIcon,
-  ActivationBonusIcon,
 } from "@/components/impact-icons";
 import { ReferralNetworkDialog } from "@/components/dialogs/referral-network-dialog";
 import { ChangeReferrerDialog } from "@/components/referral/change-referrer-dialog";
@@ -483,21 +481,6 @@ export function ImpactScoreBreakdownDialogContent(
       maximumFractionDigits: 2,
     },
   );
-  const referralBonusPoints = formatPoints(
-    impactScore?.composition?.referralBonusPoints,
-    {
-      maximumFractionDigits: 2,
-    },
-  );
-  const referralBonusProjectedPoints = formatPoints(
-    impactScore?.referral?.asReferee?.bonusPointsProjectedScaled6,
-    {
-      maximumFractionDigits: 2,
-    },
-  );
-  const hasReferralBonusProjected =
-    showCurrentWeekProjection &&
-    safePointsNumber(impactScore?.referral?.asReferee?.bonusPointsProjectedScaled6) > 0;
   const referrerStats = impactScore?.referral?.asReferrer;
   const activeReferees = referrerStats?.activeRefereeCount ?? 0;
   const pendingReferees = referrerStats?.pendingRefereeCount ?? 0;
@@ -942,118 +925,6 @@ export function ImpactScoreBreakdownDialogContent(
               </div>
             </div>
             <Separator />
-            {/* SECTION 3: BONUSES (REFEEES) */}
-            {isReferralLive &&
-              (impactScore?.referral?.asReferee?.bonusIsActive ||
-                impactScore?.referral?.asReferee?.activationBonus?.awarded ||
-                impactScore?.referral?.asReferee?.activationBonus?.pending) && (
-              <div className="space-y-3">
-                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">
-                  {s.referralBonuses}
-                </h3>
-                <div className="space-y-2">
-                  {impactScore.referral.asReferee.bonusIsActive && (
-                    <div className="flex items-center justify-between p-4 rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-[color:var(--color-glow-orange)]/10 text-[color:var(--color-glow-orange)]">
-                          <ReferralBonusIcon className="w-4 h-4" />
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium text-foreground">
-                            {s.referralBonus10}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-muted-foreground">
-                              {s.weeksRemaining(
-                                String(
-                                  impactScore.referral.asReferee
-                                    .bonusWeeksRemaining,
-                                ),
-                              )}
-                            </span>
-                            {referralStatus?.referrer?.canChangeReferrer && (
-                              <button
-                                type="button"
-                                onClick={() => setIsChangeReferrerOpen(true)}
-                                className="text-[10px] font-medium text-foreground hover:underline"
-                              >
-                                {s.change}
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-mono font-semibold text-foreground">
-                          +{referralBonusPoints} pts
-                        </div>
-                        <div className="text-[10px] text-muted-foreground">
-                          {s.totalEarned}
-                        </div>
-                        {hasReferralBonusProjected && (
-                          <div className="text-[10px] text-muted-foreground mt-1">
-                            {s.projectedThisWeek(referralBonusProjectedPoints)}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {impactScore.referral.asReferee.activationBonus?.awarded && (
-                    <div className="flex items-center justify-between p-4 rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-[color:var(--color-glow-orange)]/10 text-[color:var(--color-glow-orange)]">
-                          <ActivationBonusIcon className="w-4 h-4" />
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium text-foreground">
-                            {s.activationBonus}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground">
-                            {s.activationAwardedDesc}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-mono font-semibold text-foreground">
-                          +100 pts
-                        </div>
-                        <div className="text-[10px] text-muted-foreground">
-                          {s.awarded}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {impactScore.referral.asReferee.activationBonus?.pending && (
-                    <div className="flex items-center justify-between p-4 rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-[color:var(--color-glow-orange)]/10 text-[color:var(--color-glow-orange)]">
-                          <ActivationBonusIcon className="w-4 h-4" />
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium text-foreground">
-                            {s.activationBonus}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground">
-                            {s.activationPendingDesc}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-mono font-semibold text-foreground">
-                          +100 pts
-                        </div>
-                        <div className="text-[10px] text-muted-foreground">
-                          {s.pending}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <Separator />
-              </div>
-            )}
             {/* REGIONAL BREAKDOWN CHART */}
             {regionalChartData.length > 0 && (
               <div className="space-y-4">
