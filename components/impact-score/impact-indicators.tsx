@@ -5,9 +5,7 @@ import {
   CashMinerIcon,
   ImpactStreakIcon,
   SteeringIcon,
-  EmissionsIcon,
   VaultIcon,
-  GlwWorthIcon,
   ReferralIcon,
 } from "@/components/impact-icons";
 import {
@@ -18,90 +16,38 @@ import {
 import { cn } from "@/lib/utils";
 import { useReferralLaunch } from "@/hooks/use-referral-launch";
 
+// V2 points are earned from actions, not passive GLW holdings. Each indicator
+// is one of the V2 earning sources (no Glow Worth, no multipliers).
 export interface ImpactIndicatorsState {
-  hasMinerMultiplier: boolean;
-  hasImpactStreak: boolean;
-  streakBonusMultiplier?: number;
-  hasSteeringStake: boolean;
-  hasEmissionsEarned: boolean;
-  hasVaultBonus: boolean;
-  hasGlwWorth: boolean;
-  hasReferralPoints?: boolean;
+  hasGlwDelegation: boolean;
+  hasSgctlDelegation: boolean;
+  hasMinerPurchase: boolean;
+  hasStreak: boolean;
+  hasReferral?: boolean;
 }
 
+type IndicatorKey = "glw" | "sgctl" | "miner" | "streak" | "referral";
+
 interface IndicatorMeta {
-  key:
-    | "miner"
-    | "streak"
-    | "steering"
-    | "vault"
-    | "emissions"
-    | "worth"
-    | "referral";
+  key: IndicatorKey;
   label: string;
   howToGet: string;
   effect: string;
   icon: React.ComponentType<{ className?: string }>;
 }
 
-// --- Visual Configurations ---
-
-function getVariantStyles(
-  key: IndicatorMeta["key"],
-  isActive: boolean,
-  variant: "multiplier" | "source"
-) {
-  // 1. Inactive State (The "Empty Socket" look)
-  // Uses generic theme variables for Light/Dark compatibility
-  if (!isActive) {
-    return cn(
-      "border-border/70 bg-muted/20 text-muted-foreground/70",
-      variant === "multiplier"
-        ? "border-2 border-dashed shadow-inner"
-        : "border border-dashed/40 bg-muted/30"
-    );
-  }
-
-  // 2. Active State (The "Power-up" look)
+function getActiveStyles(key: IndicatorKey): string {
   switch (key) {
-    // --- Multipliers (Turbo) ---
-
-    // Miner: Blue
-    case "miner":
-      return cn(
-        "border-[color:var(--color-miner)] text-[color:var(--color-miner-contrast)]",
-        "bg-[color:var(--color-miner)]/10 shadow-[0_0_18px_-12px_var(--color-miner)]"
-      );
-
-    // Streak: Purple (Same as Vault now)
-    case "streak":
-      return cn(
-        "border-[color:var(--delegation-purple)] text-[color:var(--delegation-purple)]",
-        "bg-[color:var(--delegation-purple)]/10 shadow-[0_0_16px_-12px_var(--delegation-purple)]"
-      );
-
-    // --- Sources (Fuel) ---
-
-    // Steering: Cyan
-    case "steering":
-      return "border-[#22D3EE]/30 bg-[#22D3EE]/10 text-[#22D3EE]";
-
-    // Emissions: Miner Blue (Brand consistency)
-    case "emissions":
-      return "border-[color:var(--color-miner)]/30 bg-[color:var(--color-miner)]/10 text-[color:var(--color-miner-contrast)]";
-
-    // Vault: Purple
-    case "vault":
+    case "glw":
       return "border-[color:var(--delegation-purple)]/30 bg-[color:var(--delegation-purple)]/10 text-[color:var(--delegation-purple)]";
-
-    // Worth: Green
-    case "worth":
+    case "sgctl":
+      return "border-[#22D3EE]/30 bg-[#22D3EE]/10 text-[#22D3EE]";
+    case "miner":
+      return "border-[color:var(--color-miner)]/30 bg-[color:var(--color-miner)]/10 text-[color:var(--color-miner-contrast)]";
+    case "streak":
       return "border-[#4ADE80]/30 bg-[#4ADE80]/10 text-[#4ADE80]";
-
-    // Referral: Emerald/Teal
     case "referral":
       return "border-[color:var(--color-glow-orange)]/30 bg-[color:var(--color-glow-orange)]/10 text-[color:var(--color-glow-orange)]";
-
     default:
       return "";
   }
@@ -110,57 +56,36 @@ function getVariantStyles(
 function IndicatorIcon(props: {
   meta: IndicatorMeta;
   isActive: boolean;
-  variant: "multiplier" | "source";
   compact?: boolean;
   onClick?: () => void;
 }) {
-  const { meta, isActive, variant, compact, onClick } = props;
-
-  // Uniform sizing for single-row layout - slightly larger for multipliers
+  const { meta, isActive, compact, onClick } = props;
   const sizeClasses = compact
-    ? variant === "multiplier"
-      ? "h-8 w-8 rounded-lg"
-      : "h-8 w-8 rounded-full"
-    : variant === "multiplier"
-      ? "h-9 w-9 md:h-11 md:w-11 rounded-xl"
-      : "h-7 w-7 md:h-9 md:w-9 rounded-full";
-
-  const baseClasses = cn(
-    "group relative inline-flex items-center justify-center transition-all duration-300 ease-out flex-shrink-0",
-    "hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-    sizeClasses,
-    getVariantStyles(meta.key, isActive, variant)
-  );
-
+    ? "h-8 w-8 rounded-full"
+    : "h-7 w-7 md:h-9 md:w-9 rounded-full";
+  const iconSizeClasses = compact ? "h-3.5 w-3.5" : "h-3.5 w-3.5 md:h-4 md:w-4";
   const Icon = meta.icon;
-
-  const iconSizeClasses = compact
-    ? "h-3.5 w-3.5"
-    : variant === "multiplier"
-      ? "h-4 w-4 md:h-5 md:w-5"
-      : "h-3.5 w-3.5 md:h-4 md:w-4";
 
   return (
     <Tooltip delayDuration={100}>
       <TooltipTrigger asChild>
         <button
           type="button"
-          className={cn(
-            baseClasses,
-            onClick ? "cursor-pointer" : "cursor-default"
-          )}
           onClick={onClick}
-        >
-          {/* Inner Gloss for Multipliers (Light mode specific adjustments handled via opacity) */}
-          {isActive && variant === "multiplier" && (
-            <div className="absolute inset-0 rounded-xl bg-background/20 opacity-0 transition-opacity group-hover:opacity-100" />
+          className={cn(
+            "group relative inline-flex items-center justify-center border transition-all duration-300 ease-out flex-shrink-0",
+            "hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+            sizeClasses,
+            isActive
+              ? getActiveStyles(meta.key)
+              : "border-dashed border-border/70 bg-muted/20 text-muted-foreground/70",
+            onClick ? "cursor-pointer" : "cursor-default",
           )}
-
+        >
           <Icon
             className={cn(
               iconSizeClasses,
-              // Pulse effect for active Streak
-              meta.key === "streak" && isActive && "animate-pulse"
+              meta.key === "streak" && isActive && "animate-pulse",
             )}
           />
         </button>
@@ -168,7 +93,6 @@ function IndicatorIcon(props: {
       <TooltipContent
         side="top"
         sideOffset={8}
-        // Use standard shadcn classes for popover compatibility
         className="bg-popover text-popover-foreground border-border"
       >
         <div className="space-y-1">
@@ -179,15 +103,15 @@ function IndicatorIcon(props: {
                 "text-[10px] uppercase px-1.5 py-0.5 rounded-sm font-bold tracking-wider",
                 isActive
                   ? "bg-primary/10 text-primary"
-                  : "bg-muted text-muted-foreground"
+                  : "bg-muted text-muted-foreground",
               )}
             >
-              {isActive ? "Active" : "Inactive"}
+              {isActive ? "Earning" : "Not yet"}
             </span>
           </div>
           <div className="text-xs text-muted-foreground">{meta.effect}</div>
           <div className="text-[10px] text-muted-foreground/70 uppercase tracking-wide pt-1">
-            {isActive ? "Maintain via: " : "Unlock via: "}
+            {isActive ? "Keep it up: " : "Start via: "}
             <span className="text-foreground">{meta.howToGet}</span>
           </div>
         </div>
@@ -196,222 +120,88 @@ function IndicatorIcon(props: {
   );
 }
 
-// --- Data Configuration ---
-
 const POINT_SOURCES: IndicatorMeta[] = [
   {
-    key: "steering",
-    label: "Steering Power",
-    howToGet: "Stake GCTL",
-    effect: "3× points per GLW steered",
-    icon: SteeringIcon,
-  },
-  {
-    key: "emissions",
-    label: "Emissions",
-    howToGet: "Earn GLW rewards",
-    effect: "+1.0 pts per GLW earned",
-    icon: EmissionsIcon,
-  },
-  {
-    key: "vault",
-    label: "Vault Bonus",
+    key: "glw",
+    label: "GLW Delegation",
     howToGet: "Delegate GLW",
-    effect: "+0.005 pts per GLW delegated",
+    effect: "4 pts per $1 delegated",
     icon: VaultIcon,
   },
   {
-    key: "worth",
-    label: "Glow Worth",
-    howToGet: "Hold GLW",
-    effect: "+0.001 pts per GLW held",
-    icon: GlwWorthIcon,
+    key: "sgctl",
+    label: "sGCTL Delegation",
+    howToGet: "Delegate sGCTL",
+    effect: "16 pts per $1 delegated",
+    icon: SteeringIcon,
+  },
+  {
+    key: "miner",
+    label: "Miner Purchase",
+    howToGet: "Buy a miner",
+    effect: "8 pts per $1 purchased",
+    icon: CashMinerIcon,
+  },
+  {
+    key: "streak",
+    label: "Weekly Streak",
+    howToGet: "Act every protocol week",
+    effect: "100 pts × week, up to 2,000",
+    icon: ImpactStreakIcon,
   },
   {
     key: "referral",
     label: "Referral Network",
     howToGet: "Invite friends",
-    effect: "5-20% share of their base points",
+    effect: "5-20% of referees' points",
     icon: ReferralIcon,
   },
 ];
 
-function getMultipliersMeta(args: {
-  hasImpactStreak: boolean;
-  streakBonusMultiplier?: number;
-}): IndicatorMeta[] {
-  const streakSuffix =
-    args.hasImpactStreak &&
-    args.streakBonusMultiplier != null &&
-    args.streakBonusMultiplier > 0
-      ? ` • +${args.streakBonusMultiplier.toFixed(2)}×`
-      : "";
-  return [
-    {
-      key: "streak",
-      label: "Impact Streak",
-      howToGet: "Weekly Delegation or Miner Purchase",
-      effect: `Streak bonus +0.25× per week${streakSuffix}`,
-      icon: ImpactStreakIcon,
-    },
-    {
-      key: "miner",
-      label: "Cash Miner",
-      howToGet: "Buy a miner",
-      effect: "3× Rollover Multiplier",
-      icon: CashMinerIcon,
-    },
-  ];
-}
-
-// --- Components ---
-
-export function ImpactPointSourcesIcons(props: {
-  state: ImpactIndicatorsState;
-  className?: string;
-  onIndicatorClick?: (key: IndicatorMeta["key"]) => void;
-}) {
-  const { isLive: isReferralLive } = useReferralLaunch();
-  const pointSources = React.useMemo(() => {
-    if (isReferralLive) return POINT_SOURCES;
-    return POINT_SOURCES.filter((source) => source.key !== "referral");
-  }, [isReferralLive]);
-
-  return (
-    <div className={cn("flex items-center gap-1 md:gap-2", props.className)}>
-      {pointSources.map((meta) => {
-        const isActive =
-          meta.key === "steering"
-            ? props.state.hasSteeringStake
-            : meta.key === "emissions"
-            ? props.state.hasEmissionsEarned
-            : meta.key === "vault"
-            ? props.state.hasVaultBonus
-            : meta.key === "referral"
-            ? !!props.state.hasReferralPoints
-            : props.state.hasGlwWorth;
-        return (
-          <IndicatorIcon
-            key={meta.key}
-            meta={meta}
-            isActive={isActive}
-            variant="source"
-            onClick={() => props.onIndicatorClick?.(meta.key)}
-          />
-        );
-      })}
-    </div>
-  );
-}
-
-export function ImpactMultipliersIcons(props: {
-  state: ImpactIndicatorsState;
-  className?: string;
-  onIndicatorClick?: (key: IndicatorMeta["key"]) => void;
-}) {
-  const items = React.useMemo(
-    () =>
-      getMultipliersMeta({
-        hasImpactStreak: props.state.hasImpactStreak,
-        streakBonusMultiplier: props.state.streakBonusMultiplier,
-      }),
-    [props.state.hasImpactStreak, props.state.streakBonusMultiplier]
-  );
-  return (
-    <div className={cn("flex items-center gap-2 md:gap-3", props.className)}>
-      {items.map((meta) => {
-        const isActive =
-          meta.key === "miner"
-            ? props.state.hasMinerMultiplier
-            : props.state.hasImpactStreak;
-        return (
-          <IndicatorIcon
-            key={meta.key}
-            meta={meta}
-            isActive={isActive}
-            variant="multiplier"
-            onClick={() => props.onIndicatorClick?.(meta.key)}
-          />
-        );
-      })}
-    </div>
-  );
-}
-
 export function ImpactIndicatorsRow(props: {
   state: ImpactIndicatorsState;
   className?: string;
-  onIndicatorClick?: (key: IndicatorMeta["key"]) => void;
+  onIndicatorClick?: (key: IndicatorKey) => void;
 }) {
   const { isLive: isReferralLive } = useReferralLaunch();
 
-  const multipliersMeta = React.useMemo(
+  const sources = React.useMemo(
     () =>
-      getMultipliersMeta({
-        hasImpactStreak: props.state.hasImpactStreak,
-        streakBonusMultiplier: props.state.streakBonusMultiplier,
-      }),
-    [props.state.hasImpactStreak, props.state.streakBonusMultiplier]
+      isReferralLive
+        ? POINT_SOURCES
+        : POINT_SOURCES.filter((s) => s.key !== "referral"),
+    [isReferralLive],
   );
 
-  const sourcesMeta = React.useMemo(() => {
-    if (isReferralLive) return POINT_SOURCES;
-    return POINT_SOURCES.filter((source) => source.key !== "referral");
-  }, [isReferralLive]);
-
-  const getIsActive = React.useCallback(
-    (key: IndicatorMeta["key"]) => {
+  const isActive = React.useCallback(
+    (key: IndicatorKey) => {
       switch (key) {
+        case "glw":
+          return props.state.hasGlwDelegation;
+        case "sgctl":
+          return props.state.hasSgctlDelegation;
         case "miner":
-          return props.state.hasMinerMultiplier;
+          return props.state.hasMinerPurchase;
         case "streak":
-          return props.state.hasImpactStreak;
-        case "steering":
-          return props.state.hasSteeringStake;
-        case "emissions":
-          return props.state.hasEmissionsEarned;
-        case "vault":
-          return props.state.hasVaultBonus;
-        case "worth":
-          return props.state.hasGlwWorth;
+          return props.state.hasStreak;
         case "referral":
-          return !!props.state.hasReferralPoints;
+          return Boolean(props.state.hasReferral);
         default:
           return false;
       }
     },
-    [props.state]
+    [props.state],
   );
 
   return (
     <div
-      className={cn(
-        "flex items-center justify-center gap-1.5",
-        props.className
-      )}
+      className={cn("flex items-center justify-center gap-1.5", props.className)}
     >
-      {/* Sources first */}
-      {sourcesMeta.map((meta) => (
+      {sources.map((meta) => (
         <IndicatorIcon
           key={meta.key}
           meta={meta}
-          isActive={getIsActive(meta.key)}
-          variant="source"
-          compact
-          onClick={() => props.onIndicatorClick?.(meta.key)}
-        />
-      ))}
-
-      {/* Subtle separator */}
-      <div className="h-5 w-px bg-border/40 mx-0.5" />
-
-      {/* Multipliers on the right */}
-      {multipliersMeta.map((meta) => (
-        <IndicatorIcon
-          key={meta.key}
-          meta={meta}
-          isActive={getIsActive(meta.key)}
-          variant="multiplier"
+          isActive={isActive(meta.key)}
           compact
           onClick={() => props.onIndicatorClick?.(meta.key)}
         />

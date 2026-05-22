@@ -40,6 +40,7 @@ export type V2PointsEventType =
   | "sgctl_delegation"
   | "miner_purchase"
   | "weekly_streak"
+  | "referral"
   | "shop_purchase"
   | "admin_correction";
 
@@ -54,6 +55,7 @@ export const POINTS_EVENT_LABELS: Record<V2PointsEventType, string> = {
   sgctl_delegation: "sGCTL delegation",
   miner_purchase: "Miner purchase",
   weekly_streak: "Weekly streak",
+  referral: "Referral",
   shop_purchase: "Shop purchase",
   admin_correction: "Admin correction",
 };

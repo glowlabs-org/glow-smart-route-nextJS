@@ -37,7 +37,6 @@ import { cn } from "@/lib/utils";
 import {
   useImpactLeaderboardQuery,
   useImpactScoreQuery,
-  type ImpactGlowScoreResponse,
   type ImpactGlowScoreLeaderboardRow,
 } from "@/hooks";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
@@ -45,7 +44,7 @@ import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import { useReferralLaunch } from "@/hooks/use-referral-launch";
 import { formatTopPercentile } from "@/utils/impact";
 import { getCurrentEpoch } from "@/utils/getCurrentEpoch";
-import { useV2PointsBalance } from "@/hooks/v2-points";
+import { useV2PointsBalance, useV2PointsLedger } from "@/hooks/v2-points";
 import { ArrowTopRightIcon } from "@radix-ui/react-icons";
 import { useLang } from "@/lib/i18n";
 
@@ -61,71 +60,10 @@ function formatPoints(
   }).format(num);
 }
 
-function safeBigInt(value?: string) {
-  if (!value) return 0n;
-  try {
-    return BigInt(value);
-  } catch {
-    return 0n;
-  }
-}
-
 function safeNumber(value?: string) {
   if (!value) return 0;
   const num = Number(value);
   return Number.isFinite(num) ? num : 0;
-}
-
-function getIndicatorsStateFromImpactScore(
-  impactScore: ImpactGlowScoreResponse,
-  options?: {
-    previousWeekHasMiner?: boolean;
-  },
-): ImpactIndicatorsState {
-  // Use currentWeekProjection for "what's active NOW" (current ongoing week)
-  const projection = impactScore?.currentWeekProjection;
-
-  // Fallback to last completed week if projection not available
-  const weeklyArray = impactScore?.weekly;
-  const latestWeek = weeklyArray?.length
-    ? weeklyArray[weeklyArray.length - 1]
-    : null;
-
-  // If the user hasn't taken action this week yet, multipliers from the
-  // previous week are still achievable (they have until end of epoch).
-  // Show them as active so the UI doesn't prematurely mark them inactive.
-  const hasActedThisWeek = projection?.hasImpactActionThisWeek ?? true;
-  const streakFromPreviousWeek = projection?.streakAsOfPreviousWeek ?? 0;
-
-  let streakBonusMultiplier: number;
-  let hasMiner: boolean;
-
-  if (hasActedThisWeek) {
-    streakBonusMultiplier =
-      projection?.streakBonusMultiplier ?? latestWeek?.streakBonusMultiplier ?? 0;
-    hasMiner =
-      projection?.hasMinerMultiplier ?? latestWeek?.hasCashMinerBonus ?? false;
-  } else {
-    // No action yet this week; use previous week's state as effective display.
-    streakBonusMultiplier = streakFromPreviousWeek > 0
-      ? Math.min(streakFromPreviousWeek * 0.25, 1.0)
-      : 0;
-    hasMiner = options?.previousWeekHasMiner ?? false;
-  }
-
-  return {
-    hasMinerMultiplier: Boolean(hasMiner),
-    hasImpactStreak: streakBonusMultiplier > 0,
-    streakBonusMultiplier,
-    hasSteeringStake:
-      projection?.hasSteeringStake ??
-      safeNumber(impactScore.totals?.steeringPoints) > 0,
-    hasEmissionsEarned: safeNumber(impactScore.totals?.inflationPoints) > 0,
-    hasVaultBonus:
-      safeBigInt(impactScore.glowWorth?.delegatedActiveGlwWei) > 0n,
-    hasGlwWorth: safeBigInt(impactScore.glowWorth?.glowWorthWei) > 0n,
-    hasReferralPoints: safeNumber(impactScore.composition?.referralPoints) > 0,
-  };
 }
 
 interface RankWidgetProps {
@@ -277,6 +215,28 @@ export function RankWidget({
   const v2PointsQuery = useV2PointsBalance(
     isValidWalletAddress ? walletAddress : null,
   );
+  const v2LedgerQuery = useV2PointsLedger(
+    isValidWalletAddress ? walletAddress : null,
+    { limit: 500 },
+  );
+
+  // V2 earning-source indicators: a source is "active" once the wallet has
+  // earned any points from it (aggregated from the points ledger).
+  const v2IndicatorState: ImpactIndicatorsState = React.useMemo(() => {
+    const rows = v2LedgerQuery.data?.rows ?? [];
+    const earned = (eventType: string) =>
+      rows
+        .filter((r) => r.eventType === eventType)
+        .reduce((acc, r) => acc + (Number(r.pointsDelta) || 0), 0) > 0;
+    const streakWeek = v2PointsQuery.data?.currentStreak?.streakWeek ?? 0;
+    return {
+      hasGlwDelegation: earned("glw_delegation"),
+      hasSgctlDelegation: earned("sgctl_delegation"),
+      hasMinerPurchase: earned("miner_purchase"),
+      hasStreak: streakWeek > 0 || earned("weekly_streak"),
+      hasReferral: earned("referral"),
+    };
+  }, [v2LedgerQuery.data, v2PointsQuery.data]);
 
   const totalsPoints = impactScore?.totals?.totalPoints ?? undefined;
 
@@ -293,14 +253,15 @@ export function RankWidget({
   const isMillionPlusScore = totalPointsNumber >= 1_000_000;
 
   const hasPositiveScore = React.useMemo(() => {
-    return Math.round(totalPointsNumber) > 0;
-  }, [totalPointsNumber]);
+    const avail = v2PointsQuery.data?.availablePoints ?? 0;
+    return Number.isFinite(avail) && avail > 0;
+  }, [v2PointsQuery.data]);
 
   const shouldShowMintAndStakeCta =
-    Boolean(impactScore) && !impactScoreQuery.isLoading && !hasPositiveScore;
+    !v2PointsQuery.isLoading && !hasPositiveScore;
 
   const shouldShowBreakdownButton =
-    Boolean(impactScore) && !impactScoreQuery.isLoading && hasPositiveScore;
+    !v2PointsQuery.isLoading && hasPositiveScore;
 
   // Hero number = the wallet's V2 spendable point balance (available
   // points), not the legacy impact-score total.
@@ -385,16 +346,7 @@ export function RankWidget({
   const { isLive: isReferralLive } = useReferralLaunch();
 
   const handleIndicatorClick = React.useCallback(
-    (
-      key:
-        | "miner"
-        | "streak"
-        | "steering"
-        | "vault"
-        | "emissions"
-        | "worth"
-        | "referral",
-    ) => {
+    (key: "glw" | "sgctl" | "miner" | "streak" | "referral") => {
       trackEvent("dashboard_impact_indicator_click", {
         source,
         wallet_connected: hasWallet,
@@ -408,17 +360,13 @@ export function RankWidget({
         return;
       }
 
-      if (key === "steering") {
+      if (key === "sgctl") {
         if (onMintAndStakeClick) return onMintAndStakeClick(!hasPositiveScore);
         setIsMintAndStakeOpen(true);
         return;
       }
 
-      if (key === "worth") {
-        setIsBuyGlowOpen(true);
-        return;
-      }
-
+      // glw, miner, streak -> the launchpad (delegate GLW / buy a miner)
       setIsLaunchpadOpen(true);
     },
     [
@@ -582,7 +530,7 @@ export function RankWidget({
                   </div>
                 </div>
               </div>
-              {impactScore ? (
+              {hasWallet ? (
                 <div
                   className={cn(
                     "rounded-full border bg-card/50 dark:bg-card/80 max-w-full mx-auto",
@@ -592,9 +540,7 @@ export function RankWidget({
                   )}
                 >
                   <ImpactIndicatorsRow
-                    state={getIndicatorsStateFromImpactScore(impactScore, {
-                      previousWeekHasMiner: selfLeaderboardRow?.hasMinerMultiplier ?? false,
-                    })}
+                    state={v2IndicatorState}
                     onIndicatorClick={handleIndicatorClick}
                   />
                 </div>
