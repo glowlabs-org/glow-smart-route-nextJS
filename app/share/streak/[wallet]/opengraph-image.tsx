@@ -9,12 +9,12 @@ const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL;
 const V2_START_TIMESTAMP = new Date("2025-10-11T00:00:00Z").getTime();
 
 function getWeekNumberFromTimestamp(timestamp: number): number {
-  const genesisTimestamp = 1696118400000;
+  const genesisTimestamp = 1700352000000; // canonical Glow genesis (Sunday 2023-11-19 00:00 UTC), in ms
   return Math.floor((timestamp - genesisTimestamp) / (7 * 24 * 60 * 60 * 1000));
 }
 
 function weekToTimestamp(weekNumber: number): number {
-  const genesisTimestamp = 1696118400000;
+  const genesisTimestamp = 1700352000000; // canonical Glow genesis (Sunday 2023-11-19 00:00 UTC), in ms
   return genesisTimestamp + weekNumber * 7 * 24 * 60 * 60 * 1000;
 }
 
@@ -99,7 +99,10 @@ async function fetchStreakData(wallet: string) {
         hasDelegation: amount > 0,
         hasMiner: minerWeeks.has(week),
         amount,
-        monthLabel: date.toLocaleDateString("en-US", { month: "short" }),
+        monthLabel: date.toLocaleDateString("en-US", {
+          month: "short",
+          timeZone: "UTC",
+        }),
       });
     }
 

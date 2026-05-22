@@ -160,6 +160,7 @@ function formatWeekAxisDate(weekNumber: number) {
   return weekToDate(weekNumber).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
+    timeZone: "UTC",
   });
 }
 
@@ -168,6 +169,7 @@ function formatWeekTooltipDate(weekNumber: number) {
     month: "short",
     day: "numeric",
     year: "numeric",
+    timeZone: "UTC",
   });
 }
 

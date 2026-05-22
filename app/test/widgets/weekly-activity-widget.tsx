@@ -117,15 +117,19 @@ function groupMinerPurchasesByWeek(splits: SplitActivity[]) {
 }
 
 function formatWeekRange(date: Date) {
-  const end = new Date(date);
-  end.setDate(date.getDate() + 6);
-  return `${date.toLocaleDateString(undefined, {
+  // Protocol weeks run Sunday 00:00 UTC -> Saturday 23:59:59 UTC. Format in UTC
+  // so every viewer sees the true Sunday->Saturday range; rendering in local
+  // time made UTC-negative zones (US) show "Saturday -> Friday".
+  const end = new Date(date.getTime() + 6 * 24 * 60 * 60 * 1000);
+  const opts: Intl.DateTimeFormatOptions = {
     month: "short",
     day: "numeric",
-  })} - ${end.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  })}, ${end.getFullYear()}`;
+    timeZone: "UTC",
+  };
+  return `${date.toLocaleDateString(undefined, opts)} - ${end.toLocaleDateString(
+    undefined,
+    opts,
+  )}, ${end.getUTCFullYear()}`;
 }
 
 function getWeekStatus(params: {
