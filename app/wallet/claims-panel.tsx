@@ -484,6 +484,9 @@ type ClaimButtonsWrapperProps = {
   isClaimingWeek: number | null;
   isConnected: boolean;
   onClaimStatusChange: (week: number, status: ClaimStatusSummary) => void;
+  // Fired once this row's claimed-status check has settled (regardless of
+  // result), so the panel can tell when the whole claim state is resolved.
+  onResolved?: (week: number) => void;
   onInitiateClaim: (payload: ClaimInitiationPayload) => void;
   protocolClaimed: boolean;
   weekData: WeeklyClaimableRewards;
@@ -499,6 +502,7 @@ function ClaimButtonsWrapper({
   isClaimingWeek,
   isConnected,
   onClaimStatusChange,
+  onResolved,
   onInitiateClaim,
   protocolClaimed,
   weekData,
@@ -577,7 +581,11 @@ function ClaimButtonsWrapper({
       }
     };
 
-    run();
+    // Signal completion regardless of which branch run() took (including the
+    // no-check early return), so the panel's "calculating" gate always clears.
+    run().finally(() => {
+      if (!cancelled) onResolved?.(weekData.week);
+    });
 
     return () => {
       cancelled = true;
@@ -593,6 +601,7 @@ function ClaimButtonsWrapper({
     isGlwFinalized,
     isPdFinalized,
     onClaimStatusChange,
+    onResolved,
     protocolClaimed,
     weekData.week,
   ]);
@@ -967,12 +976,14 @@ function TotalsSummaryCard({
   icon,
   totals,
   className,
+  isCalculating = false,
 }: {
   title: string;
   subtitle: string;
   icon: React.ReactNode;
   totals: CurrencyTotals;
   className?: string;
+  isCalculating?: boolean;
 }) {
   const entries = Object.entries(totals)
     .filter(([, amount]) => Number.isFinite(amount) && amount > 0)
@@ -993,7 +1004,11 @@ function TotalsSummaryCard({
             {title}
           </div>
           <div className="mt-1 text-[10px] font-mono text-muted-foreground">
-            {subtitle}
+            {isCalculating ? (
+              <Skeleton className="h-3 w-16 rounded" />
+            ) : (
+              subtitle
+            )}
           </div>
         </div>
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-background border border-border/40 text-muted-foreground">
@@ -1002,7 +1017,9 @@ function TotalsSummaryCard({
       </div>
 
       <div className="mt-4">
-        {entries.length === 0 ? (
+        {isCalculating ? (
+          <Skeleton className="h-9 w-28 rounded-lg" />
+        ) : entries.length === 0 ? (
           <div className="text-3xl font-semibold font-mono tabular-nums tracking-tight text-foreground">
             0
           </div>
@@ -1318,6 +1335,67 @@ export function ClaimsPanel({
     },
     [v1ClaimedWeeks, v2ClaimedWeeks]
   );
+
+  // --- Claim-state resolution gate ---------------------------------------
+  // The per-week claimed-status checks (in ClaimButtonsWrapper) resolve
+  // asynchronously. Until they all settle, the claimable totals optimistically
+  // treat every finalized week as unclaimed, which would briefly flash far more
+  // "ready to claim" than the user actually has before filtering down. Track
+  // which finalized reward weeks still owe a check and pulse the summary until
+  // they are all done.
+  const weeksNeedingResolution = React.useMemo(() => {
+    const currentEpoch = getCurrentEpoch();
+    return weeklyBreakdown.filter((weekData) => {
+      const hasGlwRewards = weekData.rewards.some(
+        (reward) => reward.type === "glowInflation"
+      );
+      const hasProtocolRewards = weekData.rewards.some(
+        (reward) => reward.type === "protocolDeposit"
+      );
+      const isGlwFinalized = weekData.week <= currentEpoch - 3;
+      const isPdFinalized = weekData.week <= currentEpoch - 4;
+      return (
+        (hasGlwRewards && isGlwFinalized) ||
+        (hasProtocolRewards && isPdFinalized)
+      );
+    });
+  }, [weeklyBreakdown]);
+
+  const [resolvedClaimWeeks, setResolvedClaimWeeks] = React.useState<
+    Set<number>
+  >(new Set());
+
+  const handleClaimCheckResolved = React.useCallback((week: number) => {
+    setResolvedClaimWeeks((prev) => {
+      if (prev.has(week)) return prev;
+      const next = new Set(prev);
+      next.add(week);
+      return next;
+    });
+  }, []);
+
+  // Forget resolved weeks when the wallet changes so the gate re-arms.
+  React.useEffect(() => {
+    setResolvedClaimWeeks(new Set());
+  }, [address]);
+
+  const isResolvingClaimState =
+    Boolean(address) &&
+    weeksNeedingResolution.some(
+      (weekData) => !resolvedClaimWeeks.has(weekData.week)
+    );
+
+  // Safety net: never leave the summary stuck pulsing if a row's check never
+  // reports back (e.g. an RPC that hangs). Force-resolve after a grace period.
+  React.useEffect(() => {
+    if (!isResolvingClaimState) return;
+    const timeout = setTimeout(() => {
+      setResolvedClaimWeeks(
+        new Set(weeksNeedingResolution.map((weekData) => weekData.week))
+      );
+    }, 12_000);
+    return () => clearTimeout(timeout);
+  }, [isResolvingClaimState, weeksNeedingResolution]);
 
   // Calculate claimable totals per reward type (avoid counting already-claimed
   // protocol rewards on weeks where emissions are still unclaimed, and vice versa).
@@ -2441,7 +2519,7 @@ export function ClaimsPanel({
       <div className="flex flex-wrap justify-end gap-2">
         <Button
           onClick={handleClaimAllProtocolDeposits}
-          disabled={isClaimAllProtocolDisabled}
+          disabled={isClaimAllProtocolDisabled || isResolvingClaimState}
           className="w-full sm:w-auto"
         >
           {isPreparingClaimAll || isClaimingAll ? (
@@ -2453,7 +2531,11 @@ export function ClaimsPanel({
             <>
               {t.claims.claimAllProtocolDeposits}
               <Badge variant="secondary" className="ml-2 font-mono text-xs">
-                {claimableProtocolWeeks.length}
+                {isResolvingClaimState ? (
+                  <Skeleton className="h-3 w-3 rounded" />
+                ) : (
+                  claimableProtocolWeeks.length
+                )}
               </Badge>
             </>
           )}
@@ -2466,13 +2548,15 @@ export function ClaimsPanel({
           subtitle={totalClaimableLabel}
           totals={actualClaimableTotals}
           icon={<Gift className="h-4 w-4" />}
-          className={cn(!hasClaimableRewards && "opacity-70")}
+          className={cn(!isResolvingClaimState && !hasClaimableRewards && "opacity-70")}
+          isCalculating={isResolvingClaimState}
         />
         <TotalsSummaryCard
           title={t.claims.totalClaimed}
           subtitle={totalClaimedLabel}
           totals={claimedTotals}
           icon={<CheckCircle className="h-4 w-4" />}
+          isCalculating={isResolvingClaimState}
         />
       </div>
 
@@ -2600,6 +2684,7 @@ export function ClaimsPanel({
                     isClaimingWeek={isClaimingWeek}
                     isConnected={isConnected}
                     onClaimStatusChange={handleClaimStatusChange}
+                    onResolved={handleClaimCheckResolved}
                     onInitiateClaim={handleInitiateClaim}
                     protocolClaimed={protocolClaimed}
                     weekData={weekData}
@@ -2651,25 +2736,33 @@ export function ClaimsPanel({
                   : t.claims.heroClaimableLabel}
               </div>
               {/* Hero amount */}
-              <div className="flex items-baseline gap-2">
-                <span className="text-5xl font-semibold font-mono tabular-nums tracking-tight text-foreground">
-                  {hasClaimableRewards
-                    ? formatCompactAmount(
-                        Object.values(actualClaimableTotals).reduce(
-                          (a, b) => a + b,
-                          0
+              {isResolvingClaimState ? (
+                <Skeleton className="h-12 w-44 rounded-xl" />
+              ) : (
+                <div className="flex items-baseline gap-2">
+                  <span className="text-5xl font-semibold font-mono tabular-nums tracking-tight text-foreground">
+                    {hasClaimableRewards
+                      ? formatCompactAmount(
+                          Object.values(actualClaimableTotals).reduce(
+                            (a, b) => a + b,
+                            0
+                          )
                         )
-                      )
-                    : "0"}
-                </span>
-                <span className="text-xl font-mono text-muted-foreground">
-                  GLW
-                </span>
-              </div>
+                      : "0"}
+                  </span>
+                  <span className="text-xl font-mono text-muted-foreground">
+                    GLW
+                  </span>
+                </div>
+              )}
               <div className="text-sm text-muted-foreground">
-                {isEverythingClaimed
-                  ? t.claims.heroAllClaimed
-                  : t.claims.heroWeeksReadyToClaim(totalClaimableWeeks)}
+                {isResolvingClaimState ? (
+                  <Skeleton className="h-4 w-36 rounded" />
+                ) : isEverythingClaimed ? (
+                  t.claims.heroAllClaimed
+                ) : (
+                  t.claims.heroWeeksReadyToClaim(totalClaimableWeeks)
+                )}
               </div>
             </div>
           </div>
