@@ -134,18 +134,37 @@ export function resolveFractionRemainingSteps(
 ): number {
   if (!fraction) return 0;
 
-  if (typeof fraction.remainingSteps === "number" && Number.isFinite(fraction.remainingSteps)) {
+  // Prefer the exact step ledger (totalSteps - splitsSold). One step is one
+  // whole unit, so this is precisely "units left". The API's remainingSteps is
+  // derived from leftover USD/GLW amounts and can floor to one short of a whole
+  // step (dust in amountRaised), which made the "Max" button buy every unit but
+  // the last. Only fall back to remainingSteps when the step counts are missing.
+  const hasTotalSteps =
+    typeof fraction.totalSteps === "number" &&
+    Number.isFinite(fraction.totalSteps);
+  const hasSplitsSold =
+    typeof fraction.splitsSold === "number" &&
+    Number.isFinite(fraction.splitsSold);
+
+  if (hasTotalSteps && hasSplitsSold) {
+    const totalSteps = Math.max(0, Math.floor(fraction.totalSteps));
+    const soldSteps = Math.max(0, Math.floor(fraction.splitsSold));
+    return Math.max(0, totalSteps - soldSteps);
+  }
+
+  if (
+    typeof fraction.remainingSteps === "number" &&
+    Number.isFinite(fraction.remainingSteps)
+  ) {
     return Math.max(0, Math.floor(fraction.remainingSteps));
   }
 
-  const totalSteps =
-    typeof fraction.totalSteps === "number" && Number.isFinite(fraction.totalSteps)
-      ? Math.max(0, Math.floor(fraction.totalSteps))
-      : 0;
-  const soldSteps =
-    typeof fraction.splitsSold === "number" && Number.isFinite(fraction.splitsSold)
-      ? Math.max(0, Math.floor(fraction.splitsSold))
-      : 0;
+  const totalSteps = hasTotalSteps
+    ? Math.max(0, Math.floor(fraction.totalSteps))
+    : 0;
+  const soldSteps = hasSplitsSold
+    ? Math.max(0, Math.floor(fraction.splitsSold))
+    : 0;
 
   return Math.max(0, totalSteps - soldSteps);
 }

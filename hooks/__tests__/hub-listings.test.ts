@@ -68,6 +68,43 @@ describe("isFractionOpenForMarketplace", () => {
   });
 });
 
+describe("resolveFractionRemainingSteps", () => {
+  it("prefers the exact step ledger over a USD-derived remainingSteps that floors short", () => {
+    // The backend derives remainingSteps from leftover USD/GLW, which can floor
+    // to one short of a whole step. Trusting it made "Max" buy every unit but
+    // the last; the exact ledger (totalSteps - splitsSold) is authoritative.
+    const fraction = createFraction({
+      totalSteps: 85,
+      splitsSold: 0,
+      remainingSteps: 84,
+      isFilled: false,
+    });
+
+    expect(resolveFractionRemainingSteps(fraction)).toBe(85);
+  });
+
+  it("clamps overfilled fractions (splitsSold > totalSteps) to zero", () => {
+    const fraction = createFraction({
+      totalSteps: 128,
+      splitsSold: 152,
+      remainingSteps: 0,
+      isFilled: true,
+    });
+
+    expect(resolveFractionRemainingSteps(fraction)).toBe(0);
+  });
+
+  it("falls back to remainingSteps when step counts are unavailable", () => {
+    const fraction = createFraction({
+      totalSteps: Number.NaN as unknown as number,
+      splitsSold: Number.NaN as unknown as number,
+      remainingSteps: 7,
+    });
+
+    expect(resolveFractionRemainingSteps(fraction)).toBe(7);
+  });
+});
+
 describe("isFractionPubliclyVisible", () => {
   it("returns false before marketplaceVisibleAt", () => {
     expect(
