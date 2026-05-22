@@ -327,12 +327,12 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
                     Referral Program is Live
                   </DialogTitle>
                   <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed max-w-sm mx-auto">
-                    Were you invited by someone? Enter their code to unlock
-                    bonus{" "}
+                    Were you invited by someone? Link your wallet and enter
+                    their code to connect with your{" "}
                     <span className="font-semibold text-foreground">
-                      Impact Points
-                    </span>{" "}
-                    for the next 12 weeks.
+                      referrer
+                    </span>
+                    .
                   </p>
                 </div>
               </div>
@@ -365,13 +365,13 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
                       >
                         <AnimatedStat
                           value={100}
-                          prefix="+"
+                          prefix=""
                           suffix=" pts"
                           className="font-mono text-base sm:text-lg font-semibold tracking-tight text-foreground"
                         />
                       </motion.div>
                       <div className="text-[9px] sm:text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80 leading-tight">
-                        At 100 pts milestone
+                        Activates your referral
                       </div>
                     </div>
                   </div>
@@ -399,15 +399,12 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
                           shouldReduceMotion ? { duration: 0 } : { delay: 0.18 }
                         }
                       >
-                        <AnimatedStat
-                          value={10}
-                          prefix="+"
-                          suffix="% Boost"
-                          className="font-mono text-base sm:text-lg font-semibold tracking-tight text-foreground"
-                        />
+                        <div className="font-mono text-base sm:text-lg font-semibold tracking-tight text-foreground">
+                          Free
+                        </div>
                       </motion.div>
                       <div className="text-[9px] sm:text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80 leading-tight">
-                        For 12 weeks
+                        Your points stay yours
                       </div>
                     </div>
                   </div>
@@ -506,15 +503,14 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
                     What do I get as a referee?
                   </AccordionTrigger>
                   <AccordionContent className="pb-2.5 text-[10px] sm:text-[11px] text-muted-foreground/70 dark:text-muted-foreground/80 leading-relaxed">
-                    You receive a{" "}
+                    Joining through a referral link links you to your referrer
+                    at no cost; your own points are never reduced. Your referral
+                    activates once you earn your first{" "}
                     <span className="text-foreground font-semibold">
-                      +100 point bonus
-                    </span>{" "}
-                    when you reach 100 total points, plus a{" "}
-                    <span className="text-foreground font-semibold">
-                      10% boost on your base points for 12 weeks
+                      100 points
                     </span>
-                    .
+                    , after which your referrer earns a small share of your
+                    points.
                   </AccordionContent>
                 </AccordionItem>
 
@@ -788,7 +784,7 @@ function SuccessScreen({
             You&apos;re Connected!
           </DialogTitle>
           <p className="text-xs sm:text-sm text-muted-foreground/60 dark:text-muted-foreground/80">
-            Your 10% boost is active. +100 unlocks after you reach 100 points.
+            Your referral activates once you earn 100 points.
           </p>
         </motion.div>
 
@@ -824,7 +820,7 @@ function SuccessScreen({
           transition={fadeUp(0.4)}
         >
           <div className="text-[9px] sm:text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-            Bonus Details
+            How It Works
           </div>
           <div className="grid grid-cols-2 gap-2 sm:gap-3">
             <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50">
@@ -833,10 +829,10 @@ function SuccessScreen({
                   <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#4ADE80]" />
                 </div>
                 <div className="font-mono font-semibold text-sm sm:text-base text-foreground">
-                  +100 pts
+                  100 pts
                 </div>
                 <div className="text-[9px] sm:text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80">
-                  Unlocks at 100 points
+                  Activates your referral
                 </div>
               </div>
             </div>
@@ -847,10 +843,10 @@ function SuccessScreen({
                   <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[color:var(--delegation-purple)]" />
                 </div>
                 <div className="font-mono font-semibold text-sm sm:text-base text-foreground">
-                  +10%
+                  Free
                 </div>
                 <div className="text-[9px] sm:text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80">
-                  12-week boost
+                  Your points stay yours
                 </div>
               </div>
             </div>
@@ -1009,8 +1005,8 @@ function InviteScreen({
             Become a Referrer
           </DialogTitle>
           <p className="text-xs sm:text-sm text-muted-foreground/60 dark:text-muted-foreground/80 max-w-xs mx-auto">
-            No worries! You can still earn bonus points by inviting others to
-            Glow.
+            No worries! You can still earn a share of your referees&apos; points
+            by inviting others to Glow.
           </p>
         </motion.div>
 
