@@ -266,7 +266,7 @@ export function WalletImpactDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[min(56rem,calc(100%-4rem))]">
+      <DialogContent className="sm:max-w-[min(56rem,calc(100%-4rem))] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <DialogHeader>
           <DialogTitle>{lb.v2WalletTitle}</DialogTitle>
           <DialogDescription className="font-mono text-xs">
