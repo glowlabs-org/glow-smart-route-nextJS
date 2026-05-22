@@ -3,9 +3,9 @@
 /**
  * V2 Impact Leaderboard (Impact tab of /stats/rewards).
  *
- * Ranks wallets by realized impact — total watts and carbon credits — not
- * by points. Optionally scoped to a single region, which unlocks ranking
- * by policy credits. Clicking a row opens that wallet's impact detail.
+ * Ranks wallets by realized impact: total watts and carbon credits, not
+ * by points. Optionally scoped to a single region. Clicking a row opens
+ * that wallet's impact detail.
  *
  * Visual design carried over from the pre-V2 leaderboard: top-3 colored
  * rank badges, "Top X%" percentile, self-row highlight, ENS over address,
@@ -256,13 +256,9 @@ export function ImpactView() {
 
   const regionScoped = regionId !== null;
 
-  // `policyCredits` only ranks region-scoped; coerce when no region is set.
+  // Only watts and carbon are user-sortable (policy credits == carbon today).
   const sort: V2LeaderboardSort =
-    sortRaw === "carbonCredits"
-      ? "carbonCredits"
-      : sortRaw === "policyCredits" && regionScoped
-        ? "policyCredits"
-        : "totalWatts";
+    sortRaw === "carbonCredits" ? "carbonCredits" : "totalWatts";
   const dir: V2SortDir = dirRaw === "asc" ? "asc" : "desc";
   const safePage = Math.max(1, page);
 
@@ -310,12 +306,8 @@ export function ImpactView() {
       const next = value === "all" ? null : Number(value);
       setRegionId(next);
       setPage(1);
-      // policyCredits is invalid without a region — fall back to watts.
-      if (next === null && sortRaw === "policyCredits") {
-        setSort("totalWatts");
-      }
     },
-    [setRegionId, setPage, sortRaw, setSort],
+    [setRegionId, setPage],
   );
 
   const handleRowClick = React.useCallback((wallet: string) => {
@@ -447,21 +439,13 @@ export function ImpactView() {
                         {lb.v2WattsUnit}
                       </span>
                     </div>
-                    <div className="mt-1.5 flex items-center justify-between gap-3 font-mono text-xs text-muted-foreground">
+                    <div className="mt-1.5 flex items-center gap-3 font-mono text-xs text-muted-foreground">
                       <span>
                         {lb.v2CarbonLabel}{" "}
                         <span className="tabular-nums text-foreground">
                           {fmtMetric(row.totalCarbonCredits)}
                         </span>
                       </span>
-                      {regionScoped ? (
-                        <span>
-                          {lb.v2PolicyLabel}{" "}
-                          <span className="tabular-nums text-foreground">
-                            {fmtMetric(row.totalPolicyCredits)}
-                          </span>
-                        </span>
-                      ) : null}
                     </div>
                   </div>
                 );
@@ -498,21 +482,8 @@ export function ImpactView() {
                       activeSort={sort}
                       dir={dir}
                       onSort={handleSort}
-                      className={cn(
-                        "h-11 w-[170px]",
-                        !regionScoped && "rounded-tr-xl",
-                      )}
+                      className="h-11 w-[170px] rounded-tr-xl"
                     />
-                    {regionScoped ? (
-                      <SortHeader
-                        label={lb.v2ColPolicyCredits}
-                        column="policyCredits"
-                        activeSort={sort}
-                        dir={dir}
-                        onSort={handleSort}
-                        className="h-11 w-[170px] rounded-tr-xl"
-                      />
-                    ) : null}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -555,11 +526,6 @@ export function ImpactView() {
                         <TableCell className="px-3 py-3 text-right font-mono text-sm tabular-nums text-muted-foreground">
                           {fmtMetric(row.totalCarbonCredits)}
                         </TableCell>
-                        {regionScoped ? (
-                          <TableCell className="px-3 py-3 text-right font-mono text-sm tabular-nums text-muted-foreground">
-                            {fmtMetric(row.totalPolicyCredits)}
-                          </TableCell>
-                        ) : null}
                       </TableRow>
                     );
                   })}
