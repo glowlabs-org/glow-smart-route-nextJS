@@ -616,6 +616,7 @@ export interface RoutesStrings {
     v2ColPolicyCredits: string;
     // V2 wallet impact drill-down dialog
     v2WalletTitle: string;
+    v2WalletShareOnX: string;
     v2WalletError: string;
     v2WalletEmpty: string;
     v2WalletTotalWatts: string;
@@ -1631,6 +1632,7 @@ const en: RoutesStrings = {
     v2ColCarbonCredits: "Carbon credits",
     v2ColPolicyCredits: "Policy credits",
     v2WalletTitle: "Wallet impact",
+    v2WalletShareOnX: "Share on X",
     v2WalletError:
       "Could not load impact details for this wallet. Try again shortly.",
     v2WalletEmpty:
@@ -2674,6 +2676,7 @@ const ko: RoutesStrings = {
     v2ColCarbonCredits: "탄소 크레딧",
     v2ColPolicyCredits: "정책 크레딧",
     v2WalletTitle: "지갑 임팩트",
+    v2WalletShareOnX: "X에 공유",
     v2WalletError: "이 지갑의 임팩트 정보를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.",
     v2WalletEmpty:
       "이 지갑에는 아직 기록된 발전소 임팩트가 없습니다. 임팩트는 위임 또는 마이닝한 발전소가 완전히 펀딩되면 적립됩니다.",
@@ -3718,6 +3721,7 @@ const zh: RoutesStrings = {
     v2ColCarbonCredits: "碳信用",
     v2ColPolicyCredits: "政策信用",
     v2WalletTitle: "钱包影响力",
+    v2WalletShareOnX: "分享到 X",
     v2WalletError: "无法加载该钱包的影响力详情。请稍后再试。",
     v2WalletEmpty:
       "该钱包尚无农场影响力记录。当委托或挖矿的农场完全募满时即可获得影响力。",

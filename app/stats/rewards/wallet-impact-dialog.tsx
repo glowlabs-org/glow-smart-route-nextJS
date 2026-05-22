@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -26,6 +27,20 @@ import { formatAddress } from "@/lib/utils";
 import { useLang } from "@/lib/i18n";
 import { useRegions } from "@/hooks/control-regions";
 import { useV2ImpactWallet } from "@/hooks/v2-impact";
+import { trackEvent } from "@/lib/telemetry";
+
+function XLogo({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+  );
+}
 
 interface WalletImpactDialogProps {
   /** Wallet to show impact details for; `null` keeps the dialog closed. */
@@ -264,10 +279,42 @@ export function WalletImpactDialog({
     [farmImagesQuery.data],
   );
 
+  const handleShareOnX = React.useCallback(() => {
+    if (typeof window === "undefined" || !data) return;
+    const text = [
+      "My real-world solar impact on @GlowFND ☀️",
+      "",
+      `⚡ ${fmt(data.totalWatts, 0)} watts of clean energy`,
+      `🌱 ${fmt(data.totalCarbonCredits, 0)} carbon credits (≈ ${fmt(
+        String(equiv.trees),
+        0,
+      )} trees)`,
+      "",
+      "#Glow",
+    ].join("\n");
+    const intent = `https://x.com/intent/tweet?text=${encodeURIComponent(
+      text,
+    )}&url=${encodeURIComponent("https://app.glow.org/stats/rewards")}`;
+    window.open(intent, "_blank", "noopener,noreferrer");
+    trackEvent("wallet_impact_share_x", { wallet_address: wallet ?? null });
+  }, [data, equiv, wallet]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[min(56rem,calc(100%-4rem))] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <DialogHeader>
+          {data && data.farms.length > 0 ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleShareOnX}
+              className="h-8 w-fit gap-1.5 rounded-full px-3 text-xs font-medium"
+            >
+              <XLogo className="h-3 w-3" />
+              {lb.v2WalletShareOnX}
+            </Button>
+          ) : null}
           <DialogTitle>{lb.v2WalletTitle}</DialogTitle>
           <DialogDescription className="font-mono text-xs">
             {ensName ?? (wallet ? formatAddress(wallet) : "")}
