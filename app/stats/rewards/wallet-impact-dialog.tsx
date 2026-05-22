@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { MapPin, Sun } from "lucide-react";
+import { MapPin, Sun, Zap, Leaf, TreePine, Home, Lightbulb } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import type { FarmImagesBatchResponse } from "@glowlabs-org/utils/browser";
 
 import {
   Dialog,
@@ -11,7 +13,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import FallbackImage from "@/components/ui/fallback-image";
 import { formatNumber } from "@/utils/format";
 import { formatAddress } from "@/lib/utils";
 import { useLang } from "@/lib/i18n";
@@ -35,16 +44,113 @@ function fmt(value: string | null | undefined, decimals = 2): string {
   return formatNumber(n, { maximumFractionDigits: decimals });
 }
 
-function StatBlock({ label, value }: { label: string; value: string }) {
+function num(value: string | null | undefined): number {
+  if (value == null) return 0;
+  const n = Number.parseFloat(value);
+  return Number.isNaN(n) ? 0 : n;
+}
+
+// Real-world equivalence constants (kept loose on purpose — these are
+// "≈" estimates shown next to the hard numbers).
+const CO2_KG_PER_TREE_YEAR = 21.77; // ~48 lbs CO2/yr absorbed by a mature tree
+const HOMES_PER_WATT = 190 / 1_000_000; // SEIA: ~190 homes per MW of solar
+const WATTS_PER_LED_BULB = 10;
+
+function StatTile({
+  icon: Icon,
+  label,
+  value,
+  approx,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+  approx?: boolean;
+}) {
   return (
-    <div className="rounded-xl bg-muted/40 px-4 py-3">
-      <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
-        {label}
+    <div className="rounded-xl border border-border/40 bg-muted/30 px-3.5 py-3">
+      <div className="flex items-center gap-1.5 text-muted-foreground/70">
+        <Icon className="h-3.5 w-3.5 shrink-0" />
+        <p className="truncate text-[10px] font-medium uppercase tracking-[0.12em]">
+          {label}
+        </p>
+      </div>
+      <p className="mt-1.5 text-xl font-semibold tabular-nums tracking-tight text-foreground">
+        {approx ? <span className="text-muted-foreground">≈ </span> : null}
+        {value}
       </p>
-      <p className="mt-1 text-xl font-semibold tabular-nums">{value}</p>
     </div>
   );
 }
+
+function SectionHeader({
+  icon: Icon,
+  title,
+  count,
+  children,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  count?: number;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <div className="flex items-center gap-2">
+        <Icon className="h-4 w-4 text-muted-foreground" />
+        <h3 className="text-[13px] font-semibold tracking-tight text-foreground">
+          {title}
+        </h3>
+        {count != null ? (
+          <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground">
+            {count}
+          </span>
+        ) : null}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/** Two-up stat strip shown under each card image. */
+function CardStats({
+  wattsLabel,
+  wattsValue,
+  carbonLabel,
+  carbonValue,
+}: {
+  wattsLabel: string;
+  wattsValue: string;
+  carbonLabel: string;
+  carbonValue: string;
+}) {
+  return (
+    <div className="grid grid-cols-2 divide-x divide-border/40 border-t border-border/40">
+      <div className="px-3 py-2">
+        <p className="text-[9px] uppercase tracking-wide text-muted-foreground/70">
+          {wattsLabel}
+        </p>
+        <p className="mt-0.5 truncate text-[13px] font-semibold tabular-nums">
+          {wattsValue}
+        </p>
+      </div>
+      <div className="px-3 py-2">
+        <p className="text-[9px] uppercase tracking-wide text-muted-foreground/70">
+          {carbonLabel}
+        </p>
+        <p className="mt-0.5 truncate text-[13px] font-semibold tabular-nums">
+          {carbonValue}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+const CARD_CLASS =
+  "group overflow-hidden rounded-lg border border-border/40 bg-background";
+const CARD_IMAGE_WRAP = "relative aspect-[16/9] w-full overflow-hidden";
+const CARD_OVERLAY =
+  "absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent";
 
 export function WalletImpactDialog({
   wallet,
@@ -57,19 +163,110 @@ export function WalletImpactDialog({
   const query = useV2ImpactWallet(open ? wallet : null);
   const { regions } = useRegions();
 
+  const data = query.data;
+
+  const regionById = React.useMemo(() => {
+    const map = new Map<number, (typeof regions)[number]>();
+    for (const r of regions) map.set(r.id, r);
+    return map;
+  }, [regions]);
+
   const regionName = React.useCallback(
-    (regionId: number): string => {
-      const match = regions.find((r) => r.id === regionId);
-      return match?.name ?? lb.v2RegionFallback(String(regionId));
-    },
-    [regions, lb],
+    (regionId: number): string =>
+      regionById.get(regionId)?.name ?? lb.v2RegionFallback(String(regionId)),
+    [regionById, lb],
   );
 
-  const data = query.data;
+  // Merge the per-region watts + carbon (stored as "policy credits") arrays
+  // into one row per region for the region grid, sorted by watts.
+  const regionRows = React.useMemo(() => {
+    if (!data) return [];
+    const wattsByRegion = new Map(
+      data.wattsByRegion.map((r) => [r.regionId, r.watts]),
+    );
+    const carbonByRegion = new Map(
+      data.policyCreditsByRegion.map((r) => [r.regionId, r.policyCredits]),
+    );
+    const ids = new Set<number>([
+      ...wattsByRegion.keys(),
+      ...carbonByRegion.keys(),
+    ]);
+    return Array.from(ids)
+      .map((regionId) => ({
+        regionId,
+        watts: wattsByRegion.get(regionId) ?? "0",
+        carbon: carbonByRegion.get(regionId) ?? "0",
+      }))
+      .sort((a, b) => num(b.watts) - num(a.watts));
+  }, [data]);
+
+  const farmRows = React.useMemo(() => {
+    if (!data) return [];
+    return [...data.farms].sort((a, b) => num(b.wattsTotal) - num(a.wattsTotal));
+  }, [data]);
+
+  // Farm breakdown can be filtered by region. Reset when the wallet changes.
+  const [regionFilter, setRegionFilter] = React.useState<string>("all");
+  React.useEffect(() => {
+    setRegionFilter("all");
+  }, [wallet]);
+
+  const farmRegionOptions = React.useMemo(() => {
+    const ids = Array.from(new Set(farmRows.map((f) => f.regionId)));
+    return ids
+      .map((id) => ({ id, name: regionName(id) }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [farmRows, regionName]);
+
+  const visibleFarms = React.useMemo(() => {
+    if (regionFilter === "all") return farmRows;
+    const id = Number(regionFilter);
+    return farmRows.filter((f) => f.regionId === id);
+  }, [farmRows, regionFilter]);
+
+  // Friendly real-world equivalents for the header.
+  const equiv = React.useMemo(() => {
+    const watts = num(data?.totalWatts);
+    const carbon = num(data?.totalCarbonCredits);
+    const trees = Math.round((carbon * 1000) / CO2_KG_PER_TREE_YEAR);
+    const homes = watts * HOMES_PER_WATT;
+    return {
+      trees,
+      homes: Math.round(homes),
+      bulbs: Math.round(watts / WATTS_PER_LED_BULB),
+      showHomes: homes >= 1,
+    };
+  }, [data]);
+
+  const farmIds = React.useMemo(
+    () => farmRows.map((f) => f.farmId),
+    [farmRows],
+  );
+
+  // Farm names + images come from the control API in one batch.
+  const farmImagesQuery = useQuery({
+    queryKey: ["wallet-impact-farm-images", farmIds],
+    enabled: open && farmIds.length > 0,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const res = await fetch("/api/farms/images-batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ farmIds }),
+      });
+      if (!res.ok) throw new Error(`Failed to fetch farm images: ${res.status}`);
+      return (await res.json()) as FarmImagesBatchResponse;
+    },
+  });
+
+  const farmMeta = React.useCallback(
+    (farmId: string) => farmImagesQuery.data?.results?.[farmId],
+    [farmImagesQuery.data],
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-2xl">
+      <DialogContent className="sm:max-w-[min(56rem,calc(100%-4rem))]">
         <DialogHeader>
           <DialogTitle>{lb.v2WalletTitle}</DialogTitle>
           <DialogDescription className="font-mono text-xs">
@@ -94,119 +291,153 @@ export function WalletImpactDialog({
             {lb.v2WalletEmpty}
           </p>
         ) : (
-          <ScrollArea className="-mr-4 flex-1 pr-4">
-            <div className="space-y-5 py-1">
-              {/* Totals */}
-              <div className="grid grid-cols-2 gap-3">
-                <StatBlock
+          <div className="space-y-6 py-1">
+              {/* Totals + real-world equivalents */}
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                <StatTile
+                  icon={Zap}
                   label={lb.v2WalletTotalWatts}
                   value={fmt(data.totalWatts)}
                 />
-                <StatBlock
+                <StatTile
+                  icon={Leaf}
                   label={lb.v2WalletCarbonCredits}
                   value={fmt(data.totalCarbonCredits)}
                 />
+                <StatTile
+                  icon={TreePine}
+                  label={lb.v2WalletTrees}
+                  value={fmt(String(equiv.trees), 0)}
+                  approx
+                />
+                {equiv.showHomes ? (
+                  <StatTile
+                    icon={Home}
+                    label={lb.v2WalletHomes}
+                    value={fmt(String(equiv.homes), 0)}
+                    approx
+                  />
+                ) : (
+                  <StatTile
+                    icon={Lightbulb}
+                    label={lb.v2WalletBulbs}
+                    value={fmt(String(equiv.bulbs), 0)}
+                    approx
+                  />
+                )}
               </div>
 
-              {/* Watts by region */}
-              {data.wattsByRegion.length > 0 ? (
+              {/* Impact by region — one card per region with its image */}
+              {regionRows.length > 0 ? (
                 <section>
-                  <h3 className="mb-2 flex items-center gap-1.5 text-sm font-medium">
-                    <MapPin className="h-4 w-4 text-muted-foreground" />
-                    {lb.v2WalletWattsByRegion}
-                  </h3>
-                  <div className="space-y-1">
-                    {data.wattsByRegion.map((r) => (
-                      <div
-                        key={`w-${r.regionId}`}
-                        className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2 text-sm"
-                      >
-                        <span>{regionName(r.regionId)}</span>
-                        <span className="tabular-nums">
-                          {fmt(r.watts)} {lb.v2WalletWattsUnit}
-                        </span>
-                      </div>
-                    ))}
+                  <SectionHeader
+                    icon={MapPin}
+                    title={lb.v2WalletByRegion}
+                    count={regionRows.length}
+                  />
+                  <div
+                    className="grid grid-cols-3 gap-2.5 sm:grid-cols-[repeat(var(--region-cols),minmax(0,1fr))]"
+                    style={
+                      {
+                        "--region-cols": regionRows.length,
+                      } as React.CSSProperties
+                    }
+                  >
+                    {regionRows.map((r) => {
+                      const region = regionById.get(r.regionId);
+                      return (
+                        <div key={`region-${r.regionId}`} className={CARD_CLASS}>
+                          <div className={CARD_IMAGE_WRAP}>
+                            <FallbackImage
+                              src={region?.bannerUrl ?? ""}
+                              alt={regionName(r.regionId)}
+                              loading="lazy"
+                              decoding="async"
+                              disableProxy
+                              className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                            />
+                            <div className={CARD_OVERLAY} />
+                            <div className="absolute inset-x-2.5 bottom-2">
+                              <p className="line-clamp-1 text-[13px] font-semibold text-white drop-shadow-sm">
+                                {regionName(r.regionId)}
+                              </p>
+                            </div>
+                          </div>
+                          <CardStats
+                            wattsLabel={lb.v2WalletColWatts}
+                            wattsValue={`${fmt(r.watts)} ${lb.v2WalletWattsUnit}`}
+                            carbonLabel={lb.v2WalletCarbonCredits}
+                            carbonValue={fmt(r.carbon)}
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
                 </section>
               ) : null}
 
-              {/* Policy credits by region */}
-              {data.policyCreditsByRegion.length > 0 ? (
-                <section>
-                  <h3 className="mb-2 text-sm font-medium">
-                    {lb.v2WalletPolicyByRegion}
-                  </h3>
-                  <div className="space-y-1">
-                    {data.policyCreditsByRegion.map((r) => (
-                      <div
-                        key={`p-${r.regionId}`}
-                        className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2 text-sm"
-                      >
-                        <span>{regionName(r.regionId)}</span>
-                        <span className="tabular-nums">
-                          {fmt(r.policyCredits)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              ) : null}
-
-              {/* Farm-level breakdown */}
+              {/* Farm breakdown — one card per farm with its photo + name */}
               <section>
-                <h3 className="mb-2 flex items-center gap-1.5 text-sm font-medium">
-                  <Sun className="h-4 w-4 text-muted-foreground" />
-                  {lb.v2WalletFarmBreakdown}
-                </h3>
-                <div className="overflow-hidden rounded-xl border border-border/40">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border/40 bg-muted/30 text-left text-[11px] uppercase tracking-wider text-muted-foreground">
-                        <th className="px-3 py-2 font-medium">
-                          {lb.v2WalletColFarm}
-                        </th>
-                        <th className="px-3 py-2 font-medium">
-                          {lb.v2WalletColRegion}
-                        </th>
-                        <th className="px-3 py-2 text-right font-medium">
-                          {lb.v2WalletColWatts}
-                        </th>
-                        <th className="px-3 py-2 text-right font-medium">
-                          {lb.v2WalletColCarbon}
-                        </th>
-                        <th className="px-3 py-2 text-right font-medium">
-                          {lb.v2WalletColPolicy}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.farms.map((f) => (
-                        <tr
-                          key={f.farmId}
-                          className="border-b border-border/20 last:border-0"
-                        >
-                          <td className="px-3 py-2 font-mono text-xs">
-                            {f.farmId.length > 14
-                              ? `${f.farmId.slice(0, 10)}…`
-                              : f.farmId}
-                          </td>
-                          <td className="px-3 py-2">
-                            {regionName(f.regionId)}
-                          </td>
-                          <td className="px-3 py-2 text-right tabular-nums">
-                            {fmt(f.wattsTotal)}
-                          </td>
-                          <td className="px-3 py-2 text-right tabular-nums">
-                            {fmt(f.carbonCredits)}
-                          </td>
-                          <td className="px-3 py-2 text-right tabular-nums">
-                            {fmt(f.policyCredits)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <SectionHeader
+                  icon={Sun}
+                  title={lb.v2WalletFarmBreakdown}
+                  count={visibleFarms.length}
+                >
+                  {farmRegionOptions.length > 1 ? (
+                    <Select value={regionFilter} onValueChange={setRegionFilter}>
+                      <SelectTrigger className="h-8 w-[170px] text-xs">
+                        <SelectValue placeholder={lb.v2AllRegions} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">{lb.v2AllRegions}</SelectItem>
+                        {farmRegionOptions.map((r) => (
+                          <SelectItem key={r.id} value={String(r.id)}>
+                            {r.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : null}
+                </SectionHeader>
+                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-[repeat(auto-fill,minmax(210px,1fr))]">
+                  {visibleFarms.map((f) => {
+                    const meta = farmMeta(f.farmId);
+                    const name =
+                      meta?.name ??
+                      (f.farmId.length > 14
+                        ? `${f.farmId.slice(0, 10)}…`
+                        : f.farmId);
+                    return (
+                      <div key={f.farmId} className={CARD_CLASS}>
+                        <div className={CARD_IMAGE_WRAP}>
+                          <FallbackImage
+                            src={meta?.imageUrl ?? ""}
+                            alt={name}
+                            loading="lazy"
+                            decoding="async"
+                            widthForProxy={400}
+                            quality={80}
+                            className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                          />
+                          <div className={CARD_OVERLAY} />
+                          <div className="absolute inset-x-2.5 bottom-2">
+                            <p className="line-clamp-1 text-[13px] font-semibold text-white drop-shadow-sm">
+                              {name}
+                            </p>
+                            <p className="line-clamp-1 text-[11px] text-white/75">
+                              {regionName(f.regionId)}
+                            </p>
+                          </div>
+                        </div>
+                        <CardStats
+                          wattsLabel={lb.v2WalletColWatts}
+                          wattsValue={`${fmt(f.wattsTotal)} ${lb.v2WalletWattsUnit}`}
+                          carbonLabel={lb.v2WalletCarbonCredits}
+                          carbonValue={fmt(f.carbonCredits)}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
               </section>
 
@@ -218,7 +449,6 @@ export function WalletImpactDialog({
                 </p>
               ) : null}
             </div>
-          </ScrollArea>
         )}
       </DialogContent>
     </Dialog>

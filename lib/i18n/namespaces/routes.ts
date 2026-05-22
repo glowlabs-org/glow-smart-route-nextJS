@@ -620,8 +620,12 @@ export interface RoutesStrings {
     v2WalletEmpty: string;
     v2WalletTotalWatts: string;
     v2WalletCarbonCredits: string;
+    v2WalletTrees: string;
+    v2WalletHomes: string;
+    v2WalletBulbs: string;
     v2WalletWattsByRegion: string;
     v2WalletPolicyByRegion: string;
+    v2WalletByRegion: string;
     v2WalletFarmBreakdown: string;
     v2WalletColFarm: string;
     v2WalletColRegion: string;
@@ -1633,8 +1637,12 @@ const en: RoutesStrings = {
       "No farm impact recorded for this wallet yet. Impact is earned when a delegated or mined farm fully funds.",
     v2WalletTotalWatts: "Total watts",
     v2WalletCarbonCredits: "Carbon credits",
+    v2WalletTrees: "Adult trees",
+    v2WalletHomes: "Homes powered",
+    v2WalletBulbs: "Light bulbs",
     v2WalletWattsByRegion: "Watts by region",
     v2WalletPolicyByRegion: "Policy credits by region",
+    v2WalletByRegion: "Impact by region",
     v2WalletFarmBreakdown: "Farm breakdown",
     v2WalletColFarm: "Farm",
     v2WalletColRegion: "Region",
@@ -2671,8 +2679,12 @@ const ko: RoutesStrings = {
       "이 지갑에는 아직 기록된 발전소 임팩트가 없습니다. 임팩트는 위임 또는 마이닝한 발전소가 완전히 펀딩되면 적립됩니다.",
     v2WalletTotalWatts: "총 와트",
     v2WalletCarbonCredits: "탄소 크레딧",
+    v2WalletTrees: "다 자란 나무",
+    v2WalletHomes: "전력 공급 가구",
+    v2WalletBulbs: "전구",
     v2WalletWattsByRegion: "지역별 와트",
     v2WalletPolicyByRegion: "지역별 정책 크레딧",
+    v2WalletByRegion: "지역별 임팩트",
     v2WalletFarmBreakdown: "발전소별 내역",
     v2WalletColFarm: "발전소",
     v2WalletColRegion: "지역",
@@ -3711,8 +3723,12 @@ const zh: RoutesStrings = {
       "该钱包尚无农场影响力记录。当委托或挖矿的农场完全募满时即可获得影响力。",
     v2WalletTotalWatts: "总瓦数",
     v2WalletCarbonCredits: "碳信用",
+    v2WalletTrees: "成年树木",
+    v2WalletHomes: "供电家庭",
+    v2WalletBulbs: "灯泡",
     v2WalletWattsByRegion: "各地区瓦数",
     v2WalletPolicyByRegion: "各地区政策信用",
+    v2WalletByRegion: "各地区影响力",
     v2WalletFarmBreakdown: "农场明细",
     v2WalletColFarm: "农场",
     v2WalletColRegion: "地区",

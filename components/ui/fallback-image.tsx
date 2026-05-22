@@ -33,15 +33,17 @@ export function FallbackImage({
   onError,
   ...imgProps
 }: FallbackImageProps) {
-  const [currentSrc, setCurrentSrc] = React.useState<string>(
-    disableProxy ? src : getProxiedImageUrl(src, widthForProxy, quality)
-  );
+  const resolveSrc = (value: string) => {
+    if (!value) return fallbackSrc;
+    return disableProxy ? value : getProxiedImageUrl(value, widthForProxy, quality);
+  };
+
+  const [currentSrc, setCurrentSrc] = React.useState<string>(resolveSrc(src));
 
   React.useEffect(() => {
-    setCurrentSrc(
-      disableProxy ? src : getProxiedImageUrl(src, widthForProxy, quality)
-    );
-  }, [src, disableProxy, widthForProxy, quality]);
+    setCurrentSrc(resolveSrc(src));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [src, disableProxy, widthForProxy, quality, fallbackSrc]);
 
   const handleError: React.ReactEventHandler<HTMLImageElement> = (e) => {
     // Avoid infinite loop: if already on fallback, do nothing
