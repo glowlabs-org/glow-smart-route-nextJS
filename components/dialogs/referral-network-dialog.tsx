@@ -307,7 +307,7 @@ export function ReferralNetworkDialog({
   const shareToTwitter = React.useCallback(() => {
     if (!resolvedData?.shareableLink) return;
     const text = encodeURIComponent(
-      `Join me on @GlowFND and we both earn bonus Impact Points! You'll get +100 pts + a 10% boost for 12 weeks.\n\n${resolvedData.shareableLink}`,
+      `Join me on @GlowFND and start earning Impact Points for real solar impact.\n\n${resolvedData.shareableLink}`,
     );
     window.open(`https://x.com/intent/tweet?text=${text}`, "_blank");
     trackEvent("referral_share_twitter", {
@@ -318,7 +318,7 @@ export function ReferralNetworkDialog({
   const shareToDiscord = React.useCallback(() => {
     if (!resolvedData?.shareableLink) return;
     // Discord doesn't have a direct share URL, so we copy a formatted message
-    const message = `Join me on Glow! You'll get +100 pts bonus + 10% boost for 12 weeks: ${resolvedData.shareableLink}`;
+    const message = `Join me on Glow and start earning Impact Points for real solar impact: ${resolvedData.shareableLink}`;
     navigator.clipboard.writeText(message);
     toast.success(s.toastDiscordCopied);
     trackEvent("referral_share_discord", {
@@ -463,10 +463,10 @@ export function ReferralNetworkDialog({
                         {s.theyGet}
                       </div>
                       <div className="text-xl font-mono font-bold text-foreground">
-                        {s.bonus10Pct}
+                        Free
                       </div>
                       <div className="text-[10px] text-muted-foreground">
-                        {s.forTwelveWeeks}
+                        Their points stay theirs
                       </div>
                     </div>
                   </div>
@@ -514,94 +514,8 @@ export function ReferralNetworkDialog({
                           </span>
                         </div>
                       </div>
-                    {resolvedStatus.bonus?.isActive && (
-                      <div className="text-right">
-                        <div className="text-lg font-mono font-bold text-[#16a34a] dark:text-[#4ade80]">
-                          +{resolvedStatus.bonus.bonusPercent}%
-                        </div>
-                        <div className="text-[9px] text-muted-foreground uppercase font-medium">
-                          {s.weeksLeft(resolvedStatus.bonus.weeksRemaining)}
-                        </div>
-                        {resolvedStatus.bonus.bonusProjectedPointsScaled6 &&
-                          Number(resolvedStatus.bonus.bonusProjectedPointsScaled6) >
-                            0 && (
-                            <div className="text-[9px] text-muted-foreground mt-1">
-                              {s.ptsProjected(
-                                formatPoints(
-                                  resolvedStatus.bonus.bonusProjectedPointsScaled6,
-                                  { maximumFractionDigits: 2 },
-                                ),
-                              )}
-                            </div>
-                          )}
-                      </div>
-                    )}
                     </div>
 
-                    {/* Activation Bonus */}
-                    {resolvedStatus.activationBonus && (
-                      <div className={cn(
-                        "pt-3 border-t border-dashed",
-                        resolvedStatus.activationBonus.awarded && "mt-1"
-                      )}>
-                        <div className={cn(
-                          "flex items-center gap-3 rounded-xl px-3 py-2.5",
-                          resolvedStatus.activationBonus.awarded
-                            ? "bg-[color:var(--color-glow-orange)]/10"
-                            : "bg-muted/30"
-                        )}>
-                          <div className={cn(
-                            "flex items-center justify-center w-8 h-8 rounded-lg shrink-0",
-                            resolvedStatus.activationBonus.awarded
-                              ? "bg-[color:var(--color-glow-orange)]/15"
-                              : "bg-muted/50"
-                          )}>
-                            {resolvedStatus.activationBonus.awarded ? (
-                              <CheckCircle2 className="w-4 h-4 text-[color:var(--color-glow-orange)]" />
-                            ) : (
-                              <Sparkles className="w-4 h-4 text-muted-foreground/40" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                              <span className={cn(
-                                "text-xs font-semibold",
-                                resolvedStatus.activationBonus.awarded
-                                  ? "text-[color:var(--color-glow-orange)]"
-                                  : "text-muted-foreground"
-                              )}>
-                                {s.activationBonus}
-                              </span>
-                              <span className={cn(
-                                "text-xs font-mono font-bold",
-                                resolvedStatus.activationBonus.awarded
-                                  ? "text-[color:var(--color-glow-orange)]"
-                                  : "text-muted-foreground/50"
-                              )}>
-                                +100 pts
-                              </span>
-                            </div>
-                            <p className={cn(
-                              "text-[9px] mt-0.5",
-                              resolvedStatus.activationBonus.awarded
-                                ? "text-[color:var(--color-glow-orange)]/70"
-                                : "text-muted-foreground/50"
-                            )}>
-                              {resolvedStatus.activationBonus.awarded
-                                ? s.activationAwarded(
-                                    new Date(
-                                      resolvedStatus.activationBonus.awardedAt!,
-                                    ).toLocaleDateString(undefined, {
-                                      month: "short",
-                                      day: "numeric",
-                                    }),
-                                  )
-                                : s.activationLockHint}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
 
                     {resolvedStatus.referrer.canChangeReferrer && (
                       <div className="pt-3 border-t border-dashed space-y-3">
