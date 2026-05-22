@@ -24,26 +24,21 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { BuyGlowDialog } from "@/components/dialogs/buy-glow-dialog";
-import { LaunchpadDialog } from "@/components/dialogs/launchpad-dialog";
-import { MintAndStakeGctlDialog } from "@/components/dialogs/mint-and-stake-gctl-dialog";
 import { ReferralNetworkDialog } from "@/components/dialogs/referral-network-dialog";
-import {
-  ImpactIndicatorsRow,
-  type ImpactIndicatorsState,
-} from "@/components/impact-score/impact-indicators";
+import { ImpactStreakIcon } from "@/components/impact-icons";
 import { trackEvent } from "@/lib/telemetry";
 import { cn } from "@/lib/utils";
 import {
   useImpactLeaderboardQuery,
   useImpactScoreQuery,
 } from "@/hooks";
-import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
-import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import { useReferralLaunch } from "@/hooks/use-referral-launch";
 import { formatTopPercentile } from "@/utils/impact";
-import { getCurrentEpoch } from "@/utils/getCurrentEpoch";
-import { useV2PointsBalance, useV2PointsLedger } from "@/hooks/v2-points";
+import {
+  useV2PointsBalance,
+  useV2PointsRates,
+  type V2CurrentStreak,
+} from "@/hooks/v2-points";
 import { useV2ImpactLeaderboard } from "@/hooks/v2-impact";
 import { ArrowTopRightIcon } from "@radix-ui/react-icons";
 import { useLang } from "@/lib/i18n";
@@ -130,25 +125,21 @@ function RankWidgetSkeleton({
             </div>
           </div>
 
-          {/* Impact indicators skeleton */}
+          {/* Weekly streak skeleton */}
           <div
             className={cn(
-              "rounded-full border bg-card/50 dark:bg-card/80 max-w-full mx-auto",
+              "rounded-2xl border bg-card/50 dark:bg-card/80 max-w-full mx-auto w-full",
               isHero
-                ? "px-3 py-2 border-border/30 dark:border-border/40"
-                : "px-3 py-2.5 border-border/20 dark:border-border/40",
+                ? "px-3 py-2.5 border-border/30 dark:border-border/40"
+                : "px-4 py-3 border-border/20 dark:border-border/40",
             )}
           >
-            <div className="flex items-center justify-center gap-1.5">
-              {/* Sources */}
-              {[...Array(5)].map((_, i) => (
-                <Skeleton key={i} className="h-8 w-8 rounded-full" />
-              ))}
-              {/* Separator */}
-              <div className="h-5 w-px bg-border/40 mx-0.5" />
-              {/* Multipliers */}
-              <Skeleton className="h-8 w-8 rounded-lg" />
-              <Skeleton className="h-8 w-8 rounded-lg" />
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+              <div className="flex flex-1 flex-col gap-1.5">
+                <Skeleton className="h-3.5 w-24 rounded-xl" />
+                <Skeleton className="h-3 w-32 rounded-xl" />
+              </div>
             </div>
           </div>
 
@@ -160,6 +151,98 @@ function RankWidgetSkeleton({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function WeeklyStreakPanel({
+  streak,
+  capWeek,
+  capPoints,
+  isHero,
+  isLoading,
+}: {
+  streak: V2CurrentStreak | null;
+  capWeek: number | null;
+  capPoints: number | null;
+  isHero: boolean;
+  isLoading: boolean;
+}) {
+  const { t } = useLang();
+  const r = t.widgets.rankWidget;
+
+  const containerClass = cn(
+    "flex items-center gap-3 rounded-2xl border bg-card/50 dark:bg-card/80 w-full max-w-full mx-auto",
+    isHero
+      ? "px-3 py-2.5 border-border/30 dark:border-border/40"
+      : "px-4 py-3 border-border/20 dark:border-border/40",
+  );
+
+  if (isLoading) {
+    return (
+      <div className={containerClass}>
+        <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+        <div className="flex flex-1 flex-col gap-1.5">
+          <Skeleton className="h-3.5 w-24 rounded-xl" />
+          <Skeleton className="h-3 w-32 rounded-xl" />
+        </div>
+      </div>
+    );
+  }
+
+  const streakWeek = streak?.streakWeek ?? 0;
+  const qualified = streak?.qualified ?? false;
+  const nextAward = streak?.nextAwardPoints ?? 0;
+  const active = streakWeek > 0;
+  const maxed = capWeek != null && streakWeek >= capWeek;
+
+  const heading = active ? r.streakWeeks(streakWeek) : r.streakNone;
+  const subtext = !active
+    ? r.streakStart
+    : maxed
+      ? r.streakMaxed(formatPoints(String(capPoints ?? 2000)))
+      : qualified
+        ? r.streakLockedIn
+        : r.streakKeepGoing;
+
+  return (
+    <div className={containerClass}>
+      <div
+        className={cn(
+          "flex items-center justify-center rounded-full shrink-0",
+          active
+            ? "bg-[#4ADE80]/10 text-[#4ADE80]"
+            : "bg-muted/40 text-muted-foreground",
+          isHero ? "h-9 w-9" : "h-10 w-10",
+        )}
+      >
+        <ImpactStreakIcon
+          className={cn(
+            isHero ? "h-4 w-4" : "h-5 w-5",
+            active && !maxed && "animate-pulse",
+          )}
+        />
+      </div>
+
+      <div className="flex flex-col min-w-0 flex-1 text-left">
+        <span className="text-sm font-semibold text-foreground truncate">
+          {heading}
+        </span>
+        <span className="text-[11px] text-muted-foreground truncate">
+          {subtext}
+        </span>
+      </div>
+
+      {nextAward > 0 && !maxed ? (
+        <div className="text-right shrink-0">
+          <div className="font-mono text-sm font-semibold text-[#4ADE80] tabular-nums">
+            +{formatPoints(String(nextAward))}
+          </div>
+          <div className="text-[9px] uppercase tracking-wider text-muted-foreground/70">
+            pts
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -175,9 +258,6 @@ export function RankWidget({
 
   const source = "rank_widget";
   const [isBreakdownOpen, setIsBreakdownOpen] = React.useState(false);
-  const [isLaunchpadOpen, setIsLaunchpadOpen] = React.useState(false);
-  const [isBuyGlowOpen, setIsBuyGlowOpen] = React.useState(false);
-  const [isMintAndStakeOpen, setIsMintAndStakeOpen] = React.useState(false);
   const [isReferralNetworkOpen, setIsReferralNetworkOpen] =
     React.useState(false);
 
@@ -222,32 +302,12 @@ export function RankWidget({
 
   const impactScore = impactScoreQuery.data ?? null;
 
-  // V2 spendable point balance — drives the hero "points" number.
+  // V2 spendable point balance — drives the hero "points" number and the
+  // weekly streak panel.
   const v2PointsQuery = useV2PointsBalance(
     isValidWalletAddress ? walletAddress : null,
   );
-  const v2LedgerQuery = useV2PointsLedger(
-    isValidWalletAddress ? walletAddress : null,
-    { limit: 500 },
-  );
-
-  // V2 earning-source indicators: a source is "active" once the wallet has
-  // earned any points from it (aggregated from the points ledger).
-  const v2IndicatorState: ImpactIndicatorsState = React.useMemo(() => {
-    const rows = v2LedgerQuery.data?.rows ?? [];
-    const earned = (eventType: string) =>
-      rows
-        .filter((r) => r.eventType === eventType)
-        .reduce((acc, r) => acc + (Number(r.pointsDelta) || 0), 0) > 0;
-    const streakWeek = v2PointsQuery.data?.currentStreak?.streakWeek ?? 0;
-    return {
-      hasGlwDelegation: earned("glw_delegation"),
-      hasSgctlDelegation: earned("sgctl_delegation"),
-      hasMinerPurchase: earned("miner_purchase"),
-      hasStreak: streakWeek > 0 || earned("weekly_streak"),
-      hasReferral: earned("referral"),
-    };
-  }, [v2LedgerQuery.data, v2PointsQuery.data]);
+  const ratesQuery = useV2PointsRates();
 
   const totalsPoints = impactScore?.totals?.totalPoints ?? undefined;
 
@@ -311,48 +371,7 @@ export function RankWidget({
     t.widgets.rankWidget,
   ]);
 
-  const shouldFetchBalances = isBuyGlowOpen || isMintAndStakeOpen;
-  const { usdcBalance, usdgBalance } = useWalletTokenBalances(walletAddress, {
-    enabled: shouldFetchBalances,
-  });
-  const { spotPrice: glowSpotPrice } = useGlowSpotPrice({
-    query: { enabled: isBuyGlowOpen },
-  });
   const { isLive: isReferralLive } = useReferralLaunch();
-
-  const handleIndicatorClick = React.useCallback(
-    (key: "glw" | "sgctl" | "miner" | "streak" | "referral") => {
-      trackEvent("dashboard_impact_indicator_click", {
-        source,
-        wallet_connected: hasWallet,
-        wallet_address: normalizedWalletAddress,
-        indicator: key,
-      });
-
-      if (key === "referral") {
-        if (!isReferralLive) return;
-        setIsReferralNetworkOpen(true);
-        return;
-      }
-
-      if (key === "sgctl") {
-        if (onMintAndStakeClick) return onMintAndStakeClick(!hasPositiveScore);
-        setIsMintAndStakeOpen(true);
-        return;
-      }
-
-      // glw, miner, streak -> the launchpad (delegate GLW / buy a miner)
-      setIsLaunchpadOpen(true);
-    },
-    [
-      hasWallet,
-      hasPositiveScore,
-      isReferralLive,
-      normalizedWalletAddress,
-      onMintAndStakeClick,
-      source,
-    ],
-  );
 
   const isLoading =
     hasWallet && (impactScoreQuery.isLoading || leaderboardQuery.isLoading);
@@ -506,19 +525,13 @@ export function RankWidget({
                 </div>
               </div>
               {hasWallet ? (
-                <div
-                  className={cn(
-                    "rounded-full border bg-card/50 dark:bg-card/80 max-w-full mx-auto",
-                    isHero
-                      ? "px-3 py-2 border-border/30 dark:border-border/40"
-                      : "px-3 py-2.5 border-border/20 dark:border-border/40",
-                  )}
-                >
-                  <ImpactIndicatorsRow
-                    state={v2IndicatorState}
-                    onIndicatorClick={handleIndicatorClick}
-                  />
-                </div>
+                <WeeklyStreakPanel
+                  streak={v2PointsQuery.data?.currentStreak ?? null}
+                  capWeek={ratesQuery.data?.rates?.streak?.capWeek ?? null}
+                  capPoints={ratesQuery.data?.rates?.streak?.capPoints ?? null}
+                  isHero={isHero}
+                  isLoading={v2PointsQuery.isLoading}
+                />
               ) : null}
 
               <div className={cn("grid gap-2 grid-cols-2 mt-auto", isHero && "pt-1")}>
@@ -661,35 +674,6 @@ export function RankWidget({
         walletAddress={normalizedWalletAddress}
         weekRange={impactScore?.weekRange ?? null}
         showCurrentWeekProjection
-      />
-
-      <LaunchpadDialog
-        key={isLaunchpadOpen ? "launchpad-open" : "launchpad-closed"}
-        open={isLaunchpadOpen}
-        onOpenChange={setIsLaunchpadOpen}
-      />
-
-      {!onMintAndStakeClick ? (
-        <MintAndStakeGctlDialog
-          key={
-            isMintAndStakeOpen ? "mint-and-stake-open" : "mint-and-stake-closed"
-          }
-          open={isMintAndStakeOpen}
-          onOpenChange={setIsMintAndStakeOpen}
-          usdcBalance={usdcBalance}
-          usdgBalance={usdgBalance}
-          forceStep1={!hasPositiveScore}
-        />
-      ) : null}
-
-      <BuyGlowDialog
-        key={isBuyGlowOpen ? "buy-glow-open" : "buy-glow-closed"}
-        open={isBuyGlowOpen}
-        onOpenChange={setIsBuyGlowOpen}
-        usdcBalance={usdcBalance}
-        glowSpotPrice={glowSpotPrice || 0}
-        source="rank_widget"
-        defaultUsdcAmount="20"
       />
 
       {isReferralLive ? (

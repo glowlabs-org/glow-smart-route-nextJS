@@ -221,6 +221,13 @@ export interface WidgetStrings {
     leaderboard: string;
     inviteFriends: string;
     invitesWithPoints: (points: string) => string;
+    // Weekly streak panel
+    streakWeeks: (weeks: number) => string;
+    streakNone: string;
+    streakStart: string;
+    streakLockedIn: string;
+    streakKeepGoing: string;
+    streakMaxed: (points: string) => string;
   };
 
   netWorthWidget: {
@@ -881,6 +888,12 @@ const en: WidgetStrings = {
     leaderboard: "Leaderboard",
     inviteFriends: "Invite Friends",
     invitesWithPoints: (points) => `Invites (+${points})`,
+    streakWeeks: (weeks) => `${weeks}-week streak`,
+    streakNone: "No active streak",
+    streakStart: "Take any action this week to start",
+    streakLockedIn: "You're covered this week",
+    streakKeepGoing: "Act this week to keep it going",
+    streakMaxed: (points) => `Maxed out · ${points} pts/week`,
   },
 
   netWorthWidget: {
@@ -1532,6 +1545,12 @@ const ko: WidgetStrings = {
     leaderboard: "리더보드",
     inviteFriends: "친구 초대",
     invitesWithPoints: (points) => `초대 (+${points})`,
+    streakWeeks: (weeks) => `${weeks}주 연속`,
+    streakNone: "진행 중인 연속 기록 없음",
+    streakStart: "이번 주에 활동하여 시작하세요",
+    streakLockedIn: "이번 주는 적립 완료",
+    streakKeepGoing: "이번 주에 활동하여 연속 유지",
+    streakMaxed: (points) => `최대치 · 주당 ${points} pts`,
   },
 
   netWorthWidget: {
@@ -2182,6 +2201,12 @@ const zh: WidgetStrings = {
     leaderboard: "排行榜",
     inviteFriends: "邀请好友",
     invitesWithPoints: (points) => `邀请 (+${points})`,
+    streakWeeks: (weeks) => `连续 ${weeks} 周`,
+    streakNone: "暂无连续记录",
+    streakStart: "本周采取任意操作即可开始",
+    streakLockedIn: "本周已记录",
+    streakKeepGoing: "本周采取操作以保持连续",
+    streakMaxed: (points) => `已达上限 · 每周 ${points} 分`,
   },
 
   netWorthWidget: {
