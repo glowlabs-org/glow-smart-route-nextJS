@@ -37,7 +37,6 @@ import { cn } from "@/lib/utils";
 import {
   useImpactLeaderboardQuery,
   useImpactScoreQuery,
-  type ImpactGlowScoreLeaderboardRow,
 } from "@/hooks";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
@@ -45,6 +44,7 @@ import { useReferralLaunch } from "@/hooks/use-referral-launch";
 import { formatTopPercentile } from "@/utils/impact";
 import { getCurrentEpoch } from "@/utils/getCurrentEpoch";
 import { useV2PointsBalance, useV2PointsLedger } from "@/hooks/v2-points";
+import { useV2ImpactLeaderboard } from "@/hooks/v2-impact";
 import { ArrowTopRightIcon } from "@radix-ui/react-icons";
 import { useLang } from "@/lib/i18n";
 
@@ -184,18 +184,29 @@ export function RankWidget({
   const isValidWalletAddress =
     Boolean(walletAddress) && isAddress(walletAddress as string);
 
+  // V1 leaderboard kept only for weekRange (drives the impact-score referral
+  // number below); the rank itself comes from the V2 watts leaderboard.
   const leaderboardQuery = useImpactLeaderboardQuery({
     enabled: Boolean(hasWallet && isValidWalletAddress),
   });
-  const leaderboardRows = React.useMemo(() => {
-    const rawWallets = leaderboardQuery.data?.wallets ?? [];
-    return rawWallets.filter(
-      (row): row is ImpactGlowScoreLeaderboardRow =>
-        "walletAddress" in row && !("isSystemRow" in row),
-    );
-  }, [leaderboardQuery.data?.wallets]);
-  const totalWalletCount = leaderboardQuery.data?.totalWalletCount ?? 0;
   const normalizedWalletAddress = walletAddress?.toLowerCase() ?? "";
+
+  // Watts rank: reflect the V2 watts leaderboard (the canonical one), not the
+  // legacy points score. The dataset is small, so fetch the full ranked list
+  // and read this wallet's rank.
+  const v2RankQuery = useV2ImpactLeaderboard({
+    sort: "totalWatts",
+    dir: "desc",
+    limit: 500,
+  });
+  const totalWalletCount = v2RankQuery.data?.total ?? 0;
+  const selfGlobalRank = React.useMemo(() => {
+    if (!normalizedWalletAddress) return null;
+    const row = (v2RankQuery.data?.rows ?? []).find(
+      (r) => r.wallet.toLowerCase() === normalizedWalletAddress,
+    );
+    return row?.rank ?? null;
+  }, [v2RankQuery.data, normalizedWalletAddress]);
 
   const weekRange = leaderboardQuery.data?.weekRange ?? null;
 
@@ -280,59 +291,23 @@ export function RankWidget({
     t.widgets.rankWidget.emptyPoints,
   ]);
 
-  const selfLeaderboardRow = React.useMemo(() => {
-    if (!normalizedWalletAddress) return null;
-    return leaderboardRows.find(
-      (row) => row.walletAddress.toLowerCase() === normalizedWalletAddress,
-    ) ?? null;
-  }, [leaderboardRows, normalizedWalletAddress]);
-
-  const selfGlobalRank = React.useMemo(() => {
-    if (!selfLeaderboardRow) return null;
-    const idx = leaderboardRows.indexOf(selfLeaderboardRow);
-    return idx >= 0 ? idx + 1 : null;
-  }, [leaderboardRows, selfLeaderboardRow]);
-
-  const listThresholdPercentile = React.useMemo(() => {
-    if (totalWalletCount <= 0) return NaN;
-    return (
-      (Math.min(leaderboardRows.length, totalWalletCount) / totalWalletCount) *
-      100
-    );
-  }, [leaderboardRows.length, totalWalletCount]);
-
   const rankText = React.useMemo(() => {
-    if (impactScoreQuery.isLoading || leaderboardQuery.isLoading) return "—";
+    if (v2RankQuery.isLoading) return "—";
     if (!selfGlobalRank) return "—";
     return `#${selfGlobalRank.toLocaleString("en-US")}`;
-  }, [impactScoreQuery.isLoading, leaderboardQuery.isLoading, selfGlobalRank]);
+  }, [v2RankQuery.isLoading, selfGlobalRank]);
 
   const percentileText = React.useMemo(() => {
-    if (impactScoreQuery.isLoading || leaderboardQuery.isLoading) return "—";
-
+    if (v2RankQuery.isLoading) return "—";
     if (selfGlobalRank && totalWalletCount > 0) {
       const percentile = (selfGlobalRank / totalWalletCount) * 100;
       return t.widgets.rankWidget.topPercentile(formatTopPercentile(percentile));
     }
-
-    if (
-      normalizedWalletAddress &&
-      leaderboardRows.length > 0 &&
-      totalWalletCount > 0
-    )
-      return t.widgets.rankWidget.belowTopPercentile(
-        formatTopPercentile(listThresholdPercentile),
-      );
-
     return "—";
   }, [
-    impactScoreQuery.isLoading,
-    leaderboardQuery.isLoading,
+    v2RankQuery.isLoading,
     selfGlobalRank,
     totalWalletCount,
-    normalizedWalletAddress,
-    leaderboardRows.length,
-    listThresholdPercentile,
     t.widgets.rankWidget,
   ]);
 
