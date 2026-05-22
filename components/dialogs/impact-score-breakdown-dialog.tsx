@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useMemo, useState } from "react";
 import { useAccount } from "wagmi";
-import { Sparkles, ShoppingBag } from "lucide-react";
+import { Sparkles, ShoppingBag, HelpCircle } from "lucide-react";
 
 import {
   VaultIcon,
@@ -24,14 +24,13 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { LaunchpadDialog } from "@/components/dialogs/launchpad-dialog";
-import { MintAndStakeGctlDialog } from "@/components/dialogs/mint-and-stake-gctl-dialog";
+import { PointsExplainerDialog } from "@/components/dialogs/points-explainer-dialog";
 import { ReferralNetworkDialog } from "@/components/dialogs/referral-network-dialog";
 import {
   useV2PointsBalance,
   useV2PointsLedger,
   useV2PointsRates,
 } from "@/hooks/v2-points";
-import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import { useReferralLaunch } from "@/hooks/use-referral-launch";
 import { trackEvent } from "@/lib/telemetry";
 
@@ -134,7 +133,6 @@ export function ImpactScoreBreakdownDialog({
       ? address.toLowerCase() === walletAddress.toLowerCase()
       : false;
   const { isLive: isReferralLive } = useReferralLaunch();
-  const { usdcBalance, usdgBalance } = useWalletTokenBalances(address);
 
   const balanceQuery = useV2PointsBalance(open ? walletAddress : null);
   const ledgerQuery = useV2PointsLedger(open ? walletAddress : null, {
@@ -143,8 +141,8 @@ export function ImpactScoreBreakdownDialog({
   const ratesQuery = useV2PointsRates();
 
   const [isLaunchpadOpen, setIsLaunchpadOpen] = useState(false);
-  const [isMintAndStakeOpen, setIsMintAndStakeOpen] = useState(false);
   const [isReferralNetworkOpen, setIsReferralNetworkOpen] = useState(false);
+  const [isPointsExplainerOpen, setIsPointsExplainerOpen] = useState(false);
 
   const agg = useMemo(() => {
     const rows = ledgerQuery.data?.rows ?? [];
@@ -236,9 +234,7 @@ export function ImpactScoreBreakdownDialog({
                       accentClass="bg-[#22D3EE]/10 text-[#22D3EE]"
                       ctaLabel={isOwnWallet ? "Delegate" : undefined}
                       onCta={
-                        isOwnWallet
-                          ? () => setIsMintAndStakeOpen(true)
-                          : undefined
+                        isOwnWallet ? () => setIsLaunchpadOpen(true) : undefined
                       }
                     />
                     <SourceRow
@@ -327,15 +323,28 @@ export function ImpactScoreBreakdownDialog({
             )}
           </div>
         </ScrollArea>
+
+        <div className="border-t border-border/40 p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full gap-2 border-border/40 bg-transparent text-sm"
+            onClick={() => {
+              trackEvent("points_explainer_open", { from: "impact_breakdown" });
+              setIsPointsExplainerOpen(true);
+            }}
+          >
+            <HelpCircle className="h-4 w-4" />
+            Learn how points work
+          </Button>
+        </div>
       </DialogContent>
 
       {/* Sub-dialogs for CTAs */}
       <LaunchpadDialog open={isLaunchpadOpen} onOpenChange={setIsLaunchpadOpen} />
-      <MintAndStakeGctlDialog
-        open={isMintAndStakeOpen}
-        onOpenChange={setIsMintAndStakeOpen}
-        usdcBalance={usdcBalance}
-        usdgBalance={usdgBalance}
+      <PointsExplainerDialog
+        open={isPointsExplainerOpen}
+        onOpenChange={setIsPointsExplainerOpen}
       />
       {isReferralLive ? (
         <ReferralNetworkDialog
