@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { Crown } from "lucide-react";
 import Link from "next/link";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,17 +9,8 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/telemetry";
 import { useEnsNames } from "@/hooks/useEnsNames";
-import {
-  useImpactLeaderboardQuery,
-  type ImpactGlowScoreLeaderboardRow,
-} from "@/hooks";
-import {
-  formatImpactPoints,
-  formatTopPercentile,
-  shortAddress,
-  safeNumber,
-  formatGlwFromWei,
-} from "@/utils/impact";
+import { useV2ImpactLeaderboard } from "@/hooks/v2-impact";
+import { shortAddress } from "@/utils/impact";
 import { useLang } from "@/lib/i18n";
 
 interface GlobalLeaderboardWidgetProps {
@@ -28,12 +18,10 @@ interface GlobalLeaderboardWidgetProps {
   limit?: number;
 }
 
-function sortByPointsDesc(
-  a: ImpactGlowScoreLeaderboardRow,
-  b: ImpactGlowScoreLeaderboardRow
-) {
-  return safeNumber(b.totalPoints) - safeNumber(a.totalPoints);
-}
+const fmtWatts = (s: string) =>
+  Number(s).toLocaleString(undefined, { maximumFractionDigits: 0 });
+const fmtCarbon = (s: string) =>
+  Number(s).toLocaleString(undefined, { maximumFractionDigits: 2 });
 
 export default function GlobalLeaderboardWidget({
   className,
@@ -42,29 +30,22 @@ export default function GlobalLeaderboardWidget({
 }: GlobalLeaderboardWidgetProps & { variant?: "default" | "minimal" }) {
   const { t } = useLang();
   const source = "global_leaderboard_widget";
-  const leaderboardQuery = useImpactLeaderboardQuery();
-  const allRows = React.useMemo(() => {
-    const rawWallets = leaderboardQuery.data?.wallets ?? [];
-    return rawWallets.filter(
-      (row): row is ImpactGlowScoreLeaderboardRow =>
-        "walletAddress" in row && !("isSystemRow" in row)
-    );
-  }, [leaderboardQuery.data?.wallets]);
-
-  const totalWalletCount =
-    leaderboardQuery.data?.totalWalletCount ?? allRows.length;
+  const topN = Math.max(3, Math.min(5, limit));
+  // V2 impact leaderboard ranks by watts (server-sorted desc).
+  const leaderboardQuery = useV2ImpactLeaderboard({
+    sort: "totalWatts",
+    dir: "desc",
+    limit: topN,
+  });
+  const topRows = React.useMemo(
+    () => leaderboardQuery.data?.rows ?? [],
+    [leaderboardQuery.data?.rows],
+  );
   const isMinimal = variant === "minimal";
 
-  const topRows = React.useMemo(() => {
-    if (!allRows.length) return [];
-    return [...allRows]
-      .sort(sortByPointsDesc)
-      .slice(0, Math.max(3, Math.min(5, limit)));
-  }, [limit, allRows]);
-
   const addresses = React.useMemo(
-    () => topRows.map((r) => r.walletAddress),
-    [topRows]
+    () => topRows.map((r) => r.wallet),
+    [topRows],
   );
   const { ensNames } = useEnsNames({
     addresses: addresses.slice(),
@@ -125,14 +106,11 @@ export default function GlobalLeaderboardWidget({
                 {topRows.map((row, idx) => {
                   const rank = idx + 1;
                   const name =
-                    ensNames[row.walletAddress] ||
-                    shortAddress(row.walletAddress);
-                  const isTop3 = rank <= 3;
-                  const glowWorth = formatGlwFromWei(row.glowWorthWei);
+                    ensNames[row.wallet] || shortAddress(row.wallet);
 
                   return (
                     <div
-                      key={row.walletAddress}
+                      key={row.wallet}
                       className={cn(
                         "flex flex-col gap-2 rounded-2xl border px-4 py-4 transition-colors",
                         rank === 1
@@ -166,18 +144,18 @@ export default function GlobalLeaderboardWidget({
                       <div className="flex items-end justify-between pt-1">
                         <div className="flex flex-col">
                           <span className="text-[10px] uppercase text-muted-foreground font-mono tracking-wider">
-                            {t.widgets.globalLeaderboard.totalPoints}
+                            Watts
                           </span>
                           <span className="text-xl font-bold font-mono text-foreground tabular-nums">
-                            {formatImpactPoints(row.totalPoints, 0)}
+                            {fmtWatts(row.totalWatts)}
                           </span>
                         </div>
                         <div className="flex flex-col items-end">
                           <span className="text-[10px] uppercase text-muted-foreground font-mono tracking-wider">
-                            {t.widgets.globalLeaderboard.glowWorth}
+                            Carbon
                           </span>
                           <span className="text-sm font-medium font-mono text-foreground/80 tabular-nums">
-                            {glowWorth} <span className="text-xs">GLW</span>
+                            {fmtCarbon(row.totalCarbonCredits)}
                           </span>
                         </div>
                       </div>
