@@ -111,6 +111,9 @@ export interface V2ShopPurchaseRequest {
   nonce: string;
   /** EIP-712 signature over the Purchase typed-data. */
   signature: string;
+  /** Chain the wallet signed the EIP-712 domain on; the backend verifies
+   * against exactly this. */
+  chainId: number;
 }
 
 export interface V2ShopPurchaseResult {

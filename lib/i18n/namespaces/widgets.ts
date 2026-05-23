@@ -409,6 +409,8 @@ export interface WidgetStrings {
     typeMiner: string;
     typeDelegation: string;
     typeRewards: string;
+    typeShopMiner: string;
+    shopMinerSource: string;
     typeInProgress: string;
     // Farm card labels
     fundingProgress: string;
@@ -427,6 +429,7 @@ export interface WidgetStrings {
     lastWeekPrefix: string;
     timelineText: (active: number, total: number) => string;
     costText: (amount: string) => string;
+    pointsCost: (amount: string) => string;
     delegatedText: (amount: string) => string;
     progressText: (pct: number) => string;
     // Farm detail dialog
@@ -1075,6 +1078,8 @@ const en: WidgetStrings = {
     typeMiner: "Miner",
     typeDelegation: "Delegation",
     typeRewards: "Rewards",
+    typeShopMiner: "Shop miner",
+    shopMinerSource: "Points shop",
     typeInProgress: "In Progress",
     fundingProgress: "Funding Progress",
     costLabel: "Cost",
@@ -1092,6 +1097,7 @@ const en: WidgetStrings = {
     lastWeekPrefix: "Last week:",
     timelineText: (active, total) => `Timeline: ${active} / ${total} wks`,
     costText: (amount) => `Cost: ${amount}`,
+    pointsCost: (amount) => `${amount} pts`,
     delegatedText: (amount) => `Delegated: ${amount}`,
     progressText: (pct) => `${pct}% Progress`,
     farmOverview: "Farm Overview",
@@ -1731,6 +1737,8 @@ const ko: WidgetStrings = {
     typeMiner: "마이너",
     typeDelegation: "위임",
     typeRewards: "리워드",
+    typeShopMiner: "샵 마이너",
+    shopMinerSource: "포인트 샵",
     typeInProgress: "진행 중",
     fundingProgress: "펀딩 진행률",
     costLabel: "비용",
@@ -1748,6 +1756,7 @@ const ko: WidgetStrings = {
     lastWeekPrefix: "지난주:",
     timelineText: (active, total) => `일정: ${active} / ${total}주`,
     costText: (amount) => `비용: ${amount}`,
+    pointsCost: (amount) => `${amount} 포인트`,
     delegatedText: (amount) => `위임: ${amount}`,
     progressText: (pct) => `${pct}% 진행`,
     farmOverview: "발전소 개요",
@@ -2388,6 +2397,8 @@ const zh: WidgetStrings = {
     typeMiner: "矿机",
     typeDelegation: "委托",
     typeRewards: "奖励",
+    typeShopMiner: "商店矿机",
+    shopMinerSource: "积分商店",
     typeInProgress: "进行中",
     fundingProgress: "募资进度",
     costLabel: "成本",
@@ -2405,6 +2416,7 @@ const zh: WidgetStrings = {
     lastWeekPrefix: "上周:",
     timelineText: (active, total) => `进度:${active} / ${total} 周`,
     costText: (amount) => `成本:${amount}`,
+    pointsCost: (amount) => `${amount} 积分`,
     delegatedText: (amount) => `已委托:${amount}`,
     progressText: (pct) => `进度 ${pct}%`,
     farmOverview: "农场概览",

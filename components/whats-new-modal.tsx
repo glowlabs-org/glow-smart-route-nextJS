@@ -46,7 +46,8 @@ const FEATURES: Feature[] = [
     body: "Points are no longer just a score, they’re a currency you spend in the new shop. You earn them the moment you participate, and your existing balance carried over.",
     highlights: [
       "4 pts per $1 delegated in GLW",
-      "16 pts per $1 in sGCTL, 8 pts per $1 on miners",
+      "16 pts per $1 in delegated sGCTL",
+      "8 pts per $1 of miners purchased",
       "Weekly streaks up to 2,000 pts",
     ],
   },
@@ -147,8 +148,8 @@ export function WhatsNewModal({
       >
         <DialogTitle className="sr-only">What&apos;s new in Glow</DialogTitle>
         <DialogDescription className="sr-only">
-          An overview of the reworked points system, the new watts impact
-          system and leaderboard, and the points shop.
+          An overview of the reworked points system, the new watts impact system
+          and leaderboard, and the points shop.
         </DialogDescription>
 
         {/* Banner */}
@@ -312,7 +313,9 @@ function GetStartedStep({ onNavigate }: { onNavigate: () => void }) {
   return (
     <div className="space-y-5">
       <div className="space-y-1.5">
-        <h2 className="text-2xl font-bold tracking-tight">You&apos;re all set</h2>
+        <h2 className="text-2xl font-bold tracking-tight">
+          You&apos;re all set
+        </h2>
         <p className="text-sm text-muted-foreground">
           Jump straight into the new experience.
         </p>

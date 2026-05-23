@@ -12,6 +12,7 @@ import {
   Sparkles,
   ChevronLeft,
   ChevronRight,
+  Receipt,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -31,13 +32,16 @@ import { nextShopRestock } from "@/lib/time/shop-restock";
 import { useV2PointsBalance } from "@/hooks/v2-points";
 import {
   useV2ShopCurrent,
+  useV2ShopPurchases,
   type V2ShopItem,
   type V2ShopItemKind,
+  type V2ShopPurchaseRow,
 } from "@/hooks/v2-points-shop";
 import { shopItemMeta } from "@/app/shop/shop-item-meta";
 import { PurchaseDialog } from "@/app/shop/purchase-dialog";
 import {
   useShopMinerFarms,
+  isMinerLikeItem,
   type ShopMinerFarmInfo,
 } from "@/hooks/v2-shop-miner";
 import { FallbackImage } from "@/components/ui/fallback-image";
@@ -207,9 +211,10 @@ function PrizeSlide({
   const soldOut =
     item.inventoryRemaining !== null && item.inventoryRemaining <= 0;
 
-  // A miner item linked to a real farm shows the farm's after-install photo
-  // and a live launchpad reward estimate in place of the static placeholder.
-  const farmMiner = item.kind === "miner" ? minerFarm : undefined;
+  // A miner(-like) item linked to a real farm shows the farm's after-install
+  // photo and a live reward estimate in place of the static placeholder. This
+  // covers both the regular miner and the mega "miner_500" headline prize.
+  const farmMiner = isMinerLikeItem(item) ? minerFarm : undefined;
   const farmImageUrl =
     farmMiner && farmMiner.resolved ? farmMiner.imageUrl : null;
   const tagline =
@@ -642,6 +647,98 @@ function EmptyState({ title, body }: { title: string; body: string }) {
   );
 }
 
+function purchaseRowLabel(row: V2ShopPurchaseRow): string {
+  switch (row.grant.kind) {
+    case "miner":
+      return row.grant.minerValueUsd != null
+        ? `$${row.grant.minerValueUsd} miner`
+        : "Miner";
+    case "mega":
+      if (row.grant.megaKey === "miner_500") return "$500 miner";
+      if (row.grant.megaKey === "watts_20000") return "20,000 watts";
+      return "Mega prize";
+    case "watts":
+      return `${formatNumber(Number(row.grant.wattsGranted))} watts`;
+    case "early_access":
+      return "Miner early access";
+    default:
+      return "Prize";
+  }
+}
+
+function formatPurchaseDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+/** Shop purchase history for the connected wallet. */
+function PurchaseHistory({ wallet }: { wallet?: string }) {
+  const purchasesQuery = useV2ShopPurchases(wallet);
+  if (!wallet) return null;
+
+  const rows = purchasesQuery.data?.rows ?? [];
+
+  return (
+    <div className="mt-12">
+      <div className="mb-4 flex items-center gap-2">
+        <Receipt className="h-4 w-4 text-muted-foreground" />
+        <h2 className="text-lg font-semibold tracking-tight">Your purchases</h2>
+      </div>
+
+      {purchasesQuery.isLoading ? (
+        <div className="space-y-2">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-14 w-full rounded-xl" />
+          ))}
+        </div>
+      ) : rows.length === 0 ? (
+        <div className="rounded-2xl border border-border/60 bg-muted/20 px-5 py-8 text-center dark:border-white/10 dark:bg-zinc-900">
+          <p className="text-sm text-muted-foreground">
+            No purchases yet. Redeem your points on a prize above.
+          </p>
+        </div>
+      ) : (
+        <ul className="divide-y divide-border/60 overflow-hidden rounded-2xl border border-border/60 bg-card dark:divide-white/10 dark:border-white/10 dark:bg-zinc-800">
+          {rows.map((row) => (
+            <li
+              key={row.purchaseId}
+              className="flex items-center justify-between gap-4 px-4 py-3 sm:px-5"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground dark:bg-white/10">
+                  <Coins className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-medium text-foreground">
+                    {purchaseRowLabel(row)}
+                    {row.quantity > 1 ? ` ×${row.quantity}` : ""}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {formatPurchaseDate(row.createdAt)}
+                  </div>
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="font-mono text-sm font-semibold tabular-nums text-foreground">
+                  -{formatNumber(Number(row.pricePointsTotal))}
+                </div>
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground/70">
+                  points
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export function ShopView() {
   const { address, isConnected } = useAccount();
   const shopQuery = useV2ShopCurrent();
@@ -736,6 +833,8 @@ export function ShopView() {
           minerFarms={minerFarms}
         />
       )}
+
+      <PurchaseHistory wallet={address} />
 
       <PurchaseDialog
         item={selectedItem}

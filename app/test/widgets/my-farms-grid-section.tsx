@@ -72,6 +72,7 @@ import {
 } from "@/hooks";
 import { getCurrentEpoch } from "@/utils/getCurrentEpoch";
 import { useWalletLaunchpadInProgress } from "@/hooks/use-wallet-launchpad-in-progress";
+import { useShopMinerHoldings } from "@/hooks/v2-shop-miner";
 import { useQuery } from "@tanstack/react-query";
 import { getRegionRouter } from "@/lib/api/control-routers";
 import type { SponsoredFarm } from "@glowlabs-org/utils/browser";
@@ -628,6 +629,12 @@ interface FarmCardData {
   imageUrls: string[];
   type: "miner" | "delegation" | "other" | "in-progress";
   inProgressKind?: "launchpad" | "mining-center";
+  /** A miner acquired via the points shop (GLW split transferred from the
+   * Foundation), as opposed to a USDC mining-center purchase. Badged
+   * distinctly; has no USD cost or reward history. */
+  isShopMiner?: boolean;
+  /** Points spent on this shop miner (summed across repeat purchases). */
+  shopPointsCost?: number;
   initialCost: number;
   recovered: number;
   inflation: number;
@@ -933,6 +940,7 @@ function FarmCard({
   const { t } = useLang();
   const isInProgress = farm.type === "in-progress";
   const isMiner = farm.type === "miner";
+  const isShopMiner = Boolean(farm.isShopMiner);
   const isDelegation = farm.type === "delegation";
   const isOther = farm.type === "other";
   const isPendingStart = Boolean(farm.isPendingStart);
@@ -1011,7 +1019,9 @@ function FarmCard({
           )}
         >
           <CashMinerIcon className={"w-5 h-5"} />
-          {t.widgets.myFarms.typeMiner}
+          {farm.isShopMiner
+            ? t.widgets.myFarms.typeShopMiner
+            : t.widgets.myFarms.typeMiner}
         </div>
       );
     }
@@ -1276,7 +1286,9 @@ function FarmCard({
                     ? isClaimReadyPending
                       ? t.widgets.myFarms.typeRewards
                       : t.widgets.myFarms.estWeekly
-                    : t.widgets.myFarms.earned}
+                    : isShopMiner
+                      ? t.widgets.myFarms.estWeekly
+                      : t.widgets.myFarms.earned}
                 </div>
                 <div
                   className={cn(
@@ -1296,7 +1308,9 @@ function FarmCard({
                     ? isClaimReadyPending
                       ? t.widgets.myFarms.readyToClaim
                       : estimatedWeeklyLabel ?? t.widgets.myFarms.calculating
-                    : getFarmEarnedLabel(farm)}
+                    : isShopMiner
+                      ? estimatedWeeklyLabel ?? t.widgets.myFarms.calculating
+                      : getFarmEarnedLabel(farm)}
                 </div>
                 {isCompact && !isPendingStart && hasLastWeekRewards && (
                   <div
@@ -1334,7 +1348,13 @@ function FarmCard({
                           farm.weeksActive,
                           farm.totalWeeks,
                         )
-                      : isMiner
+                      : isShopMiner
+                        ? t.widgets.myFarms.costText(
+                            t.widgets.myFarms.pointsCost(
+                              (farm.shopPointsCost ?? 0).toLocaleString("en-US"),
+                            ),
+                          )
+                        : isMiner
                         ? t.widgets.myFarms.costText(fmtUsd(farm.initialCost))
                         : t.widgets.myFarms.delegatedText(
                             formatDelegatedAmountsByAsset({
@@ -1407,6 +1427,7 @@ function FarmDetailDialog({
 
   const isInProgress = farm.type === "in-progress";
   const isMiner = farm.type === "miner";
+  const isShopMiner = Boolean(farm.isShopMiner);
   const isOther = farm.type === "other";
   const isPendingStart = Boolean(farm.isPendingStart);
   const pendingTimeline = getPendingStartTimelineCopy({
@@ -1449,6 +1470,10 @@ function FarmDetailDialog({
         fallbackAsset: protocolDepositAsset,
       });
     }
+    if (isShopMiner)
+      return t.widgets.myFarms.pointsCost(
+        (farm.shopPointsCost ?? 0).toLocaleString("en-US"),
+      );
     if (isMiner) return fmtUsd(farm.initialCost);
     if (isOther) return "—";
     return formatDelegatedAmountsByAsset({
@@ -1459,7 +1484,7 @@ function FarmDetailDialog({
   })();
 
   const earnedLabel = (() => {
-    if (isInProgress || isPendingStart) {
+    if (isInProgress || isPendingStart || isShopMiner) {
       return (
         formatEstimatedWeeklyRewards({
           estimatedUserWeeklyGlw: farm.estimatedUserWeeklyGlw,
@@ -1516,7 +1541,9 @@ function FarmDetailDialog({
               {farm.type === "miner" && (
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 text-foreground">
                   <CashMinerIcon className="w-4 h-4 text-[color:var(--color-miner)]" />
-                  {t.widgets.myFarms.typeMiner}
+                  {farm.isShopMiner
+                    ? t.widgets.myFarms.typeShopMiner
+                    : t.widgets.myFarms.typeMiner}
                 </div>
               )}
               {farm.type === "delegation" && (
@@ -1675,7 +1702,7 @@ function FarmDetailDialog({
                         <Gift className="w-4 h-4" />
                       </div>
                       <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                        {isInProgress || isPendingStart
+                        {isInProgress || isPendingStart || isShopMiner
                           ? t.widgets.myFarms.estWeeklyRewards
                           : t.widgets.myFarms.lifetimeEarnings}
                       </div>
@@ -2866,8 +2893,39 @@ export default function MyFarmsGridSection({
     sponsorshipsInProgressWithEstimates,
   ]);
 
+  // Shop-purchased miners: a GLW emission split transferred from the
+  // Foundation. Not in the CRM rewards breakdown (it's a control-side split),
+  // so they're sourced separately from the wallet's shop purchase history and
+  // rendered as miner cards badged "Shop miner".
+  const { holdings: shopMinerHoldings, isLoading: isShopMinersLoading } =
+    useShopMinerHoldings(walletAddress);
+
+  const shopMinerCards = React.useMemo<FarmCardData[]>(() => {
+    return shopMinerHoldings.map((h) => ({
+      farmKey: `shop-miner-${h.farmId}`,
+      farmId: h.farmId,
+      farmName: h.farmName ?? "Solar farm",
+      regionName: t.widgets.myFarms.shopMinerSource,
+      imageUrls: h.imageUrl ? [h.imageUrl] : [],
+      type: "miner" as const,
+      isShopMiner: true,
+      shopPointsCost: h.pricePoints,
+      initialCost: h.minerValueUsd,
+      recovered: 0,
+      inflation: 0,
+      inflationGlw: 0,
+      protocolDepositAsset: null,
+      isProtocolDepositUsd: false,
+      weeksActive: 0,
+      totalWeeks: h.weeksRemaining ?? 0,
+      weeklyBreakdown: [],
+      estimatedUserWeeklyGlw: h.weeklyGlwRewards ?? undefined,
+      estimatedUserWeeklyUsd: h.weeklyGlwRewardsUsd ?? undefined,
+    }));
+  }, [shopMinerHoldings, t.widgets.myFarms.shopMinerSource]);
+
   const farmCards = React.useMemo(() => {
-    const cards = [...unsortedFarmCards];
+    const cards = [...unsortedFarmCards, ...shopMinerCards];
 
     const getSize = (f: FarmCardData) => {
       const price = glwSpotPriceUsd || 0;
@@ -2919,10 +2977,11 @@ export default function MyFarmsGridSection({
           return totalB - totalA;
         });
     }
-  }, [unsortedFarmCards, sortBy, glwSpotPriceUsd]);
+  }, [unsortedFarmCards, shopMinerCards, sortBy, glwSpotPriceUsd]);
 
   const isLoading =
     isRewardsLoading ||
+    isShopMinersLoading ||
     isFarmsLoading ||
     isRegionsLoading ||
     isSplitsActivityLoading ||
@@ -3188,7 +3247,9 @@ export default function MyFarmsGridSection({
                           )}
                         >
                           {isMiner
-                            ? t.widgets.myFarms.typeMiner
+                            ? farm.isShopMiner
+                              ? t.widgets.myFarms.typeShopMiner
+                              : t.widgets.myFarms.typeMiner
                             : isDelegation
                               ? t.widgets.myFarms.typeDelegation
                               : t.widgets.myFarms.typeRewards}

@@ -26,7 +26,10 @@ import {
   type V2ShopPurchaseResult,
 } from "@/hooks/v2-points-shop";
 import { shopItemMeta } from "@/app/shop/shop-item-meta";
-import type { ShopMinerFarmInfo } from "@/hooks/v2-shop-miner";
+import {
+  isMinerLikeItem,
+  type ShopMinerFarmInfo,
+} from "@/hooks/v2-shop-miner";
 
 function formatGlwAmount(value: number): string {
   return value.toLocaleString("en-US", {
@@ -43,10 +46,11 @@ function ItemBanner({
   minerFarm?: ShopMinerFarmInfo;
 }) {
   const meta = shopItemMeta(item);
+  const minerLike = isMinerLikeItem(item);
   const farmImage =
-    item.kind === "miner" && minerFarm?.resolved ? minerFarm.imageUrl : null;
+    minerLike && minerFarm?.resolved ? minerFarm.imageUrl : null;
   const tagline =
-    item.kind === "miner" && minerFarm?.resolved && minerFarm.farmName
+    minerLike && minerFarm?.resolved && minerFarm.farmName
       ? minerFarm.farmName
       : meta.tagline;
 
@@ -243,7 +247,8 @@ export function PurchaseDialog({
   const balance = availablePoints ?? 0;
   const canAfford = balance >= price;
   const balanceAfter = Math.max(0, balance - price);
-  const showMinerEstimate = item.kind === "miner" && Boolean(minerFarm?.resolved);
+  const showMinerEstimate =
+    isMinerLikeItem(item) && Boolean(minerFarm?.resolved);
 
   async function handleConfirm() {
     if (!address || !item) return;
@@ -292,6 +297,8 @@ export function PurchaseDialog({
         idempotencyKey,
         nonce: nonce.toString(),
         signature,
+        // Verify against the same chain the domain was signed on.
+        chainId,
       });
 
       setResult(purchaseResult);
@@ -319,7 +326,7 @@ export function PurchaseDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-sm">
+      <DialogContent className="gap-0 overflow-hidden bg-white p-0 sm:max-w-sm dark:bg-card">
         {phase === "success" && result ? (
           <div className="flex flex-col">
             <div className="p-3">

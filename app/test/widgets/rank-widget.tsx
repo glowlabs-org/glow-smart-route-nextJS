@@ -266,8 +266,11 @@ export function RankWidget({
 
   // V1 leaderboard kept only for weekRange (drives the impact-score referral
   // number below); the rank itself comes from the V2 watts leaderboard.
+  // limit:1 because we read nothing but `weekRange` off it — pulling the full
+  // leaderboard (~112KB) here was pure waste.
   const leaderboardQuery = useImpactLeaderboardQuery({
     enabled: Boolean(hasWallet && isValidWalletAddress),
+    limit: 1,
   });
   const normalizedWalletAddress = walletAddress?.toLowerCase() ?? "";
 
@@ -373,8 +376,13 @@ export function RankWidget({
 
   const { isLive: isReferralLive } = useReferralLaunch();
 
+  // Only block the skeleton on the V2 queries that drive the headline (points
+  // hero + watts rank). The V1 impact-score chain (leaderboard -> weekRange ->
+  // per-wallet score) is sequential and only feeds the referral button label
+  // and the breakdown dialog, so it loads in the background instead of holding
+  // the whole widget behind it.
   const isLoading =
-    hasWallet && (impactScoreQuery.isLoading || leaderboardQuery.isLoading);
+    hasWallet && (v2PointsQuery.isLoading || v2RankQuery.isLoading);
 
   if (isLoading) {
     return <RankWidgetSkeleton variant={variant} />;
