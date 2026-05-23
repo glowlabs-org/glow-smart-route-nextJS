@@ -61,6 +61,8 @@ import {
 import { useRegions } from "@/hooks/control-regions";
 import { hubGet } from "@/lib/api/hub-client";
 import { useLang, getBcp47, type Strings } from "@/lib/i18n";
+import { WalletImpactDialog } from "@/app/stats/rewards/wallet-impact-dialog";
+import { useV2ImpactWallet } from "@/hooks/v2-impact";
 
 const SOLAR_ORANGE = "#ffb472";
 const SOLAR_YELLOW = "#ffd37a";
@@ -170,10 +172,11 @@ function buildRegionChartLabel(region: {
   name: string;
   code: string;
 }): string {
+  // Legend shows the short region code only (e.g. "UT", "RJ") so the chart
+  // stays compact with many regions; full names wrap and crowd the pie.
   const code = region.code;
   if (!code || code === "*") return region.name;
-  const trimmed = code.startsWith("US-") ? code.slice(3) : code;
-  return `${region.name} (${trimmed})`;
+  return code.startsWith("US-") ? code.slice(3) : code;
 }
 
 function getRegionLabel(
@@ -382,6 +385,12 @@ export default function SolarCollectorWidget({
   const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
   const source = "impact_summary_widget";
   const [isLearnMoreOpen, setIsLearnMoreOpen] = React.useState(false);
+  const [isBreakdownOpen, setIsBreakdownOpen] = React.useState(false);
+
+  // The headline watts count, sourced from the same V2 aggregate the watts
+  // leaderboard uses so the number matches exactly.
+  const v2ImpactQuery = useV2ImpactWallet(normalizedWalletAddress);
+  const v2TotalWatts = v2ImpactQuery.data?.totalWatts;
 
   const { model } = useSolarCollectorQuery({
     walletAddress: normalizedWalletAddress,
@@ -428,7 +437,10 @@ export default function SolarCollectorWidget({
     if (regions) {
       for (const region of regions) {
         const key = `region${region.id}`;
-        if (config[key]) continue;
+        // region1 (Clean Grid Project) keeps its dedicated label; every other
+        // region — including the hardcoded Utah/Missouri/Colorado fallbacks —
+        // is overwritten with its short code so the legend stays compact.
+        if (key === "region1") continue;
         config[key] = {
           label: buildRegionChartLabel(region),
           color: getRegionColor(region.id),
@@ -439,15 +451,26 @@ export default function SolarCollectorWidget({
   }, [t.widgets.solarCollector, regions]);
 
   const distributionData = React.useMemo(() => {
+    const cgpLabel = t.widgets.solarCollector.chartCleanGridProject;
     return Object.entries(model.wattsByRegion)
-      .map(([rid, watts]) => ({
-        regionId: Number(rid),
-        name: `region${rid}`,
-        value: watts,
-        fill: getRegionColor(Number(rid)),
-      }))
+      .map(([rid, watts]) => {
+        const id = Number(rid);
+        const region = regions?.find((r) => r.id === id);
+        const fullName = region
+          ? region.code === "*"
+            ? cgpLabel
+            : region.name
+          : `Region ${id}`;
+        return {
+          regionId: id,
+          name: `region${rid}`,
+          fullName,
+          value: watts,
+          fill: getRegionColor(id),
+        };
+      })
       .filter((d) => d.value > 0);
-  }, [model.wattsByRegion]);
+  }, [model.wattsByRegion, regions, t.widgets.solarCollector]);
 
   const trendRegionIds = React.useMemo(() => {
     const ids = new Set<number>();
@@ -726,7 +749,26 @@ export default function SolarCollectorWidget({
           </div>
 
           {/* Main Metrics Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 md:gap-6">
+            {/* Watts — headline metric, matches the watts leaderboard */}
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1.5">
+                {t.widgets.solarCollector.wattsUnit}
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="font-mono text-2xl md:text-3xl font-bold tracking-tight text-foreground tabular-nums">
+                  {v2TotalWatts != null && Number.isFinite(Number(v2TotalWatts))
+                    ? Number(v2TotalWatts).toLocaleString(undefined, {
+                        maximumFractionDigits: 0,
+                      })
+                    : "—"}
+                </span>
+                <span className="text-sm font-mono text-muted-foreground">
+                  W
+                </span>
+              </div>
+            </div>
+
             {/* Homes Powered */}
             <div>
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1.5 flex items-center gap-1">
@@ -757,7 +799,7 @@ export default function SolarCollectorWidget({
                   : t.widgets.solarCollector.homesPowered}
               </div>
               <div className="flex items-baseline gap-1">
-                <span className="font-mono text-2xl md:text-3xl font-bold tracking-tight text-foreground tabular-nums">
+                <span className="font-mono text-xl md:text-2xl font-bold tracking-tight text-foreground tabular-nums">
                   {model.impact.homesPowered < 1
                     ? (model.impact.homesPowered * 40).toLocaleString(
                         undefined,
@@ -799,7 +841,7 @@ export default function SolarCollectorWidget({
                 {t.widgets.solarCollector.energyPerYear}
               </div>
               <div className="flex items-baseline gap-1">
-                <span className="font-mono text-2xl md:text-3xl font-bold tracking-tight text-foreground tabular-nums">
+                <span className="font-mono text-xl md:text-2xl font-bold tracking-tight text-foreground tabular-nums">
                   {formatEnergyValue(model.impact.annualEnergyKwh)}
                 </span>
                 <span className="text-sm font-mono text-muted-foreground">
@@ -832,7 +874,7 @@ export default function SolarCollectorWidget({
                 {t.widgets.solarCollector.treesEquivalent}
               </div>
               <div className="flex items-baseline gap-1">
-                <span className="font-mono text-2xl md:text-3xl font-bold tracking-tight text-foreground tabular-nums">
+                <span className="font-mono text-xl md:text-2xl font-bold tracking-tight text-foreground tabular-nums">
                   {model.impact.treesEquivalent.toLocaleString()}
                 </span>
                 <span className="text-sm font-mono text-muted-foreground">
@@ -962,26 +1004,27 @@ export default function SolarCollectorWidget({
             )}
 
             {/* Action Button - matches height of Latest Verified Addition */}
-            {!readOnly && (
+            {!readOnly && normalizedWalletAddress && (
               <button
                 type="button"
                 className="shrink-0 min-h-12 rounded-xl px-6 text-xs font-medium bg-foreground text-background hover:bg-foreground/90 transition-colors flex items-center justify-center gap-2 md:min-w-[100px]"
-                onClick={handleShare}
+                onClick={() => {
+                  trackEvent("impact_summary_breakdown_click", {
+                    source,
+                    wallet_address: normalizedWalletAddress,
+                  });
+                  setIsBreakdownOpen(true);
+                }}
               >
-                <ArrowUpRight className="h-4 w-4" />
-                {t.widgets.solarCollector.share}
+                <PieChartIcon className="h-4 w-4" />
+                {t.widgets.rankWidget.breakdown}
               </button>
             )}
           </div>
 
           {/* Impact Charts Section */}
           <div className="mt-8 pt-6 border-t border-border/50">
-            <div
-              className={cn(
-                "grid grid-cols-1 gap-8",
-                hasSignificantInfluence ? "lg:grid-cols-3" : "lg:grid-cols-2"
-              )}
-            >
+            <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
               {/* 1. Regional Distribution (Pie) */}
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
@@ -1000,16 +1043,29 @@ export default function SolarCollectorWidget({
                       content={
                         <ChartTooltipContent
                           hideLabel
-                          formatter={(value) => (
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-mono font-medium tabular-nums text-foreground">
-                                {Number(value).toLocaleString()}
-                              </span>
-                              <span className="text-[10px] font-mono text-muted-foreground uppercase">
-                                {t.widgets.solarCollector.wattsUnit}
-                              </span>
-                            </div>
-                          )}
+                          formatter={(value, _name, item) => {
+                            const fullName =
+                              (
+                                item?.payload as
+                                  | { fullName?: string }
+                                  | undefined
+                              )?.fullName ?? "";
+                            return (
+                              <div className="flex w-full items-center justify-between gap-3">
+                                <span className="text-foreground">
+                                  {fullName}
+                                </span>
+                                <span className="flex items-center gap-1.5">
+                                  <span className="font-mono font-medium tabular-nums text-foreground">
+                                    {Number(value).toLocaleString()}
+                                  </span>
+                                  <span className="text-[10px] font-mono text-muted-foreground uppercase">
+                                    {t.widgets.solarCollector.wattsUnit}
+                                  </span>
+                                </span>
+                              </div>
+                            );
+                          }}
                         />
                       }
                     />
@@ -1025,7 +1081,7 @@ export default function SolarCollectorWidget({
                     </Pie>
                     <ChartLegend
                       content={<ChartLegendContent nameKey="name" />}
-                      className="-translate-y-2 flex-wrap gap-2 [&>*]:basis-1/4 [&>*]:justify-center"
+                      className="-translate-y-2 flex-wrap justify-center gap-x-4 gap-y-1.5"
                     />
                   </PieChart>
                 </ChartContainer>
@@ -1104,155 +1160,16 @@ export default function SolarCollectorWidget({
                   </AreaChart>
                 </ChartContainer>
               </div>
-
-              {/* 3. Regional Impact Power (Line) - Cumulative */}
-              {hasSignificantInfluence && (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Activity className="h-4 w-4 text-muted-foreground" />
-                    <div className="text-[11px] font-mono font-bold uppercase tracking-widest text-muted-foreground">
-                      {t.widgets.solarCollector.cumulativeRegionalImpact}
-                    </div>
-                  </div>
-                  <ChartContainer
-                    config={chartConfig}
-                    className="h-[200px] w-full aspect-auto"
-                  >
-                    <LineChart
-                      data={impactPowerTrendData}
-                      margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-                    >
-                      <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                      <XAxis
-                        dataKey="date"
-                        tickLine={false}
-                        axisLine={false}
-                        tickMargin={8}
-                        minTickGap={32}
-                        tickFormatter={(value) =>
-                          value.toLocaleDateString("en-US", {
-                            month: "short",
-                          })
-                        }
-                      />
-                      <YAxis
-                        tickLine={false}
-                        axisLine={false}
-                        tickMargin={8}
-                        tickFormatter={impactPowerYAxisFormatter}
-                      />
-                      <ChartTooltip
-                        content={({ active, payload, label }) => {
-                          if (!active || !payload || payload.length === 0)
-                            return null;
-                          const data = payload[0]?.payload;
-                          const date = data?.date;
-                          const rolloverMultiplier =
-                            data?.rolloverMultiplier ?? 1;
-                          const hasCashMinerBonus =
-                            data?.hasCashMinerBonus ?? false;
-                          const streakBonusMultiplier =
-                            data?.streakBonusMultiplier ?? 0;
-                          const impactStreakWeeks =
-                            data?.impactStreakWeeks ?? 0;
-
-                          return (
-                            <div className="rounded-lg border bg-background p-2 shadow-md min-w-[180px]">
-                              <div className="text-xs font-medium text-muted-foreground mb-2">
-                                {date instanceof Date
-                                  ? date.toLocaleDateString("en-US", {
-                                      month: "short",
-                                      day: "numeric",
-                                      year: "numeric",
-                                    })
-                                  : t.widgets.solarCollector.weekFallback(String(label))}
-                              </div>
-                              <div className="space-y-1">
-                                {payload.map((entry, idx: number) => {
-                                  const regionCode = getRegionCodeFromName(
-                                    String(entry.name ?? ""),
-                                    regions,
-                                    t.widgets.solarCollector.cleanGridRegionCode,
-                                  );
-                                  return (
-                                    <div
-                                      key={idx}
-                                      className="flex items-center justify-between gap-3"
-                                    >
-                                      <div className="flex items-center gap-1.5">
-                                        <div
-                                          className="h-2 w-2 rounded-full"
-                                          style={{
-                                            backgroundColor: entry.color,
-                                          }}
-                                        />
-                                        <span className="text-xs text-muted-foreground">
-                                          {regionCode ||
-                                            String(entry.name ?? "")}
-                                        </span>
-                                      </div>
-                                      <span className="font-mono text-xs font-medium tabular-nums">
-                                        {Number(
-                                          entry.value ?? 0
-                                        ).toLocaleString(undefined, {
-                                          maximumFractionDigits: 0,
-                                        })}
-                                      </span>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                              {rolloverMultiplier > 1 && (
-                                <div className="mt-2 pt-2 border-t border-border/50">
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-[10px] text-muted-foreground">
-                                      {t.widgets.solarCollector.multiplierLabel}
-                                    </span>
-                                    <span className="text-[10px] font-mono font-bold text-[color:var(--color-miner)]">
-                                      {rolloverMultiplier.toFixed(2)}×
-                                    </span>
-                                  </div>
-                                  <div className="flex flex-wrap gap-1 mt-1">
-                                    {hasCashMinerBonus && (
-                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-[color:var(--color-miner)]/10 text-[color:var(--color-miner)]">
-                                        {t.widgets.solarCollector.minerBadge}
-                                      </span>
-                                    )}
-                                    {streakBonusMultiplier > 0 && (
-                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-[color:var(--delegation-purple)]/10 text-[color:var(--delegation-purple)]">
-                                        {t.widgets.solarCollector.streakBadge(
-                                          streakBonusMultiplier.toFixed(2),
-                                          impactStreakWeeks,
-                                        )}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        }}
-                      />
-                      {trendRegionIds.map((rid) => (
-                        <Line
-                          key={rid}
-                          type="monotone"
-                          dataKey={`region${rid}`}
-                          name={`region${rid}`}
-                          stroke={getRegionColor(rid)}
-                          strokeWidth={2}
-                          dot={{ r: 3 }}
-                          activeDot={{ r: 5 }}
-                        />
-                      ))}
-                    </LineChart>
-                  </ChartContainer>
-                </div>
-              )}
             </div>
           </div>
         </CardContent>
       </Card>
+
+      <WalletImpactDialog
+        wallet={isBreakdownOpen ? normalizedWalletAddress : null}
+        open={isBreakdownOpen}
+        onOpenChange={setIsBreakdownOpen}
+      />
     </>
   );
 }

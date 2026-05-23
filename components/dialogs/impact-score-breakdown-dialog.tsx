@@ -212,7 +212,7 @@ export function ImpactScoreBreakdownDialog({
               <>
                 <div className="space-y-1">
                   <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">
-                    How you earn
+                    How you earned
                   </h3>
                   <div className="space-y-0">
                     <SourceRow
@@ -341,7 +341,10 @@ export function ImpactScoreBreakdownDialog({
       </DialogContent>
 
       {/* Sub-dialogs for CTAs */}
-      <LaunchpadDialog open={isLaunchpadOpen} onOpenChange={setIsLaunchpadOpen} />
+      <LaunchpadDialog
+        open={isLaunchpadOpen}
+        onOpenChange={setIsLaunchpadOpen}
+      />
       <PointsExplainerDialog
         open={isPointsExplainerOpen}
         onOpenChange={setIsPointsExplainerOpen}

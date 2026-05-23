@@ -1,7 +1,17 @@
 "use client";
 
 import * as React from "react";
-import { MapPin, Sun, Zap, Leaf, TreePine, Home, Lightbulb } from "lucide-react";
+import {
+  MapPin,
+  Sun,
+  Zap,
+  Leaf,
+  TreePine,
+  Home,
+  Lightbulb,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import type { FarmImagesBatchResponse } from "@glowlabs-org/utils/browser";
 
@@ -22,8 +32,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import FallbackImage from "@/components/ui/fallback-image";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  type CarouselApi,
+} from "@/components/ui/carousel";
 import { formatNumber } from "@/utils/format";
-import { formatAddress } from "@/lib/utils";
+import { formatAddress, cn } from "@/lib/utils";
 import { useLang } from "@/lib/i18n";
 import { useRegions } from "@/hooks/control-regions";
 import { useV2ImpactWallet } from "@/hooks/v2-impact";
@@ -167,6 +183,82 @@ const CARD_IMAGE_WRAP = "relative aspect-[16/9] w-full overflow-hidden";
 const CARD_OVERLAY =
   "absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent";
 
+/**
+ * Carousel with small arrow buttons + dot pagination, used when there are
+ * more region cards than comfortably fit in a single row.
+ */
+function RegionCarousel({ children }: { children: React.ReactNode }) {
+  const [api, setApi] = React.useState<CarouselApi>();
+  const [selected, setSelected] = React.useState(0);
+  const [snaps, setSnaps] = React.useState<number[]>([]);
+
+  React.useEffect(() => {
+    if (!api) return;
+    const update = () => {
+      setSnaps(api.scrollSnapList());
+      setSelected(api.selectedScrollSnap());
+    };
+    update();
+    api.on("select", update);
+    api.on("reInit", update);
+    return () => {
+      api.off("select", update);
+      api.off("reInit", update);
+    };
+  }, [api]);
+
+  const arrowClass =
+    "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/60 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40";
+
+  return (
+    <div>
+      <Carousel opts={{ align: "start" }} setApi={setApi} className="w-full">
+        {/* py-1 gives the cards vertical breathing room so the viewport's
+            overflow-hidden doesn't clip their rounded top/bottom corners. */}
+        <CarouselContent className="-ml-3 py-1">{children}</CarouselContent>
+      </Carousel>
+      {snaps.length > 1 ? (
+        <div className="mt-3 flex items-center justify-center gap-3">
+          <button
+            type="button"
+            aria-label="Previous"
+            className={arrowClass}
+            onClick={() => api?.scrollPrev()}
+            disabled={!api?.canScrollPrev()}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <div className="flex items-center gap-1.5">
+            {snaps.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                aria-label={`Go to page ${i + 1}`}
+                onClick={() => api?.scrollTo(i)}
+                className={cn(
+                  "h-1.5 rounded-full transition-all",
+                  i === selected
+                    ? "w-4 bg-foreground"
+                    : "w-1.5 bg-border hover:bg-foreground/40",
+                )}
+              />
+            ))}
+          </div>
+          <button
+            type="button"
+            aria-label="Next"
+            className={arrowClass}
+            onClick={() => api?.scrollNext()}
+            disabled={!api?.canScrollNext()}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function WalletImpactDialog({
   wallet,
   ensName,
@@ -299,6 +391,36 @@ export function WalletImpactDialog({
     trackEvent("wallet_impact_share_x", { wallet_address: wallet ?? null });
   }, [data, equiv, wallet]);
 
+  const renderRegionCard = (r: (typeof regionRows)[number]) => {
+    const region = regionById.get(r.regionId);
+    return (
+      <div className={CARD_CLASS}>
+        <div className={CARD_IMAGE_WRAP}>
+          <FallbackImage
+            src={region?.bannerUrl ?? ""}
+            alt={regionName(r.regionId)}
+            loading="lazy"
+            decoding="async"
+            disableProxy
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+          />
+          <div className={CARD_OVERLAY} />
+          <div className="absolute inset-x-2.5 bottom-2">
+            <p className="line-clamp-1 text-[13px] font-semibold text-white drop-shadow-sm">
+              {regionName(r.regionId)}
+            </p>
+          </div>
+        </div>
+        <CardStats
+          wattsLabel={lb.v2WalletColWatts}
+          wattsValue={`${fmt(r.watts)} ${lb.v2WalletWattsUnit}`}
+          carbonLabel={lb.v2WalletCarbonCredits}
+          carbonValue={fmt(r.carbon)}
+        />
+      </div>
+    );
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-white dark:bg-card sm:max-w-[min(56rem,calc(100%-4rem))] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -384,44 +506,33 @@ export function WalletImpactDialog({
                     title={lb.v2WalletByRegion}
                     count={regionRows.length}
                   />
-                  <div
-                    className="grid grid-cols-3 gap-2.5 sm:grid-cols-[repeat(var(--region-cols),minmax(0,1fr))]"
-                    style={
-                      {
-                        "--region-cols": regionRows.length,
-                      } as React.CSSProperties
-                    }
-                  >
-                    {regionRows.map((r) => {
-                      const region = regionById.get(r.regionId);
-                      return (
-                        <div key={`region-${r.regionId}`} className={CARD_CLASS}>
-                          <div className={CARD_IMAGE_WRAP}>
-                            <FallbackImage
-                              src={region?.bannerUrl ?? ""}
-                              alt={regionName(r.regionId)}
-                              loading="lazy"
-                              decoding="async"
-                              disableProxy
-                              className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                            />
-                            <div className={CARD_OVERLAY} />
-                            <div className="absolute inset-x-2.5 bottom-2">
-                              <p className="line-clamp-1 text-[13px] font-semibold text-white drop-shadow-sm">
-                                {regionName(r.regionId)}
-                              </p>
-                            </div>
-                          </div>
-                          <CardStats
-                            wattsLabel={lb.v2WalletColWatts}
-                            wattsValue={`${fmt(r.watts)} ${lb.v2WalletWattsUnit}`}
-                            carbonLabel={lb.v2WalletCarbonCredits}
-                            carbonValue={fmt(r.carbon)}
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
+                  {regionRows.length > 5 ? (
+                    <RegionCarousel>
+                      {regionRows.map((r) => (
+                        <CarouselItem
+                          key={`region-${r.regionId}`}
+                          className="basis-1/2 border-0 bg-transparent pl-3 sm:basis-1/4"
+                        >
+                          {renderRegionCard(r)}
+                        </CarouselItem>
+                      ))}
+                    </RegionCarousel>
+                  ) : (
+                    <div
+                      className="grid grid-cols-3 gap-2.5 sm:grid-cols-[repeat(var(--region-cols),minmax(0,1fr))]"
+                      style={
+                        {
+                          "--region-cols": regionRows.length,
+                        } as React.CSSProperties
+                      }
+                    >
+                      {regionRows.map((r) => (
+                        <React.Fragment key={`region-${r.regionId}`}>
+                          {renderRegionCard(r)}
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  )}
                 </section>
               ) : null}
 

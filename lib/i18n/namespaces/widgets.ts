@@ -220,7 +220,7 @@ export interface WidgetStrings {
     breakdown: string;
     leaderboard: string;
     inviteFriends: string;
-    invitesWithPoints: (points: string) => string;
+    invitesWithPoints: () => string;
     // Weekly streak panel
     streakWeeks: (weeks: number) => string;
     streakNone: string;
@@ -701,8 +701,7 @@ const en: WidgetStrings = {
     guideToDelegationBody:
       "Delegate your GLW to fund solar farms. Earn GLW emissions and gradually recover your delegated tokens over 100 weeks based on farm efficiency.",
     howMinersWorkTitle: "How Miners Work",
-    howMinersWorkBody:
-      `Buy "Solar Miners" with USDC. They earn GLW emissions tokens over the farm's remaining reward schedule based on real-world electricity generation.`,
+    howMinersWorkBody: `Buy "Solar Miners" with USDC. They earn GLW emissions tokens over the farm's remaining reward schedule based on real-world electricity generation.`,
     learnMore: "Learn more",
     beReadyTitle: "Be ready for Tuesday launchpad windows.",
     beReadyBody:
@@ -817,8 +816,7 @@ const en: WidgetStrings = {
         paragraphs: [
           "Delegating is a vetting mechanism. Solar farms need to prove efficiency to get funding.",
         ],
-        callout:
-          `GLW holders "vouch" for specific farms by delegating tokens. If the farm is efficient, you earn yield. If it is inefficient, you may forfeit tokens.`,
+        callout: `GLW holders "vouch" for specific farms by delegating tokens. If the farm is efficient, you earn yield. If it is inefficient, you may forfeit tokens.`,
       },
       {
         id: "item-4",
@@ -890,7 +888,7 @@ const en: WidgetStrings = {
     breakdown: "Breakdown",
     leaderboard: "Leaderboard",
     inviteFriends: "Invite Friends",
-    invitesWithPoints: (points) => `Invites (+${points})`,
+    invitesWithPoints: () => `Invite Friends`,
     streakWeeks: (weeks) => `${weeks}-week streak`,
     streakNone: "No active streak",
     streakStart: "Take any action this week to start",
@@ -1256,8 +1254,7 @@ const en: WidgetStrings = {
     cleanGridRegionCode: "CGP",
     multiplierLabel: "Multiplier",
     minerBadge: "Miner 3×",
-    streakBadge: (streakBonus, weeks) =>
-      `Streak +${streakBonus}× (${weeks}w)`,
+    streakBadge: (streakBonus, weeks) => `Streak +${streakBonus}× (${weeks}w)`,
     whenToday: "Today",
     whenYesterday: "Yesterday",
     whenDaysAgo: (n) => `${n} Days Ago`,
@@ -1363,7 +1360,7 @@ const ko: WidgetStrings = {
       "GLW를 위임해 태양광 발전소에 자금을 공급하세요. GLW 발행분을 획득하고, 발전소 효율에 따라 100주에 걸쳐 위임한 토큰을 점진적으로 회수합니다.",
     howMinersWorkTitle: "마이너 작동 방식",
     howMinersWorkBody:
-      "USDC로 \"솔라 마이너\"를 구매하세요. 실제 전력 생산량을 기반으로 발전소의 남은 리워드 일정 동안 GLW 발행분 토큰을 획득합니다.",
+      'USDC로 "솔라 마이너"를 구매하세요. 실제 전력 생산량을 기반으로 발전소의 남은 리워드 일정 동안 GLW 발행분 토큰을 획득합니다.',
     learnMore: "자세히 보기",
     beReadyTitle: "화요일 런치패드 오픈을 준비하세요.",
     beReadyBody:
@@ -1550,7 +1547,7 @@ const ko: WidgetStrings = {
     breakdown: "상세 내역",
     leaderboard: "리더보드",
     inviteFriends: "친구 초대",
-    invitesWithPoints: (points) => `초대 (+${points})`,
+    invitesWithPoints: () => `친구 초대`,
     streakWeeks: (weeks) => `${weeks}주 연속`,
     streakNone: "진행 중인 연속 기록 없음",
     streakStart: "이번 주에 활동하여 시작하세요",
@@ -1688,7 +1685,8 @@ const ko: WidgetStrings = {
     noActiveSteering: "활성 스티어링 없음",
     stakeToDirect: "GCTL을 스테이킹하여 발행분을 유도하세요",
     unusedInfluence: "미사용 영향력",
-    stakeFooter: (amount) => (amount ? `${amount} GCTL 스테이킹` : "GCTL 스테이킹"),
+    stakeFooter: (amount) =>
+      amount ? `${amount} GCTL 스테이킹` : "GCTL 스테이킹",
     showLess: "간략히 보기",
     showMore: (n) => `${n}개 더 보기`,
     rowGctlStakedSuffix: (amount) => `${amount} GCTL 스테이킹됨`,
@@ -1705,13 +1703,13 @@ const ko: WidgetStrings = {
       "리워드는 일요일에 프로토콜 주차가 마감되고 감사자가 배치를 검토한 뒤 게시됩니다. 이후 자금은 3주간 온체인 최종 확정 기간 동안 잠겨 있다가 첫 클레임이 열립니다.",
     firstFundsAria: "첫 자금 지급이 지연되는 이유",
     statusOwnership: (position) => `${position} 소유가 확인되었습니다`,
-    statusStartsEarning: (position) => `${position}이(가) 지금 수익을 시작합니다`,
+    statusStartsEarning: (position) =>
+      `${position}이(가) 지금 수익을 시작합니다`,
     statusEarning: (position) => `${position}이(가) 수익을 내고 있습니다`,
     statusClaimable: (position) => `${position}을(를) 클레임할 수 있습니다`,
     helperEpoch:
       "리워드는 일요일 마감 후 시작됩니다. 게시와 최종 확정 이후에 클레임이 열립니다.",
-    helperAudit:
-      "리워드가 온체인에 게시되기 전에 준비 및 감사 중입니다.",
+    helperAudit: "리워드가 온체인에 게시되기 전에 준비 및 감사 중입니다.",
     helperFinalization:
       "리워드가 온체인에 게시되었습니다. 3주 보호 기간이 아직 진행 중입니다.",
     helperClaimable: "첫 배치를 이제 리워드에서 확인할 수 있습니다.",
@@ -1915,8 +1913,7 @@ const ko: WidgetStrings = {
     cleanGridRegionCode: "CGP",
     multiplierLabel: "배수",
     minerBadge: "마이너 3×",
-    streakBadge: (streakBonus, weeks) =>
-      `연속 +${streakBonus}× (${weeks}주)`,
+    streakBadge: (streakBonus, weeks) => `연속 +${streakBonus}× (${weeks}주)`,
     whenToday: "오늘",
     whenYesterday: "어제",
     whenDaysAgo: (n) => `${n}일 전`,
@@ -2021,8 +2018,7 @@ const zh: WidgetStrings = {
     guideToDelegationBody:
       "委托您的 GLW 以资助太阳能农场。赚取 GLW 增发,并根据农场效率在 100 周内逐步收回您委托的代币。",
     howMinersWorkTitle: "矿机如何运作",
-    howMinersWorkBody:
-      `使用 USDC 购买"太阳能矿机"。它们将根据真实电力产出,在农场剩余的奖励周期内赚取 GLW 增发代币。`,
+    howMinersWorkBody: `使用 USDC 购买"太阳能矿机"。它们将根据真实电力产出,在农场剩余的奖励周期内赚取 GLW 增发代币。`,
     learnMore: "了解更多",
     beReadyTitle: "为周二启动板窗口做好准备。",
     beReadyBody:
@@ -2116,9 +2112,7 @@ const zh: WidgetStrings = {
       {
         id: "item-2",
         q: "什么是 GLW,它为何重要?",
-        paragraphs: [
-          "GLW 是生态系统的实用代币,主要承担两项核心职能:",
-        ],
+        paragraphs: ["GLW 是生态系统的实用代币,主要承担两项核心职能:"],
         bullets: [
           {
             label: "激励:",
@@ -2136,8 +2130,7 @@ const zh: WidgetStrings = {
         paragraphs: [
           "委托是一种审核机制。太阳能农场需要证明自身效率才能获得资金。",
         ],
-        callout:
-          `GLW 持有者通过委托代币为特定农场"背书"。如果农场表现高效,您将获得收益;如果效率低下,您可能会损失代币。`,
+        callout: `GLW 持有者通过委托代币为特定农场"背书"。如果农场表现高效,您将获得收益;如果效率低下,您可能会损失代币。`,
       },
       {
         id: "item-4",
@@ -2209,7 +2202,7 @@ const zh: WidgetStrings = {
     breakdown: "明细",
     leaderboard: "排行榜",
     inviteFriends: "邀请好友",
-    invitesWithPoints: (points) => `邀请 (+${points})`,
+    invitesWithPoints: () => `邀请好友`,
     streakWeeks: (weeks) => `连续 ${weeks} 周`,
     streakNone: "暂无连续记录",
     streakStart: "本周采取任意操作即可开始",
@@ -2321,8 +2314,7 @@ const zh: WidgetStrings = {
     titleShort: "Glow Control",
     titleTooltip: "您对太阳能电网的治理影响力。",
     disconnectedHeading: "引导太阳能奖励",
-    disconnectedBody:
-      "将 GLW 增发引导至各地区,每 GLW 获得 3 积分。",
+    disconnectedBody: "将 GLW 增发引导至各地区,每 GLW 获得 3 积分。",
     zeroHoldingsTitleReadOnly: "无 GCTL 持仓",
     zeroHoldingsTitle: "引导全球增发",
     zeroHoldingsBodyReadOnly: "此钱包未质押任何 GCTL。",
@@ -2336,8 +2328,7 @@ const zh: WidgetStrings = {
     activeSuffix: "活跃",
     availableSuffix: "可用",
     lockedSuffix: "锁定",
-    availableTooltip:
-      "可随时移至其他地区的活跃 sGCTL。",
+    availableTooltip: "可随时移至其他地区的活跃 sGCTL。",
     lockedTooltip:
       "锁定在金库存款中的 sGCTL,仍可获得引导奖励,但在解除前无法重新委托。",
     steeringScore: "引导评分",
@@ -2368,12 +2359,9 @@ const zh: WidgetStrings = {
     statusStartsEarning: (position) => `您的${position}现在开始产生收益`,
     statusEarning: (position) => `您的${position}正在产生收益`,
     statusClaimable: (position) => `您的${position}可以领取`,
-    helperEpoch:
-      "奖励在周日结束后开始。发布与最终确认完成后即可领取。",
-    helperAudit:
-      "奖励正在准备并审计中,稍后会发布到链上。",
-    helperFinalization:
-      "奖励已发布到链上。3 周保护期仍在进行中。",
+    helperEpoch: "奖励在周日结束后开始。发布与最终确认完成后即可领取。",
+    helperAudit: "奖励正在准备并审计中,稍后会发布到链上。",
+    helperFinalization: "奖励已发布到链上。3 周保护期仍在进行中。",
     helperClaimable: "您的首批奖励已可在「奖励」中领取。",
     badgeOwned: "已拥有",
     badgeClaimReady: "可领取",
@@ -2524,8 +2512,7 @@ const zh: WidgetStrings = {
     expectItem1Title: "新农场带来更多面板",
     expectItem1Body: "每捕获 400W 即可完成一块面板。",
     expectItem2Title: "地区份额很重要",
-    expectItem2Body:
-      "您的影响力按农场获得资助的当周以地区为单位进行衡量。",
+    expectItem2Body: "您的影响力按农场获得资助的当周以地区为单位进行衡量。",
     expectItem3Title: "仅计入已完成周",
     expectItem3Body: "协议周完成后,新农场才会出现。",
     gotIt: "知道了",
@@ -2537,8 +2524,7 @@ const zh: WidgetStrings = {
     lightbulbs: "灯泡",
     homesTooltip:
       "在 18% 容量系数和每户平均 1.17 kW 负载假设下,您的太阳能容量可持续供电的美国家庭数估算值。",
-    lightbulbsTooltip:
-      "您的太阳能容量可持续点亮的 LED 灯泡(9W)数量估算值。",
+    lightbulbsTooltip: "您的太阳能容量可持续点亮的 LED 灯泡(9W)数量估算值。",
     homesUnit: "户",
     bulbsUnit: "个",
     energyPerYear: "每年能源",
@@ -2551,8 +2537,7 @@ const zh: WidgetStrings = {
     panelLabel: (n) => `第 ${n} 块面板`,
     panelsCompleted: (n) => `已完成 ${n} 块面板`,
     emptyFootprintTitle: "您的太阳能足迹将显示在此",
-    emptyFootprintBody:
-      "新农场上线后,您的清洁能源生产份额将被追踪。",
+    emptyFootprintBody: "新农场上线后,您的清洁能源生产份额将被追踪。",
     latestAddition: "最新添加",
     latestVerifiedAddition: "最新已验证添加",
     noRecentAdditions: "暂无近期新增农场",
@@ -2575,8 +2560,7 @@ const zh: WidgetStrings = {
     cleanGridRegionCode: "CGP",
     multiplierLabel: "倍数",
     minerBadge: "矿机 3×",
-    streakBadge: (streakBonus, weeks) =>
-      `连续 +${streakBonus}× (${weeks} 周)`,
+    streakBadge: (streakBonus, weeks) => `连续 +${streakBonus}× (${weeks} 周)`,
     whenToday: "今天",
     whenYesterday: "昨天",
     whenDaysAgo: (n) => `${n} 天前`,

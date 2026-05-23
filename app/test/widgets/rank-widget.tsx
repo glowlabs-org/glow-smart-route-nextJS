@@ -28,10 +28,7 @@ import { ReferralNetworkDialog } from "@/components/dialogs/referral-network-dia
 import { ImpactStreakIcon } from "@/components/impact-icons";
 import { trackEvent } from "@/lib/telemetry";
 import { cn } from "@/lib/utils";
-import {
-  useImpactLeaderboardQuery,
-  useImpactScoreQuery,
-} from "@/hooks";
+import { useImpactLeaderboardQuery, useImpactScoreQuery } from "@/hooks";
 import { useReferralLaunch } from "@/hooks/use-referral-launch";
 import { formatTopPercentile } from "@/utils/impact";
 import {
@@ -94,9 +91,7 @@ function RankWidgetSkeleton({
         </div>
       </CardHeader>
 
-      <CardContent
-        className="flex flex-col flex-1 gap-4 px-6 pb-6"
-      >
+      <CardContent className="flex flex-col flex-1 gap-4 px-6 pb-6">
         <div className="flex flex-col gap-4">
           <div className="flex flex-col items-center justify-center text-center px-2">
             <Skeleton className="h-4 w-24 rounded-xl" />
@@ -364,7 +359,9 @@ export function RankWidget({
     if (v2RankQuery.isLoading) return "—";
     if (selfGlobalRank && totalWalletCount > 0) {
       const percentile = (selfGlobalRank / totalWalletCount) * 100;
-      return t.widgets.rankWidget.topPercentile(formatTopPercentile(percentile));
+      return t.widgets.rankWidget.topPercentile(
+        formatTopPercentile(percentile),
+      );
     }
     return "—";
   }, [
@@ -429,9 +426,7 @@ export function RankWidget({
             )}
           </div>
         </CardHeader>
-        <CardContent
-          className="flex flex-col flex-1 gap-4 px-6 pb-6"
-        >
+        <CardContent className="flex flex-col flex-1 gap-4 px-6 pb-6">
           {!hasWallet ? (
             <div className="flex flex-col gap-3">
               <div className="flex flex-col items-center justify-center text-center px-1 select-none">
@@ -542,7 +537,12 @@ export function RankWidget({
                 />
               ) : null}
 
-              <div className={cn("grid gap-2 grid-cols-2 mt-auto", isHero && "pt-1")}>
+              <div
+                className={cn(
+                  "grid gap-2 grid-cols-2 mt-auto",
+                  isHero && "pt-1",
+                )}
+              >
                 {!readOnly && shouldShowMintAndStakeCta ? (
                   onMintAndStakeClick ? (
                     <Button
@@ -638,9 +638,7 @@ export function RankWidget({
                   >
                     <Users className="w-3.5 h-3.5" />
                     {referralPointsThisWeek > 0
-                      ? t.widgets.rankWidget.invitesWithPoints(
-                          formatPoints(String(referralPointsThisWeek)),
-                        )
+                      ? t.widgets.rankWidget.invitesWithPoints()
                       : t.widgets.rankWidget.inviteFriends}
                   </Button>
                 ) : (
