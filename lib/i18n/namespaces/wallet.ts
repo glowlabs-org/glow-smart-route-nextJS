@@ -19,6 +19,8 @@ export interface WalletStrings {
   copyAddress: string;
   openInExplorer: string;
   balances: string;
+  points: string;
+  pointsShop: string;
   copyReferralLink: string;
   loadingReferral: string;
   failedToCopyAddress: string;
@@ -50,6 +52,8 @@ const en: WalletStrings = {
   copyAddress: "Copy address",
   openInExplorer: "Open in block explorer",
   balances: "Balances",
+  points: "Points",
+  pointsShop: "Points Shop",
   copyReferralLink: "Copy referral link",
   loadingReferral: "Loading referral…",
   failedToCopyAddress: "Failed to copy address",
@@ -81,6 +85,8 @@ const ko: WalletStrings = {
   copyAddress: "주소 복사",
   openInExplorer: "블록 탐색기에서 열기",
   balances: "잔액",
+  points: "포인트",
+  pointsShop: "포인트 샵",
   copyReferralLink: "추천 링크 복사",
   loadingReferral: "추천 링크 불러오는 중…",
   failedToCopyAddress: "주소 복사에 실패했습니다",
@@ -112,6 +118,8 @@ const zh: WalletStrings = {
   copyAddress: "复制地址",
   openInExplorer: "在区块浏览器中打开",
   balances: "余额",
+  points: "积分",
+  pointsShop: "积分商店",
   copyReferralLink: "复制推荐链接",
   loadingReferral: "推荐链接加载中…",
   failedToCopyAddress: "复制地址失败",

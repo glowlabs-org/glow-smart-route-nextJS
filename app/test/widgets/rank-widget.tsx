@@ -36,7 +36,7 @@ import {
   useV2PointsRates,
   type V2CurrentStreak,
 } from "@/hooks/v2-points";
-import { useV2ImpactLeaderboard } from "@/hooks/v2-impact";
+import { useV2ImpactLeaderboard, useV2ImpactWallet } from "@/hooks/v2-impact";
 import { ArrowTopRightIcon } from "@radix-ui/react-icons";
 import { useLang } from "@/lib/i18n";
 
@@ -323,8 +323,15 @@ export function RankWidget({
 
   const impactScore = impactScoreQuery.data ?? null;
 
-  // V2 spendable point balance — drives the hero "points" number and the
-  // weekly streak panel.
+  // Headline = the wallet's total watts (the canonical impact metric, matching
+  // the watts leaderboard). Points moved to the "Your Wallet" balances popover.
+  const v2ImpactQuery = useV2ImpactWallet(
+    isValidWalletAddress ? walletAddress : null,
+  );
+  const v2TotalWatts = v2ImpactQuery.data?.totalWatts;
+
+  // V2 spendable point balance — still drives the weekly streak panel and the
+  // mint/breakdown button gating (just not the hero anymore).
   const v2PointsQuery = useV2PointsBalance(
     isValidWalletAddress ? walletAddress : null,
   );
@@ -355,22 +362,16 @@ export function RankWidget({
   const shouldShowBreakdownButton =
     !v2PointsQuery.isLoading && hasPositiveScore;
 
-  // Hero number = the wallet's V2 spendable point balance (available
-  // points), not the legacy impact-score total.
-  const pointsHeroText = React.useMemo(() => {
-    if (v2PointsQuery.isLoading) return t.widgets.rankWidget.emptyPoints;
-    const available = v2PointsQuery.data?.availablePoints;
-    if (available == null || !Number.isFinite(available))
-      return t.widgets.rankWidget.emptyPoints;
+  // Hero number = the wallet's total watts (matches the watts leaderboard).
+  const wattsHeroText = React.useMemo(() => {
+    if (v2ImpactQuery.isLoading) return "—";
+    const watts = Number(v2TotalWatts);
+    if (!Number.isFinite(watts)) return "—";
     const formatted = new Intl.NumberFormat("en-US", {
       maximumFractionDigits: 0,
-    }).format(available);
-    return `${formatted} pts`;
-  }, [
-    v2PointsQuery.isLoading,
-    v2PointsQuery.data,
-    t.widgets.rankWidget.emptyPoints,
-  ]);
+    }).format(watts);
+    return `${formatted} W`;
+  }, [v2ImpactQuery.isLoading, v2TotalWatts]);
 
   const rankText = React.useMemo(() => {
     if (v2RankQuery.isLoading) return "—";
@@ -402,7 +403,7 @@ export function RankWidget({
   // and the breakdown dialog, so it loads in the background instead of holding
   // the whole widget behind it.
   const isLoading =
-    hasWallet && (v2PointsQuery.isLoading || v2RankQuery.isLoading);
+    hasWallet && (v2ImpactQuery.isLoading || v2RankQuery.isLoading);
 
   if (isLoading) {
     return <RankWidgetSkeleton variant={variant} />;
@@ -454,10 +455,10 @@ export function RankWidget({
             <div className="flex flex-col gap-3">
               <div className="flex flex-col items-center justify-center text-center px-1 select-none">
                 <div className="font-mono text-xs uppercase tracking-wider text-muted-foreground blur-[1px] opacity-60">
-                  {t.widgets.rankWidget.availablePoints}
+                  {t.widgets.rankWidget.wattsLabel}
                 </div>
                 <div className="mt-2 font-mono text-5xl md:text-6xl font-bold tracking-tighter text-foreground tabular-nums blur-[2px] opacity-60">
-                  {t.widgets.rankWidget.emptyPoints}
+                  —
                 </div>
 
                 <div className="mt-2 flex items-center justify-center gap-3 text-xs text-muted-foreground blur-[1px] opacity-60">
@@ -495,7 +496,7 @@ export function RankWidget({
                     isHero ? "text-xs" : "text-[10px]",
                   )}
                 >
-                  {t.widgets.rankWidget.availablePoints}
+                  {t.widgets.rankWidget.wattsLabel}
                 </div>
                 <div
                   className={cn(
@@ -509,7 +510,7 @@ export function RankWidget({
                         : "text-4xl md:text-5xl",
                   )}
                 >
-                  {pointsHeroText}
+                  {wattsHeroText}
                 </div>
 
                 <div

@@ -1,7 +1,18 @@
 "use client";
 
 import * as React from "react";
-import { Copy, ExternalLink, LogOut, Share2, Wallet } from "lucide-react";
+import {
+  ChevronRight,
+  Copy,
+  ExternalLink,
+  History,
+  LogOut,
+  Share2,
+  ShoppingBag,
+  Sparkles,
+  Wallet,
+} from "lucide-react";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { useAccount, useChainId, useDisconnect } from "wagmi";
 import { sepolia } from "wagmi/chains";
@@ -13,8 +24,17 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { GlowSymbol } from "@/components/glow-symbol";
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
+import { useRecentActivityFeed } from "@/hooks/useRecentActivityFeed";
+import { useV2PointsBalance } from "@/hooks/v2-points";
+import { RecentActivity } from "@/app/wallet/recent-activity";
 import { hubGet } from "@/lib/api/hub-client";
 import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -77,6 +97,20 @@ export function WalletAccountPopover({ trigger }: WalletAccountPopoverProps) {
   const balances = useWalletTokenBalances(address);
   const { t } = useLang();
 
+  const [popoverOpen, setPopoverOpen] = React.useState(false);
+  const [isActivityOpen, setIsActivityOpen] = React.useState(false);
+  // Only fetch the activity feed once the dialog is opened, so the always-mounted
+  // header popover doesn't pull recent activity on every page load.
+  const activityFeed = useRecentActivityFeed(
+    isActivityOpen ? address : undefined
+  );
+  // Points balance loads only while the popover is open (header is always mounted).
+  const pointsQuery = useV2PointsBalance(popoverOpen ? address : null);
+  const availablePoints = pointsQuery.data?.availablePoints;
+  const showPoints =
+    popoverOpen &&
+    (pointsQuery.isLoading || typeof availablePoints === "number");
+
   const referralQuery = useQuery({
     queryKey: ["wallet-popover-referral-code", address],
     enabled: Boolean(address),
@@ -115,8 +149,20 @@ export function WalletAccountPopover({ trigger }: WalletAccountPopoverProps) {
   const explorerUrl = `${explorerBaseFor(chainId)}/address/${address}`;
   const shortAddress = `${address.slice(0, 6)}...${address.slice(-4)}`;
 
+  const balanceRows = [
+    { symbol: "GLW", label: "GLW", raw: balances.glwBalance, decimals: 18, max: 4 },
+    { symbol: "USDG", label: "USDG", raw: balances.usdgBalance, decimals: 6, max: 2 },
+    { symbol: "USDC", label: "USDC", raw: balances.usdcBalance, decimals: 6, max: 2 },
+    { symbol: "ETH", label: "ETH", raw: balances.ethBalance, decimals: 18, max: 5 },
+  ] as const;
+  // Hide assets the wallet holds none of (keep all rows while still loading).
+  const visibleBalanceRows = balanceRows.filter(
+    (row) => balances.isLoading || (row.raw != null && row.raw > 0n)
+  );
+
   return (
-    <Popover>
+    <>
+      <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent className="w-80 p-0" align="end">
         <div className="flex items-center justify-between px-4 pt-4 pb-3">
@@ -149,43 +195,73 @@ export function WalletAccountPopover({ trigger }: WalletAccountPopoverProps) {
           </div>
         </div>
 
-        <div className="border-t border-border/40" />
+        {visibleBalanceRows.length > 0 || showPoints ? (
+          <>
+            <div className="border-t border-border/40" />
 
-        <div className="px-4 pt-3 pb-2">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-            {t.wallet.balances}
-          </p>
-        </div>
-        <div className="px-2 pb-2 space-y-0.5">
-          <BalanceRow
-            symbol="GLW"
-            label="GLW"
-            amount={formatAmount(balances.glwBalance, 18, 4)}
-            isLoading={balances.isLoading}
-          />
-          <BalanceRow
-            symbol="USDG"
-            label="USDG"
-            amount={formatAmount(balances.usdgBalance, 6, 2)}
-            isLoading={balances.isLoading}
-          />
-          <BalanceRow
-            symbol="USDC"
-            label="USDC"
-            amount={formatAmount(balances.usdcBalance, 6, 2)}
-            isLoading={balances.isLoading}
-          />
-          <BalanceRow
-            symbol="ETH"
-            label="ETH"
-            amount={formatAmount(balances.ethBalance, 18, 5)}
-            isLoading={balances.isLoading}
-          />
-        </div>
+            <div className="px-4 pt-3 pb-2">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                {t.wallet.balances}
+              </p>
+            </div>
+            <div className="px-2 pb-2 space-y-0.5">
+              {showPoints ? (
+                <div className="flex items-center justify-between px-2 py-2 rounded-lg">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="h-7 w-7 rounded-full bg-[color:var(--color-glow-orange)]/10 border border-[color:var(--color-glow-orange)]/30 flex items-center justify-center text-[color:var(--color-glow-orange)] shrink-0">
+                      <Sparkles className="h-3.5 w-3.5" />
+                    </div>
+                    <span className="text-sm font-medium">
+                      {t.wallet.points}
+                    </span>
+                  </div>
+                  <span
+                    className={cn(
+                      "font-mono text-sm tabular-nums",
+                      pointsQuery.isLoading && "opacity-50"
+                    )}
+                  >
+                    {pointsQuery.isLoading
+                      ? "…"
+                      : (availablePoints ?? 0).toLocaleString("en-US", {
+                          maximumFractionDigits: 0,
+                        })}
+                  </span>
+                </div>
+              ) : null}
+              {visibleBalanceRows.map((row) => (
+                <BalanceRow
+                  key={row.symbol}
+                  symbol={row.symbol}
+                  label={row.label}
+                  amount={formatAmount(row.raw, row.decimals, row.max)}
+                  isLoading={balances.isLoading}
+                />
+              ))}
+            </div>
+          </>
+        ) : null}
 
         <div className="border-t border-border/40" />
 
         <div className="p-2 space-y-1">
+          <ActionButton
+            onClick={() => {
+              setPopoverOpen(false);
+              setIsActivityOpen(true);
+            }}
+            icon={<History className="h-4 w-4" />}
+          >
+            {t.widgets.recentActivity.dialogTitle}
+          </ActionButton>
+          <Link
+            href="/shop"
+            onClick={() => setPopoverOpen(false)}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm hover:bg-muted/40 transition-colors"
+          >
+            <ShoppingBag className="h-4 w-4" />
+            <span>{t.wallet.pointsShop}</span>
+          </Link>
           <ActionButton
             onClick={handleCopyReferral}
             icon={<Share2 className="h-4 w-4" />}
@@ -210,7 +286,32 @@ export function WalletAccountPopover({ trigger }: WalletAccountPopoverProps) {
           </button>
         </div>
       </PopoverContent>
-    </Popover>
+      </Popover>
+
+      <Dialog open={isActivityOpen} onOpenChange={setIsActivityOpen}>
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md p-0 max-h-[85vh] flex flex-col overflow-hidden bg-card border-border/20 dark:border-border/40 rounded-2xl">
+          <DialogHeader className="px-6 py-5 border-b border-border/20 dark:border-border/40 flex-shrink-0">
+            <DialogTitle className="text-lg font-semibold tracking-tight">
+              {t.widgets.recentActivity.dialogTitle}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6">
+            <RecentActivity
+              className="h-auto lg:max-h-none bg-transparent border-transparent overflow-visible"
+              walletAddress={address}
+              splitsActivity={activityFeed.splitsActivity}
+              swapsActivity={activityFeed.swapsActivity}
+              isSplitsActivityLoading={activityFeed.isSplitsActivityLoading}
+              isSwapsActivityLoading={activityFeed.isSwapsActivityLoading}
+              hideIfEmpty={false}
+              showHeader={false}
+              showKpis={false}
+              maxItems={50}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

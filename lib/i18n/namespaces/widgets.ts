@@ -207,6 +207,7 @@ export interface WidgetStrings {
     title: string;
     totalPoints: string;
     availablePoints: string;
+    wattsLabel: string;
     emptyPoints: string;
     rank: string;
     percentile: string;
@@ -876,6 +877,7 @@ const en: WidgetStrings = {
     title: "Impact Score",
     totalPoints: "Total points",
     availablePoints: "Available points",
+    wattsLabel: "Watts",
     emptyPoints: "— pts",
     rank: "Rank",
     percentile: "Percentile",
@@ -1537,6 +1539,7 @@ const ko: WidgetStrings = {
     title: "임팩트 점수",
     totalPoints: "총 포인트",
     availablePoints: "사용 가능한 포인트",
+    wattsLabel: "와트",
     emptyPoints: "— pts",
     rank: "순위",
     percentile: "퍼센타일",
@@ -2194,6 +2197,7 @@ const zh: WidgetStrings = {
     title: "影响力评分",
     totalPoints: "总积分",
     availablePoints: "可用积分",
+    wattsLabel: "瓦特",
     emptyPoints: "— 分",
     rank: "排名",
     percentile: "百分位",
