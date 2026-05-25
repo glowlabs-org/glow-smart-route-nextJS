@@ -22,7 +22,6 @@ import OnboardingHeroWidget from "./widgets/onboarding-hero-widget";
 import LaunchpadStatusWidget from "./widgets/launchpad-status-widget";
 import GlobalLeaderboardWidget from "./widgets/global-leaderboard-widget";
 import MyFarmsGridSection from "./widgets/my-farms-grid-section";
-import PortfolioSummaryWidget from "./widgets/portfolio-summary-widget";
 import ProtocolMetricsWidget from "./widgets/protocol-metrics-widget";
 import { MintAndStakeGctlDialog } from "@/components/dialogs/mint-and-stake-gctl-dialog";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
@@ -821,7 +820,7 @@ export default function GlowSoftDashboard({
                 <SectionHeader title={t.home.sections.yourJourney} />
                 <div className="rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10 p-4 sm:p-6 lg:p-12">
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/20 dark:divide-white/10 items-stretch">
-                    <div className="pb-8 lg:pb-0 lg:pr-10 flex lg:col-span-4">
+                    <div className="pb-8 lg:pb-0 lg:pr-10 flex lg:col-span-5">
                       <DeferredLaunchWindowAnalytics
                         enabled={shouldDeferHeavyAnalytics}
                         delayMs={getDeferredAnalyticsDelayMs({
@@ -847,7 +846,7 @@ export default function GlowSoftDashboard({
                       </DeferredLaunchWindowAnalytics>
                     </div>
 
-                    <div className="pt-8 lg:pt-0 lg:pl-10 flex lg:col-span-5">
+                    <div className="pt-8 lg:pt-0 lg:pl-10 flex lg:col-span-7">
                       <WidgetErrorBoundary>
                         <RecentActivityWidget
                           key={`recent-activity-${walletAddress ?? "anon"}-${dashboardRefreshNonce}`}
@@ -856,30 +855,6 @@ export default function GlowSoftDashboard({
                           variant="minimal"
                         />
                       </WidgetErrorBoundary>
-                    </div>
-                    <div className="py-8 lg:py-0 lg:pl-10 flex lg:col-span-3">
-                      <DeferredLaunchWindowAnalytics
-                        enabled={shouldDeferHeavyAnalytics}
-                        delayMs={getDeferredAnalyticsDelayMs({
-                          walletAddress,
-                          salt: "portfolio-summary-widget",
-                          baseMs: 12_000,
-                          spreadMs: 8_000,
-                        })}
-                        fallback={
-                          <DeferredAnalyticsCard
-                            title={t.home.deferred.miningSummary.title}
-                            description={t.home.deferred.miningSummary.description}
-                          />
-                        }
-                      >
-                        <WidgetErrorBoundary>
-                          <PortfolioSummaryWidget
-                            walletAddress={walletAddress}
-                            variant="minimal"
-                          />
-                        </WidgetErrorBoundary>
-                      </DeferredLaunchWindowAnalytics>
                     </div>
                   </div>
                 </div>

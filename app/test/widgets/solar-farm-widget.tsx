@@ -10,10 +10,11 @@ import {
   CartesianGrid,
 } from "recharts";
 import { Zap, LayoutGrid, Sun, Rocket, Gift } from "lucide-react";
-import { CashMinerIcon, DelegationIcon } from "@/components/impact-icons";
+import { CashMinerIcon, DelegationIcon, VaultIcon } from "@/components/impact-icons";
 import Link from "next/link";
 import {
   useGlowLaunchpad,
+  useImpactGlowWorthQuery,
   useMiningCenter,
   useMiningScore,
   useRewardsBreakdown,
@@ -66,6 +67,12 @@ import {
   isSplitActivityStillActive,
   resolveLaunchpadActivityFarmId,
 } from "@/utils/wallet-launchpad";
+import {
+  normalizeDelegationCurrency,
+  parseDelegationAmountFromBaseUnits,
+} from "@/utils/launchpad-rewards";
+import { getCurrentWeekNumber } from "@/lib/rewards/weekly-delegations";
+import { useShopMinerHoldings } from "@/hooks/v2-shop-miner";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { trackEvent } from "@/lib/telemetry";
 import { GENESIS_TIMESTAMP, getCurrentEpoch } from "@/utils/getCurrentEpoch";
@@ -210,6 +217,26 @@ function parseGlwFromWei(value: string) {
   const num = Number(value);
   if (!Number.isFinite(num)) return 0;
   return num / 1e18;
+}
+
+type DelegatedAmountsByAsset = Partial<Record<"GLW" | "SGCTL", number>>;
+
+type WalletFarmWithAssetBreakdown = {
+  userWeeklyRewards?: {
+    assetBreakdown?: Array<{
+      currency?: string | null;
+      delegatedPrincipalAmount?: string | null;
+      recoveredRewards?: string | null;
+    }>;
+  };
+};
+
+function formatDelegatedAmountByAsset(value: number, asset: string) {
+  if (!Number.isFinite(value)) return "—";
+  return value.toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: asset === "SGCTL" ? 2 : 0,
+  });
 }
 
 function getAssetBarColor(asset: string) {
@@ -678,6 +705,71 @@ export default function SolarFarmWidget({
     enabled: hasWallet,
   });
 
+  const delegatedWeekRange = React.useMemo(() => {
+    if (!hasWallet) return null;
+    const endWeek = getCurrentWeekNumber();
+    return { startWeek: Math.max(0, endWeek - 12), endWeek };
+  }, [hasWallet]);
+
+  const { data: impactGlowWorth } = useImpactGlowWorthQuery({
+    walletAddress,
+    weekRange: delegatedWeekRange,
+    enabled: hasWallet,
+  });
+
+  // Actively-delegated principal per asset (GLW from impact-router, SGCTL from
+  // per-farm asset breakdown + still-active launchpad splits).
+  const delegatedActiveAssetsRaw = React.useMemo<DelegatedAmountsByAsset>(() => {
+    const totals: DelegatedAmountsByAsset = { GLW: 0, SGCTL: 0 };
+
+    (purchasedFarms as WalletFarmWithAssetBreakdown[]).forEach((farm) => {
+      farm.userWeeklyRewards?.assetBreakdown?.forEach((row) => {
+        const asset = normalizeDelegationCurrency(row.currency);
+        const principal = parseDelegationAmountFromBaseUnits(
+          row.delegatedPrincipalAmount,
+          asset
+        );
+        const recovered = parseDelegationAmountFromBaseUnits(
+          row.recoveredRewards,
+          asset
+        );
+        const activePrincipal = Math.max(0, principal - recovered);
+        totals[asset] = (totals[asset] ?? 0) + activePrincipal;
+      });
+    });
+
+    splitsActivity.forEach((split) => {
+      if (split.fractionType !== "launchpad") return;
+      if (!isSplitActivityStillActive({ split })) return;
+      const asset = normalizeDelegationCurrency(split.currency);
+      const amount = parseDelegationAmountFromBaseUnits(split.amount, asset);
+      if (amount <= 0) return;
+      totals[asset] = (totals[asset] ?? 0) + amount;
+    });
+
+    return totals;
+  }, [purchasedFarms, splitsActivity]);
+
+  // GLW principal is overridden with the impact-router number once loaded so it
+  // lines up with the Glow Worth figure; SGCTL has no impact equivalent and
+  // stays client-derived.
+  const delegatedActiveAssets = React.useMemo<DelegatedAmountsByAsset>(() => {
+    const impactGlw = parseGlwFromWei(
+      impactGlowWorth?.delegatedActiveGlwWei ?? ""
+    );
+    const glw =
+      impactGlowWorth && Number.isFinite(impactGlw)
+        ? impactGlw
+        : delegatedActiveAssetsRaw.GLW ?? 0;
+    return { GLW: glw, SGCTL: delegatedActiveAssetsRaw.SGCTL ?? 0 };
+  }, [delegatedActiveAssetsRaw, impactGlowWorth]);
+
+  // Points-shop miners are fulfilled outside fractions, so they never appear in
+  // rewards-breakdown / splits; pull their farms in for the miner count.
+  const { holdings: shopMinerHoldings } = useShopMinerHoldings(
+    walletAddress ?? null
+  );
+
   const recentPendingMiningFarmIds = React.useMemo(() => {
     return new Set(
       (data?.recentPurchasesWithoutRewards || [])
@@ -1009,11 +1101,39 @@ export default function SolarFarmWidget({
     };
   }, [data, inProgressEstimatedByAsset]);
 
+  // Delegation assets (GLW/SGCTL) are added to the selectable list even when
+  // they have no reward history, so "Actively Delegated" can follow the
+  // selected asset. The chart simply renders empty for a reward-less asset.
+  const delegationAssetKeys = React.useMemo(() => {
+    return (["GLW", "SGCTL"] as const).filter(
+      (asset) => (delegatedActiveAssets[asset] ?? 0) > 0
+    );
+  }, [delegatedActiveAssets]);
+
+  const selectorAssets = React.useMemo(() => {
+    const set = new Set<string>([...availableAssets, ...delegationAssetKeys]);
+    return Array.from(set).sort((a, b) => {
+      if (a === "GLW") return -1;
+      if (b === "GLW") return 1;
+      return a.localeCompare(b);
+    });
+  }, [availableAssets, delegationAssetKeys]);
+
+  const delegatedActiveTotal =
+    (delegatedActiveAssets.GLW ?? 0) + (delegatedActiveAssets.SGCTL ?? 0);
+  const hasAnyActiveDelegation = delegatedActiveTotal > 0;
+  const selectedAssetDelegated =
+    selectedAsset === "GLW"
+      ? delegatedActiveAssets.GLW ?? 0
+      : selectedAsset === "SGCTL"
+      ? delegatedActiveAssets.SGCTL ?? 0
+      : 0;
+
   React.useEffect(() => {
-    if (!availableAssets.includes(selectedAsset)) {
-      setSelectedAsset(availableAssets[0] ?? "GLW");
+    if (!selectorAssets.includes(selectedAsset)) {
+      setSelectedAsset(selectorAssets[0] ?? "GLW");
     }
-  }, [availableAssets, selectedAsset]);
+  }, [selectorAssets, selectedAsset]);
 
   const selectedAssetRawHistory = React.useMemo<AssetHistoryPoint[]>(() => {
     return rawHistoryByAsset.get(selectedAsset) ?? [];
@@ -1068,8 +1188,7 @@ export default function SolarFarmWidget({
       : historicalLast;
 
     // Count each farm once across rewarded + still-active splits, regardless
-    // of how many delegation legs (e.g. GLW + sGCTL) it has. Mirrors
-    // portfolio-summary-widget so the two panels stay in sync.
+    // of how many delegation legs (e.g. GLW + sGCTL) it has.
     const delegationFarmIds = new Set<string>();
     const minerFarmIds = new Set<string>();
 
@@ -1083,15 +1202,32 @@ export default function SolarFarmWidget({
       }
     }
 
+    // Count both still-active splits AND pending-start ones (a filled
+    // launchpad split / filled-or-expired mining-center split that hasn't
+    // begun earning yet). The drill-down dialog surfaces pending-start
+    // positions, so the counts must include them to match it. (sGCTL
+    // delegations in particular sit in "filled" until their start week.)
     for (const split of splitsActivity) {
-      if (!isSplitActivityStillActive({ split })) continue;
+      const fractionType = split.fractionType;
+      if (!fractionType) continue;
+      const status = (split.fractionStatus ?? "").toLowerCase();
+      const isPendingStart =
+        (fractionType === "launchpad" && status === "filled") ||
+        (fractionType === "mining-center" &&
+          (status === "filled" || status === "expired"));
+      if (!isSplitActivityStillActive({ split }) && !isPendingStart) continue;
       const farmId = split.farmId ?? split.applicationId;
       if (!farmId) continue;
-      if (split.fractionType === "launchpad") {
+      if (fractionType === "launchpad") {
         delegationFarmIds.add(farmId);
-      } else if (split.fractionType === "mining-center") {
+      } else if (fractionType === "mining-center") {
         minerFarmIds.add(farmId);
       }
+    }
+
+    // Points-shop miners (fulfilled outside fractions).
+    for (const holding of shopMinerHoldings) {
+      if (holding.farmId) minerFarmIds.add(holding.farmId);
     }
 
     return {
@@ -1108,6 +1244,7 @@ export default function SolarFarmWidget({
     data,
     selectedAssetEstimatedInProgress,
     selectedAssetRawHistory,
+    shopMinerHoldings,
     splitsActivity,
   ]);
 
@@ -1134,7 +1271,7 @@ export default function SolarFarmWidget({
         Icon: Gift,
         iconClassName: "text-[color:var(--color-glow-green)]",
       },
-    ].filter((i) => i.count > 0);
+    ].filter((i) => i.key !== "other" || i.count > 0);
 
     return items.length ? items : [];
   }, [stats.activeDelegations, stats.activeMiners, stats.activeOtherRewards, t.widgets.solarFarm]);
@@ -1555,7 +1692,30 @@ export default function SolarFarmWidget({
                     </div>
                   </div>
 
-                  {availableAssets.length > 1 ? (
+                  {/* KPI: Actively delegated (follows selected asset) */}
+                  {hasAnyActiveDelegation ? (
+                    <div className="flex flex-col gap-1.5 min-w-0">
+                      <span className="text-[9px] uppercase text-muted-foreground/50 font-mono tracking-widest">
+                        {t.widgets.solarFarm.activelyDelegated}
+                      </span>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <VaultIcon className="w-5 h-5 text-delegation-purple" />
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-3xl font-semibold text-foreground tracking-tight font-mono">
+                            {formatDelegatedAmountByAsset(
+                              selectedAssetDelegated,
+                              selectedAsset
+                            )}
+                          </span>
+                          <span className="text-sm font-medium text-muted-foreground/50 font-mono">
+                            {selectedAsset}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {selectorAssets.length > 1 ? (
                     <div className="flex flex-col gap-1.5 w-full sm:w-auto">
                       <span className="text-[9px] uppercase text-muted-foreground/50 font-mono tracking-widest">
                         {t.widgets.solarFarm.assetLabel}
@@ -1565,7 +1725,7 @@ export default function SolarFarmWidget({
                           <SelectValue placeholder={t.widgets.solarFarm.assetLabel} />
                         </SelectTrigger>
                         <SelectContent align="start">
-                          {availableAssets.map((asset) => (
+                          {selectorAssets.map((asset) => (
                             <SelectItem key={asset} value={asset}>
                               {asset}
                             </SelectItem>

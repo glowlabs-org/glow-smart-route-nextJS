@@ -497,6 +497,7 @@ export interface WidgetStrings {
     latestWeeklyEarnings: string;
     estWeeklyRewards: string;
     assetLabel: string;
+    activelyDelegated: string;
     miners: string;
     delegations: string;
     other: string;
@@ -1156,6 +1157,7 @@ const en: WidgetStrings = {
     latestWeeklyEarnings: "Latest Weekly Earnings",
     estWeeklyRewards: "Est. Weekly Rewards",
     assetLabel: "Asset",
+    activelyDelegated: "Actively Delegated",
     miners: "Miners",
     delegations: "Delegations",
     other: "Other",
@@ -1815,6 +1817,7 @@ const ko: WidgetStrings = {
     latestWeeklyEarnings: "최근 주간 수익",
     estWeeklyRewards: "주간 예상 리워드",
     assetLabel: "자산",
+    activelyDelegated: "활성 위임",
     miners: "마이너",
     delegations: "위임",
     other: "기타",
@@ -2465,6 +2468,7 @@ const zh: WidgetStrings = {
     latestWeeklyEarnings: "最新周收益",
     estWeeklyRewards: "预计每周奖励",
     assetLabel: "资产",
+    activelyDelegated: "活跃委托",
     miners: "矿机",
     delegations: "委托",
     other: "其他",
