@@ -1365,25 +1365,44 @@ export default function SolarFarmWidget({
               <CardTitle className="text-lg font-semibold tracking-tight text-foreground">
                 {t.widgets.solarFarm.title}
               </CardTitle>
-              <DialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!hasWallet || isEmptyButConnected}
-                  className="h-8 rounded-full px-3 text-[11px] font-mono tracking-wider gap-2"
-                  onClick={() => {
-                    trackEvent("dashboard_mining_details_open_click", {
-                      source,
-                      wallet_connected: hasWallet,
-                      wallet_address: normalizedWalletAddress,
-                      cta: "view_details",
-                    });
-                  }}
-                >
-                  <LayoutGrid className="h-3.5 w-3.5" />
-                  <span>{t.widgets.solarFarm.viewDetails}</span>
-                </Button>
-              </DialogTrigger>
+              <div className="flex items-center gap-2 shrink-0">
+                {selectorAssets.length > 1 ? (
+                  <Select value={selectedAsset} onValueChange={setSelectedAsset}>
+                    <SelectTrigger
+                      aria-label={t.widgets.solarFarm.assetLabel}
+                      className="h-8 w-auto rounded-full border-border/20 bg-muted/30 text-[11px] font-mono tracking-wider gap-2"
+                    >
+                      <SelectValue placeholder={t.widgets.solarFarm.assetLabel} />
+                    </SelectTrigger>
+                    <SelectContent align="end">
+                      {selectorAssets.map((asset) => (
+                        <SelectItem key={asset} value={asset}>
+                          {asset}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : null}
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!hasWallet || isEmptyButConnected}
+                    className="h-8 rounded-full px-3 text-[11px] font-mono tracking-wider gap-2"
+                    onClick={() => {
+                      trackEvent("dashboard_mining_details_open_click", {
+                        source,
+                        wallet_connected: hasWallet,
+                        wallet_address: normalizedWalletAddress,
+                        cta: "view_details",
+                      });
+                    }}
+                  >
+                    <LayoutGrid className="h-3.5 w-3.5" />
+                    <span>{t.widgets.solarFarm.viewDetails}</span>
+                  </Button>
+                </DialogTrigger>
+              </div>
             </div>
           </CardHeader>
         )}
@@ -1712,26 +1731,6 @@ export default function SolarFarmWidget({
                           </span>
                         </div>
                       </div>
-                    </div>
-                  ) : null}
-
-                  {selectorAssets.length > 1 ? (
-                    <div className="flex flex-col gap-1.5 w-full sm:w-auto">
-                      <span className="text-[9px] uppercase text-muted-foreground/50 font-mono tracking-widest whitespace-nowrap">
-                        {t.widgets.solarFarm.assetLabel}
-                      </span>
-                      <Select value={selectedAsset} onValueChange={setSelectedAsset}>
-                        <SelectTrigger className="h-9 w-full sm:w-[132px] rounded-full border-border/20 bg-muted/30 text-xs font-mono">
-                          <SelectValue placeholder={t.widgets.solarFarm.assetLabel} />
-                        </SelectTrigger>
-                        <SelectContent align="start">
-                          {selectorAssets.map((asset) => (
-                            <SelectItem key={asset} value={asset}>
-                              {asset}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
                     </div>
                   ) : null}
                 </div>
