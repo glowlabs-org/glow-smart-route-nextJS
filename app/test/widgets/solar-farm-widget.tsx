@@ -1271,7 +1271,7 @@ export default function SolarFarmWidget({
         Icon: Gift,
         iconClassName: "text-[color:var(--color-glow-green)]",
       },
-    ].filter((i) => i.key !== "other" || i.count > 0);
+    ].filter((i) => i.count > 0);
 
     return items.length ? items : [];
   }, [stats.activeDelegations, stats.activeMiners, stats.activeOtherRewards, t.widgets.solarFarm]);
@@ -1671,7 +1671,7 @@ export default function SolarFarmWidget({
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-10 min-w-0">
                   {/* KPI: Latest weekly earnings */}
                   <div className="flex flex-col gap-1.5 min-w-0">
-                    <span className="text-[9px] uppercase text-muted-foreground/50 font-mono tracking-widest">
+                    <span className="text-[9px] uppercase text-muted-foreground/50 font-mono tracking-widest whitespace-nowrap">
                       {stats.isEstimatedWeeklyPayout
                         ? t.widgets.solarFarm.estWeeklyRewards
                         : t.widgets.solarFarm.latestWeeklyEarnings}
@@ -1695,7 +1695,7 @@ export default function SolarFarmWidget({
                   {/* KPI: Actively delegated (follows selected asset) */}
                   {hasAnyActiveDelegation ? (
                     <div className="flex flex-col gap-1.5 min-w-0">
-                      <span className="text-[9px] uppercase text-muted-foreground/50 font-mono tracking-widest">
+                      <span className="text-[9px] uppercase text-muted-foreground/50 font-mono tracking-widest whitespace-nowrap">
                         {t.widgets.solarFarm.activelyDelegated}
                       </span>
                       <div className="flex items-center gap-3 min-w-0">
@@ -1717,7 +1717,7 @@ export default function SolarFarmWidget({
 
                   {selectorAssets.length > 1 ? (
                     <div className="flex flex-col gap-1.5 w-full sm:w-auto">
-                      <span className="text-[9px] uppercase text-muted-foreground/50 font-mono tracking-widest">
+                      <span className="text-[9px] uppercase text-muted-foreground/50 font-mono tracking-widest whitespace-nowrap">
                         {t.widgets.solarFarm.assetLabel}
                       </span>
                       <Select value={selectedAsset} onValueChange={setSelectedAsset}>
