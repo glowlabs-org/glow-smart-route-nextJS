@@ -219,7 +219,7 @@ function computeSteeringScorePoints(args: {
 
   let totalDirectedGlw = 0;
 
-  // Baseline: mirror `gctl-heatmap-widget` exactly (use current region `glwPerWeek`)
+  // Baseline: mirror `use-gctl-steering` exactly (use current region `glwPerWeek`)
   if (!selectedRegionId || delta <= 0) {
     for (const r of regions) {
       const regionId = Number(r?.id);

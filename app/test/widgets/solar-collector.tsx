@@ -6,6 +6,8 @@ import { useChainId } from "wagmi";
 import {
   ArrowUpRight,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   HelpCircle,
   Info,
   Leaf,
@@ -13,6 +15,8 @@ import {
   PieChart as PieChartIcon,
   TrendingUp,
   Activity,
+  Globe,
+  Lock,
 } from "lucide-react";
 
 import {
@@ -57,12 +61,19 @@ import { trackEvent } from "@/lib/telemetry";
 import {
   useSolarCollectorQuery,
   formatWhenLabel,
+  calculateImpact,
 } from "@/hooks/hub-solar-collector";
 import { useRegions } from "@/hooks/control-regions";
 import { hubGet } from "@/lib/api/hub-client";
 import { useLang, getBcp47, type Strings } from "@/lib/i18n";
 import { WalletImpactDialog } from "@/app/stats/rewards/wallet-impact-dialog";
 import { useV2ImpactWallet } from "@/hooks/v2-impact";
+import {
+  useGctlSteering,
+  formatCompact,
+  type GctlSteeringStake,
+} from "@/hooks/use-gctl-steering";
+import { SteeringIcon } from "@/components/impact-icons";
 
 const SOLAR_ORANGE = "#ffb472";
 const SOLAR_YELLOW = "#ffd37a";
@@ -334,6 +345,7 @@ interface SolarCollectorWidgetProps {
   onHowItWorksClick?: () => void;
   onShareClick?: () => void;
   onFarmClick?: (farmId: string) => void;
+  onMintAndStakeClick?: () => void;
   readOnly?: boolean;
 }
 
@@ -372,12 +384,112 @@ function ImpactSummarySkeleton() {
   );
 }
 
+// A single region the wallet is steering toward (moved from the GCTL widget).
+// Shows region name, GCTL staked (+ locked), and the GLW it directs per week,
+// with a normalized background fill for the share of region controlled.
+function RegionSteeringRow({
+  regionName,
+  userStakedGctl,
+  lockedGctl,
+  totalRegionStakedGctl,
+  regionWeeklyEmissions,
+  isMax,
+  normalizedWidth,
+  labels,
+}: {
+  regionName: string;
+  userStakedGctl: number;
+  lockedGctl: number;
+  totalRegionStakedGctl: number;
+  regionWeeklyEmissions: number;
+  isMax: boolean;
+  normalizedWidth: number;
+  labels: Strings["widgets"]["gctlHeatmap"];
+}) {
+  const shareOfRegion =
+    totalRegionStakedGctl > 0 ? userStakedGctl / totalRegionStakedGctl : 0;
+  const glwDirected = regionWeeklyEmissions * shareOfRegion;
+
+  const lockedFraction =
+    userStakedGctl > 0
+      ? Math.min(Math.max(lockedGctl / userStakedGctl, 0), 1)
+      : 0;
+  const availableWidth = normalizedWidth * (1 - lockedFraction);
+  const lockedWidth = normalizedWidth * lockedFraction;
+  const hasLocked = lockedGctl > 0;
+
+  return (
+    <div className="group relative overflow-hidden rounded-xl bg-muted/30 border border-border/20 transition-all hover:bg-muted/40 hover:border-border/40">
+      <div
+        className="absolute inset-y-0 left-0 bg-[#22D3EE]/15 transition-all duration-700 ease-out"
+        style={{ width: `${availableWidth}%` }}
+      />
+      <div
+        className="absolute inset-y-0 bg-amber-400/25 transition-all duration-700 ease-out"
+        style={{ left: `${availableWidth}%`, width: `${lockedWidth}%` }}
+      />
+
+      <div className="relative flex items-center justify-between p-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div
+            className={cn(
+              "flex h-8 w-8 items-center justify-center rounded-lg shrink-0 transition-colors",
+              isMax
+                ? "bg-[#22D3EE]/10 text-[#22D3EE]"
+                : "bg-muted/50 text-muted-foreground"
+            )}
+          >
+            <Globe className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <div className="font-medium text-sm text-foreground leading-none truncate">
+              {regionName}
+            </div>
+            <div className="text-[10px] text-muted-foreground/60 font-mono mt-1 flex items-center gap-1.5">
+              <span>
+                {labels.rowGctlStakedSuffix(formatCompact(userStakedGctl))}
+              </span>
+              {hasLocked && (
+                <>
+                  <span aria-hidden>•</span>
+                  <span
+                    className="inline-flex items-center gap-1 text-amber-500"
+                    title={labels.lockedTooltip}
+                  >
+                    <Lock className="h-2.5 w-2.5" />
+                    {formatCompact(lockedGctl)} {labels.lockedSuffix}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="text-right shrink-0">
+          <div className="font-mono font-semibold text-foreground flex items-center justify-end gap-1">
+            {formatCompact(glwDirected)}{" "}
+            <span className="text-[10px] text-muted-foreground/60 font-normal">
+              {labels.rowGlwPerWeek}
+            </span>
+          </div>
+          <div className="text-[10px] text-[#22D3EE] font-medium">
+            {totalRegionStakedGctl > 0
+              ? labels.rowDirectingPct((shareOfRegion * 100).toFixed(2))
+              : labels.rowDirectingEmissions}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function SolarCollectorWidget({
   walletAddress,
   onViewGridClick,
   onHowItWorksClick,
   onShareClick,
   onFarmClick,
+  onMintAndStakeClick,
   readOnly = false,
 }: SolarCollectorWidgetProps) {
   const { t, lang } = useLang();
@@ -386,6 +498,31 @@ export default function SolarCollectorWidget({
   const source = "impact_summary_widget";
   const [isLearnMoreOpen, setIsLearnMoreOpen] = React.useState(false);
   const [isBreakdownOpen, setIsBreakdownOpen] = React.useState(false);
+  const [showAllStakes, setShowAllStakes] = React.useState(false);
+
+  // GCTL / steering position, folded into the My Impact section.
+  const gctl = useGctlSteering({
+    walletAddress: normalizedWalletAddress,
+    enabled: true,
+  });
+  const MAX_VISIBLE_STAKES = 3;
+  const hasMoreStakes = gctl.stakes.length > MAX_VISIBLE_STAKES;
+  const visibleStakes =
+    hasMoreStakes && showAllStakes
+      ? gctl.stakes
+      : gctl.stakes.slice(0, MAX_VISIBLE_STAKES);
+  const hiddenStakesCount = Math.max(
+    gctl.stakes.length - MAX_VISIBLE_STAKES,
+    0
+  );
+  const handleMintAndStake = () => {
+    trackEvent("dashboard_gctl_mint_stake_open_click", {
+      source,
+      wallet_connected: Boolean(normalizedWalletAddress),
+      wallet_address: normalizedWalletAddress,
+    });
+    onMintAndStakeClick?.();
+  };
 
   // The headline watts count, sourced from the same V2 aggregate the watts
   // leaderboard uses so the number matches exactly.
@@ -397,6 +534,17 @@ export default function SolarCollectorWidget({
     enabled: true,
     includeCurrentWeekPower: true,
   });
+
+  // Real-world impact (energy / homes / trees) is derived from the same V2
+  // watts shown in the headline so the metrics stay consistent with it; falls
+  // back to the solar-collector model only while the V2 watts are unavailable.
+  const impact = React.useMemo(() => {
+    const v2Watts = Number(v2TotalWatts);
+    if (Number.isFinite(v2Watts) && v2Watts > 0) {
+      return calculateImpact(v2Watts);
+    }
+    return model.impact;
+  }, [v2TotalWatts, model.impact]);
 
   const { regions } = useRegions();
 
@@ -597,15 +745,15 @@ export default function SolarCollectorWidget({
     try {
       const shareTitle = "My Solar Footprint on Glow";
       const shareWatts = getShareWattsLabel(model.totalWatts);
-      const shareHomes = getShareHomesLabel(model.impact.homesPowered);
+      const shareHomes = getShareHomesLabel(impact.homesPowered);
       const shareText = [
         `My network contributions have captured ${shareWatts.value}${shareWatts.unit} of verified solar on @GlowFND ☀️`,
         "",
         shareHomes.count > 0
           ? `That's enough to power ${shareHomes.value} ${
               shareHomes.unit
-            } and is equivalent to ${model.impact.treesEquivalent.toLocaleString()} adult trees.`
-          : `That's equivalent to ${model.impact.treesEquivalent.toLocaleString()} adult trees.`,
+            } and is equivalent to ${impact.treesEquivalent.toLocaleString()} adult trees.`
+          : `That's equivalent to ${impact.treesEquivalent.toLocaleString()} adult trees.`,
         "",
         `Make an impact and start earning GLW today at ${APP_DOMAIN_PLAIN_TEXT}`,
       ].join("\n");
@@ -749,7 +897,7 @@ export default function SolarCollectorWidget({
           </div>
 
           {/* Main Metrics Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 md:gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6">
             {/* Watts — headline metric, matches the watts leaderboard */}
             <div>
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1.5">
@@ -765,6 +913,21 @@ export default function SolarCollectorWidget({
                 </span>
                 <span className="text-sm font-mono text-muted-foreground">
                   W
+                </span>
+              </div>
+            </div>
+
+            {/* GCTL Holdings (steering) */}
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1.5">
+                {t.widgets.gctlHeatmap.myHoldings}
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="font-mono text-xl md:text-2xl font-bold tracking-tight text-foreground tabular-nums">
+                  {formatCompact(gctl.totalBalanceGctl)}
+                </span>
+                <span className="text-sm font-mono text-muted-foreground">
+                  GCTL
                 </span>
               </div>
             </div>
@@ -787,30 +950,30 @@ export default function SolarCollectorWidget({
                       className="max-w-xs text-xs leading-relaxed"
                     >
                       <p>
-                        {model.impact.homesPowered < 1
+                        {impact.homesPowered < 1
                           ? t.widgets.solarCollector.lightbulbsTooltip
                           : t.widgets.solarCollector.homesTooltip}
                       </p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-                {model.impact.homesPowered < 1
+                {impact.homesPowered < 1
                   ? t.widgets.solarCollector.lightbulbs
                   : t.widgets.solarCollector.homesPowered}
               </div>
               <div className="flex items-baseline gap-1">
                 <span className="font-mono text-xl md:text-2xl font-bold tracking-tight text-foreground tabular-nums">
-                  {model.impact.homesPowered < 1
-                    ? (model.impact.homesPowered * 40).toLocaleString(
+                  {impact.homesPowered < 1
+                    ? (impact.homesPowered * 40).toLocaleString(
                         undefined,
                         {
                           maximumFractionDigits: 1,
                         }
                       )
-                    : model.impact.homesPowered.toLocaleString()}
+                    : impact.homesPowered.toLocaleString()}
                 </span>
                 <span className="text-sm font-mono text-muted-foreground">
-                  {model.impact.homesPowered < 1
+                  {impact.homesPowered < 1
                     ? t.widgets.solarCollector.bulbsUnit
                     : t.widgets.solarCollector.homesUnit}
                 </span>
@@ -842,10 +1005,10 @@ export default function SolarCollectorWidget({
               </div>
               <div className="flex items-baseline gap-1">
                 <span className="font-mono text-xl md:text-2xl font-bold tracking-tight text-foreground tabular-nums">
-                  {formatEnergyValue(model.impact.annualEnergyKwh)}
+                  {formatEnergyValue(impact.annualEnergyKwh)}
                 </span>
                 <span className="text-sm font-mono text-muted-foreground">
-                  {getEnergyUnit(model.impact.annualEnergyKwh)}
+                  {getEnergyUnit(impact.annualEnergyKwh)}
                 </span>
               </div>
             </div>
@@ -875,7 +1038,7 @@ export default function SolarCollectorWidget({
               </div>
               <div className="flex items-baseline gap-1">
                 <span className="font-mono text-xl md:text-2xl font-bold tracking-tight text-foreground tabular-nums">
-                  {model.impact.treesEquivalent.toLocaleString()}
+                  {impact.treesEquivalent.toLocaleString()}
                 </span>
                 <span className="text-sm font-mono text-muted-foreground">
                   {t.widgets.solarCollector.treesUnit}
@@ -1024,7 +1187,7 @@ export default function SolarCollectorWidget({
 
           {/* Impact Charts Section */}
           <div className="mt-8 pt-6 border-t border-border/50">
-            <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
               {/* 1. Regional Distribution (Pie) */}
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
@@ -1159,6 +1322,98 @@ export default function SolarCollectorWidget({
                     />
                   </AreaChart>
                 </ChartContainer>
+              </div>
+
+              {/* 3. Glow Control / Steering */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <SteeringIcon className="h-4 w-4 text-muted-foreground" />
+                    <div className="text-[11px] font-mono font-bold uppercase tracking-widest text-muted-foreground">
+                      {t.widgets.gctlHeatmap.activeStakes}
+                    </div>
+                  </div>
+                  {!readOnly && onMintAndStakeClick ? (
+                    <button
+                      type="button"
+                      onClick={handleMintAndStake}
+                      className="h-7 inline-flex items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-medium border border-border/40 text-muted-foreground hover:text-[#22D3EE] hover:border-[#22D3EE] transition-colors"
+                    >
+                      <TrendingUp className="h-3 w-3" />
+                      {t.widgets.gctlHeatmap.mintGctl}
+                    </button>
+                  ) : null}
+                </div>
+
+                {gctl.stakes.length > 0 ? (
+                  <div className="space-y-2">
+                    {visibleStakes.map((stake: GctlSteeringStake, i: number) => (
+                      <RegionSteeringRow
+                        key={stake.regionId}
+                        regionName={stake.regionName}
+                        userStakedGctl={stake.amountGctl}
+                        lockedGctl={stake.lockedAmount}
+                        totalRegionStakedGctl={stake.totalRegionStaked}
+                        regionWeeklyEmissions={stake.weeklyEmissions}
+                        isMax={i === 0}
+                        normalizedWidth={stake.normalizedWidth}
+                        labels={t.widgets.gctlHeatmap}
+                      />
+                    ))}
+                    {hasMoreStakes ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowAllStakes((v) => !v)}
+                        className="w-full rounded-lg border border-border/30 px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground transition-colors hover:border-[#22D3EE]/50 hover:text-[#22D3EE] flex items-center justify-center gap-1"
+                      >
+                        {showAllStakes ? (
+                          <>
+                            {t.widgets.gctlHeatmap.showLess}
+                            <ChevronUp className="h-3 w-3" />
+                          </>
+                        ) : (
+                          <>
+                            {t.widgets.gctlHeatmap.showMore(hiddenStakesCount)}
+                            <ChevronDown className="h-3 w-3" />
+                          </>
+                        )}
+                      </button>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div
+                    className={cn(
+                      "flex flex-col items-center justify-center text-center border border-dashed border-border/40 rounded-xl p-6 h-[200px] transition-all group",
+                      !readOnly &&
+                        onMintAndStakeClick &&
+                        "cursor-pointer hover:bg-muted/30 hover:border-border/60"
+                    )}
+                    onClick={
+                      !readOnly && onMintAndStakeClick
+                        ? handleMintAndStake
+                        : undefined
+                    }
+                  >
+                    <div
+                      className={cn(
+                        "h-12 w-12 rounded-lg bg-muted/50 flex items-center justify-center mb-2 transition-colors",
+                        !readOnly &&
+                          onMintAndStakeClick &&
+                          "group-hover:bg-[#22D3EE]/10"
+                      )}
+                    >
+                      <SteeringIcon className="h-6 w-6 text-muted-foreground/40" />
+                    </div>
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {t.widgets.gctlHeatmap.noActiveSteering}
+                    </span>
+                    {!readOnly && onMintAndStakeClick ? (
+                      <span className="text-[10px] text-[#22D3EE] mt-1">
+                        {t.widgets.gctlHeatmap.stakeToDirect}
+                      </span>
+                    ) : null}
+                  </div>
+                )}
               </div>
             </div>
           </div>

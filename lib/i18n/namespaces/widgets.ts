@@ -341,7 +341,7 @@ export interface WidgetStrings {
     gamificationHook: string;
     gamificationPoints: string;
     mintAndStake: string;
-    boost: string;
+    mintGctl: string;
     myHoldings: string;
     liquidSuffix: string;
     activeSuffix: string;
@@ -1010,7 +1010,7 @@ const en: WidgetStrings = {
     gamificationHook: "Earn",
     gamificationPoints: "3 Points per GLW Steered",
     mintAndStake: "Mint & Stake GCTL",
-    boost: "Boost",
+    mintGctl: "Mint GCTL",
     myHoldings: "My Holdings",
     liquidSuffix: "Liquid",
     activeSuffix: "Active",
@@ -1197,18 +1197,19 @@ const en: WidgetStrings = {
     cardHeading: "Verified Solar Footprint",
     cardSubheading: "Real farms • real capacity",
     mainDescription:
-      "Each time a farm is funded, its physical capacity is distributed across the network. Your share is based on your Impact Power in that farm’s region for the given week.",
-    impactPowerLabel: "Impact Power",
+      "Your Solar Footprint is your verified slice of the network's real solar, measured in Watts. Each time a farm is funded, its physical capacity is split into Watts and attributed to the people powering it.",
+    impactPowerLabel: "Your Watts",
     impactPowerDescription:
-      "Direct Points + Glow Worth Points. Direct points come from emissions rewards, steering, and vault participation. Glow Worth is distributed by each region’s emission share.",
+      "You earn Watts by participating: delegating GLW and staking GCTL (steering) earn the most, with extra Watts from mining and referrals. The more you back the network, the larger your footprint.",
     whatToExpect: "What to Expect",
-    expectItem1Title: "Panels grow with new farms",
-    expectItem1Body: "Every 400W captured becomes one completed panel.",
-    expectItem2Title: "Regional share matters",
+    expectItem1Title: "Panels fill as your Watts grow",
+    expectItem1Body: "Every 400 Watts you earn completes one solar panel.",
+    expectItem2Title: "Watts become real impact",
     expectItem2Body:
-      "Your influence is measured per region based on the week the farm is funded.",
-    expectItem3Title: "Completed weeks only",
-    expectItem3Body: "New farms appear once the protocol week is completed.",
+      "Your Watts translate into energy generated, homes powered, and CO2 avoided (shown as trees).",
+    expectItem3Title: "Updated every week",
+    expectItem3Body:
+      "Your Watts grow as new farms are funded and each protocol week completes.",
     gotIt: "Got it",
     sectionTitle: "Verified Solar Footprint",
     sectionTitleTooltip:
@@ -1670,7 +1671,7 @@ const ko: WidgetStrings = {
     gamificationHook: "획득:",
     gamificationPoints: "GLW 방향 조정당 3포인트",
     mintAndStake: "GCTL 발행 및 스테이킹",
-    boost: "부스트",
+    mintGctl: "GCTL 발행",
     myHoldings: "내 보유량",
     liquidSuffix: "유동",
     activeSuffix: "활성",
@@ -1857,18 +1858,19 @@ const ko: WidgetStrings = {
     cardHeading: "검증된 솔라 풋프린트",
     cardSubheading: "실제 발전소 · 실제 용량",
     mainDescription:
-      "발전소가 펀딩될 때마다 해당 물리적 용량이 네트워크에 분배됩니다. 해당 주차에 그 발전소의 지역에서 본인이 보유한 임팩트 파워에 따라 본인의 지분이 결정됩니다.",
-    impactPowerLabel: "임팩트 파워",
+      "솔라 풋프린트는 네트워크 실제 태양광에서 본인이 차지하는 검증된 몫이며, 와트(Watts)로 측정됩니다. 발전소가 펀딩될 때마다 그 물리적 용량이 와트로 분배되어 네트워크를 지원한 사람들에게 귀속됩니다.",
+    impactPowerLabel: "내 와트",
     impactPowerDescription:
-      "직접 포인트 + Glow 자산 포인트. 직접 포인트는 발행분 리워드, 스티어링, 볼트 참여에서 획득합니다. Glow 자산은 각 지역의 발행분 지분에 따라 분배됩니다.",
+      "참여를 통해 와트를 획득합니다. GLW 위임과 GCTL 스테이킹(스티어링)이 가장 많고, 마이닝과 추천으로 추가 와트를 받습니다. 네트워크를 더 지원할수록 풋프린트가 커집니다.",
     whatToExpect: "확인 포인트",
-    expectItem1Title: "새 발전소와 함께 패널이 늘어납니다",
-    expectItem1Body: "400W를 획득할 때마다 패널 한 개가 완성됩니다.",
-    expectItem2Title: "지역별 지분이 중요합니다",
+    expectItem1Title: "와트가 늘면 패널이 채워집니다",
+    expectItem1Body: "400와트를 획득할 때마다 태양광 패널 한 개가 완성됩니다.",
+    expectItem2Title: "와트가 실제 영향이 됩니다",
     expectItem2Body:
-      "펀딩된 주차를 기준으로 각 지역별 본인의 영향력이 측정됩니다.",
-    expectItem3Title: "완료된 주차만 반영",
-    expectItem3Body: "프로토콜 주차가 완료되면 새 발전소가 표시됩니다.",
+      "와트는 생산된 에너지, 전력을 공급한 가구, 줄인 CO2(나무로 표시)로 환산됩니다.",
+    expectItem3Title: "매주 업데이트",
+    expectItem3Body:
+      "새 발전소가 펀딩되고 각 프로토콜 주차가 완료되면 와트가 늘어납니다.",
     gotIt: "확인",
     sectionTitle: "검증된 솔라 풋프린트",
     sectionTitleTooltip:
@@ -2325,7 +2327,7 @@ const zh: WidgetStrings = {
     gamificationHook: "赚取",
     gamificationPoints: "每引导 1 GLW 获 3 积分",
     mintAndStake: "铸造并质押 GCTL",
-    boost: "加成",
+    mintGctl: "铸造 GCTL",
     myHoldings: "我的持仓",
     liquidSuffix: "流动",
     activeSuffix: "活跃",
@@ -2508,17 +2510,17 @@ const zh: WidgetStrings = {
     cardHeading: "已验证的太阳能足迹",
     cardSubheading: "真实农场 · 真实容量",
     mainDescription:
-      "每当一座农场获得资助,其物理容量就会在网络中分配。您的份额取决于该周您在该农场所属地区的影响力。",
-    impactPowerLabel: "影响力",
+      "您的太阳能足迹是您在网络真实太阳能中经过验证的份额,以瓦特(Watts)衡量。每当一座农场获得资助,其物理容量就会被拆分为瓦特,并归属给为网络提供支持的人。",
+    impactPowerLabel: "我的瓦特",
     impactPowerDescription:
-      "直接积分 + Glow 净值积分。直接积分来自增发奖励、引导和金库参与。Glow 净值按各地区的增发份额进行分配。",
+      "通过参与赚取瓦特:委托 GLW 与质押 GCTL(引导)收益最高,挖矿和推荐可获得额外瓦特。您对网络的支持越多,足迹就越大。",
     whatToExpect: "您可以期待",
-    expectItem1Title: "新农场带来更多面板",
-    expectItem1Body: "每捕获 400W 即可完成一块面板。",
-    expectItem2Title: "地区份额很重要",
-    expectItem2Body: "您的影响力按农场获得资助的当周以地区为单位进行衡量。",
-    expectItem3Title: "仅计入已完成周",
-    expectItem3Body: "协议周完成后,新农场才会出现。",
+    expectItem1Title: "瓦特增长,面板填充",
+    expectItem1Body: "每赚取 400 瓦特即可完成一块太阳能面板。",
+    expectItem2Title: "瓦特转化为真实影响",
+    expectItem2Body: "您的瓦特会换算为发电量、供电家庭数和减少的 CO2(以树木表示)。",
+    expectItem3Title: "每周更新",
+    expectItem3Body: "随着新农场获得资助和每个协议周完成,您的瓦特会增加。",
     gotIt: "知道了",
     sectionTitle: "已验证的太阳能足迹",
     sectionTitleTooltip:

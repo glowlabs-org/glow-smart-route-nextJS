@@ -128,7 +128,7 @@ export function formatWhenLabel(
   return date.toLocaleDateString(bcp47, { month: "short", day: "numeric" });
 }
 
-function calculateImpact(totalWatts: number) {
+export function calculateImpact(totalWatts: number) {
   // 1. Conversion Constants from Solar-Fleet Specs
   const SOLAR_CAPACITY_FACTOR = 0.18;
   const HOURS_PER_YEAR = 8760;

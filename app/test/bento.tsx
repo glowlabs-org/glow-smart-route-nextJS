@@ -13,7 +13,6 @@ import WalletWidget from "./widgets/wallet-widget";
 import RankWidget from "./widgets/rank-widget";
 import RewardsWidget from "./widgets/rewards-widget";
 import GlowFaqWidget from "./widgets/glow-faq-widget";
-import GctlHeatmapWidget from "./widgets/gctl-heatmap-widget";
 import RecentActivityWidget from "./widgets/recent-activity-widget";
 import CommunityActivityWidget from "./widgets/community-activity-widget";
 import BlogFeaturedWidget from "./widgets/blog-featured-widget";
@@ -752,34 +751,15 @@ export default function GlowSoftDashboard({
               <section className="flex flex-col gap-8 pt-20">
                 <SectionHeader title={t.home.sections.growYourImpact} />
                 <div className="rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10 p-4 sm:p-6 lg:p-12">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/20 dark:divide-white/10 items-stretch">
-                    <div
-                      id="bento-launchpad-status"
-                      className="pb-8 lg:pb-0 lg:pr-10 flex"
-                    >
-                      <WidgetErrorBoundary>
-                        <LaunchpadStatusWidget
-                          key={`launchpad-status-${walletAddress ?? "anon"}-${dashboardRefreshNonce}`}
-                          variant="minimal"
-                          onPayDeposit={readOnly ? undefined : handlePayDeposit}
-                          isApproaching={isApproachingLaunchpad}
-                        />
-                      </WidgetErrorBoundary>
-                    </div>
-                    <div className="pt-8 lg:pt-0 lg:pl-10 flex">
-                      <WidgetErrorBoundary>
-                        <GctlHeatmapWidget
-                          walletAddress={walletAddress}
-                          variant="minimal"
-                          readOnly={readOnly}
-                          onMintAndStakeClick={
-                            readOnly
-                              ? undefined
-                              : () => setIsMintAndStakeOpen(true)
-                          }
-                        />
-                      </WidgetErrorBoundary>
-                    </div>
+                  <div id="bento-launchpad-status">
+                    <WidgetErrorBoundary>
+                      <LaunchpadStatusWidget
+                        key={`launchpad-status-${walletAddress ?? "anon"}-${dashboardRefreshNonce}`}
+                        variant="minimal"
+                        onPayDeposit={readOnly ? undefined : handlePayDeposit}
+                        isApproaching={isApproachingLaunchpad}
+                      />
+                    </WidgetErrorBoundary>
                   </div>
                 </div>
               </section>
@@ -792,6 +772,9 @@ export default function GlowSoftDashboard({
                     <SolarCollectorWidget
                       walletAddress={walletAddress}
                       readOnly={readOnly}
+                      onMintAndStakeClick={
+                        readOnly ? undefined : () => setIsMintAndStakeOpen(true)
+                      }
                       onFarmClick={(farmId) => {
                         // Scroll to the farm card in the grid below
                         const el = document.querySelector(
