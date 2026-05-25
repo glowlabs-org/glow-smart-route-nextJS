@@ -12,7 +12,6 @@ import NetWorthWidget from "./widgets/net-worth";
 import WalletWidget from "./widgets/wallet-widget";
 import RankWidget from "./widgets/rank-widget";
 import RewardsWidget from "./widgets/rewards-widget";
-import WeeklyActivityWidget from "./widgets/weekly-activity-widget";
 import GlowFaqWidget from "./widgets/glow-faq-widget";
 import GctlHeatmapWidget from "./widgets/gctl-heatmap-widget";
 import RecentActivityWidget from "./widgets/recent-activity-widget";
@@ -819,44 +818,14 @@ export default function GlowSoftDashboard({
               <section className="flex flex-col gap-8 pt-20">
                 <SectionHeader title={t.home.sections.yourJourney} />
                 <div className="rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10 p-4 sm:p-6 lg:p-12">
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/20 dark:divide-white/10 items-stretch">
-                    <div className="pb-8 lg:pb-0 lg:pr-10 flex lg:col-span-5">
-                      <DeferredLaunchWindowAnalytics
-                        enabled={shouldDeferHeavyAnalytics}
-                        delayMs={getDeferredAnalyticsDelayMs({
-                          walletAddress,
-                          salt: "weekly-activity-widget",
-                          baseMs: 10_000,
-                          spreadMs: 8_000,
-                        })}
-                        fallback={
-                          <DeferredAnalyticsCard
-                            title={t.home.deferred.weeklyStreak.title}
-                            description={t.home.deferred.weeklyStreak.description}
-                          />
-                        }
-                      >
-                        <WidgetErrorBoundary>
-                          <WeeklyActivityWidget
-                            walletAddress={walletAddress}
-                            hideIfEmpty={false}
-                            variant="minimal"
-                          />
-                        </WidgetErrorBoundary>
-                      </DeferredLaunchWindowAnalytics>
-                    </div>
-
-                    <div className="pt-8 lg:pt-0 lg:pl-10 flex lg:col-span-7">
-                      <WidgetErrorBoundary>
-                        <RecentActivityWidget
-                          key={`recent-activity-${walletAddress ?? "anon"}-${dashboardRefreshNonce}`}
-                          walletAddress={walletAddress}
-                          hideIfEmpty={false}
-                          variant="minimal"
-                        />
-                      </WidgetErrorBoundary>
-                    </div>
-                  </div>
+                  <WidgetErrorBoundary>
+                    <RecentActivityWidget
+                      key={`recent-activity-${walletAddress ?? "anon"}-${dashboardRefreshNonce}`}
+                      walletAddress={walletAddress}
+                      hideIfEmpty={false}
+                      variant="minimal"
+                    />
+                  </WidgetErrorBoundary>
                 </div>
               </section>
 

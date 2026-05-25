@@ -166,7 +166,7 @@ function WeeklyStreakPanel({
   const r = t.widgets.rankWidget;
 
   const containerClass = cn(
-    "flex items-center gap-3 rounded-2xl border bg-card/50 dark:bg-card/80 w-full max-w-full mx-auto",
+    "flex flex-col gap-2.5 rounded-2xl border bg-card/50 dark:bg-card/80 w-full max-w-full mx-auto",
     isHero
       ? "px-3 py-2.5 border-border/30 dark:border-border/40"
       : "px-4 py-3 border-border/20 dark:border-border/40",
@@ -175,11 +175,14 @@ function WeeklyStreakPanel({
   if (isLoading) {
     return (
       <div className={containerClass}>
-        <Skeleton className="h-10 w-10 rounded-full shrink-0" />
-        <div className="flex flex-1 flex-col gap-1.5">
-          <Skeleton className="h-3.5 w-24 rounded-xl" />
-          <Skeleton className="h-3 w-32 rounded-xl" />
+        <div className="flex items-center gap-3 w-full">
+          <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+          <div className="flex flex-1 flex-col gap-1.5">
+            <Skeleton className="h-3.5 w-24 rounded-xl" />
+            <Skeleton className="h-3 w-32 rounded-xl" />
+          </div>
         </div>
+        <Skeleton className="h-1.5 w-full rounded-full" />
       </div>
     );
   }
@@ -188,7 +191,9 @@ function WeeklyStreakPanel({
   const qualified = streak?.qualified ?? false;
   const nextAward = streak?.nextAwardPoints ?? 0;
   const active = streakWeek > 0;
-  const maxed = capWeek != null && streakWeek >= capWeek;
+  const capWeeks = capWeek ?? 20;
+  const maxed = streakWeek >= capWeeks;
+  const filledDots = Math.max(0, Math.min(streakWeek, capWeeks));
 
   const heading = active ? r.streakWeeks(streakWeek) : r.streakNone;
   const subtext = !active
@@ -201,42 +206,60 @@ function WeeklyStreakPanel({
 
   return (
     <div className={containerClass}>
-      <div
-        className={cn(
-          "flex items-center justify-center rounded-full shrink-0",
-          active
-            ? "bg-[#4ADE80]/10 text-[#4ADE80]"
-            : "bg-muted/40 text-muted-foreground",
-          isHero ? "h-9 w-9" : "h-10 w-10",
-        )}
-      >
-        <ImpactStreakIcon
+      <div className="flex items-center gap-3 w-full">
+        <div
           className={cn(
-            isHero ? "h-4 w-4" : "h-5 w-5",
-            active && !maxed && "animate-pulse",
+            "flex items-center justify-center rounded-full shrink-0",
+            active
+              ? "bg-[#4ADE80]/10 text-[#4ADE80]"
+              : "bg-muted/40 text-muted-foreground",
+            isHero ? "h-9 w-9" : "h-10 w-10",
           )}
-        />
-      </div>
-
-      <div className="flex flex-col min-w-0 flex-1 text-left">
-        <span className="text-sm font-semibold text-foreground truncate">
-          {heading}
-        </span>
-        <span className="text-[11px] text-muted-foreground truncate">
-          {subtext}
-        </span>
-      </div>
-
-      {nextAward > 0 && !maxed ? (
-        <div className="text-right shrink-0">
-          <div className="font-mono text-sm font-semibold text-[#4ADE80] tabular-nums">
-            +{formatPoints(String(nextAward))}
-          </div>
-          <div className="text-[9px] uppercase tracking-wider text-muted-foreground/70">
-            pts
-          </div>
+        >
+          <ImpactStreakIcon
+            className={cn(
+              isHero ? "h-4 w-4" : "h-5 w-5",
+              active && !maxed && "animate-pulse",
+            )}
+          />
         </div>
-      ) : null}
+
+        <div className="flex flex-col min-w-0 flex-1 text-left">
+          <span className="text-sm font-semibold text-foreground truncate">
+            {heading}
+          </span>
+          <span className="text-[11px] text-muted-foreground truncate">
+            {subtext}
+          </span>
+        </div>
+
+        {nextAward > 0 && !maxed ? (
+          <div className="text-right shrink-0">
+            <div className="font-mono text-sm font-semibold text-[#4ADE80] tabular-nums">
+              +{formatPoints(String(nextAward))}
+            </div>
+            <div className="text-[9px] uppercase tracking-wider text-muted-foreground/70">
+              pts
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      {/* Weekly streak progress toward the cap. */}
+      <div className="flex items-center justify-between gap-[3px] w-full">
+
+        {Array.from({ length: capWeeks }).map((_, i) => (
+          <span
+            key={i}
+            className={cn(
+              "h-1.5 w-1.5 rounded-full shrink-0 transition-colors",
+              i < filledDots
+                ? "bg-[#4ADE80]"
+                : "bg-muted-foreground/15 dark:bg-muted-foreground/25",
+            )}
+          />
+        ))}
+      </div>
     </div>
   );
 }
