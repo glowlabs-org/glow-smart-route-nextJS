@@ -361,6 +361,9 @@ export interface BigDialogsStrings {
     estWeekly: string;
     estWeeklyLower: string;
     earned: string;
+    shopMinerBadge: string;
+    shopMinerSource: string;
+    pointsSuffix: string;
     readyToClaim: string;
     rewardPipeline: string;
     breakdown: string;
@@ -839,6 +842,9 @@ const en: BigDialogsStrings = {
     estWeekly: "Est. Weekly",
     estWeeklyLower: "Est. weekly",
     earned: "Earned",
+    shopMinerBadge: "Shop Miner",
+    shopMinerSource: "Points Shop",
+    pointsSuffix: "pts",
     readyToClaim: "Ready to claim",
     rewardPipeline: "Reward Pipeline",
     breakdown: "Breakdown",
@@ -1317,6 +1323,9 @@ const ko: BigDialogsStrings = {
     estWeekly: "예상 주간",
     estWeeklyLower: "예상 주간",
     earned: "획득",
+    shopMinerBadge: "샵 마이너",
+    shopMinerSource: "포인트 샵",
+    pointsSuffix: "pts",
     readyToClaim: "클레임 가능",
     rewardPipeline: "리워드 파이프라인",
     breakdown: "내역",
@@ -1786,6 +1795,9 @@ const zh: BigDialogsStrings = {
     estWeekly: "预计每周",
     estWeeklyLower: "预计每周",
     earned: "已获得",
+    shopMinerBadge: "商店矿机",
+    shopMinerSource: "积分商店",
+    pointsSuffix: "积分",
     readyToClaim: "可领取",
     rewardPipeline: "奖励管道",
     breakdown: "明细",

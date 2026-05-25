@@ -47,6 +47,7 @@ import {
   useWalletFarms,
 } from "@/hooks";
 import { useWalletLaunchpadInProgress } from "@/hooks/use-wallet-launchpad-in-progress";
+import { useShopMinerHoldings } from "@/hooks/v2-shop-miner";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -235,6 +236,9 @@ interface PerformanceRowData {
   region: string;
   type: "miner" | "delegation" | "other" | "in-progress";
   isPendingStart?: boolean;
+  isShopMiner?: boolean;
+  shopPointsCost?: number;
+  shopWeeksRemaining?: number | null;
   purchaseDate?: string | null;
   initialCost: number;
   recovered: number;
@@ -478,6 +482,137 @@ function FirstFundsInfo(props: { className?: string; labels: FarmsPerfLabels }) 
     </ShadTooltip>
   );
 }
+
+// --- COMPONENT: POINTS-SHOP MINER ROW ---
+// Shop miners are fulfilled outside fractions (no ROI / recovery), so they get
+// a simplified row: points cost, estimated weekly GLW, and weeks remaining.
+const ShopMinerRow = ({ data }: { data: PerformanceRowData }) => {
+  const { t } = useLang();
+  const fp = t.bigDialogs.farmsPerformance;
+
+  const pointsLabel = `${(data.shopPointsCost ?? 0).toLocaleString("en-US", {
+    maximumFractionDigits: 0,
+  })} ${fp.pointsSuffix}`;
+  const estWeeklyLabel =
+    formatEstimatedWeeklyRewards(
+      {
+        estimatedUserWeeklyGlw: data.estimatedUserWeeklyGlw,
+        estimatedUserWeeklyUsd: data.estimatedUserWeeklyUsd,
+      },
+      fp
+    ) ?? "—";
+  const weeksRemaining =
+    typeof data.shopWeeksRemaining === "number" ? data.shopWeeksRemaining : null;
+  const weeksLabel = weeksRemaining != null ? fp.weeksLeft(weeksRemaining) : "—";
+
+  const iconBox = (
+    <div className="h-10 w-10 shrink-0 rounded-xl flex items-center justify-center border bg-[color:var(--color-miner)]/12 border-[color:var(--color-miner)] text-[color:var(--color-miner-contrast)]">
+      <CashMinerIcon className="w-6 h-6" />
+    </div>
+  );
+  const badge = (
+    <div className="text-xs font-bold font-mono text-[color:var(--color-miner-contrast)]">
+      {fp.shopMinerBadge.toUpperCase()}
+    </div>
+  );
+
+  return (
+    <div className="rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50">
+      {/* MOBILE CARD */}
+      <div className="sm:hidden p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3 min-w-0">
+            {iconBox}
+            <div className="min-w-0">
+              <div className="font-bold text-base text-foreground leading-tight truncate">
+                {data.id}
+              </div>
+              <div className="text-sm font-mono text-muted-foreground truncate">
+                {data.region}
+                {weeksRemaining != null ? ` · ${weeksLabel}` : ""}
+              </div>
+            </div>
+          </div>
+          <div className="shrink-0">{badge}</div>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2 text-center">
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
+              {fp.cost}
+            </div>
+            <div className="text-sm font-bold font-mono text-foreground tabular-nums">
+              {pointsLabel}
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
+              {fp.estWeekly}
+            </div>
+            <div className="text-sm font-bold font-mono text-[color:var(--color-miner-contrast)] tabular-nums">
+              {estWeeklyLabel}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* DESKTOP ROW */}
+      <div className="hidden sm:block">
+        <div className="grid grid-cols-12 items-center p-4 gap-4">
+          <div className="col-span-3 flex items-center gap-3">
+            {iconBox}
+            <div className="flex flex-col min-w-0">
+              <span className="font-bold text-base text-foreground leading-tight truncate">
+                {data.id}
+              </span>
+              <span className="text-sm font-mono text-muted-foreground truncate">
+                {data.region}
+              </span>
+            </div>
+          </div>
+          <div className="col-span-3 px-2">
+            <div className="text-xs font-mono text-muted-foreground">
+              {fp.shopMinerSource}
+            </div>
+            {weeksRemaining != null ? (
+              <div className="text-[11px] font-mono text-muted-foreground/80">
+                {weeksLabel}
+              </div>
+            ) : null}
+          </div>
+          <div className="col-span-4 flex items-center justify-center gap-6">
+            <div className="text-center min-w-[70px]">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
+                {fp.cost}
+              </div>
+              <div className="text-lg font-bold font-mono text-foreground tabular-nums leading-tight">
+                {pointsLabel}
+              </div>
+            </div>
+            <div className="text-center min-w-[70px]">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
+                {fp.estWeekly}
+              </div>
+              <div className="text-lg font-bold font-mono text-[color:var(--color-miner-contrast)] tabular-nums leading-tight">
+                {estWeeklyLabel}
+              </div>
+            </div>
+            <div className="text-center min-w-[70px]">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
+                {fp.lastWeek}
+              </div>
+              <div className="text-sm font-mono font-semibold text-foreground tabular-nums">
+                —
+              </div>
+            </div>
+          </div>
+          <div className="col-span-2 flex items-center justify-end">
+            {badge}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // --- COMPONENT: THE FARM ROW ---
 const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
@@ -1341,6 +1476,10 @@ export function FarmsPerformanceDialogContent({
   const { spotPrice: glwSpotPriceUsd, isLoading: isSpotPriceLoading } =
     useGlowSpotPrice();
 
+  const { holdings: shopMinerHoldings } = useShopMinerHoldings(
+    walletAddress ?? null
+  );
+
   const {
     activity: splitsActivity,
     isLoading: isSplitsActivityLoading,
@@ -1623,6 +1762,42 @@ export function FarmsPerformanceDialogContent({
   const rewardFarmIds = React.useMemo(() => {
     return new Set(rows.map((r) => r.farmId));
   }, [rows]);
+
+  // Points-shop miners are fulfilled outside fractions, so they never appear in
+  // rewards-breakdown / splits. Surface them as their own miner rows.
+  const shopMinerRows = React.useMemo<PerformanceRowData[]>(() => {
+    return shopMinerHoldings.map((holding): PerformanceRowData => {
+      const farmMeta = purchasedFarms.find((f) => f.farmId === holding.farmId);
+      const region = farmMeta
+        ? regions.find((r) => r.id === farmMeta.regionId)?.name ??
+          fp.regionFallback(farmMeta.regionId)
+        : fp.shopMinerSource;
+      const weeksRemaining =
+        typeof holding.weeksRemaining === "number" && holding.weeksRemaining > 0
+          ? holding.weeksRemaining
+          : null;
+      return {
+        farmId: holding.farmId,
+        id:
+          holding.farmName ?? fp.farmFallback(holding.farmId.substring(0, 8)),
+        region,
+        type: "miner",
+        isShopMiner: true,
+        shopPointsCost: holding.pricePoints,
+        shopWeeksRemaining: weeksRemaining,
+        initialCost: holding.minerValueUsd,
+        recovered: 0,
+        inflation: 0,
+        inflationGlw: 0,
+        protocolDepositAsset: "GLW",
+        isProtocolDepositUsd: false,
+        weeksActive: 0,
+        totalWeeks: weeksRemaining ?? 99,
+        estimatedUserWeeklyGlw: holding.weeklyGlwRewards ?? 0,
+        estimatedUserWeeklyUsd: holding.weeklyGlwRewardsUsd ?? 0,
+      };
+    });
+  }, [fp, purchasedFarms, regions, shopMinerHoldings]);
 
   const rewardedFarmTypeKeys = React.useMemo(() => {
     if (!rewardsBreakdown) return new Set<string>();
@@ -2109,9 +2284,15 @@ export function FarmsPerformanceDialogContent({
   const visibleRowsWithInProgress = React.useMemo(() => {
     if (filter === "in-progress") return inProgressRows;
     if (filter === "all")
-      return [...pendingStartRows, ...inProgressRows, ...visibleRows];
+      return [
+        ...shopMinerRows,
+        ...pendingStartRows,
+        ...inProgressRows,
+        ...visibleRows,
+      ];
     if (filter === "miners")
       return [
+        ...shopMinerRows,
         ...pendingStartRows.filter(
           (r) => r.type === "miner" && r.isProtocolDepositUsd
         ),
@@ -2127,7 +2308,7 @@ export function FarmsPerformanceDialogContent({
         ...visibleRows.filter((r) => r.type === "delegation"),
       ];
     return visibleRows;
-  }, [filter, inProgressRows, pendingStartRows, visibleRows]);
+  }, [filter, inProgressRows, pendingStartRows, shopMinerRows, visibleRows]);
 
   const isListLoading =
     filter === "in-progress"
@@ -2159,8 +2340,16 @@ export function FarmsPerformanceDialogContent({
     ).length;
 
     return {
-      all: rows.length + pendingStartRows.length + inProgressRows.length,
-      miners: rewardMinerCount + pendingMinerCount + inProgressMinerCount,
+      all:
+        rows.length +
+        pendingStartRows.length +
+        inProgressRows.length +
+        shopMinerRows.length,
+      miners:
+        rewardMinerCount +
+        pendingMinerCount +
+        inProgressMinerCount +
+        shopMinerRows.length,
       delegations:
         rewardDelegationCount +
         pendingDelegationCount +
@@ -2168,7 +2357,7 @@ export function FarmsPerformanceDialogContent({
       other: rewardOtherCount,
       inProgress: inProgressRows.length,
     };
-  }, [inProgressRows, pendingStartRows, rows]);
+  }, [inProgressRows, pendingStartRows, rows, shopMinerRows]);
 
   return (
     <DialogContent className="max-w-5xl h-[92dvh] sm:h-[80vh] min-h-0 flex flex-col p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40">
@@ -2308,12 +2497,19 @@ export function FarmsPerformanceDialogContent({
                       {fp.roiRequiresSpotPrice}
                     </div>
                   )}
-                {visibleRowsWithInProgress.map((row, index) => (
-                  <FarmPerformanceRow
-                    key={`${row.type}-${row.farmId}-${row.protocolDepositAsset ?? "x"}-${row.isPendingStart ? "p" : row.inProgressKind ?? "r"}-${index}`}
-                    data={row}
-                  />
-                ))}
+                {visibleRowsWithInProgress.map((row, index) =>
+                  row.isShopMiner ? (
+                    <ShopMinerRow
+                      key={`shop-${row.farmId}-${index}`}
+                      data={row}
+                    />
+                  ) : (
+                    <FarmPerformanceRow
+                      key={`${row.type}-${row.farmId}-${row.protocolDepositAsset ?? "x"}-${row.isPendingStart ? "p" : row.inProgressKind ?? "r"}-${index}`}
+                      data={row}
+                    />
+                  )
+                )}
               </>
             )}
           </div>
