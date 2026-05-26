@@ -702,6 +702,39 @@ export default function GlowSoftDashboard({
                 </div>
               </section>
 
+              {/* My Impact Section */}
+              <section className="flex flex-col gap-8 pt-20">
+                <SectionHeader title={t.home.sections.myImpact} />
+                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10 p-4 sm:p-6 lg:p-12">
+                  <WidgetErrorBoundary>
+                    <SolarCollectorWidget
+                      walletAddress={walletAddress}
+                      readOnly={readOnly}
+                      onMintAndStakeClick={
+                        readOnly ? undefined : () => setIsMintAndStakeOpen(true)
+                      }
+                      onFarmClick={(farmId) => {
+                        // Scroll to the farm card in the grid below
+                        const el = document.querySelector(
+                          `[data-farm-id="${farmId}"]`,
+                        );
+                        if (el) {
+                          el.scrollIntoView({
+                            behavior: "smooth",
+                            block: "center",
+                          });
+                          el.classList.add("ring-2", "ring-primary");
+                          setTimeout(
+                            () => el.classList.remove("ring-2", "ring-primary"),
+                            2000,
+                          );
+                        }
+                      }}
+                    />
+                  </WidgetErrorBoundary>
+                </div>
+              </section>
+
               {/* Mining & Rewards Section */}
               <section className="flex flex-col gap-8 pt-20">
                 <SectionHeader title={t.home.sections.miningAndRewards} />
@@ -746,39 +779,6 @@ export default function GlowSoftDashboard({
                       </DeferredLaunchWindowAnalytics>
                     </div>
                   </div>
-                </div>
-              </section>
-
-              {/* My Impact Section */}
-              <section className="flex flex-col gap-8 pt-20">
-                <SectionHeader title={t.home.sections.myImpact} />
-                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10 p-4 sm:p-6 lg:p-12">
-                  <WidgetErrorBoundary>
-                    <SolarCollectorWidget
-                      walletAddress={walletAddress}
-                      readOnly={readOnly}
-                      onMintAndStakeClick={
-                        readOnly ? undefined : () => setIsMintAndStakeOpen(true)
-                      }
-                      onFarmClick={(farmId) => {
-                        // Scroll to the farm card in the grid below
-                        const el = document.querySelector(
-                          `[data-farm-id="${farmId}"]`,
-                        );
-                        if (el) {
-                          el.scrollIntoView({
-                            behavior: "smooth",
-                            block: "center",
-                          });
-                          el.classList.add("ring-2", "ring-primary");
-                          setTimeout(
-                            () => el.classList.remove("ring-2", "ring-primary"),
-                            2000,
-                          );
-                        }
-                      }}
-                    />
-                  </WidgetErrorBoundary>
                 </div>
               </section>
 

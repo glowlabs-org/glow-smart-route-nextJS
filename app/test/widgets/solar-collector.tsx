@@ -709,6 +709,10 @@ export default function SolarCollectorWidget({
     ? getRegionLabel(model.recentDrop.regionId, regions, t.widgets.solarCollector.cleanGridRegion)
     : "";
 
+  // Only surface the latest addition when the wallet actually captured watts on it.
+  const showLatestAddition = (model.recentDrop?.wattsCaptured ?? 0) > 0;
+  const showBreakdownButton = !readOnly && Boolean(normalizedWalletAddress);
+
   const hasSignificantInfluence = React.useMemo(() => {
     if (!impactPowerTrendData.length) return false;
     return impactPowerTrendData.some((row) =>
@@ -867,14 +871,32 @@ export default function SolarCollectorWidget({
               </TooltipProvider>
             </div>
 
-            <button
-              type="button"
-              className="shrink-0 h-8 inline-flex items-center gap-1.5 rounded-lg px-3 text-xs font-medium border border-border hover:bg-muted/50 transition-colors"
-              onClick={handleLearnMore}
-            >
-              <HelpCircle className="h-3.5 w-3.5" />
-              {t.widgets.solarCollector.learnMore}
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              {showBreakdownButton && (
+                <button
+                  type="button"
+                  className="h-8 inline-flex items-center gap-1.5 rounded-lg px-3 text-xs font-medium bg-foreground text-background hover:bg-foreground/90 transition-colors"
+                  onClick={() => {
+                    trackEvent("impact_summary_breakdown_click", {
+                      source,
+                      wallet_address: normalizedWalletAddress,
+                    });
+                    setIsBreakdownOpen(true);
+                  }}
+                >
+                  <PieChartIcon className="h-3.5 w-3.5" />
+                  {t.widgets.rankWidget.breakdown}
+                </button>
+              )}
+              <button
+                type="button"
+                className="h-8 inline-flex items-center gap-1.5 rounded-lg px-3 text-xs font-medium border border-border hover:bg-muted/50 transition-colors"
+                onClick={handleLearnMore}
+              >
+                <HelpCircle className="h-3.5 w-3.5" />
+                {t.widgets.solarCollector.learnMore}
+              </button>
+            </div>
           </div>
 
           {/* Main Metrics Grid */}
@@ -1029,13 +1051,12 @@ export default function SolarCollectorWidget({
 
           </div>
 
-          {/* Bottom Section: Latest Addition + Actions */}
-          <div className="mt-4 pt-4 border-t border-border/50 flex flex-col md:flex-row gap-4">
-            {/* Latest Verified Addition */}
-            {model.recentDrop ? (
+          {/* Bottom Section: Latest Verified Addition (only when the wallet captured watts) */}
+          {showLatestAddition && model.recentDrop && (
+          <div className="mt-4 pt-4 border-t border-border/50">
               <button
                 type="button"
-                className="flex-1 rounded-xl border border-border bg-muted/10 hover:bg-muted/20 transition-colors p-3 text-left group"
+                className="w-full rounded-xl border border-border bg-muted/10 hover:bg-muted/20 transition-colors p-3 text-left group"
                 onClick={() => {
                   trackEvent("impact_summary_recent_farm_click", {
                     source,
@@ -1113,50 +1134,24 @@ export default function SolarCollectorWidget({
                   <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform shrink-0" />
                 </div>
               </button>
-            ) : (
-              <div className="flex-1 rounded-xl border border-border bg-muted/10 p-3">
-                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1">
-                  {t.widgets.solarCollector.latestAddition}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  {t.widgets.solarCollector.noRecentAdditions}
-                </div>
-              </div>
-            )}
-
-            {/* Action Button - matches height of Latest Verified Addition */}
-            {!readOnly && normalizedWalletAddress && (
-              <button
-                type="button"
-                className="shrink-0 min-h-12 rounded-xl px-6 text-xs font-medium bg-foreground text-background hover:bg-foreground/90 transition-colors flex items-center justify-center gap-2 md:min-w-[100px]"
-                onClick={() => {
-                  trackEvent("impact_summary_breakdown_click", {
-                    source,
-                    wallet_address: normalizedWalletAddress,
-                  });
-                  setIsBreakdownOpen(true);
-                }}
-              >
-                <PieChartIcon className="h-4 w-4" />
-                {t.widgets.rankWidget.breakdown}
-              </button>
-            )}
           </div>
+          )}
 
           {/* Impact Charts Section */}
           <div className="mt-8 pt-6 border-t border-border/50">
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
               {/* 1. Regional Distribution (Pie) */}
-              <div className="space-y-4">
+              <div className="flex flex-col gap-4">
                 <div className="flex items-center gap-2">
                   <PieChartIcon className="h-4 w-4 text-muted-foreground" />
                   <div className="text-[11px] font-mono font-bold uppercase tracking-widest text-muted-foreground">
                     {t.widgets.solarCollector.regionalDistribution}
                   </div>
                 </div>
+                <div className="relative flex-1 min-h-[200px] w-full">
                 <ChartContainer
                   config={chartConfig}
-                  className="h-[200px] w-full aspect-auto"
+                  className="absolute inset-0 h-full w-full aspect-auto"
                 >
                   <PieChart>
                     <ChartTooltip
@@ -1206,19 +1201,21 @@ export default function SolarCollectorWidget({
                     />
                   </PieChart>
                 </ChartContainer>
+                </div>
               </div>
 
               {/* 2. Cumulative Growth (Area) */}
-              <div className="space-y-4">
+              <div className="flex flex-col gap-4">
                 <div className="flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
                   <div className="text-[11px] font-mono font-bold uppercase tracking-widest text-muted-foreground">
                     {t.widgets.solarCollector.footprintGrowth}
                   </div>
                 </div>
+                <div className="relative flex-1 min-h-[200px] w-full">
                 <ChartContainer
                   config={chartConfig}
-                  className="h-[200px] w-full aspect-auto"
+                  className="absolute inset-0 h-full w-full aspect-auto"
                 >
                   <AreaChart
                     data={growthData}
@@ -1280,6 +1277,7 @@ export default function SolarCollectorWidget({
                     />
                   </AreaChart>
                 </ChartContainer>
+                </div>
               </div>
 
               {/* 3. Glow Control / Steering */}
