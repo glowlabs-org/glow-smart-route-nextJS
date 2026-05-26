@@ -14,7 +14,7 @@
 import React from "react";
 import { useQueryState, parseAsInteger, parseAsString } from "nuqs";
 import { useAccount, useEnsAddress } from "wagmi";
-import { ArrowDown, ArrowUp, Copy, MapPin, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, Copy, MapPin, Search, Trophy } from "lucide-react";
 import { isAddress } from "viem";
 import { normalize } from "viem/ens";
 
@@ -56,6 +56,7 @@ import { shortAddress, formatTopPercentile } from "@/utils/impact";
 import { copyTextToClipboard } from "@/utils/clipboard";
 import {
   useV2ImpactLeaderboard,
+  type V2LeaderboardRow,
   type V2LeaderboardSort,
   type V2SortDir,
 } from "@/hooks/v2-impact";
@@ -107,6 +108,158 @@ function RankCell({
     <span className="font-mono text-xs text-muted-foreground">
       {t.topPercentile(formatTopPercentile(pct))}
     </span>
+  );
+}
+
+type PodiumRank = 1 | 2 | 3;
+
+/** Per-rank styling for the podium cards. Mirrors the RankCell palette. */
+const PODIUM_VARIANTS: Record<
+  PodiumRank,
+  {
+    label: string;
+    sublabel: string;
+    iconClass: string;
+    iconBgClass: string;
+    cardClass: string;
+    cardHeight: string;
+  }
+> = {
+  1: {
+    label: "1st",
+    sublabel: "Champion",
+    iconClass: "text-[color:var(--color-glow-yellow)]",
+    iconBgClass:
+      "bg-[color:var(--color-glow-yellow)]/20 ring-2 ring-[color:var(--color-glow-yellow)]/40",
+    cardClass:
+      "bg-gradient-to-b from-[color:var(--color-glow-yellow)]/20 to-transparent dark:from-[color:var(--color-glow-yellow)]/10 ring-1 ring-[color:var(--color-glow-yellow)]/30",
+    cardHeight: "md:min-h-[300px]",
+  },
+  2: {
+    label: "2nd",
+    sublabel: "Runner-up",
+    iconClass: "text-[color:var(--color-glow-green)]",
+    iconBgClass:
+      "bg-[color:var(--color-glow-green)]/15 ring-1 ring-[color:var(--color-glow-green)]/30",
+    cardClass:
+      "bg-gradient-to-b from-[color:var(--color-glow-green)]/15 to-transparent dark:from-[color:var(--color-glow-green)]/8 ring-1 ring-[color:var(--color-glow-green)]/20",
+    cardHeight: "md:min-h-[260px]",
+  },
+  3: {
+    label: "3rd",
+    sublabel: "Bronze",
+    iconClass: "text-[color:var(--color-glow-purple)]",
+    iconBgClass:
+      "bg-[color:var(--color-glow-purple)]/15 ring-1 ring-[color:var(--color-glow-purple)]/30",
+    cardClass:
+      "bg-gradient-to-b from-[color:var(--color-glow-purple)]/15 to-transparent dark:from-[color:var(--color-glow-purple)]/8 ring-1 ring-[color:var(--color-glow-purple)]/20",
+    cardHeight: "md:min-h-[230px]",
+  },
+};
+
+function PodiumCard({
+  row,
+  rank,
+  ens,
+  isSelf,
+  onClick,
+  t,
+}: {
+  row: V2LeaderboardRow;
+  rank: PodiumRank;
+  ens: string | undefined;
+  isSelf: boolean;
+  onClick: () => void;
+  t: LeaderboardStrings;
+}) {
+  const v = PODIUM_VARIANTS[rank];
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "group relative flex w-full flex-col items-center justify-end gap-3 rounded-3xl border border-border/20 p-6 text-center transition-all hover:-translate-y-0.5 hover:shadow-lg dark:border-white/10",
+        v.cardClass,
+        v.cardHeight,
+        isSelf && "ring-2 ring-[color:var(--color-glow-orange)]/50",
+      )}
+    >
+      {isSelf && (
+        <span className="absolute top-3 right-3 rounded-full bg-[color:var(--color-glow-orange)]/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-[color:var(--color-glow-orange)]">
+          You
+        </span>
+      )}
+      <div
+        className={cn(
+          "flex h-16 w-16 items-center justify-center rounded-2xl",
+          v.iconBgClass,
+          v.iconClass,
+        )}
+      >
+        <Trophy className="h-7 w-7" />
+      </div>
+      <div className="flex flex-col items-center gap-0.5">
+        <span className="font-mono text-2xl font-bold tracking-tight text-foreground">
+          {v.label}
+        </span>
+        <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+          {v.sublabel}
+        </span>
+      </div>
+      <div className="w-full max-w-full truncate px-2 font-mono text-sm font-medium text-foreground">
+        {ens ?? shortAddress(row.wallet)}
+      </div>
+      <div className="mt-2 flex flex-col items-center gap-0.5">
+        <span className="font-mono text-3xl font-bold tabular-nums tracking-tight">
+          {fmtMetric(row.totalWatts)}
+        </span>
+        <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+          {t.v2WattsUnit}
+        </span>
+      </div>
+      <div className="font-mono text-xs tabular-nums text-muted-foreground">
+        {fmtMetric(row.totalCarbonCredits)} {t.v2CarbonLabel.toLowerCase()}
+      </div>
+    </button>
+  );
+}
+
+function PodiumTopThree({
+  rows,
+  ensNames,
+  connectedWallet,
+  onRowClick,
+  t,
+}: {
+  rows: V2LeaderboardRow[];
+  ensNames: Record<string, string | null | undefined>;
+  connectedWallet: string | null;
+  onRowClick: (wallet: string) => void;
+  t: LeaderboardStrings;
+}) {
+  if (rows.length < 3) return null;
+  const [r1, r2, r3] = rows;
+
+  const card = (row: V2LeaderboardRow, rank: PodiumRank) => (
+    <PodiumCard
+      row={row}
+      rank={rank}
+      ens={ensNames[row.wallet] ?? undefined}
+      isSelf={connectedWallet === row.wallet.toLowerCase()}
+      onClick={() => onRowClick(row.wallet)}
+      t={t}
+    />
+  );
+
+  return (
+    <div className="px-6 pt-8 pb-2 sm:px-8 md:pt-10">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:items-end md:gap-6">
+        {/* Mobile: 1, 2, 3 top to bottom. Desktop: 2, 1, 3 with #1 elevated. */}
+        <div className="order-2 md:order-1">{card(r2, 2)}</div>
+        <div className="order-1 md:order-2">{card(r1, 1)}</div>
+        <div className="order-3 md:order-3">{card(r3, 3)}</div>
+      </div>
+    </div>
   );
 }
 
@@ -483,6 +636,18 @@ export function ImpactView() {
           </p>
         ) : (
           <>
+            {/* Podium top-3 (page 1 only, when ≥3 rows). Hides those ranks
+                from the table below to avoid duplication. */}
+            {safePage === 1 && rows.length >= 3 && (
+              <PodiumTopThree
+                rows={rows}
+                ensNames={ensNames}
+                connectedWallet={connectedWallet}
+                onRowClick={handleRowClick}
+                t={lb}
+              />
+            )}
+
             {/* Mobile cards */}
             <div
               className={cn(
@@ -490,7 +655,10 @@ export function ImpactView() {
                 isRefreshing && "opacity-60",
               )}
             >
-              {rows.map((row) => {
+              {(safePage === 1 && rows.length >= 3
+                ? rows.filter((r) => r.rank > 3)
+                : rows
+              ).map((row) => {
                 const isSelf =
                   connectedWallet === row.wallet.toLowerCase();
                 const isTop3 = row.rank <= 3;
@@ -580,7 +748,10 @@ export function ImpactView() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rows.map((row) => {
+                  {(safePage === 1 && rows.length >= 3
+                    ? rows.filter((r) => r.rank > 3)
+                    : rows
+                  ).map((row) => {
                     const isSelf =
                       connectedWallet === row.wallet.toLowerCase();
                     const isTop3 = row.rank <= 3;
