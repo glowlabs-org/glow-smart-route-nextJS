@@ -73,6 +73,7 @@ import {
   resolveDelegationCurrency,
   resolveLaunchpadDelegationShareCount,
 } from "@/utils/launchpad-rewards";
+import { getLaunchpadAvailability } from "@/utils/launchpad-availability";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { GlowSymbol } from "@/components/glow-symbol";
@@ -1644,35 +1645,7 @@ export function LaunchpadView({
 }
 
 function getActiveFractionAvailability(application: AuctionApplication) {
-  const fraction = application.activeFraction;
-  if (!fraction) {
-    return {
-      remaining: 0,
-      total: 0,
-      isSoldOut: true,
-      progressFilledPct: 0,
-    };
-  }
-  // sGCTL phase: total = ceil(finalProtocolFee / currentStepUsd6) (e.g. 95 shares).
-  // GLW phase: total = totalSteps. Source sold from splitsSold (the single counter
-  // that increments per purchase regardless of phase) so "X / Y sold" stays in the
-  // same unit. Note splitsSold is allowed to grow past totalSteps during sGCTL
-  // phase (see Crimson Valley wk128: splits_sold=463 / total_steps=113), so cap
-  // sold at total to keep progress bounded. Do NOT use totalSteps-splitsSold
-  // to gate isSoldOut, or the listing disappears mid-sGCTL.
-  const total = resolveLaunchpadDelegationShareCount(application);
-  const splitsSold = Math.max(0, Math.floor(fraction.splitsSold ?? 0));
-  const sold = Math.min(splitsSold, total);
-  const remaining = Math.max(0, total - sold);
-  const isSoldOut = !isFractionOpenForMarketplace(fraction);
-  const progressFilledPct =
-    total > 0 ? Math.max(0, Math.min(100, (sold / total) * 100)) : 0;
-  return {
-    remaining,
-    total,
-    isSoldOut,
-    progressFilledPct,
-  };
+  return getLaunchpadAvailability(application);
 }
 
 function getFarmEfficiency(application: AuctionApplication) {

@@ -5,7 +5,7 @@ import { calculateSgctlStepAtomicFromGlwStep } from "@/app/marketplace/deposit-d
 
 export type DelegationCurrency = "GLW" | "SGCTL";
 
-type DelegationApplicationLike = Pick<
+export type DelegationApplicationLike = Pick<
   AuctionApplication,
   "paymentCurrency" | "activeFraction" | "applicationPriceQuotes" | "finalProtocolFee"
 >;
