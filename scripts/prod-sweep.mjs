@@ -408,7 +408,7 @@ async function runBrowserChecks(config) {
   const checks = [];
 
   try {
-    const basePages = ["/", "/launchpad", "/stats/rewards"];
+    const basePages = ["/", "/launchpad", "/leaderboard"];
     for (const path of basePages) {
       const url = `${config.frontendBaseUrl}${path}`;
       const failures = [];

@@ -15,8 +15,7 @@ export default function Image() {
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          background:
-            "linear-gradient(135deg, #f7fcc4 0%, #e8f5d6 25%, #dcc4ff 100%)",
+          backgroundImage: "linear-gradient(135deg, #f7fcc4 0%, #e8f5d6 25%, #dcc4ff 100%)",
           color: "#000000",
           padding: "60px",
           fontFamily: "system-ui, sans-serif",
@@ -31,6 +30,7 @@ export default function Image() {
             width: "100%",
           }}
         >
+          {/* GLOW MINING pill badge */}
           <div
             style={{
               display: "flex",
@@ -47,6 +47,7 @@ export default function Image() {
             GLOW MINING
           </div>
 
+          {/* Glow Symbol */}
           <svg
             width="80"
             height="80"

@@ -160,7 +160,7 @@ export function HeaderHamburgerMenu({
                   <div className="ml-4 space-y-1">
                     <DrawerClose asChild>
                       <Link
-                        href="/stats/rewards"
+                        href="/leaderboard"
                         onClick={() => {
                           setTimeout(() => {
                             window.scrollTo({
@@ -471,7 +471,7 @@ export function Header({
                         description={t.header.swap.description}
                         onClick={() => setIsSwapDialogOpen(true)}
                       />
-                      <ListItem href="/stats/rewards" title={t.header.leaderboard.title}>
+                      <ListItem href="/leaderboard" title={t.header.leaderboard.title}>
                         {t.header.leaderboard.description}
                       </ListItem>
                       <ListItem href="/stats" title={t.header.protocolStats.title}>
@@ -708,7 +708,7 @@ export function Header({
                             </DrawerClose>
                             <DrawerClose asChild>
                               <Link
-                                href="/stats/rewards"
+                                href="/leaderboard"
                                 onClick={() => {
                                   setTimeout(() => {
                                     window.scrollTo({

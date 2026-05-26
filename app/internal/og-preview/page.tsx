@@ -4,7 +4,7 @@ import React from "react";
 
 const OG_IMAGES = [
   { name: "Main", path: "/opengraph-image" },
-  { name: "Impact Leaderboard", path: "/stats/rewards/opengraph-image" },
+  { name: "Impact Leaderboard", path: "/leaderboard/opengraph-image" },
   { name: "Referral (test123)", path: "/r/test123/opengraph-image" },
 ];
 
@@ -156,7 +156,7 @@ export default function OGPreviewPage() {
 
         {/* Impact Leaderboard OG */}
         <section className="space-y-4">
-          <h2 className="text-xl font-semibold">Impact Leaderboard (/stats/rewards)</h2>
+          <h2 className="text-xl font-semibold">Impact Leaderboard (/leaderboard)</h2>
           <div className="overflow-x-auto">
             <OGPreview
               title={

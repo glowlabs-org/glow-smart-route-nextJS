@@ -125,8 +125,13 @@ const nextConfig = {
         permanent: true,
       },
       {
-        source: "/leaderboard",
-        destination: "/stats/rewards",
+        source: "/stats/rewards",
+        destination: "/leaderboard",
+        permanent: true,
+      },
+      {
+        source: "/stats/rewards/:path*",
+        destination: "/leaderboard/:path*",
         permanent: true,
       },
     ];

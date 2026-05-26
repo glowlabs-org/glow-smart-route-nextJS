@@ -172,7 +172,7 @@ export default function GlobalLeaderboardWidget({
               className="w-full h-12 font-mono font-bold text-base"
             >
               <Link
-                href="/stats/rewards"
+                href="/leaderboard"
                 target="_blank"
                 onClick={() => {
                   trackEvent("dashboard_leaderboard_open_click", {

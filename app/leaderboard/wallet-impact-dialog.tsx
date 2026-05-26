@@ -386,7 +386,7 @@ export function WalletImpactDialog({
     ].join("\n");
     const intent = `https://x.com/intent/tweet?text=${encodeURIComponent(
       text,
-    )}&url=${encodeURIComponent("https://app.glow.org/stats/rewards")}`;
+    )}&url=${encodeURIComponent("https://app.glow.org/leaderboard")}`;
     window.open(intent, "_blank", "noopener,noreferrer");
     trackEvent("wallet_impact_share_x", { wallet_address: wallet ?? null });
   }, [data, equiv, wallet]);

@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * V2 Impact Leaderboard (Impact tab of /stats/rewards).
+ * V2 Impact Leaderboard (Impact tab of /leaderboard).
  *
  * Ranks wallets by realized impact: total watts and carbon credits, not
  * by points. Optionally scoped to a single region. Clicking a row opens

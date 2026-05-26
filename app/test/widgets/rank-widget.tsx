@@ -433,7 +433,7 @@ export function RankWidget({
                 asChild
               >
                 <Link
-                  href="/stats/rewards"
+                  href="/leaderboard"
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => {
@@ -642,7 +642,7 @@ export function RankWidget({
                     )}
                     asChild
                   >
-                    <Link href="/stats/rewards">
+                    <Link href="/leaderboard">
                       {t.widgets.rankWidget.leaderboard}
                     </Link>
                   </Button>
@@ -679,7 +679,7 @@ export function RankWidget({
                     asChild
                   >
                     <Link
-                      href="/stats/rewards"
+                      href="/leaderboard"
                       onClick={() => {
                         trackEvent("dashboard_leaderboard_open_click", {
                           source,

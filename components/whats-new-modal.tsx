@@ -85,7 +85,7 @@ const CTAS: {
   Icon: React.ComponentType<{ className?: string }>;
 }[] = [
   { label: "Earn points", href: "/?earn=1", Icon: Coins },
-  { label: "View the leaderboard", href: "/stats/rewards", Icon: Trophy },
+  { label: "View the leaderboard", href: "/leaderboard", Icon: Trophy },
   { label: "Open the Points Shop", href: "/shop", Icon: ShoppingBag },
 ];
 

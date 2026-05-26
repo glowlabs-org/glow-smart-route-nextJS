@@ -593,7 +593,7 @@ export interface RoutesStrings {
     glowWorth: string;
     pageOf: (page: string, total: string) => string;
     failedLoadScoreToast: string;
-    // V2 Impact Leaderboard (Impact tab of /stats/rewards)
+    // V2 Impact Leaderboard (Impact tab of /leaderboard)
     v2Title: string;
     v2SortTotalWatts: string;
     v2SortCarbonCredits: string;

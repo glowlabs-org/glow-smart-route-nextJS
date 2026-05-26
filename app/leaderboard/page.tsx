@@ -1,22 +1,25 @@
 import { Header } from "@/components/header";
 import RewardsView from "./view";
 import type { Metadata } from "next";
-import { buildPageMetadata, SEO } from "@/lib/seo";
+import { buildPageMetadata } from "@/lib/seo";
 
 const baseMetadata = buildPageMetadata({
   title: "Impact Leaderboard",
   description:
     "Explore Glow's impact leaderboard and see top wallets by impact score.",
-  path: "/stats/rewards",
+  path: "/leaderboard",
 });
 
+// Use relative URLs so Next.js resolves them via `metadataBase` (set in the
+// root layout). Manually building absolute URLs skips that pipeline and can
+// cause X/Twitter to fall back to the small "summary" card.
 export const metadata: Metadata = {
   ...baseMetadata,
   openGraph: {
     ...baseMetadata.openGraph,
     images: [
       {
-        url: `${SEO.siteUrl}/stats/rewards/opengraph-image`,
+        url: "/leaderboard/opengraph-image",
         width: 1200,
         height: 630,
         alt: "Glow Impact Leaderboard",
@@ -25,7 +28,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     ...baseMetadata.twitter,
-    images: [`${SEO.siteUrl}/stats/rewards/twitter-image`],
+    images: ["/leaderboard/twitter-image"],
   },
 };
 

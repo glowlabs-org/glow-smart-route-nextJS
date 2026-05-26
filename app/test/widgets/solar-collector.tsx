@@ -66,7 +66,7 @@ import {
 import { useRegions } from "@/hooks/control-regions";
 import { hubGet } from "@/lib/api/hub-client";
 import { useLang, getBcp47, type Strings } from "@/lib/i18n";
-import { WalletImpactDialog } from "@/app/stats/rewards/wallet-impact-dialog";
+import { WalletImpactDialog } from "@/app/leaderboard/wallet-impact-dialog";
 import { useV2ImpactWallet } from "@/hooks/v2-impact";
 import {
   useGctlSteering,
