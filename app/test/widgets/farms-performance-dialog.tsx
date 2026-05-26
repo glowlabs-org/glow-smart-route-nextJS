@@ -65,10 +65,7 @@ import {
   resolveDelegationCurrency,
 } from "@/utils/launchpad-rewards";
 import { filterPublicLaunchpadApplications } from "@/utils/launchpad";
-import {
-  resolveFractionRemainingSteps,
-  type AuctionApplication,
-} from "@/hooks/hub-listings";
+import { type AuctionApplication } from "@/hooks/hub-listings";
 import { GlowSymbol } from "@/components/glow-symbol";
 import { CashMinerIcon, DelegationIcon } from "@/components/impact-icons";
 import {
@@ -266,13 +263,19 @@ export function formatInProgressFilledLabel(params: {
   if (!application?.activeFraction) return null;
 
   if (params.fractionType === "launchpad") {
+    // total and "filled" must be in the same unit. resolveLaunchpadDelegationShareCount
+    // returns sGCTL-phase shares during pre-sale (ceil(finalProtocolFee / currentStepUsd6))
+    // while resolveFractionRemainingSteps returns GLW-step remainder. Source filled
+    // from splitsSold (single counter for both phases) and cap at total. See
+    // Crimson Valley wk128: splits_sold=463, total_steps=113 — splitsSold can
+    // legitimately exceed totalSteps mid-sGCTL.
     const totalShares = resolveLaunchpadDelegationShareCount(application);
-    const remainingShares = resolveFractionRemainingSteps(
-      application.activeFraction
+    const splitsSold = Math.max(
+      0,
+      Math.floor(application.activeFraction.splitsSold ?? 0)
     );
-
-    if (totalShares <= 0 || remainingShares < 0) return null;
-    const filled = Math.max(0, totalShares - remainingShares);
+    if (totalShares <= 0) return null;
+    const filled = Math.min(splitsSold, totalShares);
     return params.labels?.filledLabel
       ? params.labels.filledLabel(filled, totalShares)
       : `${filled} / ${totalShares} filled`;
