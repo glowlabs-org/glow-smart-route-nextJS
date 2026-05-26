@@ -46,7 +46,6 @@ import {
   getRewardScoreForApplication,
   getMiningScoreForApplication,
   isFractionOpenForMarketplace,
-  resolveFractionRemainingSteps,
   type AuctionApplication,
 } from "@/hooks";
 import { getLaunchpadNowMs } from "@/utils/launchpad-now";
@@ -113,16 +112,22 @@ function countAvailableApplications(
   }, 0);
 }
 
-// Helper: Get availability info for an application
+// Helper: Get availability info for an application.
+// sGCTL phase: total = ceil(finalProtocolFee / currentStepUsd6). GLW phase:
+// total = totalSteps. Source filled from splitsSold (the only counter, shared
+// across phases) and cap it at total so the percent stays bounded; do NOT
+// derive sold-out from totalSteps - splitsSold because splitsSold legitimately
+// exceeds totalSteps during the sGCTL pre-sale (Crimson Valley wk128: 463/113).
 function getActiveFractionAvailability(application: AuctionApplication) {
   const fraction = application.activeFraction;
   if (!fraction) {
     return { remaining: 0, total: 0, isSoldOut: true, percentFilled: 100 };
   }
   const total = resolveLaunchpadDelegationShareCount(application);
-  const remaining = resolveFractionRemainingSteps(fraction);
+  const splitsSold = Math.max(0, Math.floor(fraction.splitsSold ?? 0));
+  const filled = Math.min(splitsSold, total);
+  const remaining = Math.max(0, total - filled);
   const isSoldOut = !isFractionOpenForMarketplace(fraction);
-  const filled = Math.max(0, total - Math.max(0, remaining));
   const percentFilled = total > 0 ? Math.round((filled / total) * 100) : 0;
   return { remaining, total, isSoldOut, percentFilled };
 }
