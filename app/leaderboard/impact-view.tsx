@@ -14,7 +14,7 @@
 import React from "react";
 import { useQueryState, parseAsInteger, parseAsString } from "nuqs";
 import { useAccount, useEnsAddress } from "wagmi";
-import { ArrowDown, ArrowUp, Copy, MapPin, Search, Trophy } from "lucide-react";
+import { ArrowDown, ArrowUp, Copy, MapPin, Search } from "lucide-react";
 import { isAddress } from "viem";
 import { normalize } from "viem/ens";
 
@@ -118,42 +118,27 @@ const PODIUM_VARIANTS: Record<
   PodiumRank,
   {
     label: string;
-    sublabel: string;
-    iconClass: string;
-    iconBgClass: string;
     cardClass: string;
     cardHeight: string;
   }
 > = {
   1: {
     label: "1st",
-    sublabel: "Champion",
-    iconClass: "text-[color:var(--color-glow-yellow)]",
-    iconBgClass:
-      "bg-[color:var(--color-glow-yellow)]/20 ring-2 ring-[color:var(--color-glow-yellow)]/40",
     cardClass:
       "bg-gradient-to-b from-[color:var(--color-glow-yellow)]/20 to-transparent dark:from-[color:var(--color-glow-yellow)]/10 ring-1 ring-[color:var(--color-glow-yellow)]/30",
-    cardHeight: "md:min-h-[300px]",
+    cardHeight: "md:min-h-[260px]",
   },
   2: {
     label: "2nd",
-    sublabel: "Runner-up",
-    iconClass: "text-[color:var(--color-glow-green)]",
-    iconBgClass:
-      "bg-[color:var(--color-glow-green)]/15 ring-1 ring-[color:var(--color-glow-green)]/30",
     cardClass:
       "bg-gradient-to-b from-[color:var(--color-glow-green)]/15 to-transparent dark:from-[color:var(--color-glow-green)]/8 ring-1 ring-[color:var(--color-glow-green)]/20",
-    cardHeight: "md:min-h-[260px]",
+    cardHeight: "md:min-h-[230px]",
   },
   3: {
     label: "3rd",
-    sublabel: "Bronze",
-    iconClass: "text-[color:var(--color-glow-purple)]",
-    iconBgClass:
-      "bg-[color:var(--color-glow-purple)]/15 ring-1 ring-[color:var(--color-glow-purple)]/30",
     cardClass:
       "bg-gradient-to-b from-[color:var(--color-glow-purple)]/15 to-transparent dark:from-[color:var(--color-glow-purple)]/8 ring-1 ring-[color:var(--color-glow-purple)]/20",
-    cardHeight: "md:min-h-[230px]",
+    cardHeight: "md:min-h-[210px]",
   },
 };
 
@@ -174,11 +159,17 @@ function PodiumCard({
 }) {
   const v = PODIUM_VARIANTS[rank];
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault();
+        onClick();
+      }}
       className={cn(
-        "group relative flex w-full flex-col items-center justify-end gap-3 rounded-3xl border border-border/20 p-6 text-center transition-all hover:-translate-y-0.5 hover:shadow-lg dark:border-white/10",
+        "group relative flex w-full cursor-pointer flex-col items-center justify-between gap-3 rounded-3xl border border-border/20 p-6 text-center transition-all hover:-translate-y-0.5 hover:shadow-lg dark:border-white/10",
         v.cardClass,
         v.cardHeight,
         isSelf && "ring-2 ring-[color:var(--color-glow-orange)]/50",
@@ -189,38 +180,38 @@ function PodiumCard({
           You
         </span>
       )}
-      <div
-        className={cn(
-          "flex h-16 w-16 items-center justify-center rounded-2xl",
-          v.iconBgClass,
-          v.iconClass,
-        )}
-      >
-        <Trophy className="h-7 w-7" />
-      </div>
-      <div className="flex flex-col items-center gap-0.5">
+      <div className="flex flex-col items-center gap-3">
         <span className="font-mono text-2xl font-bold tracking-tight text-foreground">
           {v.label}
         </span>
-        <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-          {v.sublabel}
-        </span>
+        <div className="w-full max-w-full truncate px-2 font-mono text-sm font-medium text-foreground">
+          {ens ?? shortAddress(row.wallet)}
+        </div>
+        <div className="mt-2 flex flex-col items-center gap-0.5">
+          <span className="font-mono text-3xl font-bold tabular-nums tracking-tight">
+            {fmtMetric(row.totalWatts)}
+          </span>
+          <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+            {t.v2WattsUnit}
+          </span>
+        </div>
+        <div className="font-mono text-xs tabular-nums text-muted-foreground">
+          {fmtMetric(row.totalCarbonCredits)} {t.v2CarbonLabel.toLowerCase()}
+        </div>
       </div>
-      <div className="w-full max-w-full truncate px-2 font-mono text-sm font-medium text-foreground">
-        {ens ?? shortAddress(row.wallet)}
-      </div>
-      <div className="mt-2 flex flex-col items-center gap-0.5">
-        <span className="font-mono text-3xl font-bold tabular-nums tracking-tight">
-          {fmtMetric(row.totalWatts)}
-        </span>
-        <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-          {t.v2WattsUnit}
-        </span>
-      </div>
-      <div className="font-mono text-xs tabular-nums text-muted-foreground">
-        {fmtMetric(row.totalCarbonCredits)} {t.v2CarbonLabel.toLowerCase()}
-      </div>
-    </button>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="mt-3 w-full text-xs font-medium"
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick();
+        }}
+      >
+        See Impact
+      </Button>
+    </div>
   );
 }
 
