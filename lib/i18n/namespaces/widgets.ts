@@ -200,7 +200,7 @@ export interface WidgetStrings {
   walletWidget: {
     title: string;
     swap: string;
-    send: string;
+    activity: string;
   };
 
   rankWidget: {
@@ -870,7 +870,7 @@ const en: WidgetStrings = {
   walletWidget: {
     title: "Your Wallet",
     swap: "Swap",
-    send: "Send",
+    activity: "Activity",
   },
 
   rankWidget: {
@@ -1532,7 +1532,7 @@ const ko: WidgetStrings = {
   walletWidget: {
     title: "내 지갑",
     swap: "스왑",
-    send: "보내기",
+    activity: "활동",
   },
 
   rankWidget: {
@@ -2190,7 +2190,7 @@ const zh: WidgetStrings = {
   walletWidget: {
     title: "我的钱包",
     swap: "兑换",
-    send: "发送",
+    activity: "活动",
   },
 
   rankWidget: {

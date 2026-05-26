@@ -1,20 +1,27 @@
 "use client";
 
 import * as React from "react";
-import { Sparkles } from "lucide-react";
+import { History, Sparkles } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAccount, useChainId } from "wagmi";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { SwapDialog } from "@/components/dialogs/swap-dialog";
-import { SendDialog } from "@/components/send-dialog";
+import { RecentActivity } from "@/app/wallet/recent-activity";
 import { cn } from "@/lib/utils";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { trackEvent } from "@/lib/telemetry";
 import { GlowSymbol } from "@/components/glow-symbol";
 import { useWalletPortfolio } from "./use-wallet-portfolio";
 import { useV2PointsBalance } from "@/hooks/v2-points";
+import { useRecentActivityFeed } from "@/hooks/useRecentActivityFeed";
 import { useLang } from "@/lib/i18n";
 
 const TOKEN_ICON_SRC_BY_SYMBOL = {
@@ -128,9 +135,14 @@ export default function WalletWidget({
   const queryClient = useQueryClient();
   const isMinimal = variant === "minimal";
   const [isSwapOpen, setIsSwapOpen] = React.useState(false);
-  const [isSendOpen, setIsSendOpen] = React.useState(false);
+  const [isActivityOpen, setIsActivityOpen] = React.useState(false);
   const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
   const source = "wallet_widget";
+
+  // Only fetch the activity feed once the dialog is opened.
+  const activityFeed = useRecentActivityFeed(
+    isActivityOpen ? (walletAddress ?? undefined) : undefined
+  );
 
   const {
     hasWallet,
@@ -270,16 +282,17 @@ export default function WalletWidget({
             variant="outline"
             className="h-11"
             onClick={() => {
-              trackEvent("dashboard_send_open_click", {
+              trackEvent("dashboard_activity_open_click", {
                 source,
                 wallet_connected: Boolean(normalizedWalletAddress),
                 wallet_address: normalizedWalletAddress,
                 chain_id: chainId,
               });
-              setIsSendOpen(true);
+              setIsActivityOpen(true);
             }}
           >
-            {t.widgets.walletWidget.send}
+            <History className="mr-1.5 h-4 w-4" />
+            {t.widgets.walletWidget.activity}
           </Button>
         </div>
       </CardContent>
@@ -292,7 +305,29 @@ export default function WalletWidget({
         marketCapUsd={marketCapUsd}
         ethPriceInUSD={ethPriceInUSD}
       />
-      <SendDialog open={isSendOpen} onOpenChange={setIsSendOpen} />
+      <Dialog open={isActivityOpen} onOpenChange={setIsActivityOpen}>
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md p-0 max-h-[85vh] flex flex-col overflow-hidden bg-card border-border/20 dark:border-border/40 rounded-2xl">
+          <DialogHeader className="px-6 py-5 border-b border-border/20 dark:border-border/40 flex-shrink-0">
+            <DialogTitle className="text-lg font-semibold tracking-tight">
+              {t.widgets.recentActivity.dialogTitle}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6">
+            <RecentActivity
+              className="h-auto lg:max-h-none bg-transparent border-transparent overflow-visible"
+              walletAddress={walletAddress ?? undefined}
+              splitsActivity={activityFeed.splitsActivity}
+              swapsActivity={activityFeed.swapsActivity}
+              isSplitsActivityLoading={activityFeed.isSplitsActivityLoading}
+              isSwapsActivityLoading={activityFeed.isSwapsActivityLoading}
+              hideIfEmpty={false}
+              showHeader={false}
+              showKpis={false}
+              maxItems={50}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

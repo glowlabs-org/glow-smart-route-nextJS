@@ -13,7 +13,6 @@ import WalletWidget from "./widgets/wallet-widget";
 import RankWidget from "./widgets/rank-widget";
 import RewardsWidget from "./widgets/rewards-widget";
 import GlowFaqWidget from "./widgets/glow-faq-widget";
-import RecentActivityWidget from "./widgets/recent-activity-widget";
 import CommunityActivityWidget from "./widgets/community-activity-widget";
 import BlogFeaturedWidget from "./widgets/blog-featured-widget";
 import OnboardingHeroWidget from "./widgets/onboarding-hero-widget";
@@ -778,21 +777,6 @@ export default function GlowSoftDashboard({
                           );
                         }
                       }}
-                    />
-                  </WidgetErrorBoundary>
-                </div>
-              </section>
-
-              {/* Journey Section */}
-              <section className="flex flex-col gap-8 pt-20">
-                <SectionHeader title={t.home.sections.yourJourney} />
-                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10 p-4 sm:p-6 lg:p-12">
-                  <WidgetErrorBoundary>
-                    <RecentActivityWidget
-                      key={`recent-activity-${walletAddress ?? "anon"}-${dashboardRefreshNonce}`}
-                      walletAddress={walletAddress}
-                      hideIfEmpty={false}
-                      variant="minimal"
                     />
                   </WidgetErrorBoundary>
                 </div>

@@ -86,10 +86,6 @@ function weekToDate(week: number) {
   return new Date((GENESIS_TIMESTAMP + (week + 1) * 604800) * 1000);
 }
 
-function clamp(n: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, n));
-}
-
 function formatEnergyValue(kwh: number): string {
   if (!Number.isFinite(kwh) || kwh === 0) return "0";
   if (kwh < 1000) return Math.round(kwh).toLocaleString();
@@ -227,14 +223,6 @@ function getRegionCodeFromName(
   const match = name.match(/region(\d+)/);
   if (!match) return "";
   return getRegionCode(Number(match[1]), regions, cleanGridCode);
-}
-
-function getGhostState(totalWatts: number) {
-  const safe = Number.isFinite(totalWatts) ? totalWatts : 0;
-  const completedPanels = Math.floor(safe / WATTS_PER_PANEL);
-  const currentGhostWatts = safe % WATTS_PER_PANEL;
-  const fillPercentage = (currentGhostWatts / WATTS_PER_PANEL) * 100;
-  return { completedPanels, currentGhostWatts, fillPercentage };
 }
 
 interface SolarFootprintDialogProps {
@@ -547,13 +535,6 @@ export default function SolarCollectorWidget({
   }, [v2TotalWatts, model.impact]);
 
   const { regions } = useRegions();
-
-  const ghost = React.useMemo(
-    () => getGhostState(model.totalWatts),
-    [model.totalWatts]
-  );
-
-  const fill = clamp(ghost.fillPercentage, 0, 100);
 
   const chartConfig = React.useMemo<ChartConfig>(() => {
     const config: ChartConfig = {
@@ -897,7 +878,7 @@ export default function SolarCollectorWidget({
           </div>
 
           {/* Main Metrics Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
             {/* Watts — headline metric, matches the watts leaderboard */}
             <div>
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1.5">
@@ -1046,29 +1027,6 @@ export default function SolarCollectorWidget({
               </div>
             </div>
 
-            {/* Panel Progress */}
-            <div>
-              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1.5">
-                {t.widgets.solarCollector.panelLabel(model.currentPanelIndex)}
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="flex-1 h-3 rounded-full bg-muted/50 border border-border/50 overflow-hidden">
-                  <div
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${fill}%`,
-                      background: `linear-gradient(90deg, ${SOLAR_ORANGE} 0%, ${SOLAR_YELLOW} 100%)`,
-                    }}
-                  />
-                </div>
-                <span className="font-mono text-sm font-bold tabular-nums text-foreground w-10 text-right">
-                  {Math.round(fill)}%
-                </span>
-              </div>
-              <div className="mt-1 text-[10px] text-muted-foreground">
-                {t.widgets.solarCollector.panelsCompleted(model.totalPanels)}
-              </div>
-            </div>
           </div>
 
           {/* Bottom Section: Latest Addition + Actions */}
