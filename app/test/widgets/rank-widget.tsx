@@ -8,7 +8,7 @@ import { isAddress } from "viem";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ImpactScoreBreakdownDialog } from "@/components/dialogs/impact-score-breakdown-dialog";
+import { WattsBreakdownDialog } from "@/components/dialogs/watts-breakdown-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Drawer,
@@ -627,7 +627,7 @@ export function RankWidget({
                       });
                       setIsBreakdownOpen(true);
                     }}
-                    disabled={impactScoreQuery.isError || !impactScore}
+                    disabled={v2ImpactQuery.isError || !v2ImpactQuery.data}
                   >
                     {t.widgets.rankWidget.breakdown}
                   </Button>
@@ -698,12 +698,10 @@ export function RankWidget({
         </CardContent>
       </Card>
 
-      <ImpactScoreBreakdownDialog
+      <WattsBreakdownDialog
         open={isBreakdownOpen}
         onOpenChange={setIsBreakdownOpen}
         walletAddress={normalizedWalletAddress}
-        weekRange={impactScore?.weekRange ?? null}
-        showCurrentWeekProjection
       />
 
       {isReferralLive ? (

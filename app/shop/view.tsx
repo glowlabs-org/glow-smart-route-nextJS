@@ -45,6 +45,7 @@ import {
   type ShopMinerFarmInfo,
 } from "@/hooks/v2-shop-miner";
 import { FallbackImage } from "@/components/ui/fallback-image";
+import { ImpactScoreBreakdownDialog } from "@/components/dialogs/impact-score-breakdown-dialog";
 
 const KIND_ICON: Record<
   V2ShopItemKind,
@@ -556,6 +557,7 @@ function BalancePanel({
   lifetimeSpent,
   streakWeeks,
   isLoading,
+  onOpenBreakdown,
 }: {
   isConnected: boolean;
   address: string | undefined;
@@ -564,6 +566,7 @@ function BalancePanel({
   lifetimeSpent: number | null;
   streakWeeks: number | null;
   isLoading: boolean;
+  onOpenBreakdown?: () => void;
 }) {
   if (!isConnected || !address) {
     return (
@@ -595,11 +598,23 @@ function BalancePanel({
           {isLoading ? (
             <Skeleton className="h-11 w-44" />
           ) : (
-            <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-semibold leading-none tracking-tight tabular-nums sm:text-5xl">
-                {formatNumber(availablePoints ?? 0)}
-              </span>
-              <span className="text-sm text-muted-foreground">points</span>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-baseline gap-2">
+                <span className="text-4xl font-semibold leading-none tracking-tight tabular-nums sm:text-5xl">
+                  {formatNumber(availablePoints ?? 0)}
+                </span>
+                <span className="text-sm text-muted-foreground">points</span>
+              </div>
+              {onOpenBreakdown && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2.5 text-[11px] font-medium border-border/40 bg-transparent shrink-0"
+                  onClick={onOpenBreakdown}
+                >
+                  Breakdown
+                </Button>
+              )}
             </div>
           )}
         </StatCell>
@@ -747,6 +762,7 @@ export function ShopView() {
     null,
   );
   const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [isPointsBreakdownOpen, setIsPointsBreakdownOpen] = React.useState(false);
 
   const hasTrackedRef = React.useRef(false);
   React.useEffect(() => {
@@ -808,6 +824,16 @@ export function ShopView() {
         lifetimeSpent={lifetimeSpent}
         streakWeeks={streakWeeks}
         isLoading={isConnected && balanceQuery.isLoading}
+        onOpenBreakdown={
+          isConnected && address
+            ? () => {
+                trackEvent("shop_points_breakdown_open_click", {
+                  wallet: address,
+                });
+                setIsPointsBreakdownOpen(true);
+              }
+            : undefined
+        }
       />
 
       {shopQuery.isLoading ? (
@@ -844,6 +870,13 @@ export function ShopView() {
         }
         open={dialogOpen}
         onOpenChange={setDialogOpen}
+      />
+
+      <ImpactScoreBreakdownDialog
+        open={isPointsBreakdownOpen}
+        onOpenChange={setIsPointsBreakdownOpen}
+        walletAddress={address ?? null}
+        title="Available Points"
       />
     </section>
   );
