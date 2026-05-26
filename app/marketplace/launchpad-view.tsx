@@ -54,7 +54,6 @@ import {
   calculateProtocolDepositAmount,
   getAvailableCurrencies,
   isFractionOpenForMarketplace,
-  resolveFractionRemainingSteps,
   type PaymentCurrency,
   type SortBy,
   type SortOrder,
@@ -1654,18 +1653,18 @@ function getActiveFractionAvailability(application: AuctionApplication) {
       progressFilledPct: 0,
     };
   }
-  // sGCTL phase: total = ceil(finalProtocolFee / currentStepUsd6) (e.g. 95 shares);
-  // GLW phase: total = totalSteps. Sold is sourced from splitsSold — the single
-  // on-chain counter that increments per purchase regardless of phase — so that
-  // "X / Y sold" stays internally consistent. isSoldOut tracks the physical
-  // fraction cap (totalSteps - splitsSold), which is what actually locks purchases.
+  // sGCTL phase: total = ceil(finalProtocolFee / currentStepUsd6) (e.g. 95 shares).
+  // GLW phase: total = totalSteps. Source sold from splitsSold (the single counter
+  // that increments per purchase regardless of phase) so "X / Y sold" stays in the
+  // same unit. Note splitsSold is allowed to grow past totalSteps during sGCTL
+  // phase (see Crimson Valley wk128: splits_sold=463 / total_steps=113), so cap
+  // sold at total to keep progress bounded. Do NOT use totalSteps-splitsSold
+  // to gate isSoldOut, or the listing disappears mid-sGCTL.
   const total = resolveLaunchpadDelegationShareCount(application);
   const splitsSold = Math.max(0, Math.floor(fraction.splitsSold ?? 0));
   const sold = Math.min(splitsSold, total);
   const remaining = Math.max(0, total - sold);
-  const fractionStepsRemaining = resolveFractionRemainingSteps(fraction);
-  const isSoldOut =
-    !isFractionOpenForMarketplace(fraction) || fractionStepsRemaining <= 0;
+  const isSoldOut = !isFractionOpenForMarketplace(fraction);
   const progressFilledPct =
     total > 0 ? Math.max(0, Math.min(100, (sold / total) * 100)) : 0;
   return {
