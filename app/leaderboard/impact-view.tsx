@@ -417,15 +417,56 @@ export function ImpactView() {
     offset: (safePage - 1) * PAGE_SIZE,
   });
 
-  const rows = query.data?.rows ?? [];
+  // Full watts ranking — fixed at sort=totalWatts desc regardless of the user's
+  // table sort, used for two things:
+  //   - the podium (top 3 here are always the global top 3 by watts)
+  //   - the per-row rank/percentile (so "Top X%" reflects the wallet's TRUE
+  //     watts rank, not its position in whatever the user sorted by)
+  // Same region scope as the main query so a region filter still applies.
+  const wattsRankingQuery = useV2ImpactLeaderboard({
+    sort: "totalWatts",
+    dir: "desc",
+    regionId,
+    limit: 500,
+    offset: 0,
+  });
+  const wattsRankingRows = React.useMemo(
+    () => wattsRankingQuery.data?.rows ?? [],
+    [wattsRankingQuery.data],
+  );
+  const podiumRows = React.useMemo(
+    () => wattsRankingRows.slice(0, 3),
+    [wattsRankingRows],
+  );
+  const podiumWallets = React.useMemo(
+    () => new Set(podiumRows.map((r) => r.wallet.toLowerCase())),
+    [podiumRows],
+  );
+  const wattsRankByWallet = React.useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of wattsRankingRows) m.set(r.wallet.toLowerCase(), r.rank);
+    return m;
+  }, [wattsRankingRows]);
+  const wattsRankTotal = wattsRankingQuery.data?.total ?? 0;
+
+  const rows = React.useMemo(
+    () => query.data?.rows ?? [],
+    [query.data],
+  );
   const total = query.data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const startIdx = total === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
   const endIdx = Math.min(total, safePage * PAGE_SIZE);
 
   const { ensNames } = useEnsNames({
-    addresses: rows.map((r) => r.wallet),
-    enabled: rows.length > 0,
+    addresses: React.useMemo(
+      () => [
+        ...rows.map((r) => r.wallet),
+        ...wattsRankingRows.map((r) => r.wallet),
+      ],
+      [rows, wattsRankingRows],
+    ),
+    enabled: rows.length > 0 || wattsRankingRows.length > 0,
   });
 
   const [detailWallet, setDetailWallet] = React.useState<string | null>(null);
@@ -627,11 +668,12 @@ export function ImpactView() {
           </p>
         ) : (
           <>
-            {/* Podium top-3 (page 1 only, when ≥3 rows). Hides those ranks
-                from the table below to avoid duplication. */}
-            {safePage === 1 && rows.length >= 3 && (
+            {/* Podium top-3 (page 1 only). Always the global top 3 by total
+                watts, regardless of the user's table sort. Hides those wallets
+                from the body below to avoid duplication. */}
+            {safePage === 1 && podiumRows.length >= 3 && (
               <PodiumTopThree
-                rows={rows}
+                rows={podiumRows}
                 ensNames={ensNames}
                 connectedWallet={connectedWallet}
                 onRowClick={handleRowClick}
@@ -646,13 +688,15 @@ export function ImpactView() {
                 isRefreshing && "opacity-60",
               )}
             >
-              {(safePage === 1 && rows.length >= 3
-                ? rows.filter((r) => r.rank > 3)
+              {(safePage === 1 && podiumRows.length >= 3
+                ? rows.filter((r) => !podiumWallets.has(r.wallet.toLowerCase()))
                 : rows
               ).map((row) => {
                 const isSelf =
                   connectedWallet === row.wallet.toLowerCase();
-                const isTop3 = row.rank <= 3;
+                const trueRank =
+                  wattsRankByWallet.get(row.wallet.toLowerCase()) ?? row.rank;
+                const isTop3 = trueRank <= 3;
                 return (
                   <div
                     key={row.wallet}
@@ -669,12 +713,12 @@ export function ImpactView() {
                       isSelf || isTop3
                         ? "border-transparent"
                         : "border-border/20 bg-muted/30 dark:border-white/10 dark:bg-zinc-800",
-                      rowTint(row.rank, isSelf),
+                      rowTint(trueRank, isSelf),
                     )}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 space-y-2">
-                        <RankCell rank={row.rank} total={total} t={lb} />
+                        <RankCell rank={trueRank} total={wattsRankTotal} t={lb} />
                         <WalletCell
                           wallet={row.wallet}
                           ens={ensNames[row.wallet]}
@@ -739,24 +783,33 @@ export function ImpactView() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(safePage === 1 && rows.length >= 3
-                    ? rows.filter((r) => r.rank > 3)
+                  {(safePage === 1 && podiumRows.length >= 3
+                    ? rows.filter(
+                        (r) => !podiumWallets.has(r.wallet.toLowerCase()),
+                      )
                     : rows
                   ).map((row) => {
                     const isSelf =
                       connectedWallet === row.wallet.toLowerCase();
-                    const isTop3 = row.rank <= 3;
+                    const trueRank =
+                      wattsRankByWallet.get(row.wallet.toLowerCase()) ??
+                      row.rank;
+                    const isTop3 = trueRank <= 3;
                     return (
                       <TableRow
                         key={row.wallet}
                         onClick={() => handleRowClick(row.wallet)}
                         className={cn(
                           "cursor-pointer transition-colors",
-                          rowTint(row.rank, isSelf),
+                          rowTint(trueRank, isSelf),
                         )}
                       >
                         <TableCell className="px-4 py-3">
-                          <RankCell rank={row.rank} total={total} t={lb} />
+                          <RankCell
+                            rank={trueRank}
+                            total={wattsRankTotal}
+                            t={lb}
+                          />
                         </TableCell>
                         <TableCell className="px-3 py-3">
                           <WalletCell
@@ -771,7 +824,7 @@ export function ImpactView() {
                         <TableCell
                           className={cn(
                             "px-3 py-3 text-right font-mono text-base font-semibold tabular-nums",
-                            row.rank === 1
+                            trueRank === 1
                               ? "text-[color:var(--color-glow-black)] dark:text-[color:var(--color-glow-yellow)]"
                               : "text-foreground",
                           )}
