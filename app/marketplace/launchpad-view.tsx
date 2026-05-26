@@ -2325,7 +2325,7 @@ function LaunchpadMarketplaceWidget({
                           <div className="font-semibold mb-1.5">
                             {l.rewardScore}
                           </div>
-                          <div className="text-primary-foreground/80 leading-relaxed">
+                          <div className="text-foreground/80 leading-relaxed">
                             The Reward Score combines both revenue streams
                             (deposit recovery and GLW inflation) into a single
                             metric representing expected rewards per dollar
@@ -2422,7 +2422,7 @@ function LaunchpadMarketplaceWidget({
                         <div className="font-semibold mb-1.5">
                           {l.estimatedRewards}
                         </div>
-                        <div className="text-primary-foreground/80 leading-relaxed">
+                        <div className="text-foreground/80 leading-relaxed">
                           {isMiner
                             ? `Estimated weekly rewards per miner, paid weekly for ${formatMinerWeeksLabel(
                                 minerWeeksRemaining
@@ -2433,10 +2433,10 @@ function LaunchpadMarketplaceWidget({
                           <>
                             <div className="h-px bg-primary-foreground/15 my-2" />
                             <div className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-[11px]">
-                              <div className="text-primary-foreground/80">
+                              <div className="text-foreground/80">
                                 {l.pdFromPdsLabel(rewardsBreakdown.pdCurrency)}
                               </div>
-                              <div className="font-mono tabular-nums text-primary-foreground">
+                              <div className="font-mono tabular-nums text-foreground">
                                 {rewardsBreakdown.pdPerShare.toLocaleString(
                                   undefined,
                                   {
@@ -2447,10 +2447,10 @@ function LaunchpadMarketplaceWidget({
                                 {" "}
                                 {rewardsBreakdown.pdCurrency}
                               </div>
-                              <div className="text-primary-foreground/80">
+                              <div className="text-foreground/80">
                                 {l.glwFromInflation}
                               </div>
-                              <div className="font-mono tabular-nums text-primary-foreground">
+                              <div className="font-mono tabular-nums text-foreground">
                                 {rewardsBreakdown.inflationPerShare.toLocaleString(
                                   undefined,
                                   {
@@ -2995,21 +2995,21 @@ function LaunchpadWidgetAssetCard({
                     className="max-w-[280px] p-3"
                   >
                     <div className="space-y-2">
-                      <div className="text-xs font-semibold text-primary-foreground">
+                      <div className="text-xs font-semibold text-foreground">
                         {l.estimatedRewardsLower}
                       </div>
-                      <div className="text-[11px] leading-snug text-primary-foreground/80">
+                      <div className="text-[11px] leading-snug text-foreground/80">
                         {l.weeklyEstDelegationDesc}
                       </div>
                       <div className="h-px bg-primary-foreground/15" />
                       {delegationRewardsBreakdown ? (
                         <div className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-[11px]">
-                          <div className="text-primary-foreground/80">
+                          <div className="text-foreground/80">
                             {l.pdFromPdsLabel(
                               delegationRewardsBreakdown.pdCurrency,
                             )}
                           </div>
-                          <div className="font-mono tabular-nums text-primary-foreground">
+                          <div className="font-mono tabular-nums text-foreground">
                             {delegationRewardsBreakdown.pdPerShare.toLocaleString(
                               undefined,
                               {
@@ -3019,10 +3019,10 @@ function LaunchpadWidgetAssetCard({
                             )}{" "}
                             {delegationRewardsBreakdown.pdCurrency}
                           </div>
-                          <div className="text-primary-foreground/80">
+                          <div className="text-foreground/80">
                             {l.glwFromInflation}
                           </div>
-                          <div className="font-mono tabular-nums text-primary-foreground">
+                          <div className="font-mono tabular-nums text-foreground">
                             {delegationRewardsBreakdown.inflationPerShare.toLocaleString(
                               undefined,
                               {
@@ -3033,7 +3033,7 @@ function LaunchpadWidgetAssetCard({
                           </div>
                         </div>
                       ) : (
-                        <div className="text-[11px] text-primary-foreground/70">
+                        <div className="text-[11px] text-foreground/70">
                           {l.calculatingBreakdown}
                         </div>
                       )}
@@ -3057,10 +3057,10 @@ function LaunchpadWidgetAssetCard({
                     className="max-w-[280px] p-3"
                   >
                     <div className="space-y-2">
-                      <div className="text-xs font-semibold text-primary-foreground">
+                      <div className="text-xs font-semibold text-foreground">
                         {l.estimatedRewardsLower}
                       </div>
-                      <div className="text-[11px] leading-snug text-primary-foreground/80">
+                      <div className="text-[11px] leading-snug text-foreground/80">
                         {l.weeklyMinerDesc(
                           formatMinerWeeksLabel(minerWeeksRemaining),
                         )}
@@ -3341,7 +3341,7 @@ function LaunchpadWidgetHeroCarouselCard({
                     <TooltipContent side="top" className="max-w-[300px]">
                       <div className="text-xs">
                         <div className="font-semibold mb-1.5">{l.rewardScore}</div>
-                        <div className="text-primary-foreground/80 leading-relaxed">
+                        <div className="text-foreground/80 leading-relaxed">
                           {l.rewardScoreLongDescription}
                         </div>
                       </div>
@@ -4485,19 +4485,19 @@ function LaunchpadAssetCard({
                   >
                     {isDelegation ? (
                       <div className="space-y-2">
-                        <div className="text-xs font-semibold text-primary-foreground">
+                        <div className="text-xs font-semibold text-foreground">
                           {l.estimatedRewardsLower}
                         </div>
-                        <div className="text-[11px] leading-snug text-primary-foreground/80">
+                        <div className="text-[11px] leading-snug text-foreground/80">
                           {l.weeklyEstDelegationDesc}
                         </div>
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        <div className="text-xs font-semibold text-primary-foreground">
+                        <div className="text-xs font-semibold text-foreground">
                           {l.estimatedRewardsLower}
                         </div>
-                        <div className="text-[11px] leading-snug text-primary-foreground/80">
+                        <div className="text-[11px] leading-snug text-foreground/80">
                           {l.weeklyMinerDesc(
                             formatMinerWeeksLabel(minerWeeksRemaining),
                           )}
