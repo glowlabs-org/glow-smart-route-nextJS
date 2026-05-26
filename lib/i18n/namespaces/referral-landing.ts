@@ -70,7 +70,7 @@ const en: ReferralLandingStrings = {
     "Your 12-week boost starts now. Earn 10% more points each week, and unlock +100 bonus points after you reach 100 points.",
   startYourOwnNetwork: "Start your own network",
   inviteFriendsBody:
-    "Invite friends and earn up to 20% of their Impact Points. They'll get the same bonuses you just unlocked.",
+    "Invite friends and earn up to 20% of their points. They'll get the same bonuses you just unlocked.",
   copied: "Copied!",
   copyYourLink: "Copy Your Link",
   toastReferralLinkCopied: "Your referral link copied!",
@@ -110,7 +110,7 @@ const en: ReferralLandingStrings = {
   badgeUnlocksAfter1: "Unlocks after your first",
   badgeUnlocksAfter2: "100 points",
   badgeAt100PtsMobile: "At 100 pts",
-  badgeImpactPointsBonus: "Impact Points Bonus",
+  badgeImpactPointsBonus: "Points Bonus",
   badgeAddedToBase1: "Added to your base points",
   badgeAddedToBase2: "for 12 weeks",
   badgeBonusPoints: "Bonus Points",

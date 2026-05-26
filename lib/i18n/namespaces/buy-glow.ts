@@ -105,9 +105,9 @@ const en: BuyGlowStrings = {
   close: "Close",
   tryAgain: "Try Again",
 
-  impactBoostedBadge: "Impact Score Boosted",
+  impactBoostedBadge: "GLW Purchased",
   impactBoostedBody:
-    "You've increased your Glow Worth. You are now earning passive Impact Points on this balance.",
+    "Buying GLW does not earn points by itself. Delegate GLW to a solar farm to earn spendable points.",
   sentLabel: "Sent",
   receivedLabel: "Received",
   transactionLabel: "Transaction",
@@ -164,9 +164,9 @@ const ko: BuyGlowStrings = {
   close: "닫기",
   tryAgain: "다시 시도",
 
-  impactBoostedBadge: "임팩트 점수 상승",
+  impactBoostedBadge: "GLW 구매 완료",
   impactBoostedBody:
-    "Glow 자산이 증가했습니다. 이제 이 잔액에서 수동으로 임팩트 포인트를 획득합니다.",
+    "GLW 구매만으로는 포인트가 적립되지 않습니다. GLW를 태양광 발전소에 위임하면 사용할 수 있는 포인트를 얻습니다.",
   sentLabel: "전송",
   receivedLabel: "수령",
   transactionLabel: "트랜잭션",
@@ -225,9 +225,9 @@ const zh: BuyGlowStrings = {
   close: "关闭",
   tryAgain: "重试",
 
-  impactBoostedBadge: "影响力分数已提升",
+  impactBoostedBadge: "GLW 购买完成",
   impactBoostedBody:
-    "您的 Glow 资产已增加。您正在通过此余额被动累积影响力积分。",
+    "购买 GLW 本身不会获得积分。将 GLW 委托给太阳能农场即可获得可使用的积分。",
   sentLabel: "已发送",
   receivedLabel: "已收到",
   transactionLabel: "交易",

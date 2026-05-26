@@ -32,7 +32,7 @@ export async function generateMetadata({
 
   return buildPageMetadata({
     title: `${shortAddress} - Glow Dashboard`,
-    description: `View the Glow impact score and dashboard for ${shortAddress}.`,
+    description: `View the Glow points and dashboard for ${shortAddress}.`,
     path: `/wallet/${encodeURIComponent(walletAddress)}`,
   });
 }

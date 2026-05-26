@@ -74,7 +74,6 @@ import { getStoredReferralAttribution } from "@/lib/referral-attribution";
 import { cn } from "@/lib/utils";
 import { SteeringIcon } from "@/components/impact-icons";
 import { usePolling } from "@/utils/use-polling";
-import { animate, motion, useMotionValue, useTransform } from "framer-motion";
 
 // --- Types & Constants ---
 
@@ -2106,14 +2105,7 @@ export function MintAndStakeGctlDialog({
                               {m.scoreBoost}
                             </div>
                             <div className="mt-0.5 font-mono text-sm text-foreground">
-                              {steeringImpactQuote ? (
-                                <>+{steeringImpactQuote.deltaPerWeekPoints}</>
-                              ) : (
-                                "—"
-                              )}
-                              <span className="text-xs text-muted-foreground ml-1">
-                                {m.pointsUnit}
-                              </span>
+                              {steeringImpactQuote ? m.rewardsRedirected : "—"}
                             </div>
                           </div>
                           <div className="p-3 text-center">
@@ -2313,22 +2305,7 @@ function SuccessLevelUp(props: {
 }) {
   const { t } = useLang();
   const m = t.bigDialogs.mintStake;
-  const { receipt, score, onDone } = props;
-
-  const prev = Math.max(0, Math.floor(score?.prevSteeringPoints ?? 0));
-  const next = Math.max(0, Math.floor(score?.nextSteeringPoints ?? prev));
-  const delta = Math.max(0, next - prev);
-
-  const count = useMotionValue(prev);
-  const rounded = useTransform(count, (latest) => Math.round(latest));
-
-  React.useEffect(() => {
-    const anim = animate(count, next, {
-      duration: 1.1,
-      ease: [0.43, 0.13, 0.23, 0.96],
-    });
-    return () => anim.stop();
-  }, [count, next]);
+  const { receipt, onDone } = props;
 
   return (
     <div className="flex flex-col items-center justify-center py-3 space-y-5 animate-in fade-in zoom-in-95 duration-300">
@@ -2357,17 +2334,15 @@ function SuccessLevelUp(props: {
           userSteps={100}
           label={
             <div className="flex flex-col items-center justify-center">
-              <motion.span className="text-4xl font-bold tracking-tight font-mono text-foreground tabular-nums">
-                {rounded}
-              </motion.span>
+              <Check className="h-10 w-10 text-foreground" />
               <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                {m.pointsUnit}
+                {m.powerActivated}
               </span>
             </div>
           }
           sublabel={
             <span className="text-xs text-[#22D3EE] font-medium">
-              {m.pointsGained(delta.toLocaleString())}
+              {m.rewardsRedirected}
             </span>
           }
           userColor="rgba(6,182,212,0.9)"

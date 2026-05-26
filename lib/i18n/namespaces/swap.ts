@@ -201,7 +201,7 @@ const en: SwapStrings = {
   smartAccountNotSupported: "Smart account not supported.",
   failedEstimateUsdg: "Failed to estimate USDG output",
   glowWorthIncreasedMessage:
-    "You've increased your Glow Worth. You are now earning passive Impact Points on this balance.",
+    "Buying GLW does not earn points by itself. Delegate GLW to a solar farm to earn spendable points.",
   transactionProgress: "Transaction Progress",
   youPayLabel: "You Pay",
   youReceiveLabel: "You Receive",
@@ -319,7 +319,7 @@ const ko: SwapStrings = {
   smartAccountNotSupported: "스마트 계정은 지원되지 않습니다.",
   failedEstimateUsdg: "USDG 출력 추정에 실패했습니다",
   glowWorthIncreasedMessage:
-    "Glow Worth가 증가했습니다. 이제 이 잔액에서 패시브 임팩트 포인트를 적립합니다.",
+    "GLW 구매만으로는 포인트가 적립되지 않습니다. GLW를 태양광 발전소에 위임하면 사용할 수 있는 포인트를 얻습니다.",
   transactionProgress: "트랜잭션 진행 상황",
   youPayLabel: "지불 금액",
   youReceiveLabel: "수령 금액",
@@ -434,7 +434,7 @@ const zh: SwapStrings = {
   smartAccountNotSupported: "暂不支持智能账户。",
   failedEstimateUsdg: "无法估算 USDG 输出金额",
   glowWorthIncreasedMessage:
-    "您的 Glow Worth 已增加，现可在此余额上被动赚取 Impact Points。",
+    "购买 GLW 本身不会获得积分。将 GLW 委托给太阳能农场即可获得可使用的积分。",
   transactionProgress: "交易进度",
   youPayLabel: "支付",
   youReceiveLabel: "获得",

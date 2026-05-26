@@ -49,7 +49,7 @@ const en: TransactionDialogStrings = {
   processingShouldComplete: "Processing should complete soon",
   percentComplete: (pct) => `${pct}% complete • Checking status every 5s`,
   doNotClose: "Please do not close this window or refresh the page",
-  impactScoreBoosted: "Impact Score Boosted",
+  impactScoreBoosted: "Rewards Directed",
   toastTxCopied: "Transaction ID copied to clipboard",
 };
 
@@ -77,7 +77,7 @@ const ko: TransactionDialogStrings = {
   processingShouldComplete: "곧 처리가 완료됩니다",
   percentComplete: (pct) => `${pct}% 완료 · 5초마다 상태 확인 중`,
   doNotClose: "이 창을 닫거나 새로고침하지 마세요",
-  impactScoreBoosted: "임팩트 점수 상승",
+  impactScoreBoosted: "리워드 방향 지정됨",
   toastTxCopied: "트랜잭션 ID를 클립보드에 복사했습니다",
 };
 
@@ -104,7 +104,7 @@ const zh: TransactionDialogStrings = {
   processingShouldComplete: "处理即将完成",
   percentComplete: (pct) => `已完成 ${pct}% · 每 5 秒检查一次状态`,
   doNotClose: "请勿关闭此窗口或刷新页面",
-  impactScoreBoosted: "影响力分数已提升",
+  impactScoreBoosted: "奖励已引导",
   toastTxCopied: "交易 ID 已复制到剪贴板",
 };
 

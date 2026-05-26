@@ -166,7 +166,7 @@ export default function OGPreviewPage() {
                   Leaderboard
                 </>
               }
-              subtitle="Track top wallets by impact score and Glow rewards."
+              subtitle="Track top wallets by solar impact and Glow rewards."
             />
           </div>
         </section>
@@ -259,7 +259,7 @@ export default function OGPreviewPage() {
                     maxWidth: "700px",
                   }}
                 >
-                  Earn bonus Impact Points when you sign up with this referral link.
+                  Earn bonus points when you sign up with this referral link.
                 </div>
               </div>
             </div>

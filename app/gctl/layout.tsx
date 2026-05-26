@@ -4,7 +4,7 @@ import { buildPageMetadata } from "@/lib/seo";
 export const metadata: Metadata = buildPageMetadata({
   title: "Steer Solar Development with GCTL",
   description:
-    "Mint and stake Glow Control (GCTL) to direct where solar infrastructure gets built.Boost your Impact Score.",
+    "Mint and stake Glow Control (GCTL) to direct where solar infrastructure gets built.",
   path: "/gctl",
 });
 

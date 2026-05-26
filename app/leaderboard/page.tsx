@@ -6,7 +6,7 @@ import { buildPageMetadata } from "@/lib/seo";
 const baseMetadata = buildPageMetadata({
   title: "Impact Leaderboard",
   description:
-    "Explore Glow's impact leaderboard and see top wallets by impact score.",
+    "Explore Glow's impact leaderboard and see top wallets by measured solar impact.",
   path: "/leaderboard",
 });
 

@@ -24,7 +24,7 @@ export async function generateMetadata({
   const base = buildPageMetadata({
     title: `Join Glow Mining with Referral Code ${displayCode} - Earn Bonus Rewards`,
     description:
-      "Sign up for Glow Mining with this referral link and earn bonus Impact Points for 12 weeks. Sponsor solar farms, earn GLW token rewards, and support renewable energy infrastructure.",
+      "Sign up for Glow Mining with this referral link and earn bonus points for 12 weeks. Sponsor solar farms, earn GLW token rewards, and support renewable energy infrastructure.",
     path: `/r/${encodeURIComponent(code)}`,
     noIndex: true,
   });

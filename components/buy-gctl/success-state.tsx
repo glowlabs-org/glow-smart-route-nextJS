@@ -57,11 +57,11 @@ export function SuccessState({
             )}
           >
             <SteeringIcon className="h-4 w-4" />
-            Impact Score Boosted
+            Regional Rewards Directed
           </div>
           <div className="text-sm text-muted-foreground max-w-[280px] mx-auto">
-            You&apos;ve acquired and staked GCTL. This boosts your Impact Score
-            multiplier.
+            You&apos;ve acquired and staked GCTL. Your stake helps route GLW
+            emissions to the selected region.
           </div>
         </div>
         {usdcAmount && (

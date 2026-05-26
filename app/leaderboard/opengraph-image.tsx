@@ -91,7 +91,7 @@ export default function Image() {
               maxWidth: "700px",
             }}
           >
-            <span>Track top wallets by impact score</span>
+            <span>Track top wallets by solar impact</span>
             <span>and Glow rewards.</span>
           </div>
         </div>

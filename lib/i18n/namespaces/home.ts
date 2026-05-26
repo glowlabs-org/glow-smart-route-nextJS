@@ -66,7 +66,7 @@ const en: HomeStrings = {
 
   deferred: {
     impactScore: {
-      title: "Impact Score",
+      title: "Points",
       description:
         "Impact analytics load a few seconds after launch traffic settles.",
     },
@@ -130,7 +130,7 @@ const ko: HomeStrings = {
 
   deferred: {
     impactScore: {
-      title: "임팩트 점수",
+      title: "포인트",
       description:
         "런치패드 트래픽이 안정화된 후 임팩트 분석이 로드됩니다.",
     },
@@ -193,7 +193,7 @@ const zh: HomeStrings = {
 
   deferred: {
     impactScore: {
-      title: "影响力评分",
+      title: "积分",
       description:
         "影响力分析将在 Launchpad 流量平稳后几秒内加载。",
     },

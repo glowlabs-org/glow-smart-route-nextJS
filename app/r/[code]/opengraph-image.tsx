@@ -113,7 +113,7 @@ export default async function Image({
               maxWidth: "700px",
             }}
           >
-            Earn bonus Impact Points when you sign up with this referral link.
+            Earn bonus points when you sign up with this referral link.
           </div>
           {/* CTA Button */}
           <div

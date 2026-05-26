@@ -307,7 +307,7 @@ export function ReferralNetworkDialog({
   const shareToTwitter = React.useCallback(() => {
     if (!resolvedData?.shareableLink) return;
     const text = encodeURIComponent(
-      `Join me on @GlowFND and start earning Impact Points for real solar impact.\n\n${resolvedData.shareableLink}`,
+      `Join me on @GlowFND and start earning points for real solar impact.\n\n${resolvedData.shareableLink}`,
     );
     window.open(`https://x.com/intent/tweet?text=${text}`, "_blank");
     trackEvent("referral_share_twitter", {
@@ -318,7 +318,7 @@ export function ReferralNetworkDialog({
   const shareToDiscord = React.useCallback(() => {
     if (!resolvedData?.shareableLink) return;
     // Discord doesn't have a direct share URL, so we copy a formatted message
-    const message = `Join me on Glow and start earning Impact Points for real solar impact: ${resolvedData.shareableLink}`;
+    const message = `Join me on Glow and start earning points for real solar impact: ${resolvedData.shareableLink}`;
     navigator.clipboard.writeText(message);
     toast.success(s.toastDiscordCopied);
     trackEvent("referral_share_discord", {
