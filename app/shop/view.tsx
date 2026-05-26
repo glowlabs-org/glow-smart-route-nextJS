@@ -520,16 +520,21 @@ function StatCell({
   children: React.ReactNode;
 }) {
   return (
-    <div className={cn("flex flex-col justify-center p-5 sm:p-6", className)}>
+    <div
+      className={cn(
+        "flex flex-col justify-center px-4 py-3 sm:p-6",
+        className,
+      )}
+    >
       <Overline>{label}</Overline>
-      <div className="mt-2">{children}</div>
+      <div className="mt-1.5 sm:mt-2">{children}</div>
     </div>
   );
 }
 
 function SecondaryValue({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-xl font-semibold tracking-tight tabular-nums">
+    <p className="text-base font-semibold tracking-tight tabular-nums sm:text-xl">
       {children}
     </p>
   );
