@@ -1473,6 +1473,14 @@ export default function LaunchpadStatusWidget({
   const hasMinersAvailable = minersAvailableCount > 0;
   const totalAvailable = delegationsAvailableCount + minersAvailableCount;
   const hasAnyListings = totalAvailable > 0;
+  // Only present the live listings UI when the window is open AND there is
+  // something to show; otherwise fall back to the countdown variant.
+  const showLiveListings = isLive && hasAnyListings;
+  // Countdown variant: no live listings, not within the approaching window. In
+  // this state the Buy GLW CTA lives at the bottom of the prep section instead
+  // of the header.
+  const isCountdownState =
+    !isLoading && !isError && !showLiveListings && !effectiveIsApproaching;
   const hasMinerLeadWindow =
     hasSplitBatchSchedule &&
     hasMinersAvailable &&
@@ -1580,7 +1588,7 @@ export default function LaunchpadStatusWidget({
           : isFlow
             ? "bg-card/30 border-foreground/5 min-h-[380px]"
             : isFullRow
-              ? "bg-muted/20 dark:bg-muted/30 border border-border/10 dark:border-border/20 rounded-2xl"
+              ? "bg-transparent border-0"
               : cn(
                   "bg-card dark:bg-muted/20 border-foreground/5 dark:border-border",
                   isMobile ? "min-h-[620px]" : "h-full",
@@ -1589,14 +1597,14 @@ export default function LaunchpadStatusWidget({
       )}
     >
       {/* Hide header for full-row live state (tabs are in the grid) */}
-      {!(isLive && isFullRow) && !(effectiveIsApproaching && isFullRow) && (
+      {!(showLiveListings && isFullRow) && !(effectiveIsApproaching && isFullRow) && !(isCountdownState && isFullRow) && (
         <CardHeader
           className={cn("pb-0", isFullRow ? "px-3 pt-3 pb-0" : "pt-4")}
         >
           <div
             className={cn(
               "flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between",
-              !isLive ? "items-center" : "items-start",
+              !showLiveListings ? "items-center" : "items-start",
               isFullRow ? "min-h-0" : null,
             )}
           >
@@ -1609,7 +1617,7 @@ export default function LaunchpadStatusWidget({
                     : "text-lg font-semibold tracking-tight text-foreground",
                 )}
               >
-                {isLive
+                {showLiveListings
                   ? t.widgets.launchpadStatus.launchpadTitle
                   : effectiveIsApproaching
                     ? hasSplitBatchSchedule
@@ -1621,7 +1629,7 @@ export default function LaunchpadStatusWidget({
               </CardTitle>
             </div>
 
-            {isLive && variant === "full-row" ? (
+            {showLiveListings && variant === "full-row" ? (
               <Link
                 href="/marketplace"
                 className={cn(
@@ -1633,7 +1641,7 @@ export default function LaunchpadStatusWidget({
                 {t.widgets.launchpadStatus.viewMarketplace}
                 <ArrowUpRight className="w-4 h-4" />
               </Link>
-            ) : (
+            ) : isCountdownState ? null : (
               <Button
                 variant="outline"
                 size="sm"
@@ -1709,7 +1717,7 @@ export default function LaunchpadStatusWidget({
               {t.widgets.launchpadStatus.statusUnavailable}
             </div>
           </div>
-        ) : isLive ? (
+        ) : showLiveListings ? (
           // --- LIVE STATE ---
           resolvedTab === "activity" ? (
             <div
@@ -1951,11 +1959,25 @@ export default function LaunchpadStatusWidget({
           <div
             className={cn(
               "flex-1 flex flex-col gap-6",
-              variant === "full-row" ? "p-0" : "px-5 pb-5",
+              variant === "full-row"
+                ? "px-3 pb-4 lg:grid lg:grid-cols-3 lg:items-center lg:gap-6"
+                : "px-5 pb-5",
             )}
           >
             {/* Big Countdown Hero */}
-            <div className="flex-1 flex flex-col items-center justify-center py-2 gap-6">
+            <div
+              className={cn(
+                "flex-1 flex flex-col items-center justify-center py-2 gap-6",
+                isFullRow && "lg:col-span-2",
+              )}
+            >
+              {isFullRow ? (
+                <CardTitle className="text-xl font-semibold tracking-tight text-foreground text-center">
+                  {hasSplitBatchSchedule
+                    ? t.widgets.launchpadStatus.newMiningCenterListingIn
+                    : t.widgets.launchpadStatus.newSolarFarmListingIn}
+                </CardTitle>
+              ) : null}
               <div className="font-mono font-bold tracking-tighter tabular-nums text-foreground">
                 <div className="sm:hidden">
                   <AnimatedCountdownDhms
@@ -1974,37 +1996,55 @@ export default function LaunchpadStatusWidget({
               </div>
             </div>
 
-            {/* Prep Section */}
-            <div className="mt-auto space-y-4">
-              <div className="bg-muted/20 rounded-xl p-4 flex gap-4 border border-border/50 flex-col sm:flex-row text-center sm:text-left">
-                {/* GLW Price - links to Defined pool activity */}
-                <a
-                  href={DEFINED_POOL_ACTIVITY_URL}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="shrink-0 flex flex-col items-center justify-center p-3 rounded-xl bg-card border border-border/60 min-w-[100px] gap-0.5 hover:bg-muted/50 hover:border-border transition-colors group"
-                >
-                  <span className="text-[10px] translate-x-2 font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                    GLW
-                    <ArrowUpRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </span>
-                  <span className="text-xl font-mono font-bold text-foreground tabular-nums tracking-tight">
-                    {priceLabel}
-                  </span>
-                  <span className="text-xs text-muted-foreground leading-relaxed underline">
-                    defined.fi
-                  </span>
-                </a>
+            {/* Prep Section — aligned sibling blocks (price, copy, CTA) */}
+            <div
+              className={cn(
+                "mt-auto flex flex-col gap-3",
+                isFullRow && "lg:mt-0 lg:col-span-1",
+              )}
+            >
+              {/* GLW Price - links to Defined pool activity */}
+              <a
+                href={DEFINED_POOL_ACTIVITY_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="flex flex-col items-center justify-center p-4 rounded-xl bg-card border border-border/60 gap-0.5 hover:bg-muted/50 hover:border-border transition-colors group"
+              >
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                  GLW
+                  <ArrowUpRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </span>
+                <span className="text-xl font-mono font-bold text-foreground tabular-nums tracking-tight">
+                  {priceLabel}
+                </span>
+                <span className="text-xs text-muted-foreground leading-relaxed underline">
+                  defined.fi
+                </span>
+              </a>
 
-                <div className="flex-1 space-y-1 py-0.5">
-                  <p className="text-base font-semibold text-foreground">
-                    {t.widgets.launchpadStatus.beReadyTitle}
-                  </p>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    {t.widgets.launchpadStatus.beReadyBody}
-                  </p>
-                </div>
+              <div className="text-center space-y-1 px-1">
+                <p className="text-base font-semibold text-foreground">
+                  {t.widgets.launchpadStatus.beReadyTitle}
+                </p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {t.widgets.launchpadStatus.beReadyBody}
+                </p>
               </div>
+
+              <Button
+                className="w-full font-medium"
+                onClick={() => {
+                  trackEvent("launchpad_widget_buy_glw_click", {
+                    source,
+                    wallet_connected: isConnected,
+                    wallet_address: walletAddress,
+                  });
+                  setBuyGlowOpen(true);
+                }}
+              >
+                <ShoppingCart className="mr-1.5 h-4 w-4" />
+                {t.widgets.launchpadStatus.buyGlw}
+              </Button>
             </div>
           </div>
         )}

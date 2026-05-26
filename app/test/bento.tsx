@@ -587,14 +587,17 @@ export default function GlowSoftDashboard({
               transition={{ duration: 0.15 }}
               className="flex flex-col gap-8"
             >
-              {/* Launchpad Live/Approaching Section - First Row */}
-              {!readOnly && shouldShowLaunchpadHeroRow && (
+              {/* Launchpad row — always shown for owners; falls back to the
+                  countdown variant when there are no live listings. */}
+              {!readOnly && (
                 <section className="flex flex-col gap-8">
                   <SectionHeader
                     title={
-                      isApproachingLaunchpad
-                        ? t.home.sections.launchpadOpeningSoon
-                        : t.home.sections.launchpadLive
+                      shouldShowLaunchpadLiveSection
+                        ? t.home.sections.launchpadLive
+                        : isApproachingLaunchpad
+                          ? t.home.sections.launchpadOpeningSoon
+                          : t.home.sections.growYourImpact
                     }
                   />
                   <div className="rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10 p-4 sm:p-6 lg:p-12">
@@ -743,23 +746,6 @@ export default function GlowSoftDashboard({
                         </WidgetErrorBoundary>
                       </DeferredLaunchWindowAnalytics>
                     </div>
-                  </div>
-                </div>
-              </section>
-
-              {/* Action Section: Grow Your Impact */}
-              <section className="flex flex-col gap-8 pt-20">
-                <SectionHeader title={t.home.sections.growYourImpact} />
-                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10 p-4 sm:p-6 lg:p-12">
-                  <div id="bento-launchpad-status">
-                    <WidgetErrorBoundary>
-                      <LaunchpadStatusWidget
-                        key={`launchpad-status-${walletAddress ?? "anon"}-${dashboardRefreshNonce}`}
-                        variant="minimal"
-                        onPayDeposit={readOnly ? undefined : handlePayDeposit}
-                        isApproaching={isApproachingLaunchpad}
-                      />
-                    </WidgetErrorBoundary>
                   </div>
                 </div>
               </section>
