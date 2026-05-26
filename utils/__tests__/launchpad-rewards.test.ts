@@ -65,4 +65,81 @@ describe("resolveLaunchpadDelegationShareCount", () => {
 
     expect(totalShares).toBe(47678);
   });
+
+  it("returns totalSteps for GLW phase (delegationAsset!='SGCTL')", () => {
+    // After auto-commit transitions a launchpad fraction to the GLW phase,
+    // resolveDelegationCurrency returns 'GLW' and the function should return
+    // the fraction's totalSteps directly — not the sGCTL-share computation.
+    const totalShares = resolveLaunchpadDelegationShareCount({
+      paymentCurrency: "USDG",
+      finalProtocolFee: "7846900000",
+      applicationPriceQuotes: [],
+      activeFraction: {
+        delegationAsset: "GLW",
+        totalSteps: 25,
+        currentStepUsd6: null,
+      },
+    } as any);
+
+    expect(totalShares).toBe(25);
+  });
+
+  it("wk129 Spectrum Canopy snapshot during sGCTL: 95 shares for $7,847 / $82.60 step", () => {
+    // The exact configuration that triggered the wk129 UI bug in prod. Pin
+    // it so any future change to the share-count formula has to consciously
+    // break or update this regression.
+    const totalShares = resolveLaunchpadDelegationShareCount({
+      paymentCurrency: "SGCTL",
+      finalProtocolFee: "7846900000",
+      applicationPriceQuotes: [],
+      activeFraction: {
+        delegationAsset: "SGCTL",
+        totalSteps: 16,
+        currentStepUsd6: "82599006",
+      },
+    } as any);
+
+    expect(totalShares).toBe(95);
+  });
+
+  it("falls back to totalSteps when finalProtocolFee is missing in sGCTL phase", () => {
+    const totalShares = resolveLaunchpadDelegationShareCount({
+      paymentCurrency: "SGCTL",
+      finalProtocolFee: null,
+      applicationPriceQuotes: [],
+      activeFraction: {
+        delegationAsset: "SGCTL",
+        totalSteps: 50,
+        currentStepUsd6: "100000",
+      },
+    } as any);
+
+    expect(totalShares).toBe(50);
+  });
+
+  it("falls back to totalSteps when currentStepUsd6 is missing in sGCTL phase", () => {
+    const totalShares = resolveLaunchpadDelegationShareCount({
+      paymentCurrency: "SGCTL",
+      finalProtocolFee: "1000000000",
+      applicationPriceQuotes: [],
+      activeFraction: {
+        delegationAsset: "SGCTL",
+        totalSteps: 50,
+        currentStepUsd6: null,
+      },
+    } as any);
+
+    expect(totalShares).toBe(50);
+  });
+
+  it("returns 0 when there is no active fraction", () => {
+    const totalShares = resolveLaunchpadDelegationShareCount({
+      paymentCurrency: "SGCTL",
+      finalProtocolFee: "1000000000",
+      applicationPriceQuotes: [],
+      activeFraction: null,
+    } as any);
+
+    expect(totalShares).toBe(0);
+  });
 });

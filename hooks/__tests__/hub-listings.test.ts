@@ -103,6 +103,109 @@ describe("resolveFractionRemainingSteps", () => {
 
     expect(resolveFractionRemainingSteps(fraction)).toBe(7);
   });
+
+  it("returns 0 when the fraction is null", () => {
+    expect(resolveFractionRemainingSteps(null)).toBe(0);
+  });
+
+  it("returns 0 when the fraction is undefined", () => {
+    expect(resolveFractionRemainingSteps(undefined)).toBe(0);
+  });
+
+  it("wk129 Spectrum post-fix snapshot: total=25, sold=12, remaining=13", () => {
+    // After the gca-crm-backend fix at commit `c465bbf`, total_steps =
+    // existing_splits_sold + on-chain GLW remainder. For Spectrum that's
+    // 12 + 13 = 25, so totalSteps-splitsSold returns the on-chain GLW
+    // capacity. Lock this so the deposit-dialog Max button uses 13.
+    const fraction = createFraction({
+      totalSteps: 25,
+      splitsSold: 12,
+      remainingSteps: null as unknown as number,
+      isFilled: false,
+    });
+
+    expect(resolveFractionRemainingSteps(fraction)).toBe(13);
+  });
+
+  it("rounds non-integer totalSteps and splitsSold down before subtracting", () => {
+    const fraction = createFraction({
+      totalSteps: 16.9 as unknown as number,
+      splitsSold: 4.1 as unknown as number,
+      remainingSteps: null as unknown as number,
+      isFilled: false,
+    });
+
+    expect(resolveFractionRemainingSteps(fraction)).toBe(12);
+  });
+
+  it("clamps negative computed remaining to 0", () => {
+    const fraction = createFraction({
+      totalSteps: 10,
+      splitsSold: 100,
+      remainingSteps: null as unknown as number,
+      isFilled: false,
+    });
+
+    expect(resolveFractionRemainingSteps(fraction)).toBe(0);
+  });
+
+  it("ignores fractional remainingSteps fallback in favor of the integer step ledger", () => {
+    const fraction = createFraction({
+      totalSteps: 20,
+      splitsSold: 8,
+      remainingSteps: 11.7 as unknown as number,
+      isFilled: false,
+    });
+
+    expect(resolveFractionRemainingSteps(fraction)).toBe(12);
+  });
+});
+
+describe("isFractionOpenForMarketplace (extended)", () => {
+  it("returns false when the fraction is null", () => {
+    // Defensive: the function explicitly accepts null/undefined.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((isFractionOpenForMarketplace as any)(null)).toBe(false);
+  });
+
+  it("returns false when isFilled is true even if remaining > 0", () => {
+    expect(
+      isFractionOpenForMarketplace(
+        createFraction({
+          totalSteps: 20,
+          splitsSold: 5,
+          remainingSteps: null as unknown as number,
+          isFilled: true,
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it("returns false when remainingSteps is 0 (post-fix wk129 sold-out case)", () => {
+    expect(
+      isFractionOpenForMarketplace(
+        createFraction({
+          totalSteps: 25,
+          splitsSold: 25,
+          remainingSteps: null as unknown as number,
+          isFilled: false,
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it("returns false when totalSteps is 0 (malformed row)", () => {
+    expect(
+      isFractionOpenForMarketplace(
+        createFraction({
+          totalSteps: 0,
+          splitsSold: 0,
+          remainingSteps: null as unknown as number,
+          isFilled: false,
+        }),
+      ),
+    ).toBe(false);
+  });
 });
 
 describe("isFractionPubliclyVisible", () => {
