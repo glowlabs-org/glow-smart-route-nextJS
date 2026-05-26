@@ -598,20 +598,22 @@ function BalancePanel({
           {isLoading ? (
             <Skeleton className="h-11 w-44" />
           ) : (
-            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-              <span className="text-4xl font-semibold leading-none tracking-tight tabular-nums sm:text-5xl">
-                {formatNumber(availablePoints ?? 0)}
-              </span>
-              <span className="text-sm text-muted-foreground">points</span>
+            <div className="flex flex-col items-start gap-2">
+              <div className="flex items-baseline gap-2">
+                <span className="text-4xl font-semibold leading-none tracking-tight tabular-nums sm:text-5xl">
+                  {formatNumber(availablePoints ?? 0)}
+                </span>
+                <span className="text-sm text-muted-foreground">points</span>
+              </div>
               {onOpenBreakdown && (
-                <button
-                  type="button"
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-3 text-[11px] font-medium border-border/40 bg-transparent"
                   onClick={onOpenBreakdown}
-                  className="ml-1 inline-flex items-center gap-0.5 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors underline-offset-2 hover:underline"
                 >
                   Breakdown
-                  <ChevronRight className="h-3 w-3" />
-                </button>
+                </Button>
               )}
             </div>
           )}
