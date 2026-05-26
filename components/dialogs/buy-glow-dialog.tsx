@@ -413,6 +413,12 @@ export function BuyGlowDialog({
     return formatUnits(usdgBalance, DECIMALS_BY_TOKEN.USDG);
   }, [usdgBalance]);
 
+  // Only offer USDG when the wallet actually holds some (it can't be funded
+  // from within this dialog). Keep it visible while balances load to avoid a
+  // flicker for holders.
+  const showUsdgOption =
+    usdgBalanceWei > 0n || (isConnected && isBalancesLoading);
+
   const isEthPayEnabled = chainId === 1 || chainId === 11155111;
   const ethBalanceQuery = useBalance({
     address,
@@ -1610,6 +1616,7 @@ export function BuyGlowDialog({
                 selected={payToken === "USDG"}
                 onSelect={() => handlePayTokenChange("USDG")}
                 isLoading={isConnected && isBalancesLoading}
+                disabled={!showUsdgOption}
               />
               {isEthPayEnabled && (
                 <PaymentOption
