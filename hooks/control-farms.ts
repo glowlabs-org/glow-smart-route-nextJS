@@ -98,6 +98,83 @@ export function useWalletFarms(params: {
   } as const;
 }
 
+export interface WalletRewardSplitOwnership {
+  farms: FarmWithRewards[];
+  totalFarms: number;
+  hasRewardSplits: boolean;
+}
+
+export async function fetchWalletRewardSplitOwnership(
+  walletAddress: string,
+): Promise<WalletRewardSplitOwnership> {
+  const baseUrl = process.env.NEXT_PUBLIC_CONTROL_API_URL;
+  if (!baseUrl) {
+    throw new Error(
+      "Environment variable NEXT_PUBLIC_CONTROL_API_URL is not set",
+    );
+  }
+
+  const response = await fetch(
+    `${baseUrl.replace(/\/$/, "")}/farms/wallet/${encodeURIComponent(
+      walletAddress,
+    )}/farms-with-rewards`,
+    { cache: "no-store" },
+  );
+
+  if (!response.ok) {
+    throw new Error(`farms-with-rewards returned ${response.status}`);
+  }
+
+  const body = (await response.json()) as
+    | { farms?: FarmWithRewards[]; totalFarms?: number }
+    | FarmWithRewards[];
+  const farms = Array.isArray(body) ? body : body.farms ?? [];
+  const totalFarms = Array.isArray(body)
+    ? farms.length
+    : body.totalFarms ?? farms.length;
+
+  return {
+    farms,
+    totalFarms,
+    hasRewardSplits: totalFarms > 0 || farms.length > 0,
+  };
+}
+
+export function useWalletRewardSplitOwnership(params: {
+  walletAddress?: string;
+  enabled?: boolean;
+}) {
+  const { walletAddress, enabled = true } = params;
+  const isConfigured = Boolean(process.env.NEXT_PUBLIC_CONTROL_API_URL);
+
+  const query = useQuery({
+    queryKey: QUERY_KEYS.wallets.rewardSplitOwnership(walletAddress),
+    enabled: enabled && isConfigured && Boolean(walletAddress),
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchOnMount: true,
+    retry: 1,
+    queryFn: async () => {
+      if (!walletAddress) {
+        throw new Error("Wallet address is required");
+      }
+      return fetchWalletRewardSplitOwnership(walletAddress);
+    },
+  });
+
+  return {
+    farms: query.data?.farms ?? [],
+    totalFarms: query.data?.totalFarms ?? 0,
+    hasRewardSplits: query.data?.hasRewardSplits ?? false,
+    isLoading: query.isLoading,
+    isFetching: query.isFetching,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+  } as const;
+}
+
 /**
  * Fetch wallet farms with the simulator evaluated at a specific historical
  * epoch instead of the current one. Used by the wallet view to surface the

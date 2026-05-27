@@ -41,11 +41,17 @@ import { shopItemMeta } from "@/app/shop/shop-item-meta";
 import { PurchaseDialog } from "@/app/shop/purchase-dialog";
 import {
   useShopMinerFarms,
+  getShopMinerValueUsd,
   isMinerLikeItem,
   type ShopMinerFarmInfo,
 } from "@/hooks/v2-shop-miner";
+import { useWalletRewardSplitOwnership } from "@/hooks/control-farms";
 import { FallbackImage } from "@/components/ui/fallback-image";
 import { ImpactScoreBreakdownDialog } from "@/components/dialogs/impact-score-breakdown-dialog";
+import {
+  INITIAL_POSITION_USD_GRACE,
+  MIN_INITIAL_POSITION_USD,
+} from "@/lib/initial-position-guard";
 
 const KIND_ICON: Record<
   V2ShopItemKind,
@@ -803,6 +809,22 @@ export function ShopView() {
     [shopQuery.data],
   );
   const minerFarms = useShopMinerFarms(shopItems);
+  const hasSmallMinerPrize = React.useMemo(
+    () =>
+      shopItems.some((item) => {
+        if (!isMinerLikeItem(item)) return false;
+        const minerValueUsd = getShopMinerValueUsd(item);
+        return (
+          minerValueUsd > 0 &&
+          minerValueUsd + INITIAL_POSITION_USD_GRACE < MIN_INITIAL_POSITION_USD
+        );
+      }),
+    [shopItems],
+  );
+  const rewardSplitOwnership = useWalletRewardSplitOwnership({
+    walletAddress: address,
+    enabled: isConnected && hasSmallMinerPrize,
+  });
 
   const handleBuy = React.useCallback(
     (item: V2ShopItem) => {
@@ -886,6 +908,14 @@ export function ShopView() {
         availablePoints={availablePoints}
         minerFarm={
           selectedItem ? minerFarms.get(selectedItem.itemId) : undefined
+        }
+        hasExistingRewardSplits={rewardSplitOwnership.hasRewardSplits}
+        isCheckingRewardSplitOwnership={
+          hasSmallMinerPrize &&
+          (rewardSplitOwnership.isLoading || rewardSplitOwnership.isFetching)
+        }
+        isRewardSplitOwnershipError={
+          hasSmallMinerPrize && rewardSplitOwnership.isError
         }
         open={dialogOpen}
         onOpenChange={setDialogOpen}

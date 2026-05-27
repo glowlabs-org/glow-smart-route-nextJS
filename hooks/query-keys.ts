@@ -90,6 +90,8 @@ export const QUERY_KEYS = {
     migrationAmount: (wallet?: string) => ["migration-amount", wallet] as const,
     all: () => ["all-wallets"] as const,
     farms: (wallet?: string) => ["wallet-farms", wallet] as const,
+    rewardSplitOwnership: (wallet?: string) =>
+      ["wallet-reward-split-ownership", wallet?.toLowerCase() ?? null] as const,
     allV2Claims: ["wallet-v2-claims"] as const,
     v2Claims: (wallet?: string, refreshKey?: string | number) =>
       refreshKey

@@ -27,9 +27,15 @@ import {
 } from "@/hooks/v2-points-shop";
 import { shopItemMeta } from "@/app/shop/shop-item-meta";
 import {
+  getShopMinerValueUsd,
   isMinerLikeItem,
   type ShopMinerFarmInfo,
 } from "@/hooks/v2-shop-miner";
+import {
+  getInitialPositionValueGuard,
+  INITIAL_POSITION_USD_GRACE,
+  MIN_INITIAL_POSITION_USD,
+} from "@/lib/initial-position-guard";
 
 function formatGlwAmount(value: number): string {
   return value.toLocaleString("en-US", {
@@ -202,6 +208,11 @@ interface PurchaseDialogProps {
   availablePoints: number | null;
   /** Resolved source-farm info when the item is a farm-linked miner. */
   minerFarm?: ShopMinerFarmInfo;
+  /** True when Control reports that this wallet already owns reward splits. */
+  hasExistingRewardSplits: boolean;
+  /** Strict Control ownership check used before small miner redemptions. */
+  isCheckingRewardSplitOwnership: boolean;
+  isRewardSplitOwnershipError: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -228,6 +239,10 @@ function errorMessageForCode(code: string | undefined, fallback: string): string
       return "Purchase conflict. Please close this and start over.";
     case "INVALID_SIGNATURE":
       return "Signature verification failed. Please try again.";
+    case "INITIAL_POSITION_TOO_SMALL":
+      return "This miner prize is only available after your wallet already has miner or delegated rewards.";
+    case "REWARD_SPLIT_OWNERSHIP_UNVERIFIED":
+      return "We couldn't verify your existing reward splits. Please try again before redeeming this miner.";
     default:
       return fallback;
   }
@@ -304,6 +319,9 @@ export function PurchaseDialog({
   item,
   availablePoints,
   minerFarm,
+  hasExistingRewardSplits,
+  isCheckingRewardSplitOwnership,
+  isRewardSplitOwnershipError,
   open,
   onOpenChange,
 }: PurchaseDialogProps) {
@@ -341,9 +359,46 @@ export function PurchaseDialog({
   const balanceAfter = Math.max(0, balance - price);
   const showMinerEstimate =
     isMinerLikeItem(item) && Boolean(minerFarm?.resolved);
+  const minerValueUsd = getShopMinerValueUsd(item);
+  const requiresExistingRewardSplit =
+    isMinerLikeItem(item) &&
+    minerValueUsd > 0 &&
+    minerValueUsd + INITIAL_POSITION_USD_GRACE < MIN_INITIAL_POSITION_USD;
+  const initialPositionGuard = getInitialPositionValueGuard({
+    purchaseValueUsd: minerValueUsd,
+    hasExistingPositions: hasExistingRewardSplits,
+  });
+  const rewardSplitGuardMessage = requiresExistingRewardSplit
+    ? isCheckingRewardSplitOwnership
+      ? "Checking whether this wallet already has miner or delegated rewards."
+      : isRewardSplitOwnershipError
+        ? "We couldn't verify your existing reward splits from Control. Try again before redeeming this miner."
+        : initialPositionGuard.isBlocked
+          ? `Small miner prizes are for wallets that already have miner or delegated rewards. Your first miner or delegation should total at least $${MIN_INITIAL_POSITION_USD.toLocaleString()} so future reward claims stay worth the gas.`
+          : null
+    : null;
+  const isRewardSplitGuardBlocked =
+    requiresExistingRewardSplit &&
+    (isCheckingRewardSplitOwnership ||
+      isRewardSplitOwnershipError ||
+      initialPositionGuard.isBlocked);
 
   async function handleConfirm() {
     if (!address || !item) return;
+    if (isRewardSplitGuardBlocked) {
+      setErrorMsg(
+        rewardSplitGuardMessage ??
+          "This miner prize is not available for this wallet yet.",
+      );
+      setPhase("error");
+      trackEvent("shop_purchase_blocked_initial_position", {
+        itemId: item.itemId,
+        kind: item.kind,
+        miner_value_usd: minerValueUsd,
+        wallet: address,
+      });
+      return;
+    }
     setPhase("pending");
     setErrorMsg("");
     trackEvent("shop_purchase_attempted", {
@@ -486,6 +541,12 @@ export function PurchaseDialog({
 
               <WattsSourceStrip item={item} />
 
+              {rewardSplitGuardMessage ? (
+                <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-relaxed text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+                  {rewardSplitGuardMessage}
+                </p>
+              ) : null}
+
               {/* Cost summary */}
               <div className="rounded-2xl border border-border/60 bg-muted/30 p-4 dark:border-white/10 dark:bg-zinc-900">
                 <div className="flex items-baseline justify-between">
@@ -531,13 +592,23 @@ export function PurchaseDialog({
                 </Button>
                 <Button
                   onClick={handleConfirm}
-                  disabled={!canAfford || phase === "pending" || !address}
+                  disabled={
+                    !canAfford ||
+                    phase === "pending" ||
+                    !address ||
+                    isRewardSplitGuardBlocked
+                  }
                 >
                   {phase === "pending" ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Confirming
                     </>
+                  ) : isCheckingRewardSplitOwnership &&
+                    requiresExistingRewardSplit ? (
+                    "Checking wallet"
+                  ) : isRewardSplitGuardBlocked ? (
+                    "Not eligible"
                   ) : (
                     "Confirm purchase"
                   )}

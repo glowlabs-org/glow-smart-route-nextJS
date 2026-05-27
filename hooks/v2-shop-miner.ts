@@ -82,14 +82,30 @@ export function getMinerSourceFarmId(item: V2ShopItem): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
+export function getShopMinerValueUsd(item: V2ShopItem): number {
+  if (!isMinerLikeItem(item)) return 0;
+  const rawValue = item.details?.minerValueUsd;
+  if (typeof rawValue === "number" && Number.isFinite(rawValue) && rawValue > 0) {
+    return rawValue;
+  }
+  const megaKey = item.details?.megaKey;
+  if (typeof megaKey === "string") {
+    const match = megaKey.match(/^miner_(\d+(?:\.\d+)?)$/);
+    if (match) {
+      const parsed = Number(match[1]);
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+    }
+  }
+  return 0;
+}
+
 function getMinerConfig(item: V2ShopItem): MinerItemConfig | null {
   const farmId = getMinerSourceFarmId(item);
   if (!farmId) return null;
   const split = item.details?.glowSplitPercent6Decimals;
   const glowSplit6 = typeof split === "string" ? split : "0";
   if (glowSplit6 === "0") return null;
-  const rawValue = item.details?.minerValueUsd;
-  const value = typeof rawValue === "number" && rawValue > 0 ? rawValue : 1;
+  const value = getShopMinerValueUsd(item) || 1;
   return { itemId: item.itemId, farmId, glowSplit6, dollarCost: String(value) };
 }
 
