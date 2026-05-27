@@ -341,7 +341,7 @@ export function useImpactScoreQuery(args: UseImpactScoreQueryArgs) {
     walletAddress,
     weekRange,
     enabled = true,
-    toastTitle = "Failed to load Impact Score",
+    toastTitle = "Failed to load points",
     includeWeekly = false,
     includeProjection = true,
     includeReferral = true,

@@ -49,7 +49,7 @@ Use the Tailwind color classes or CSS variables. **Do not hardcode hex values.**
 
 ## Icons
 
-Use the custom SVG icons located in `public/images/icons/` for Glow-specific concepts (Impact Score, Miners, etc.).
+Use the custom SVG icons located in `public/images/icons/` for Glow-specific concepts (Glow Points, Watts, Miners, etc.).
 
 - **Multiplier Icons:** `cash-miner.svg`, `impact-streak.svg`
 - **Point Source Icons:** `steering.svg`, `emissions.svg`, `vault.svg`, `glw-worth.svg`

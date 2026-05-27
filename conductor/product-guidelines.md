@@ -7,7 +7,7 @@
 
 ## 2. Voice & Tone
 - **Urgent & Action-Oriented:** Use active, direct language that emphasizes momentum. 
-- **Loss Aversion as a Motivator:** Clearly communicate the value of maintaining streaks and multipliers. (e.g., "Keep your 3x multiplier active—stake GCTL before the Sunday rollover.")
+- **Loss Aversion as a Motivator:** Clearly communicate the value of maintaining weekly activity streaks. (e.g., "Keep your streak active by taking a qualifying action this week.")
 - **Simplified Technicals:** Shield users from jargon. Translate protocol mechanics into outcome-based language and helpful real-world analogies.
 
 ## 3. Interaction & Feedback ("Juice")

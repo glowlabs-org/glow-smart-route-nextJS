@@ -270,8 +270,8 @@ const aliasMap: AliasItem[] = [
     aliases: ["miner purchases", "buy miners", "USDC miner flow"],
   },
   {
-    canonical: "Impact Score",
-    aliases: ["impact points", "Glow points", "leaderboard score"],
+    canonical: "Glow Points",
+    aliases: ["points", "V2 points", "leaderboard points"],
   },
   {
     canonical: "USDG",
@@ -625,7 +625,7 @@ export function buildLlmsFullText(): string {
     "- GLW: Core token referenced throughout mining, delegation, and reward flows.",
     "- GCTL: Glow Control token used to steer where solar development is directed.",
     "- USDG / USDC: Stablecoin-denominated values used in portions of purchase and liquidity flows.",
-    "- Impact Score: Ranking concept used in leaderboard and referral-related experiences.",
+    "- Glow Points: V2 points earned from GLW delegation, sGCTL delegation, miner purchases, and weekly activity streaks.",
     "",
     "## Operational Notes",
     "- Home and stats surfaces use short revalidation windows and live API-backed metrics.",

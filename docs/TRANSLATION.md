@@ -230,7 +230,7 @@ We've settled on a few conventions in the current KO translation. Reviewers shou
 - **"Week N":** `N주`. "Weeks" (duration): `N주 동안`.
 - **"Delegate" (noun):** 위임. "Delegation": 위임.
 - **"Miner":** 마이너 (loanword). Preferred over 채굴자 because it matches the on-chain product name.
-- **"Impact Score":** 임팩트 점수.
+- **"Glow Points":** 글로우 포인트.
 - **"Glow Worth":** Glow 자산.
 - **"Rank":** 순위. "Top N%": 상위 N%.
 

@@ -226,13 +226,13 @@ All events below follow `snake_case` and use `dashboard_*` (dashboard surface ar
 
 - **Impact & Leaderboard**
 
-  - `dashboard_impact_help_open_click`: opened "How Glow Impact Score works"
+  - `dashboard_impact_help_open_click`: opened "How Glow Points work"
     - props: `source`, `wallet_connected`, `wallet_address`, `ui` (`tooltip|drawer`)
   - `dashboard_impact_indicator_click`: clicked individual impact indicator
     - props: `source`, `wallet_connected`, `wallet_address`, `indicator` (`miner|streak|steering|vault|emissions|worth`)
-  - `dashboard_impact_breakdown_open_click`: opened Impact Score breakdown dialog
+  - `dashboard_impact_breakdown_open_click`: opened points breakdown dialog
     - props: `source`, `wallet_connected`, `wallet_address`
-  - `dashboard_breakdown_cta_click`: clicked CTA within Impact Score breakdown dialog
+  - `dashboard_breakdown_cta_click`: clicked CTA within points breakdown dialog
     - props: `source`, `wallet_connected`, `wallet_address`, `cta_type` (`steering|emissions|delegation|glow_worth|miner_bonus|streak`)
   - `dashboard_leaderboard_open_click`: navigated to leaderboard
     - props: `source`, `wallet_connected`, `wallet_address`
