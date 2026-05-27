@@ -1196,26 +1196,27 @@ const en: WidgetStrings = {
 
   solarCollector: {
     dialogTitle: "How Solar Footprint Works",
-    cardHeading: "Verified Solar Footprint",
-    cardSubheading: "Real farms • real capacity",
+    cardHeading: "Your Verified Solar Footprint",
+    cardSubheading: "Farm-backed watts, attributed to you",
     mainDescription:
-      "Your Solar Footprint is your verified slice of the network's real solar, measured in Watts. Each time a farm is funded, its physical capacity is split into Watts and attributed to the people powering it.",
-    impactPowerLabel: "Your Watts",
+      "Your Solar Footprint is the clean solar capacity attributed to your wallet, measured in watts. It comes from real funded farms and farm-backed impact assets, so it tells the story of the solar capacity your activity helped support.",
+    impactPowerLabel: "Attributed impact",
     impactPowerDescription:
-      "You earn Watts by participating: delegating GLW and staking GCTL (steering) earn the most, with extra Watts from mining and referrals. The more you back the network, the larger your footprint.",
-    whatToExpect: "What to Expect",
-    expectItem1Title: "Panels fill as your Watts grow",
-    expectItem1Body: "Every 400 Watts you earn completes one solar panel.",
-    expectItem2Title: "Watts become real impact",
+      "Watts are attributed through eligible network participation: delegated GLW, delegated sGCTL, miner activity, referrals, and points-shop watt redemptions. The watt is the primary unit; the associated impact comes with it, including Carbon Credits today and derived equivalents like energy, homes powered, and trees.",
+    whatToExpect: "How it works",
+    expectItem1Title: "Watts come from real farms",
+    expectItem1Body:
+      "Each watt is backed by funded solar capacity and tied to farm and region data where available.",
+    expectItem2Title: "The impact comes with the watts",
     expectItem2Body:
-      "Your Watts translate into energy generated, homes powered, and CO2 avoided (shown as trees).",
-    expectItem3Title: "Updated every week",
+      "When watts are attributed to you, Glow also carries the connected impact story: Carbon Credits today, plus estimates like energy produced, homes powered, and adult trees equivalent.",
+    expectItem3Title: "Your footprint updates over time",
     expectItem3Body:
-      "Your Watts grow as new farms are funded and each protocol week completes.",
+      "As farms fund, rewards settle, and shop redemptions complete, your attributed watts and impact totals update.",
     gotIt: "Got it",
     sectionTitle: "Verified Solar Footprint",
     sectionTitleTooltip:
-      "Your verified connection to physical solar infrastructure. Based on your participation in completed V2 farms across the network.",
+      "Your verified connection to physical solar infrastructure, based on farm-backed watts and impact assets attributed to your wallet.",
     learnMore: "Learn more",
     homesPowered: "Homes Powered",
     lightbulbs: "Lightbulbs",
@@ -1227,13 +1228,14 @@ const en: WidgetStrings = {
     bulbsUnit: "bulbs",
     energyPerYear: "Energy / Year",
     energyPerYearTooltip:
-      "Estimated annual clean energy production based on the physical capacity of your captured panels and an estimated 18% average capacity factor.",
+      "Estimated annual clean energy production based on your attributed solar capacity and an estimated 18% average capacity factor.",
     treesEquivalent: "Trees Equivalent",
     treesEquivalentTooltip:
       "The number of mature trees required to sequester the same amount of CO₂ offset by your clean energy production (based on 1,000 lb CO₂/MWh and 0.022 tonnes/year per tree).",
     treesUnit: "trees",
-    panelLabel: (n) => `Panel #${n}`,
-    panelsCompleted: (n) => `${n} panel${n !== 1 ? "s" : ""} completed`,
+    panelLabel: (n) => `Capacity block #${n}`,
+    panelsCompleted: (n) =>
+      `${n} capacity block${n !== 1 ? "s" : ""} attributed`,
     emptyFootprintTitle: "Your solar footprint will appear here",
     emptyFootprintBody:
       "When new farms onboard, your share of clean energy production will be tracked.",
@@ -1858,26 +1860,27 @@ const ko: WidgetStrings = {
 
   solarCollector: {
     dialogTitle: "솔라 풋프린트 작동 방식",
-    cardHeading: "검증된 솔라 풋프린트",
-    cardSubheading: "실제 발전소 · 실제 용량",
+    cardHeading: "내 검증된 솔라 풋프린트",
+    cardSubheading: "발전소 기반 와트, 내 지갑에 귀속",
     mainDescription:
-      "솔라 풋프린트는 네트워크 실제 태양광에서 본인이 차지하는 검증된 몫이며, 와트(Watts)로 측정됩니다. 발전소가 펀딩될 때마다 그 물리적 용량이 와트로 분배되어 네트워크를 지원한 사람들에게 귀속됩니다.",
-    impactPowerLabel: "내 와트",
+      "솔라 풋프린트는 지갑에 귀속된 청정 태양광 용량이며 와트로 측정됩니다. 실제 펀딩된 발전소와 발전소 기반 임팩트 자산에서 오기 때문에, 내가 지원한 태양광 용량의 이야기를 보여줍니다.",
+    impactPowerLabel: "귀속된 임팩트",
     impactPowerDescription:
-      "참여를 통해 와트를 획득합니다. GLW 위임과 GCTL 스테이킹(스티어링)이 가장 많고, 마이닝과 추천으로 추가 와트를 받습니다. 네트워크를 더 지원할수록 풋프린트가 커집니다.",
-    whatToExpect: "확인 포인트",
-    expectItem1Title: "와트가 늘면 패널이 채워집니다",
-    expectItem1Body: "400와트를 획득할 때마다 태양광 패널 한 개가 완성됩니다.",
-    expectItem2Title: "와트가 실제 영향이 됩니다",
+      "와트는 자격 있는 네트워크 참여를 통해 귀속됩니다. GLW 위임, 위임된 sGCTL, 마이너 활동, 추천, 포인트 샵 와트 교환이 포함됩니다. 와트가 기본 단위이며, 연결된 임팩트가 함께 따라옵니다. 현재는 탄소 크레딧과 에너지, 전력 공급 가구, 나무 환산 같은 추정치가 포함됩니다.",
+    whatToExpect: "작동 방식",
+    expectItem1Title: "와트는 실제 발전소에서 옵니다",
+    expectItem1Body:
+      "각 와트는 펀딩된 태양광 용량을 기반으로 하며 가능한 경우 발전소와 지역 데이터에 연결됩니다.",
+    expectItem2Title: "임팩트는 와트와 함께 옵니다",
     expectItem2Body:
-      "와트는 생산된 에너지, 전력을 공급한 가구, 줄인 CO2(나무로 표시)로 환산됩니다.",
-    expectItem3Title: "매주 업데이트",
+      "와트가 귀속될 때 Glow는 연결된 임팩트 이야기도 함께 보여줍니다. 현재는 탄소 크레딧과 생산 에너지, 전력 공급 가구, 성목 환산 추정치가 포함됩니다.",
+    expectItem3Title: "풋프린트는 계속 업데이트됩니다",
     expectItem3Body:
-      "새 발전소가 펀딩되고 각 프로토콜 주차가 완료되면 와트가 늘어납니다.",
+      "발전소가 펀딩되고 리워드가 정산되며 샵 교환이 완료되면 귀속된 와트와 임팩트 합계가 업데이트됩니다.",
     gotIt: "확인",
     sectionTitle: "검증된 솔라 풋프린트",
     sectionTitleTooltip:
-      "실제 태양광 인프라와의 검증된 연결. 네트워크 전반에서 완료된 V2 발전소에 대한 본인의 참여를 기반으로 합니다.",
+      "지갑에 귀속된 발전소 기반 와트와 임팩트 자산을 바탕으로 한 실제 태양광 인프라와의 검증된 연결입니다.",
     learnMore: "자세히 보기",
     homesPowered: "전력 공급 가구",
     lightbulbs: "전구",
@@ -1889,13 +1892,13 @@ const ko: WidgetStrings = {
     bulbsUnit: "개",
     energyPerYear: "연간 에너지",
     energyPerYearTooltip:
-      "획득한 패널의 물리적 용량과 평균 설비 이용률 18%를 기반으로 추정한 연간 청정 에너지 생산량입니다.",
+      "귀속된 태양광 용량과 평균 설비 이용률 18%를 기반으로 추정한 연간 청정 에너지 생산량입니다.",
     treesEquivalent: "나무 환산",
     treesEquivalentTooltip:
       "본인의 청정 에너지 생산으로 상쇄된 CO₂ 양만큼을 흡수하는 데 필요한 다 자란 나무 수입니다 (MWh당 1,000파운드 CO₂, 나무 1그루당 연간 0.022톤 기준).",
     treesUnit: "그루",
-    panelLabel: (n) => `패널 #${n}`,
-    panelsCompleted: (n) => `패널 ${n}개 완성`,
+    panelLabel: (n) => `용량 블록 #${n}`,
+    panelsCompleted: (n) => `용량 블록 ${n}개 귀속`,
     emptyFootprintTitle: "여기에 본인의 솔라 풋프린트가 표시됩니다",
     emptyFootprintBody:
       "새 발전소가 등록되면 본인의 청정 에너지 생산 지분이 추적됩니다.",
@@ -2511,24 +2514,27 @@ const zh: WidgetStrings = {
 
   solarCollector: {
     dialogTitle: "太阳能足迹如何运作",
-    cardHeading: "已验证的太阳能足迹",
-    cardSubheading: "真实农场 · 真实容量",
+    cardHeading: "您的已验证太阳能足迹",
+    cardSubheading: "农场支持的瓦特，归属于您",
     mainDescription:
-      "您的太阳能足迹是您在网络真实太阳能中经过验证的份额,以瓦特(Watts)衡量。每当一座农场获得资助,其物理容量就会被拆分为瓦特,并归属给为网络提供支持的人。",
-    impactPowerLabel: "我的瓦特",
+      "您的太阳能足迹是归属于您钱包的清洁太阳能容量，以瓦特衡量。它来自真实获得资助的农场和农场支持的影响资产，用来讲述您的活动支持了哪些太阳能容量。",
+    impactPowerLabel: "已归属影响",
     impactPowerDescription:
-      "通过参与赚取瓦特:委托 GLW 与质押 GCTL(引导)收益最高,挖矿和推荐可获得额外瓦特。您对网络的支持越多,足迹就越大。",
-    whatToExpect: "您可以期待",
-    expectItem1Title: "瓦特增长,面板填充",
-    expectItem1Body: "每赚取 400 瓦特即可完成一块太阳能面板。",
-    expectItem2Title: "瓦特转化为真实影响",
-    expectItem2Body: "您的瓦特会换算为发电量、供电家庭数和减少的 CO2(以树木表示)。",
-    expectItem3Title: "每周更新",
-    expectItem3Body: "随着新农场获得资助和每个协议周完成,您的瓦特会增加。",
+      "瓦特会通过符合条件的网络参与归属给您：委托 GLW、委托 sGCTL、矿机活动、推荐以及积分商店中的瓦特兑换。瓦特是主要单位；关联影响会随之而来，包括目前的碳信用，以及发电量、可供电家庭数和成年树木等效等估算值。",
+    whatToExpect: "运作方式",
+    expectItem1Title: "瓦特来自真实农场",
+    expectItem1Body:
+      "每一瓦都由已资助的太阳能容量支持，并在可用时关联到农场和区域数据。",
+    expectItem2Title: "影响随瓦特一起归属",
+    expectItem2Body:
+      "当瓦特归属于您时，Glow 也会呈现与之相连的影响故事：目前包括碳信用，以及发电量、可供电家庭数和成年树木等效等估算值。",
+    expectItem3Title: "您的足迹会持续更新",
+    expectItem3Body:
+      "随着农场获得资助、奖励结算和商店兑换完成，您的归属瓦特和影响总量会更新。",
     gotIt: "知道了",
     sectionTitle: "已验证的太阳能足迹",
     sectionTitleTooltip:
-      "您与实体太阳能基础设施之间已验证的连接。基于您在网络中已完成的 V2 农场上的参与情况。",
+      "您与实体太阳能基础设施之间已验证的连接，基于归属于您钱包的农场支持瓦特和影响资产。",
     learnMore: "了解更多",
     homesPowered: "可供电家庭数",
     lightbulbs: "灯泡",
@@ -2539,13 +2545,13 @@ const zh: WidgetStrings = {
     bulbsUnit: "个",
     energyPerYear: "每年能源",
     energyPerYearTooltip:
-      "基于您所获得面板的物理容量及估算的 18% 平均容量系数得出的年度清洁能源产量估算。",
+      "基于归属于您的太阳能容量和估算的 18% 平均容量系数得出的年度清洁能源产量估算。",
     treesEquivalent: "等效树木",
     treesEquivalentTooltip:
       "为吸收您的清洁能源生产所抵消的同等 CO₂ 量所需的成熟树木数(基于每 MWh 1,000 磅 CO₂ 与每棵树每年 0.022 吨)。",
     treesUnit: "棵",
-    panelLabel: (n) => `第 ${n} 块面板`,
-    panelsCompleted: (n) => `已完成 ${n} 块面板`,
+    panelLabel: (n) => `容量区块 #${n}`,
+    panelsCompleted: (n) => `已归属 ${n} 个容量区块`,
     emptyFootprintTitle: "您的太阳能足迹将显示在此",
     emptyFootprintBody: "新农场上线后,您的清洁能源生产份额将被追踪。",
     latestAddition: "最新添加",

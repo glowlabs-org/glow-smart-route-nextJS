@@ -170,8 +170,9 @@ function WattsSourceStrip({ item }: { item: V2ShopItem }) {
         {extraCount > 0
           ? ` and ${extraCount} more farm${extraCount === 1 ? "" : "s"}`
           : ""}
-        . The paired carbon credits transfer with the watts and are attributed
-        to your impact.
+        . The watts are the main thing; their associated impact comes with
+        them, including Carbon Credits today and the Solar Footprint equivalents
+        they power.
       </p>
       <div className="grid grid-cols-2 gap-2">
         <div className="rounded-xl border border-border/50 bg-muted/30 px-3 py-2 dark:border-white/10 dark:bg-zinc-900">

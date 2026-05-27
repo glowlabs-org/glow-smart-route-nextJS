@@ -29,7 +29,6 @@ import { ReferralNetworkDialog } from "@/components/dialogs/referral-network-dia
 import {
   useV2PointsBalance,
   useV2PointsLedger,
-  useV2PointsRates,
 } from "@/hooks/v2-points";
 import { useReferralLaunch } from "@/hooks/use-referral-launch";
 import { trackEvent } from "@/lib/telemetry";
@@ -138,7 +137,6 @@ export function ImpactScoreBreakdownDialog({
   const ledgerQuery = useV2PointsLedger(open ? walletAddress : null, {
     limit: 500,
   });
-  const ratesQuery = useV2PointsRates();
 
   const [isLaunchpadOpen, setIsLaunchpadOpen] = useState(false);
   const [isReferralNetworkOpen, setIsReferralNetworkOpen] = useState(false);
@@ -164,12 +162,6 @@ export function ImpactScoreBreakdownDialog({
   const opening = balance?.openingBalancePoints ?? 0;
   const available = balance?.availablePoints ?? 0;
   const streakWeek = balance?.currentStreak?.streakWeek ?? 0;
-  const nextStreak = balance?.currentStreak?.nextAwardPoints ?? 0;
-
-  const rates = ratesQuery.data?.rates;
-  const glwRate = rates?.glwDelegationPointsPerUsd ?? 4;
-  const sgctlRate = rates?.sgctlDelegationPointsPerUsd ?? 16;
-  const minerRate = rates?.minerPurchasePointsPerUsd ?? 8;
 
   const isLoading = balanceQuery.isLoading || ledgerQuery.isLoading;
   const isError = balanceQuery.isError || ledgerQuery.isError;
@@ -218,7 +210,7 @@ export function ImpactScoreBreakdownDialog({
                     <SourceRow
                       icon={VaultIcon}
                       label="GLW Delegation"
-                      sublabel={`${glwRate} pts per $1 delegated`}
+                      sublabel="Delegated GLW impact"
                       points={agg.glw}
                       accentClass="bg-[color:var(--delegation-purple)]/10 text-[color:var(--delegation-purple)]"
                       ctaLabel={isOwnWallet ? "Delegate" : undefined}
@@ -229,7 +221,7 @@ export function ImpactScoreBreakdownDialog({
                     <SourceRow
                       icon={SteeringIcon}
                       label="sGCTL Delegation"
-                      sublabel={`${sgctlRate} pts per $1 delegated`}
+                      sublabel="Delegated sGCTL"
                       points={agg.sgctl}
                       accentClass="bg-[#22D3EE]/10 text-[#22D3EE]"
                       ctaLabel={isOwnWallet ? "Delegate" : undefined}
@@ -240,7 +232,7 @@ export function ImpactScoreBreakdownDialog({
                     <SourceRow
                       icon={CashMinerIcon}
                       label="Miner Purchases"
-                      sublabel={`${minerRate} pts per $1 purchased`}
+                      sublabel="Points from miner activity"
                       points={agg.miner}
                       accentClass="bg-[color:var(--color-miner)]/10 text-[color:var(--color-miner-contrast)]"
                       ctaLabel={isOwnWallet ? "Buy" : undefined}
@@ -253,8 +245,8 @@ export function ImpactScoreBreakdownDialog({
                       label="Weekly Streak"
                       sublabel={
                         streakWeek > 0
-                          ? `Week ${streakWeek} · next +${fmtPts(nextStreak)}`
-                          : "100 pts × week, up to 2,000"
+                          ? `Week ${streakWeek} active`
+                          : "Keep participating each week"
                       }
                       points={agg.streak}
                       accentClass="bg-[#4ADE80]/10 text-[#4ADE80]"
@@ -263,7 +255,7 @@ export function ImpactScoreBreakdownDialog({
                       <SourceRow
                         icon={ReferralIcon}
                         label="Referral Network"
-                        sublabel="5-20% of your referees' points"
+                        sublabel="Points from active referrals"
                         points={agg.referral}
                         accentClass="bg-[color:var(--color-glow-orange)]/10 text-[color:var(--color-glow-orange)]"
                         ctaLabel={isOwnWallet ? "Invite" : undefined}

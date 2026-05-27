@@ -45,10 +45,10 @@ const FEATURES: Feature[] = [
     heading: "Reworked Points System",
     body: "Points are no longer just a score, they’re a currency you spend in the new shop. You earn them the moment you participate, and your existing balance carried over.",
     highlights: [
-      "4 pts per $1 delegated in GLW",
-      "16 pts per $1 in delegated sGCTL",
-      "8 pts per $1 of miners purchased",
-      "Weekly streaks up to 2,000 pts",
+      "Earn points from delegation",
+      "Earn points from delegated sGCTL",
+      "Earn points from miner activity",
+      "Keep a weekly streak by staying active",
     ],
   },
   {

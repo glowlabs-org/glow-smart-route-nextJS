@@ -95,7 +95,7 @@ export function shopItemMeta(item: V2ShopItem): ShopItemMeta {
         headline: item.label,
         tagline: region ? `From ${sourceLabel} in ${region}` : `From ${sourceLabel}`,
         blurb:
-          "Redeem points for farm-backed watts from the Foundation inventory. The paired carbon credits transfer with those watts and are attributed to your impact.",
+          "Redeem points for farm-backed watts. The watts are the main thing; the associated impact comes with them, including Carbon Credits today and the Solar Footprint equivalents they power.",
         stats: [
           {
             label: "Watts attributed",
