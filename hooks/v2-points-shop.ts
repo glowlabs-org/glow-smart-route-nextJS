@@ -50,6 +50,23 @@ export interface V2ShopItem {
   details: Record<string, unknown> | null;
   /** Backend-computed: enabled AND (uncapped OR inventoryRemaining > 0). */
   available: boolean;
+  impactSourcePreview?: V2WattsImpactSourcePreview | null;
+}
+
+export interface V2WattsImpactSource {
+  sourceFarmId: string;
+  farmName?: string | null;
+  regionId: number;
+  regionName?: string | null;
+  imageUrl?: string | null;
+  watts: string;
+  carbonCredits: string;
+  policyCredits: string;
+}
+
+export interface V2WattsImpactSourcePreview {
+  sufficient: boolean;
+  sources: V2WattsImpactSource[];
 }
 
 export interface V2ShopCurrent {
@@ -76,7 +93,11 @@ export interface V2MinerGrant {
 export interface V2WattsGrant {
   kind: "watts";
   wattsGranted: string;
+  carbonCreditsGranted?: string;
+  policyCreditsGranted?: string;
+  sourceFarmTransfers?: V2WattsImpactSource[];
   newWalletWatts: string | null;
+  newWalletCarbonCredits?: string | null;
 }
 
 export interface V2MegaGrant {

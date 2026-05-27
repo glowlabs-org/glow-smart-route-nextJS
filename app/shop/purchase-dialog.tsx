@@ -47,8 +47,12 @@ function ItemBanner({
 }) {
   const meta = shopItemMeta(item);
   const minerLike = isMinerLikeItem(item);
+  const wattsSource =
+    item.kind === "watts" ? item.impactSourcePreview?.sources?.[0] : undefined;
   const farmImage =
-    minerLike && minerFarm?.resolved ? minerFarm.imageUrl : null;
+    minerLike && minerFarm?.resolved
+      ? minerFarm.imageUrl
+      : wattsSource?.imageUrl ?? null;
   const tagline =
     minerLike && minerFarm?.resolved && minerFarm.farmName
       ? minerFarm.farmName
@@ -74,6 +78,13 @@ function ItemBanner({
       {farmImage ? (
         <FallbackImage
           src={farmImage}
+          alt={tagline ?? item.label}
+          widthForProxy={640}
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      ) : meta.image?.startsWith("http") ? (
+        <FallbackImage
+          src={meta.image}
           alt={tagline ?? item.label}
           widthForProxy={640}
           className="absolute inset-0 h-full w-full object-cover"
@@ -134,6 +145,56 @@ function MinerEstimateStrip({ minerFarm }: { minerFarm: ShopMinerFarmInfo }) {
   );
 }
 
+function WattsSourceStrip({ item }: { item: V2ShopItem }) {
+  if (item.kind !== "watts") return null;
+  const sources = item.impactSourcePreview?.sources ?? [];
+  if (sources.length === 0) return null;
+  const totalWatts = sources.reduce(
+    (acc, source) => acc + (Number(source.watts) || 0),
+    0,
+  );
+  const totalCarbon = sources.reduce(
+    (acc, source) => acc + (Number(source.carbonCredits) || 0),
+    0,
+  );
+  const first = sources[0];
+  const farmName = first.farmName ?? "Foundation solar farm";
+  const region = first.regionName ?? `Region ${first.regionId}`;
+  const extraCount = Math.max(0, sources.length - 1);
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm leading-relaxed text-muted-foreground">
+        These watts come from <span className="font-medium text-foreground">{farmName}</span>
+        {region ? ` in ${region}` : ""}
+        {extraCount > 0
+          ? ` and ${extraCount} more farm${extraCount === 1 ? "" : "s"}`
+          : ""}
+        . The paired carbon credits transfer with the watts and are attributed
+        to your impact.
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="rounded-xl border border-border/50 bg-muted/30 px-3 py-2 dark:border-white/10 dark:bg-zinc-900">
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground/70">
+            Watts attributed
+          </p>
+          <p className="mt-0.5 text-sm font-semibold tabular-nums">
+            {formatNumber(totalWatts)} W
+          </p>
+        </div>
+        <div className="rounded-xl border border-border/50 bg-muted/30 px-3 py-2 dark:border-white/10 dark:bg-zinc-900">
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground/70">
+            Carbon attributed
+          </p>
+          <p className="mt-0.5 text-sm font-semibold tabular-nums">
+            {formatNumber(totalCarbon)}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface PurchaseDialogProps {
   item: V2ShopItem | null;
   /** Wallet's available point balance, for the affordability check + display. */
@@ -171,7 +232,13 @@ function errorMessageForCode(code: string | undefined, fallback: string): string
   }
 }
 
-function GrantSummary({ result }: { result: V2ShopPurchaseResult }) {
+function GrantSummary({
+  result,
+  item,
+}: {
+  result: V2ShopPurchaseResult;
+  item: V2ShopItem;
+}) {
   const g = result.grant;
   switch (g.kind) {
     case "miner":
@@ -182,14 +249,38 @@ function GrantSummary({ result }: { result: V2ShopPurchaseResult }) {
         </p>
       );
     case "watts":
-      return (
-        <p className="text-sm text-muted-foreground">
-          {formatNumber(Number(g.wattsGranted))} watts added to your impact
-          {g.newWalletWatts != null
-            ? `, you now hold ${formatNumber(Number(g.newWalletWatts))} watts.`
-            : "."}
-        </p>
-      );
+      {
+        const carbon =
+          g.carbonCreditsGranted != null
+            ? Number(g.carbonCreditsGranted)
+            : null;
+        const firstSource = g.sourceFarmTransfers?.[0];
+        const previewSource = item.impactSourcePreview?.sources?.[0];
+        const sourceName =
+          firstSource?.farmName ??
+          previewSource?.farmName ??
+          "Foundation solar farm";
+        const regionName = firstSource?.regionName ?? previewSource?.regionName;
+        return (
+          <div className="space-y-2 text-sm text-muted-foreground">
+            <p>
+              {formatNumber(Number(g.wattsGranted))} watts added to your impact
+              {carbon != null && Number.isFinite(carbon)
+                ? ` with ${formatNumber(carbon)} carbon credits`
+                : ""}
+              {g.newWalletWatts != null
+                ? `, you now hold ${formatNumber(Number(g.newWalletWatts))} watts.`
+                : "."}
+            </p>
+            {firstSource ? (
+              <p>
+                Source: {sourceName}
+                {regionName ? `, ${regionName}` : ""}.
+              </p>
+            ) : null}
+          </div>
+        );
+      }
     case "mega":
       return (
         <p className="text-sm text-muted-foreground">
@@ -342,7 +433,7 @@ export function PurchaseDialog({
                   Your prize is recorded and on its way.
                 </DialogDescription>
               </DialogHeader>
-              <GrantSummary result={result} />
+              <GrantSummary result={result} item={item} />
               <div className="flex items-center justify-between rounded-2xl border border-border/60 bg-muted/30 px-4 py-3 text-sm dark:border-white/10 dark:bg-zinc-900">
                 <span className="text-muted-foreground">New point balance</span>
                 <span className="text-base font-semibold tabular-nums">
@@ -391,6 +482,8 @@ export function PurchaseDialog({
               {showMinerEstimate && minerFarm ? (
                 <MinerEstimateStrip minerFarm={minerFarm} />
               ) : null}
+
+              <WattsSourceStrip item={item} />
 
               {/* Cost summary */}
               <div className="rounded-2xl border border-border/60 bg-muted/30 p-4 dark:border-white/10 dark:bg-zinc-900">

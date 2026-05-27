@@ -216,8 +216,12 @@ function PrizeSlide({
   // photo and a live reward estimate in place of the static placeholder. This
   // covers both the regular miner and the mega "miner_500" headline prize.
   const farmMiner = isMinerLikeItem(item) ? minerFarm : undefined;
+  const wattsSource =
+    item.kind === "watts" ? item.impactSourcePreview?.sources?.[0] : undefined;
   const farmImageUrl =
-    farmMiner && farmMiner.resolved ? farmMiner.imageUrl : null;
+    farmMiner && farmMiner.resolved
+      ? farmMiner.imageUrl
+      : wattsSource?.imageUrl ?? null;
   const tagline =
     farmMiner && farmMiner.resolved && farmMiner.farmName
       ? farmMiner.farmName
@@ -269,6 +273,16 @@ function PrizeSlide({
         ) : farmImageUrl ? (
           <FallbackImage
             src={farmImageUrl}
+            alt={tagline ?? item.label}
+            widthForProxy={760}
+            className={cn(
+              "absolute inset-0 h-full w-full object-cover",
+              soldOut && "grayscale",
+            )}
+          />
+        ) : meta.image?.startsWith("http") ? (
+          <FallbackImage
+            src={meta.image}
             alt={tagline ?? item.label}
             widthForProxy={760}
             className={cn(

@@ -74,19 +74,37 @@ export function shopItemMeta(item: V2ShopItem): ShopItemMeta {
 
     case "watts": {
       const watts = numDetail(d, "wattsQuantity");
+      const sources = item.impactSourcePreview?.sources ?? [];
+      const source = sources[0];
+      const farmName = source?.farmName ?? "a Foundation solar farm";
+      const region = source?.regionName ?? null;
+      const extraCount = Math.max(0, sources.length - 1);
+      const carbon = sources.reduce(
+        (acc, s) => acc + (Number(s.carbonCredits) || 0),
+        0,
+      );
+      const sourceLabel =
+        extraCount > 0
+          ? `${farmName} and ${extraCount} more farm${
+              extraCount === 1 ? "" : "s"
+            }`
+          : farmName;
       return {
-        image: "/images/shop/watts-100.jpg",
-        eyebrow: "Real solar",
+        image: source?.imageUrl ?? "/images/shop/watts-100.jpg",
+        eyebrow: "Farm-backed solar",
         headline: item.label,
-        tagline: "Clean capacity credited to your impact",
+        tagline: region ? `From ${sourceLabel} in ${region}` : `From ${sourceLabel}`,
         blurb:
-          "Real solar watts drawn from the Foundation's balance and added to your lifetime impact.",
+          "Redeem points for farm-backed watts from the Foundation inventory. The paired carbon credits transfer with those watts and are attributed to your impact.",
         stats: [
           {
-            label: "Added to impact",
+            label: "Watts attributed",
             value: watts ? `${formatNumber(watts)} W` : item.label,
           },
-          { label: "Source", value: "Foundation" },
+          {
+            label: "Carbon attributed",
+            value: sources.length > 0 ? formatNumber(carbon) : "-",
+          },
         ],
         isMega: false,
         isTicket: false,
