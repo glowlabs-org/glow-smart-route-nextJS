@@ -33,6 +33,7 @@ export const purchaseEIP712Types = {
     { name: "wallet", type: "address" },
     { name: "itemId", type: "string" },
     { name: "quantity", type: "uint256" },
+    { name: "maxPointsCost", type: "uint256" },
     { name: "idempotencyKey", type: "string" },
     { name: "nonce", type: "uint256" },
   ],
@@ -127,6 +128,10 @@ export interface V2ShopPurchaseRequest {
   wallet: string;
   itemId: string;
   quantity: number;
+  /** Decimal-encoded uint256 in scaled6 micros: the max TOTAL points the user
+   * authorizes. Signed into the EIP-712 payload so a price change between
+   * signing and submission cannot debit more than they agreed to. */
+  maxPointsCost: string;
   idempotencyKey: string;
   /** Decimal-encoded uint; must be strictly greater than the wallet's prior nonce. */
   nonce: string;
@@ -236,8 +241,11 @@ export function useV2ShopPurchase() {
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.v2.pointsBalance(wallet),
       });
+      // Prefix-invalidate so every ledger page refreshes (the spend row + any
+      // granted points). The old pointsLedger(wallet) key ended in `null` and
+      // matched no limit-bearing subscription, leaving the feed stale.
       queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.v2.pointsLedger(wallet),
+        queryKey: QUERY_KEYS.v2.pointsLedgerAll(wallet),
       });
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.v2.shopPurchases(wallet),
@@ -248,6 +256,16 @@ export function useV2ShopPurchase() {
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.v2.shopCurrent(),
       });
+      // A watts purchase transfers Foundation->buyer watts, so the wallet's
+      // watts hero/breakdown and the leaderboard standing change too.
+      if (result.grant.kind === "watts") {
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.v2.impactWallet(wallet),
+        });
+        queryClient.invalidateQueries({
+          queryKey: ["v2", "impact-leaderboard"],
+        });
+      }
     },
   });
 }

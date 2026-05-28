@@ -1644,8 +1644,10 @@ export function DepositDialog({
         queryClient.invalidateQueries({
           queryKey: QUERY_KEYS.v2.pointsBalance(address),
         }),
+        // Prefix-invalidate so every ledger page refreshes; the 4-element
+        // pointsLedger key ends in `null` and matches no limit-bearing query.
         queryClient.invalidateQueries({
-          queryKey: QUERY_KEYS.v2.pointsLedger(address),
+          queryKey: QUERY_KEYS.v2.pointsLedgerAll(address),
         }),
         queryClient.invalidateQueries({
           queryKey: QUERY_KEYS.balances.tokens(chainId, address),

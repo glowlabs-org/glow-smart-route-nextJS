@@ -178,6 +178,12 @@ export const QUERY_KEYS = {
         wallet?.toLowerCase() ?? null,
         limit ?? null,
       ] as const,
+    // 3-element PREFIX (no limit) for invalidation. invalidateQueries matches
+    // by prefix, so this hits every ledger page (limit 50, 500, ...); the
+    // 4-element pointsLedger key ends in `null` and would NOT prefix-match a
+    // subscription keyed with an explicit limit.
+    pointsLedgerAll: (wallet?: string | null) =>
+      ["v2", "points-ledger", wallet?.toLowerCase() ?? null] as const,
     pointsRates: () => ["v2", "points-rates"] as const,
     shopCurrent: () => ["v2", "shop-current"] as const,
     shopPurchases: (wallet?: string | null) =>

@@ -334,22 +334,35 @@ export function PurchaseDialog({
   const [result, setResult] = React.useState<V2ShopPurchaseResult | null>(null);
   const [errorMsg, setErrorMsg] = React.useState<string>("");
 
-  // One idempotency key per dialog session, stable across retries so a
-  // lost-response retry is deduped server-side.
-  const idempotencyKeyRef = React.useRef<string>("");
+  // One idempotency key per (wallet, item), PERSISTED across reopen and rotated
+  // only after a confirmed success (see handleConfirm). This is what makes an
+  // accidental close+reopen mid-flight safe: the reopened dialog reuses the
+  // same key, so the backend dedupes on (wallet, idempotencyKey) instead of
+  // charging twice.
+  const idempotencyKeyRef = React.useRef<{ for: string; key: string }>({
+    for: "",
+    key: "",
+  });
 
-  // Reset state each time the dialog opens for a (new) item.
+  // Reset transient UI state each time the dialog opens, and mint a NEW
+  // idempotency key only when (wallet, item) changed since last time.
   React.useEffect(() => {
     if (open) {
       setPhase("confirm");
       setResult(null);
       setErrorMsg("");
-      idempotencyKeyRef.current =
-        typeof crypto !== "undefined" && crypto.randomUUID
-          ? crypto.randomUUID()
-          : `shop-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const currentFor = `${address?.toLowerCase() ?? ""}:${item?.itemId ?? ""}`;
+      if (idempotencyKeyRef.current.for !== currentFor) {
+        idempotencyKeyRef.current = {
+          for: currentFor,
+          key:
+            typeof crypto !== "undefined" && crypto.randomUUID
+              ? crypto.randomUUID()
+              : `shop-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        };
+      }
     }
-  }, [open, item?.itemId]);
+  }, [open, item?.itemId, address]);
 
   if (!item) return null;
 
@@ -412,11 +425,15 @@ export function PurchaseDialog({
       // Nonce: a fresh monotonic value per attempt (the backend requires
       // strictly-increasing per-wallet nonces). Millisecond clock works.
       const nonce = BigInt(Date.now());
-      const idempotencyKey = idempotencyKeyRef.current;
+      const idempotencyKey = idempotencyKeyRef.current.key;
+      // scaled6 micros: authorize exactly the displayed total (price * qty,
+      // qty = 1). The backend rejects PRICE_CHANGED if the live price is higher.
+      const maxPointsCost = BigInt(Math.round(price * 1_000_000));
       const message = {
         wallet: address as `0x${string}`,
         itemId: item.itemId,
         quantity: 1n,
+        maxPointsCost,
         idempotencyKey,
         nonce,
       } as const;
@@ -441,6 +458,7 @@ export function PurchaseDialog({
         wallet: address,
         itemId: item.itemId,
         quantity: 1,
+        maxPointsCost: maxPointsCost.toString(),
         idempotencyKey,
         nonce: nonce.toString(),
         signature,
@@ -450,6 +468,9 @@ export function PurchaseDialog({
 
       setResult(purchaseResult);
       setPhase("success");
+      // Rotate the idempotency key so a later purchase of the same item is a
+      // NEW sale, not a dedup of the one just completed.
+      idempotencyKeyRef.current = { for: "", key: "" };
       trackEvent("shop_purchase_succeeded", {
         itemId: item.itemId,
         kind: item.kind,
@@ -472,8 +493,26 @@ export function PurchaseDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-0 overflow-hidden bg-white p-0 sm:max-w-sm dark:bg-card">
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        // Block closing mid-flight: the signature/POST may still commit the
+        // spend server-side, and a close+reopen used to mint a new idempotency
+        // key and double-charge.
+        if (phase === "pending" && !next) return;
+        onOpenChange(next);
+      }}
+    >
+      <DialogContent
+        className="gap-0 overflow-hidden bg-white p-0 sm:max-w-sm dark:bg-card"
+        showCloseButton={phase !== "pending"}
+        onEscapeKeyDown={(e) => {
+          if (phase === "pending") e.preventDefault();
+        }}
+        onInteractOutside={(e) => {
+          if (phase === "pending") e.preventDefault();
+        }}
+      >
         {phase === "success" && result ? (
           <div className="flex flex-col">
             <div className="p-3">
