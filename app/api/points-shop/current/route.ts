@@ -6,7 +6,12 @@ import { secondsUntilNextShopRestock } from "@/lib/time/shop-restock";
 // Public weekly inventory. Cached until the next Tuesday 1 PM ET restock,
 // with a stale-while-revalidate tail so the swap is seamless.
 export async function GET(request: NextRequest) {
-  const sMaxAge = secondsUntilNextShopRestock();
+  // Cap inventory freshness at 60s: the weekly catalog rarely changes, but
+  // inventoryRemaining decrements per sale, so caching for the full restock
+  // window (up to ~7 days) would keep showing sold-out items as available
+  // (user signs, then hits a 409). The SWR tail still hides revalidation
+  // latency.
+  const sMaxAge = Math.min(secondsUntilNextShopRestock(), 60);
   return proxyCrmGet(request, "points-shop/current", {
     cacheControl: `public, s-maxage=${sMaxAge}, stale-while-revalidate=300`,
   });

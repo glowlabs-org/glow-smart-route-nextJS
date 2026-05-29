@@ -119,7 +119,21 @@ function ItemBanner({
 }
 
 /** A compact "what you get" strip for a farm-linked miner. */
-function MinerEstimateStrip({ minerFarm }: { minerFarm: ShopMinerFarmInfo }) {
+/** True when a miner grant's Control split-transfer hasn't completed yet (the
+ * public grant keeps a safe fulfilment `status`). */
+function minerFulfillmentPending(grant: unknown): boolean {
+  const status = (grant as { fulfillment?: { status?: string } } | null)
+    ?.fulfillment?.status;
+  return status === "pending" || status === "pending_retry";
+}
+
+function MinerEstimateStrip({
+  minerFarm,
+  isManualFulfillment,
+}: {
+  minerFarm: ShopMinerFarmInfo;
+  isManualFulfillment?: boolean;
+}) {
   if (!minerFarm.resolved) return null;
   const reward =
     minerFarm.weeklyGlwRewards != null
@@ -130,23 +144,31 @@ function MinerEstimateStrip({ minerFarm }: { minerFarm: ShopMinerFarmInfo }) {
   if (!reward && !weeks) return null;
 
   return (
-    <div className="grid grid-cols-2 gap-2">
-      <div className="rounded-xl border border-border/50 bg-muted/30 px-3 py-2 dark:border-white/10 dark:bg-zinc-900">
-        <p className="text-[10px] uppercase tracking-wide text-muted-foreground/70">
-          Est. reward
-        </p>
-        <p className="mt-0.5 text-sm font-semibold tabular-nums">
-          {reward ?? "-"}
-        </p>
+    <div className="space-y-1.5">
+      <div className="grid grid-cols-2 gap-2">
+        <div className="rounded-xl border border-border/50 bg-muted/30 px-3 py-2 dark:border-white/10 dark:bg-zinc-900">
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground/70">
+            Est. reward
+          </p>
+          <p className="mt-0.5 text-sm font-semibold tabular-nums">
+            {reward ?? "-"}
+          </p>
+        </div>
+        <div className="rounded-xl border border-border/50 bg-muted/30 px-3 py-2 dark:border-white/10 dark:bg-zinc-900">
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground/70">
+            Weeks left
+          </p>
+          <p className="mt-0.5 text-sm font-semibold tabular-nums">
+            {weeks ?? "-"}
+          </p>
+        </div>
       </div>
-      <div className="rounded-xl border border-border/50 bg-muted/30 px-3 py-2 dark:border-white/10 dark:bg-zinc-900">
-        <p className="text-[10px] uppercase tracking-wide text-muted-foreground/70">
-          Weeks left
+      {isManualFulfillment ? (
+        <p className="text-[10px] leading-relaxed text-muted-foreground/70">
+          Estimated — this prize is fulfilled manually by the team, so the
+          exact reward split and timing may differ.
         </p>
-        <p className="mt-0.5 text-sm font-semibold tabular-nums">
-          {weeks ?? "-"}
-        </p>
-      </div>
+      ) : null}
     </div>
   );
 }
@@ -367,6 +389,8 @@ export function PurchaseDialog({
   if (!item) return null;
 
   const price = item.pricePoints;
+  const fulfillmentPending =
+    result != null && minerFulfillmentPending(result.grant);
   const balance = availablePoints ?? 0;
   const canAfford = balance >= price;
   const balanceAfter = Math.max(0, balance - price);
@@ -522,10 +546,12 @@ export function PurchaseDialog({
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                  Purchase complete
+                  {fulfillmentPending ? "Purchase recorded" : "Purchase complete"}
                 </DialogTitle>
                 <DialogDescription>
-                  Your prize is recorded and on its way.
+                  {fulfillmentPending
+                    ? "Recorded — your miner is being fulfilled and will appear shortly."
+                    : "Your prize is recorded and on its way."}
                 </DialogDescription>
               </DialogHeader>
               <GrantSummary result={result} item={item} />
@@ -575,7 +601,10 @@ export function PurchaseDialog({
               </DialogHeader>
 
               {showMinerEstimate && minerFarm ? (
-                <MinerEstimateStrip minerFarm={minerFarm} />
+                <MinerEstimateStrip
+                  minerFarm={minerFarm}
+                  isManualFulfillment={item.kind === "mega"}
+                />
               ) : null}
 
               <WattsSourceStrip item={item} />
@@ -604,13 +633,16 @@ export function PurchaseDialog({
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Your balance</span>
                     <span className="tabular-nums">
-                      {formatNumber(balance)}
+                      {/* Floor so the display never overstates holdings (and
+                          thus never implies you can afford something you can't);
+                          affordability itself uses the exact value. */}
+                      {formatNumber(Math.floor(balance))}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Balance after</span>
                     <span className="font-semibold tabular-nums">
-                      {canAfford ? formatNumber(balanceAfter) : "-"}
+                      {canAfford ? formatNumber(Math.floor(balanceAfter)) : "-"}
                     </span>
                   </div>
                 </div>
