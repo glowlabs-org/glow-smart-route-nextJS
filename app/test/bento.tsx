@@ -619,6 +619,10 @@ export default function GlowSoftDashboard({
                   }
                 />
                 <div className="rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10 p-4 sm:p-6 lg:p-12">
+                  {/* Equal-height cards (items-stretch); the Glow Worth chart
+                      is sized down (see NetWorthWidget) so the shared row height
+                      tracks the content cards instead of leaving a dead band of
+                      white space above the Points/Wallet footer buttons. */}
                   <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 items-stretch">
                     <div className="lg:col-span-3 flex">
                       <DeferredLaunchWindowAnalytics

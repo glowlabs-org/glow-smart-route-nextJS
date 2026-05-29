@@ -192,7 +192,7 @@ export function WattsBreakdownDialog({
                     <SourceRow
                       icon={VaultIcon}
                       label="Delegator share"
-                      sublabel="24% of every farm you helped fund"
+                      sublabel="Your share of every farm you helped fund"
                       watts={buckets.delegator}
                       accentClass="bg-[color:var(--delegation-purple)]/10 text-[color:var(--delegation-purple)]"
                       ctaLabel={isOwnWallet ? "Delegate" : undefined}
@@ -203,7 +203,7 @@ export function WattsBreakdownDialog({
                     <SourceRow
                       icon={SteeringIcon}
                       label="Staker share"
-                      sublabel="56% of every farm in your staked regions"
+                      sublabel="Your share of every farm in your staked regions"
                       watts={buckets.staker}
                       accentClass="bg-[#22D3EE]/10 text-[#22D3EE]"
                       ctaLabel={isOwnWallet ? "Stake GCTL" : undefined}
@@ -216,7 +216,7 @@ export function WattsBreakdownDialog({
                         <SourceRow
                           icon={ReferralIcon}
                           label="Delegator referrals"
-                          sublabel="6% of each referee's delegator share"
+                          sublabel="A cut of each referee's delegator watts"
                           watts={buckets.delegator_referral}
                           accentClass="bg-[color:var(--color-glow-orange)]/10 text-[color:var(--color-glow-orange)]"
                           ctaLabel={isOwnWallet ? "Invite" : undefined}
@@ -229,7 +229,7 @@ export function WattsBreakdownDialog({
                         <SourceRow
                           icon={ReferralIcon}
                           label="Staker referrals"
-                          sublabel="14% of each referee's staker share"
+                          sublabel="A cut of each referee's staker watts"
                           watts={buckets.staker_referral}
                           accentClass="bg-[color:var(--color-glow-orange)]/10 text-[color:var(--color-glow-orange)]"
                           ctaLabel={isOwnWallet ? "Invite" : undefined}
@@ -286,11 +286,11 @@ export function WattsBreakdownDialog({
                     <span className="font-medium text-foreground">
                       Watts measure real-world solar impact.
                     </span>{" "}
-                    Each fully funded farm distributes its nameplate watts:
-                    24% to its delegators, 56% to GCTL stakers in its region,
-                    plus 6%/14% to the referrers behind them. Vault transfers
-                    move watts with the position; selling delegation moves the
-                    watts to the new owner.
+                    Each fully funded farm distributes its nameplate watts to
+                    its delegators, the GCTL stakers in its region, and the
+                    referrers behind them. Vault transfers move watts with the
+                    position; selling delegation moves the watts to the new
+                    owner.
                   </p>
                 </div>
               </>

@@ -374,7 +374,10 @@ export default function NetWorthWidget({
               ),
           )}
         >
-          <div className="flex flex-1 min-h-[200px]">
+          {/* min-h kept modest so this card doesn't drive the overview row
+              taller than the Points/Wallet content cards; on desktop the chart
+              still fills (flex-1) to the shared equal-height row. */}
+          <div className="flex flex-1 min-h-[160px]">
             <div className="flex flex-col sm:flex-row flex-1 min-h-0">
               {/* Left Side: Chart */}
               <div
