@@ -50,11 +50,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import {
-  ReferralIcon,
-  ReferralBonusIcon,
-  ActivationBonusIcon,
-} from "@/components/impact-icons";
+import { ReferralIcon } from "@/components/impact-icons";
 import { QRCodeDialog } from "@/components/referral/qr-code-dialog";
 import { SparklesIcon } from "@/components/ui/sparkles";
 import { SunMediumIcon } from "@/components/ui/sun-medium";
@@ -77,13 +73,9 @@ interface ReferralStatusResponse {
     isInGracePeriod: boolean;
     canChangeReferrer: boolean;
   };
-  bonus?: {
-    isActive: boolean;
-    endsAt: string;
-    weeksRemaining: number;
-    bonusPercent: number;
-    bonusProjectedPointsScaled6?: string;
-  };
+  // The referee bonus (10% for 12 weeks) was removed (David, 2026-05-15); the
+  // backend no longer returns a `bonus` block. `activationBonus` reflects the
+  // activation GATE (referrer starts earning the tiered share), not a payout.
   activationBonus?: {
     awarded: boolean;
     awardedAt?: string;

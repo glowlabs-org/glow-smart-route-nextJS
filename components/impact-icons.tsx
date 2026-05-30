@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { Users, Gift, Zap } from "lucide-react";
+import { Users, Zap } from "lucide-react";
 
 interface IconProps {
   className?: string;
@@ -9,10 +9,9 @@ export function ReferralIcon({ className }: IconProps) {
   return <Users className={cn("w-6 h-6", className)} />;
 }
 
-export function ReferralBonusIcon({ className }: IconProps) {
-  return <Gift className={cn("w-6 h-6", className)} />;
-}
-
+// ReferralBonusIcon (the 10%/12wk referee bonus) was removed with that bonus
+// (David, 2026-05-15). ActivationBonusIcon remains — it marks the activation
+// GATE celebration ("your referral is now active"), not a payout.
 export function ActivationBonusIcon({ className }: IconProps) {
   return <Zap className={cn("w-6 h-6", className)} />;
 }

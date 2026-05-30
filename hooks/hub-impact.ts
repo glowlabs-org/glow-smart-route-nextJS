@@ -145,20 +145,10 @@ export interface ImpactGlowScoreResponse {
       };
     };
     asReferee?: {
+      // The referee bonus (10%/12wk) + 100-point activation bonus were removed
+      // (David, 2026-05-15); only the referrer attribution remains.
       referrerWallet: string;
       referrerEns?: string;
-      bonusIsActive: boolean;
-      bonusEndsAt?: string;
-      bonusWeeksRemaining?: number;
-      bonusPointsThisWeekScaled6: string;
-      bonusPointsProjectedScaled6?: string;
-      lifetimeBonusPointsScaled6: string;
-      activationBonus: {
-        awarded: boolean;
-        awardedAt?: string;
-        pending?: boolean;
-        pointsAwarded: number;
-      };
     };
   };
 }
