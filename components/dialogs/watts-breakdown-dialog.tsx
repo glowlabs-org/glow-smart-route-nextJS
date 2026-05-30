@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useMemo, useState } from "react";
 import { useAccount } from "wagmi";
-import { HelpCircle, Leaf } from "lucide-react";
+import { ArrowLeftRight, HelpCircle, Leaf } from "lucide-react";
 
 import {
   VaultIcon,
@@ -139,6 +139,16 @@ export function WattsBreakdownDialog({
   }, [data]);
 
   const totalWatts = Number(data?.totalWatts ?? 0);
+  // Residual = the hero total minus the four farm-allocation buckets. A
+  // positive residual is watts that came in via the shop / admin transfers
+  // (the watts_transfers ledger), which aren't farm-bucket-derived; surfacing
+  // it as its own source row makes the rows add up to the hero total.
+  const transfersWatts =
+    totalWatts -
+    (buckets.delegator +
+      buckets.staker +
+      buckets.delegator_referral +
+      buckets.staker_referral);
   const totalCarbon = Number(data?.totalCarbonCredits ?? 0);
   const farmCount = data?.farms.length ?? 0;
   const regionCount = data?.wattsByRegion.length ?? 0;
@@ -240,6 +250,15 @@ export function WattsBreakdownDialog({
                           }
                         />
                       </>
+                    )}
+                    {Math.abs(transfersWatts) > 0.5 && (
+                      <SourceRow
+                        icon={ArrowLeftRight}
+                        label="Shop & transfers"
+                        sublabel="Watts bought in the shop or transferred to you"
+                        watts={transfersWatts}
+                        accentClass="bg-[#4ADE80]/10 text-[#4ADE80]"
+                      />
                     )}
                   </div>
                 </div>

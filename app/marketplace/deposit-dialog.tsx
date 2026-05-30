@@ -1830,7 +1830,32 @@ export function DepositDialog({
     }, 5_000);
 
     postSuccessRefreshTimeoutsRef.current.push(timeoutId);
-  }, [clearScheduledPostSuccessRefreshes, syncFreshPostSuccessCaches]);
+
+    // The V2 points award lands asynchronously (BullMQ realtime), seconds after
+    // the deposit tx commits, so a single post-success refresh would still show
+    // "Pending". Re-poll the points balance + ledger a few times so the
+    // credited number appears without a manual reload. (Timeouts are tracked in
+    // the same ref, so they're cleared on close/unmount.)
+    const lowered = address?.toLowerCase();
+    if (lowered) {
+      for (const delay of [3_000, 7_000, 12_000]) {
+        const id = window.setTimeout(() => {
+          void queryClient.invalidateQueries({
+            queryKey: QUERY_KEYS.v2.pointsBalance(lowered),
+          });
+          void queryClient.invalidateQueries({
+            queryKey: QUERY_KEYS.v2.pointsLedgerAll(lowered),
+          });
+        }, delay);
+        postSuccessRefreshTimeoutsRef.current.push(id);
+      }
+    }
+  }, [
+    address,
+    clearScheduledPostSuccessRefreshes,
+    queryClient,
+    syncFreshPostSuccessCaches,
+  ]);
 
   React.useEffect(() => {
     if (open) return;
