@@ -3,6 +3,7 @@
 import * as React from "react";
 import Image from "next/image";
 import { useAccount } from "wagmi";
+import { usePrivy } from "@privy-io/react-auth";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -81,7 +82,12 @@ function resolveHeroImage(raffle: RaffleWithImage): string | null {
 // ---- Top-level component --------------------------------------------------
 
 export function RaffleEntry() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, isConnecting, isReconnecting } = useAccount();
+  const { ready: privyReady } = usePrivy();
+  // While Privy hydrates / wagmi auto-reconnects after a reload, we don't yet
+  // know whether a wallet is connected. Treat that as loading so we don't flash
+  // the "connect wallet" UI before the eligible/entered state resolves.
+  const walletInitializing = !privyReady || isConnecting || isReconnecting;
 
   // The Discord OAuth callback redirects back with ?discord=linked&dl=<token>.
   // The dl token is required by POST /raffle/enter and is not stored server-side,
@@ -141,8 +147,8 @@ export function RaffleEntry() {
     window.location.href = `${hubUrl}/discord/authorize?walletAddress=${address}`;
   }, [address, hubUrl]);
 
-  // ---- Loading state ----
-  if (isLoadingStatus) {
+  // ---- Loading state (status fetch OR wallet still reconnecting) ----
+  if (isLoadingStatus || walletInitializing) {
     return (
       <div className="grid gap-6 lg:grid-cols-12 lg:gap-10">
         <div className="space-y-5 lg:col-span-5">
@@ -423,18 +429,13 @@ function Stat({
 function ActionCard({
   children,
   accent,
-  tone = "default",
 }: {
   children: React.ReactNode;
   accent?: boolean;
-  tone?: "default" | "success";
 }) {
-  const toneClass =
-    tone === "success"
-      ? "border-green-500/30 bg-green-500/10"
-      : accent
-      ? "border-delegation-purple/30 bg-card"
-      : "border-border bg-card";
+  const toneClass = accent
+    ? "border-delegation-purple/30 bg-card"
+    : "border-border bg-card";
   return (
     <div className={`space-y-4 rounded-3xl border p-5 ${toneClass}`}>
       {children}
@@ -524,26 +525,23 @@ function WalletSection({
   // Already entered -> soft-green success card with a small entry stub.
   if (wallet.entryStatus === "entered") {
     return (
-      <ActionCard tone="success">
-        <div className="flex items-start justify-between gap-4">
+      <div className={`overflow-hidden ${CARD}`}>
+        <div className="flex items-start justify-between gap-4 border-b border-border bg-green-500/10 p-5">
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
               <PartyPopper className="h-5 w-5" />
               <span className="text-base font-semibold">You&apos;re entered</span>
             </div>
             <p className="text-sm text-muted-foreground">
-              Your spot in the draw is locked in. Winners are announced in
-              Discord.
+              Your spot in the draw is locked in. Winners are announced in the
+              Glow Discord.
             </p>
           </div>
-          <div className="shrink-0 rounded-2xl border border-green-500/30 bg-background/80 px-4 py-3 text-center">
-            <CheckCircle2 className="mx-auto h-5 w-5 text-green-600 dark:text-green-400" />
-            <div className="mt-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-              Entry
-            </div>
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-green-500/15 text-green-600 dark:text-green-400">
+            <CheckCircle2 className="h-6 w-6" />
           </div>
         </div>
-        <dl className={`p-4 text-sm ${TILE} bg-background/70`}>
+        <dl className="p-5 text-sm">
           <Row label="Discord">{discordName ?? "—"}</Row>
           <Row label="Wallet">{shortAddress(wallet.address)}</Row>
           {wallet.entry ? (
@@ -552,7 +550,7 @@ function WalletSection({
             </Row>
           ) : null}
         </dl>
-      </ActionCard>
+      </div>
     );
   }
 
