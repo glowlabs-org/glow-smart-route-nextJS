@@ -942,7 +942,7 @@ type CurrencyTotals = Record<string, number>;
 function formatCompactAmount(value: number): string {
   return value.toLocaleString(undefined, {
     minimumFractionDigits: 2,
-    maximumFractionDigits: 6,
+    maximumFractionDigits: 2,
   });
 }
 
