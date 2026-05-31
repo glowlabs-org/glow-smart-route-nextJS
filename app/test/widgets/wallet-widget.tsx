@@ -3,6 +3,9 @@
 import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAccount, useChainId } from "wagmi";
+import { formatUnits } from "viem";
+import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
+import { Shield } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -12,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { trackEvent } from "@/lib/telemetry";
 import { GlowSymbol } from "@/components/glow-symbol";
+import { useWallets, useWalletRegionAvailableStakeMap } from "@/hooks";
 import { useWalletPortfolio } from "./use-wallet-portfolio";
 import { useLang } from "@/lib/i18n";
 
@@ -133,6 +137,40 @@ export default function WalletWidget({
   const { hasWallet, glowPriceUsd, marketCapUsd, ethPriceInUSD, holdings } =
     useWalletPortfolio({ walletAddress });
 
+  // sGCTL free to delegate = staked GCTL not locked in any vault, summed across
+  // the wallet's regions (mirrors the gctl-heatmap "available" figure).
+  const { walletDetails } = useWallets({
+    walletAddress: walletAddress ?? undefined,
+    enabled: hasWallet,
+    includeMintedEvents: false,
+    includeStakeEvents: false,
+    includeMigrationAmount: false,
+  });
+  const regionIds = React.useMemo(
+    () => (walletDetails?.regions ?? []).map((region) => region.regionId),
+    [walletDetails?.regions]
+  );
+  const { availableStakedGctlByRegion } = useWalletRegionAvailableStakeMap({
+    walletAddress: walletAddress ?? undefined,
+    regionIds,
+    enabled: hasWallet,
+  });
+  const freeSgctl = React.useMemo(() => {
+    let totalWei = 0n;
+    availableStakedGctlByRegion.forEach((wei) => {
+      totalWei += wei;
+    });
+    return Number(formatUnits(totalWei, DECIMALS_BY_TOKEN.GCTL));
+  }, [availableStakedGctlByRegion]);
+
+  const sgctlDisplay =
+    freeSgctl > 0
+      ? freeSgctl.toLocaleString("en-US", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })
+      : "0";
+
   const holdingsRows = React.useMemo(() => {
     const bySymbol = new Map(
       holdings.map((h) => [h.symbol, h.amount] as const)
@@ -212,6 +250,26 @@ export default function WalletWidget({
               </div>
             );
           })}
+
+          <div
+            className="flex items-center justify-between gap-3 group cursor-default py-1.5 px-2 rounded-xl hover:bg-muted/20 transition-colors w-full overflow-hidden"
+            title="sGCTL free to delegate (staked GCTL not locked in a vault)"
+          >
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="h-6 w-6 rounded-full ring-1 ring-amber-500/30 bg-amber-500/20 flex items-center justify-center">
+                <Shield className="h-3.5 w-3.5 text-amber-500" />
+              </div>
+              <span className="text-sm font-mono text-muted-foreground group-hover:text-foreground/80 transition-colors">
+                sGCTL
+              </span>
+            </div>
+            <span
+              className="text-sm font-mono font-medium tabular-nums text-foreground truncate ml-auto"
+              title={sgctlDisplay}
+            >
+              {sgctlDisplay}
+            </span>
+          </div>
 
         <div className="pt-4 grid grid-cols-2 gap-2 mt-auto">
           <Button
