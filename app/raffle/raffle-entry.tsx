@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { useRouter, useSearchParams } from "next/navigation";
 import { useAccount } from "wagmi";
 import { toast } from "sonner";
 import {
@@ -31,8 +30,8 @@ import {
 
 const DL_STORAGE_KEY = "glow_raffle_dl";
 
-// Surface tokens — lean on real borders + soft shadow (the palette is light, so
-// bg tints read flat; borders/shadows give cards definition in both themes).
+// Surface tokens — the palette is light, so bg tints read flat; rely on real
+// borders to give cards definition in both themes.
 const CARD = "rounded-3xl border border-border bg-card";
 const TILE = "rounded-2xl border border-border bg-muted/60 dark:bg-muted/40";
 
@@ -82,8 +81,6 @@ function resolveHeroImage(raffle: RaffleWithImage): string | null {
 // ---- Top-level component --------------------------------------------------
 
 export function RaffleEntry() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const { address, isConnected } = useAccount();
 
   // The Discord OAuth callback redirects back with ?discord=linked&dl=<token>.
@@ -91,9 +88,16 @@ export function RaffleEntry() {
   // so keep it in component state (mirrored to sessionStorage for reloads).
   const [dlToken, setDlToken] = React.useState<string | null>(null);
 
+  // Handle the Discord callback params exactly once, then strip them from the URL
+  // with history.replaceState so a reload can never replay the toast.
+  const processedParamsRef = React.useRef(false);
   React.useEffect(() => {
-    const urlDl = searchParams.get("dl");
-    const discord = searchParams.get("discord");
+    if (processedParamsRef.current) return;
+    processedParamsRef.current = true;
+
+    const params = new URLSearchParams(window.location.search);
+    const urlDl = params.get("dl");
+    const discord = params.get("discord");
 
     if (urlDl) {
       setDlToken(urlDl);
@@ -119,9 +123,9 @@ export function RaffleEntry() {
       toast.error("Discord connection failed, please try again");
 
     if (urlDl || discord) {
-      router.replace("/raffle", { scroll: false });
+      window.history.replaceState(null, "", window.location.pathname);
     }
-  }, [searchParams, router]);
+  }, []);
 
   const { status, isLoadingStatus, isStatusError, enter, isEntering } =
     useRaffle({ discordLinkToken: dlToken });
