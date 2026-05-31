@@ -57,6 +57,8 @@ export interface PublicRaffle {
   startsAt: string | null;
   endsAt: string | null;
   allowedChainIds: number[];
+  // Optional: backend may not send this yet; the page falls back to a per-slug image.
+  imageUrl?: string | null;
 }
 
 export interface RaffleWalletStatus {

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAccount } from "wagmi";
 import { toast } from "sonner";
@@ -12,29 +13,73 @@ import {
   MessageSquare,
   Clock,
   Lock,
+  ShieldCheck,
+  ExternalLink,
+  PartyPopper,
+  BadgeCheck,
 } from "lucide-react";
 import { ConnectButton } from "@/components/connect-button";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   useRaffle,
+  type PublicRaffle,
   type RaffleWalletStatus,
   type RaffleLifecycle,
 } from "@/hooks/use-raffle";
 
 const DL_STORAGE_KEY = "glow_raffle_dl";
 
+// Surface tokens — lean on real borders + soft shadow (the palette is light, so
+// bg tints read flat; borders/shadows give cards definition in both themes).
+const CARD = "rounded-3xl border border-border bg-card";
+const TILE = "rounded-2xl border border-border bg-muted/60 dark:bg-muted/40";
+
+// Per-slug hero art fallback while the backend `imageUrl` field rolls out.
+const RAFFLE_FALLBACK_IMAGES: Record<string, string> = {
+  "inkblot-genetics-wl": "/raffles/inkblot-genetics.jpg",
+};
+
+// Presentational per-raffle metadata. Centralized here (like the image fallback)
+// until these become first-class backend fields, so adding a raffle is one entry
+// here + the backend row — no layout edits.
+type RaffleMeta = {
+  spots?: number;
+  mintPrice?: string;
+  mintDate?: string;
+  project?: string;
+  projectUrl?: string;
+};
+const RAFFLE_META: Record<string, RaffleMeta> = {
+  "inkblot-genetics-wl": {
+    spots: 3,
+    mintPrice: "~0.009 ETH",
+    mintDate: "June 3",
+    project: "Inkblot Genetics",
+    projectUrl: "https://inkblotgenetics.com",
+  },
+};
+
+// `imageUrl` is an optional, possibly-undefined field on the public raffle.
+type RaffleWithImage = PublicRaffle & { imageUrl?: string | null };
+
 function shortAddress(addr: string): string {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 }
+
+function chainName(id?: number): string {
+  if (id === 1) return "Ethereum";
+  if (id === 8453) return "Base";
+  if (id === 11155111) return "Sepolia";
+  return id ? `Chain ${id}` : "Ethereum";
+}
+
+function resolveHeroImage(raffle: RaffleWithImage): string | null {
+  return raffle.imageUrl ?? RAFFLE_FALLBACK_IMAGES[raffle.slug] ?? null;
+}
+
+// ---- Top-level component --------------------------------------------------
 
 export function RaffleEntry() {
   const router = useRouter();
@@ -92,94 +137,91 @@ export function RaffleEntry() {
     window.location.href = `${hubUrl}/discord/authorize?walletAddress=${address}`;
   }, [address, hubUrl]);
 
-  // ---- Loading / empty states ----
+  // ---- Loading state ----
   if (isLoadingStatus) {
     return (
-      <Card className="rounded-[24px]">
-        <CardHeader>
-          <Skeleton className="h-7 w-48" />
-          <Skeleton className="h-4 w-full max-w-sm" />
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-12 w-full" />
-        </CardContent>
-      </Card>
+      <div className="grid gap-6 lg:grid-cols-12 lg:gap-10">
+        <div className="space-y-5 lg:col-span-5">
+          <Skeleton className="aspect-video w-full rounded-3xl" />
+          <Skeleton className="h-48 w-full rounded-3xl" />
+        </div>
+        <div className="space-y-5 lg:col-span-7">
+          <Skeleton className="h-9 w-2/3 rounded-md" />
+          <Skeleton className="h-4 w-1/2 rounded-md" />
+          <Skeleton className="h-20 w-full rounded-3xl" />
+          <Skeleton className="h-44 w-full rounded-3xl" />
+        </div>
+      </div>
     );
   }
 
+  // ---- Error state ----
   if (isStatusError) {
     return (
-      <Card className="rounded-[24px]">
-        <CardHeader>
-          <CardTitle>Something went wrong</CardTitle>
-          <CardDescription>
-            We couldn&apos;t load the raffle. Please refresh and try again.
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <CenteredCard title="Something went wrong">
+        We couldn&apos;t load the raffle. Please refresh and try again.
+      </CenteredCard>
     );
   }
 
-  const raffle = status?.raffle ?? null;
+  const raffle = (status?.raffle ?? null) as RaffleWithImage | null;
   const lifecycle = status?.status ?? null;
   const wallet = status?.wallet ?? null;
 
+  // ---- No active raffle ----
   if (!raffle) {
     return (
-      <Card className="rounded-[24px]">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Ticket className="h-5 w-5" /> Glow Raffle
-          </CardTitle>
-          <CardDescription>
-            There is no active raffle right now. Check back soon.
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <CenteredCard title="No active raffle" icon={<Ticket className="h-5 w-5" />}>
+        There is no active raffle right now. Check back soon.
+      </CenteredCard>
     );
   }
 
-  const lifecycleBadge =
-    lifecycle === "open" ? (
-      <Badge variant="secondary" className="bg-green-500/15 text-green-600">
-        Open
-      </Badge>
-    ) : lifecycle === "not_started" ? (
-      <Badge variant="secondary">Not started</Badge>
-    ) : (
-      <Badge variant="secondary">Closed</Badge>
-    );
+  const heroImage = resolveHeroImage(raffle);
+  const meta = RAFFLE_META[raffle.slug] ?? {};
 
   return (
-    <Card className="rounded-[24px]">
-      <CardHeader>
-        <div className="flex items-start justify-between gap-3">
-          <CardTitle className="flex items-center gap-2">
-            <Ticket className="h-5 w-5" /> {raffle.title}
-          </CardTitle>
-          {lifecycleBadge}
-        </div>
-        {raffle.description ? (
-          <CardDescription>{raffle.description}</CardDescription>
-        ) : null}
-      </CardHeader>
+    <div className="grid gap-6 lg:grid-cols-12 lg:gap-10">
+      {/* ---- Left: artwork + details ---- */}
+      <div className="space-y-5 lg:col-span-5">
+        <ArtCard src={heroImage} alt={raffle.title} meta={meta} />
+        <DetailsCard raffle={raffle} meta={meta} />
+      </div>
 
-      <CardContent className="space-y-5">
-        {/* Requirement line */}
-        <div className="rounded-xl border border-border/40 bg-muted/30 dark:bg-muted/50 p-3 text-sm text-muted-foreground">
-          To enter you must have delegated <strong>GLW</strong> or{" "}
-          <strong>sGCTL</strong>, and connect a Discord account.
-        </div>
+      {/* ---- Right: heading + status + action ---- */}
+      <div className="space-y-5 lg:col-span-7">
+        <header className="space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-delegation-purple">
+              Whitelist Raffle
+            </span>
+            <LifecycleBadge lifecycle={lifecycle} />
+          </div>
+          <h1 className="text-2xl font-semibold leading-tight tracking-tight text-foreground sm:text-[2rem]">
+            {raffle.title}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Hosted by <span className="font-medium text-foreground">Glow</span>{" "}
+            · Open to delegators
+          </p>
+          {raffle.description ? (
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              {raffle.description}
+            </p>
+          ) : null}
+        </header>
 
-        {/* Not connected */}
+        <StatusStrip lifecycle={lifecycle} meta={meta} />
+
         {!isConnected || !wallet ? (
-          <div className="space-y-3">
+          <ActionCard accent>
+            <ActionHeading step={1}>Connect your wallet</ActionHeading>
             <p className="text-sm text-muted-foreground">
-              Connect your wallet to check eligibility and enter.
+              We&apos;ll check that it has delegated GLW or sGCTL.
             </p>
             <ConnectButton variant="default" />
-          </div>
+            <Steps current={1} discordLinked={false} />
+          </ActionCard>
         ) : (
           <WalletSection
             wallet={wallet}
@@ -190,10 +232,270 @@ export function RaffleEntry() {
             onEnter={() => enter()}
           />
         )}
-      </CardContent>
-    </Card>
+
+        <p className="text-center text-xs text-muted-foreground/70">
+          Winners are drawn after the raffle closes and announced in the Glow
+          Discord.
+        </p>
+      </div>
+    </div>
   );
 }
+
+// ---- Left column ----------------------------------------------------------
+
+function ArtCard({
+  src,
+  alt,
+  meta,
+}: {
+  src: string | null;
+  alt: string;
+  meta: RaffleMeta;
+}) {
+  return (
+    <div className={`overflow-hidden ${CARD}`}>
+      <div className="relative aspect-video w-full bg-zinc-950">
+        {src ? (
+          <Image
+            src={src}
+            alt={alt}
+            fill
+            priority
+            sizes="(max-width: 1024px) 100vw, 460px"
+            className="object-cover object-center"
+          />
+        ) : (
+          <HeroPlaceholder />
+        )}
+      </div>
+
+      {/* Collection footer — gives the art a collectible-card identity. */}
+      <div className="flex items-center gap-3 border-t border-border px-4 py-3">
+        <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full bg-zinc-900 ring-1 ring-border">
+          {src ? (
+            <Image src={src} alt="" fill sizes="36px" className="object-cover" />
+          ) : null}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1 text-sm font-medium text-foreground">
+            <span className="truncate">{meta.project ?? "NFT Collection"}</span>
+            <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-delegation-purple" />
+          </div>
+          <div className="text-xs text-muted-foreground">NFT mint</div>
+        </div>
+        {meta.projectUrl ? (
+          <a
+            href={meta.projectUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-delegation-purple hover:text-delegation-purple"
+            aria-label="View collection"
+          >
+            <ExternalLink className="h-4 w-4" />
+          </a>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function DetailsCard({
+  raffle,
+  meta,
+}: {
+  raffle: RaffleWithImage;
+  meta: RaffleMeta;
+}) {
+  const items: { label: string; value: string }[] = [];
+  if (meta.spots) {
+    items.push({ label: "Prize", value: `${meta.spots} whitelist spots` });
+  }
+  if (meta.mintPrice) items.push({ label: "Mint price", value: meta.mintPrice });
+  if (meta.mintDate) items.push({ label: "Mint date", value: meta.mintDate });
+  items.push({ label: "Network", value: chainName(raffle.allowedChainIds?.[0]) });
+  items.push({ label: "Eligibility", value: "GLW / sGCTL" });
+
+  return (
+    <div className={`p-5 ${CARD}`}>
+      <h2 className="text-sm font-semibold text-foreground">Details</h2>
+      <dl className="mt-3 grid grid-cols-2 gap-3">
+        {items.map((item) => (
+          <div key={item.label} className={`p-3 ${TILE}`}>
+            <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              {item.label}
+            </dt>
+            <dd className="mt-1 text-sm font-semibold text-foreground">
+              {item.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
+// ---- Right column ---------------------------------------------------------
+
+function LifecycleBadge({ lifecycle }: { lifecycle: RaffleLifecycle | null }) {
+  if (lifecycle === "open") {
+    return (
+      <Badge
+        variant="secondary"
+        className="border border-green-500/30 bg-green-500/15 text-green-600 dark:text-green-400"
+      >
+        <span className="mr-1 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-green-500" />
+        Open
+      </Badge>
+    );
+  }
+  if (lifecycle === "not_started") {
+    return (
+      <Badge variant="secondary" className="border border-border">
+        <Clock className="h-3 w-3" /> Soon
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="secondary" className="border border-border">
+      <Lock className="h-3 w-3" /> Closed
+    </Badge>
+  );
+}
+
+function StatusStrip({
+  lifecycle,
+  meta,
+}: {
+  lifecycle: RaffleLifecycle | null;
+  meta: RaffleMeta;
+}) {
+  const statusLabel =
+    lifecycle === "open"
+      ? "Open"
+      : lifecycle === "not_started"
+      ? "Not started"
+      : "Closed";
+
+  return (
+    <div className={`grid grid-cols-3 divide-x divide-border ${CARD}`}>
+      <Stat label="Status">
+        <span className="inline-flex items-center gap-1.5">
+          {lifecycle === "open" ? (
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500" />
+          ) : null}
+          {statusLabel}
+        </span>
+      </Stat>
+      <Stat label="Mints">{meta.mintDate ?? "TBA"}</Stat>
+      <Stat label="Spots">
+        <span className="text-delegation-purple">{meta.spots ?? "—"}</span>
+      </Stat>
+    </div>
+  );
+}
+
+function Stat({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="px-5 py-4">
+      <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </div>
+      <div className="mt-1 text-lg font-semibold text-foreground">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// The primary action surface. `accent` adds a subtle delegation-purple glow so
+// the CTA leads the eye (house pattern: tight negative-spread colored shadow).
+function ActionCard({
+  children,
+  accent,
+  tone = "default",
+}: {
+  children: React.ReactNode;
+  accent?: boolean;
+  tone?: "default" | "success";
+}) {
+  const toneClass =
+    tone === "success"
+      ? "border-green-500/30 bg-green-500/10"
+      : accent
+      ? "border-delegation-purple/30 bg-card"
+      : "border-border bg-card";
+  return (
+    <div className={`space-y-4 rounded-3xl border p-5 ${toneClass}`}>
+      {children}
+    </div>
+  );
+}
+
+function ActionHeading({
+  step,
+  children,
+}: {
+  step?: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <h3 className="flex items-center gap-2 text-base font-semibold text-foreground">
+      {step ? (
+        <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-foreground text-xs font-semibold text-background">
+          {step}
+        </span>
+      ) : null}
+      {children}
+    </h3>
+  );
+}
+
+// Compact 3-step progress hint for production-feel onboarding.
+function Steps({
+  current,
+  discordLinked,
+}: {
+  current: 1 | 2 | 3;
+  discordLinked: boolean;
+}) {
+  const steps = ["Connect wallet", "Link Discord", "Sign to enter"];
+  return (
+    <ol className="flex items-center gap-2 pt-1 text-[11px] text-muted-foreground">
+      {steps.map((label, i) => {
+        const n = (i + 1) as 1 | 2 | 3;
+        const done = n < current || (n === 2 && discordLinked && current > 2);
+        const active = n === current;
+        return (
+          <li key={label} className="flex items-center gap-2">
+            <span
+              className={
+                active
+                  ? "font-medium text-foreground"
+                  : done
+                  ? "text-foreground/70"
+                  : ""
+              }
+            >
+              {n}. {label}
+            </span>
+            {i < steps.length - 1 ? (
+              <span className="text-muted-foreground/40">›</span>
+            ) : null}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+// ---- Wallet / entry states ------------------------------------------------
 
 function WalletSection({
   wallet,
@@ -215,15 +517,29 @@ function WalletSection({
   const discordName =
     wallet.discord?.globalName || wallet.discord?.username || wallet.discord?.id;
 
-  // Already entered -> success state.
+  // Already entered -> soft-green success card with a small entry stub.
   if (wallet.entryStatus === "entered") {
     return (
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 text-green-600">
-          <CheckCircle2 className="h-5 w-5" />
-          <span className="font-semibold">You&apos;re entered.</span>
+      <ActionCard tone="success">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+              <PartyPopper className="h-5 w-5" />
+              <span className="text-base font-semibold">You&apos;re entered</span>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Your spot in the draw is locked in. Winners are announced in
+              Discord.
+            </p>
+          </div>
+          <div className="shrink-0 rounded-2xl border border-green-500/30 bg-background/80 px-4 py-3 text-center">
+            <CheckCircle2 className="mx-auto h-5 w-5 text-green-600 dark:text-green-400" />
+            <div className="mt-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              Entry
+            </div>
+          </div>
         </div>
-        <dl className="rounded-xl border border-border/40 bg-muted/30 dark:bg-muted/50 p-3 text-sm">
+        <dl className={`p-4 text-sm ${TILE} bg-background/70`}>
           <Row label="Discord">{discordName ?? "—"}</Row>
           <Row label="Wallet">{shortAddress(wallet.address)}</Row>
           {wallet.entry ? (
@@ -232,7 +548,7 @@ function WalletSection({
             </Row>
           ) : null}
         </dl>
-      </div>
+      </ActionCard>
     );
   }
 
@@ -255,8 +571,9 @@ function WalletSection({
   if (wallet.entryStatus === "ineligible") {
     return (
       <InfoBlock icon={<ShieldAlert className="h-5 w-5" />}>
-        This wallet hasn&apos;t delegated GLW or sGCTL, so it isn&apos;t eligible.{" "}
-        <a href="/launchpad" className="underline hover:text-foreground">
+        This wallet hasn&apos;t delegated GLW or sGCTL, so it isn&apos;t
+        eligible.{" "}
+        <a href="/launchpad" className="font-medium text-foreground underline">
           Delegate on the Launchpad
         </a>{" "}
         and come back.
@@ -264,30 +581,37 @@ function WalletSection({
     );
   }
 
-  // Eligible. Show eligibility badge + either Discord connect or Enter.
-  const needsDiscord =
-    wallet.entryStatus === "missing_discord" || !dlToken;
+  // Eligible -> connect Discord, or enter.
+  const needsDiscord = wallet.entryStatus === "missing_discord" || !dlToken;
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        <CheckCircle2 className="h-4 w-4 text-green-600" />
-        <span className="text-muted-foreground">Eligible</span>
+    <ActionCard accent>
+      {/* Eligibility confirmation */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-green-500/30 bg-green-500/15 px-2.5 py-1 text-xs font-medium text-green-600 dark:text-green-400">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          Eligible
+        </span>
+        <span className="text-xs text-muted-foreground">via</span>
         {wallet.eligibilityAssets.map((asset) => (
-          <Badge key={asset} variant="secondary">
+          <Badge
+            key={asset}
+            variant="secondary"
+            className="border border-delegation-purple/30 bg-delegation-purple/10 font-mono text-delegation-purple"
+          >
             {asset}
           </Badge>
         ))}
       </div>
 
-      {wallet.discordLinked && discordName ? (
-        <p className="text-sm text-muted-foreground">
-          Discord: <span className="text-foreground">{discordName}</span>
-        </p>
-      ) : null}
-
       {needsDiscord ? (
-        <div className="space-y-2">
+        <>
+          <ActionHeading step={2}>Link your Discord</ActionHeading>
+          <p className="text-sm text-muted-foreground">
+            {wallet.discordLinked
+              ? "Reconnect Discord to confirm your account before entering."
+              : "Connect the Discord account you want the whitelist spot on."}
+          </p>
           <Button
             type="button"
             variant="default"
@@ -297,14 +621,18 @@ function WalletSection({
             <MessageSquare className="mr-2 h-4 w-4" />
             {wallet.discordLinked ? "Continue with Discord" : "Connect Discord"}
           </Button>
-          {wallet.discordLinked ? (
-            <p className="text-xs text-muted-foreground">
-              Reconnect Discord to confirm your account before entering.
+          <Steps current={2} discordLinked={wallet.discordLinked} />
+        </>
+      ) : (
+        <>
+          {wallet.discordLinked && discordName ? (
+            <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <ShieldCheck className="h-4 w-4 text-green-600 dark:text-green-400" />
+              Discord:{" "}
+              <span className="font-medium text-foreground">{discordName}</span>
             </p>
           ) : null}
-        </div>
-      ) : (
-        <div className="space-y-3">
+          <ActionHeading step={3}>Sign to enter</ActionHeading>
           <Button
             type="button"
             variant="default"
@@ -324,8 +652,44 @@ function WalletSection({
             transaction, approve tokens, transfer funds, or give anyone access
             to your wallet. Never share your seed phrase or private key.
           </p>
-        </div>
+        </>
       )}
+    </ActionCard>
+  );
+}
+
+// ---- Small shared pieces --------------------------------------------------
+
+function HeroPlaceholder() {
+  return (
+    <div className="relative h-full w-full overflow-hidden bg-gradient-to-br from-zinc-900 via-zinc-800 to-black">
+      <div
+        aria-hidden
+        className="absolute inset-0 bg-gradient-to-tr from-delegation-purple/30 via-transparent to-glow-orange/20"
+      />
+      <div className="absolute inset-0 flex items-center justify-center">
+        <Ticket className="h-12 w-12 text-white/20" />
+      </div>
+    </div>
+  );
+}
+
+function CenteredCard({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={`mx-auto max-w-md p-8 text-center ${CARD}`}>
+      <div className="flex items-center justify-center gap-2 text-foreground">
+        {icon}
+        <h2 className="text-lg font-semibold">{title}</h2>
+      </div>
+      <p className="mt-2 text-sm text-muted-foreground">{children}</p>
     </div>
   );
 }
@@ -338,7 +702,7 @@ function InfoBlock({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-border/40 bg-muted/30 dark:bg-muted/50 p-3 text-sm text-muted-foreground">
+    <div className={`flex items-start gap-3 p-5 text-sm text-muted-foreground ${CARD}`}>
       <span className="mt-0.5 text-foreground">{icon}</span>
       <p>{children}</p>
     </div>
@@ -353,7 +717,7 @@ function Row({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 py-1.5 border-b border-border/20 dark:border-border/40 last:border-b-0">
+    <div className="flex items-center justify-between gap-3 border-b border-border/60 py-1.5 last:border-b-0">
       <dt className="text-muted-foreground">{label}</dt>
       <dd className="text-foreground">{children}</dd>
     </div>
