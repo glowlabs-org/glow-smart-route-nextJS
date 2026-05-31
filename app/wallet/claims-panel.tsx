@@ -57,7 +57,7 @@ import {
   type TransactionDetail,
 } from "@/components/dialogs/transaction-dialog";
 import { getCurrentEpoch, GENESIS_TIMESTAMP } from "@/utils/getCurrentEpoch";
-import { getNextWednesdayAt1pmET } from "@/utils/nextTuesdayET";
+import { getLaunchpadNowMs } from "@/utils/launchpad-now";
 import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-warning-dialog";
 import { trackEvent } from "@/lib/telemetry";
 import { formatRewardPipelineDate } from "@/utils/reward-pipeline";
@@ -167,20 +167,6 @@ function formatWeekDate(week: number): string {
     day: "numeric",
     year: "numeric",
   });
-}
-
-// Per the early-claim-delegation mechanic, raw claims unlock the Wednesday at
-// 1pm ET that follows the protocol's Saturday-night-ET finalization. The
-// Tuesday launchpad delegation window sits between the two, giving users a
-// claim-and-delegate path that opens before the standalone unlock.
-function computeClaimUnlockTimestampMs(
-  week: number,
-  weeksToWait: number,
-): number {
-  const weekSeconds = 7 * 86_400;
-  const finalizationMs =
-    (GENESIS_TIMESTAMP + (week + weeksToWait) * weekSeconds) * 1000;
-  return getNextWednesdayAt1pmET(new Date(finalizationMs)).getTime();
 }
 
 // Helper to get Etherscan URL based on chain ID
@@ -340,21 +326,11 @@ function WeekClaimButton({
     weekData,
   ]);
 
-  const hasProtocolDeposits = React.useMemo(
-    () => weekData.rewards.some((reward) => reward.type === "protocolDeposit"),
-    [weekData.rewards]
-  );
-
-  const weeksToWait =
-    claimType === "v2Only" || hasProtocolDeposits ? 4 : 3;
-  const targetTimestampMs = React.useMemo(
-    () => computeClaimUnlockTimestampMs(weekData.week, weeksToWait),
-    [weekData.week, weeksToWait],
-  );
-
   // Avoid any ticking state here (it causes visible “flicker” across many rows).
   // This will update whenever the component re-renders for other reasons.
-  const remainingMs = Math.max(0, targetTimestampMs - Date.now());
+  // weekData.unlockMs is the single source of truth for the Wednesday-1pm-ET
+  // unlock floor (shared with the header, badge, and bulk button).
+  const remainingMs = Math.max(0, weekData.unlockMs - getLaunchpadNowMs());
 
   const showCountdown = remainingMs < 24 * 3600 * 1000;
 
@@ -651,16 +627,17 @@ function ClaimButtonsWrapper({
     );
   }
 
-  if (!isGlwFinalized && !isPdFinalized) {
-    const pendingWeeksToWait = hasProtocolDeposits ? 4 : 3;
-    const claimableTs = computeClaimUnlockTimestampMs(
-      weekData.week,
-      pendingWeeksToWait,
-    );
-    const claimableDateLabel = new Date(claimableTs).toLocaleDateString(
-      getBcp47(lang),
-      { month: "short", day: "numeric" }
-    );
+  // A week is only claimable once it is fully finalized (both present streams)
+  // AND past its Wednesday-1pm-ET unlock. Until then show the disabled unlock
+  // date. This is what enforces the coupling (no live emissions button while the
+  // same epoch's PD is unfinalized) and the Wednesday floor on the row.
+  const isUnlocked = getLaunchpadNowMs() >= weekData.unlockMs;
+  if (!(weekData.isFinalized && isUnlocked)) {
+    const claimableDateLabel = formatRewardPipelineDate(weekData.unlockMs, {
+      month: "short",
+      day: "numeric",
+      locale: getBcp47(lang),
+    });
     return (
       <div className="w-full md:ml-4 md:w-44">
         <Button size="default" className="w-full" disabled>
@@ -738,14 +715,13 @@ function WeekRewardsContent({
     (!hasInflationRewards || isGlwFinalized) &&
     (!hasProtocolRewards || (isPdFinalized && !isEpoch121PdDelayed));
   const protocolUnlockDateLabel = React.useMemo(() => {
-    if (weekData.week === 121) return "Apr 18";
-    const claimableTimestamp = computeClaimUnlockTimestampMs(weekData.week, 4);
-    return formatRewardPipelineDate(claimableTimestamp, {
+    // weekData.unlockMs already folds in the epoch-121 administrative delay.
+    return formatRewardPipelineDate(weekData.unlockMs, {
       month: "short",
       day: "numeric",
       locale: getBcp47(lang),
     });
-  }, [weekData.week, lang]);
+  }, [weekData.unlockMs, lang]);
 
   const handleClaimReward = React.useCallback(
     async (reward: ClaimableReward, isInflation: boolean) => {
@@ -1130,15 +1106,7 @@ function PendingRewardsNotice({
     (earliest, w) => (w.week < earliest.week ? w : earliest),
     pendingWeeks[0]
   );
-  const earliestHasPd = earliestPending.rewards.some(
-    (r) => r.type === "protocolDeposit"
-  );
-  const earliestWait = earliestHasPd ? 4 : 3;
-  const claimableTimestamp = computeClaimUnlockTimestampMs(
-    earliestPending.week,
-    earliestWait,
-  );
-  const dateLabel = formatRewardPipelineDate(claimableTimestamp, {
+  const dateLabel = formatRewardPipelineDate(earliestPending.unlockMs, {
     month: "short",
     day: "numeric",
     locale: getBcp47(lang),
@@ -1230,6 +1198,13 @@ export function ClaimsPanel({
   const [v2ClaimedWeeks, setV2ClaimedWeeks] = React.useState<Set<number>>(
     new Set()
   );
+
+  // Coarse clock used to flip rows from "Finalizing" to "Ready" (and refresh the
+  // header/bulk totals) the moment a finalized week crosses its Wednesday
+  // unlock, without a manual refresh. Ticks only while an unlock is pending and
+  // at a 30s cadence to avoid the per-second countdown flicker the row buttons
+  // intentionally avoid.
+  const [clockMs, setClockMs] = React.useState(() => getLaunchpadNowMs());
 
   // Fetch claimable rewards
   const { aggregatedTotals, weeklyBreakdown, isLoading, isError, refetch } =
@@ -1336,6 +1311,27 @@ export function ClaimsPanel({
     [v1ClaimedWeeks, v2ClaimedWeeks]
   );
 
+  // Drive the coarse clock tick only while a finalized week is still waiting for
+  // its Wednesday unlock, so the panel re-renders across that boundary.
+  const hasPendingUnlock = React.useMemo(
+    () =>
+      weeklyBreakdown.some((weekData) => {
+        const { isClaimed } = getWeekClaimState(weekData);
+        return (
+          weekData.isFinalized && !isClaimed && clockMs < weekData.unlockMs
+        );
+      }),
+    [weeklyBreakdown, getWeekClaimState, clockMs]
+  );
+
+  React.useEffect(() => {
+    if (!hasPendingUnlock) return;
+    const intervalId = window.setInterval(() => {
+      setClockMs(getLaunchpadNowMs());
+    }, 30_000);
+    return () => window.clearInterval(intervalId);
+  }, [hasPendingUnlock]);
+
   // --- Claim-state resolution gate ---------------------------------------
   // The per-week claimed-status checks (in ClaimButtonsWrapper) resolve
   // asynchronously. Until they all settle, the claimable totals optimistically
@@ -1403,7 +1399,7 @@ export function ClaimsPanel({
     const totals: Record<string, number> = {};
 
     weeklyBreakdown.forEach((weekData) => {
-      if (!weekData.isFinalized) return;
+      if (!(weekData.isFinalized && clockMs >= weekData.unlockMs)) return;
       const { glwClaimed, protocolClaimed } = getWeekClaimState(weekData);
 
       weekData.rewards.forEach((reward) => {
@@ -1419,7 +1415,7 @@ export function ClaimsPanel({
     });
 
     return totals;
-  }, [weeklyBreakdown, getWeekClaimState]);
+  }, [weeklyBreakdown, getWeekClaimState, clockMs]);
 
   const claimedTotals = React.useMemo(() => {
     const totals: Record<string, number> = {};
@@ -1463,18 +1459,21 @@ export function ClaimsPanel({
     );
   }).length;
 
-  // Calculate total number of claimable (finalized and not already optimistically claimed) weeks
+  // Calculate total number of claimable (finalized, unlocked, and not already
+  // optimistically claimed) weeks
   const totalClaimableWeeks = weeklyBreakdown.filter((week) => {
     const { isClaimed } = getWeekClaimState(week);
-    return week.isFinalized && !isClaimed;
+    return week.isFinalized && clockMs >= week.unlockMs && !isClaimed;
   }).length;
 
   const claimableProtocolWeeks = React.useMemo(() => {
-    const currentEpoch = getCurrentEpoch();
-
     return weeklyBreakdown.filter((weekData) => {
-      const isPdFinalized = weekData.week <= currentEpoch - 4;
-      if (!isPdFinalized) return false;
+      // Full-epoch coupling: require the whole week finalized (both present
+      // streams) and past its Wednesday unlock before offering the bulk PD
+      // claim, so it never fires for a week the rest of the UI treats as
+      // finalizing or locked.
+      if (!weekData.isFinalized) return false;
+      if (clockMs < weekData.unlockMs) return false;
       const hasProtocolRewards = weekData.rewards.some(
         (reward) => reward.type === "protocolDeposit"
       );
@@ -1483,7 +1482,7 @@ export function ClaimsPanel({
       const { protocolClaimed } = getWeekClaimState(weekData);
       return !protocolClaimed;
     });
-  }, [weeklyBreakdown, getWeekClaimState]);
+  }, [weeklyBreakdown, getWeekClaimState, clockMs]);
 
   // ETH gas preflight: gate both claim entry points so users with insufficient
   // ETH for gas see a clear "add ETH" message instead of a generic RPC revert
@@ -1518,6 +1517,7 @@ export function ClaimsPanel({
     () =>
       weeklyBreakdown.filter((weekData) => {
         if (!weekData.isFinalized) return false;
+        if (clockMs < weekData.unlockMs) return false;
         const hasInflationRewards = weekData.rewards.some(
           (reward) => reward.type === "glowInflation"
         );
@@ -1526,7 +1526,7 @@ export function ClaimsPanel({
         const { glwClaimed } = getWeekClaimState(weekData);
         return !glwClaimed;
       }),
-    [weeklyBreakdown, getWeekClaimState]
+    [weeklyBreakdown, getWeekClaimState, clockMs]
   );
 
   const shouldShowInflationClaimReassurance = React.useMemo(() => {
@@ -2350,8 +2350,15 @@ export function ClaimsPanel({
   }, [stageList, hasTxHashes, isTimeoutError, address, chainId]);
 
   const pendingWeeks = React.useMemo(
-    () => weeklyBreakdown.filter((w) => !w.isFinalized),
-    [weeklyBreakdown]
+    () =>
+      weeklyBreakdown.filter((weekData) => {
+        const { isClaimed } = getWeekClaimState(weekData);
+        if (isClaimed) return false;
+        // Unclaimed but not yet claimable: still finalizing, or finalized and
+        // waiting for the Wednesday unlock.
+        return !(weekData.isFinalized && clockMs >= weekData.unlockMs);
+      }),
+    [weeklyBreakdown, getWeekClaimState, clockMs]
   );
 
   const isDialog = variant === "dialog";
@@ -2480,7 +2487,11 @@ export function ClaimsPanel({
       ? "1 week"
       : `${totalClaimedWeeks} weeks`;
 
-  const isEverythingClaimed = totalClaimableWeeks === 0;
+  // "Everything claimed" only when there is nothing claimable now AND nothing
+  // still in the pipeline — otherwise the hero would falsely read "All rewards
+  // have been claimed" next to weeks that are still finalizing/locked.
+  const isEverythingClaimed =
+    !hasClaimableRewards && pendingWeeks.length === 0;
   const isBulkClaiming = isClaimingAll || isPreparingClaimAll;
   const isBulkClaimBusy = isBulkClaiming || claimDialogStatus === "processing";
   const isClaimAllProtocolDisabled =
@@ -2574,31 +2585,16 @@ export function ClaimsPanel({
             const { isClaimed, glwClaimed, protocolClaimed } =
               getWeekClaimState(weekData);
             const currentEpoch = getCurrentEpoch();
-            const hasGlwRewards = weekData.rewards.some(
-              (reward) => reward.type === "glowInflation"
-            );
             const hasProtocolRewards = weekData.rewards.some(
               (reward) => reward.type === "protocolDeposit"
             );
-            const isGlwFinalized = weekData.week <= currentEpoch - 3;
             const isPdFinalized = weekData.week <= currentEpoch - 4;
+            // Single source of truth: a week is "Ready to Claim" only once it is
+            // finalized (both present streams) AND past its Wednesday-1pm-ET
+            // unlock — the same gate the header, badge, and bulk button use.
             const isWeekFullyUnlocked =
-              (!hasGlwRewards || isGlwFinalized) &&
-              (!hasProtocolRewards || isPdFinalized);
-
-            // The expanded-row claim buttons must respect the same
-            // Wednesday-at-1pm-ET unlock floor as the row's countdown button.
-            // Without this, a week shows "Claim in 3 days" on the main row
-            // while the per-reward buttons inside the row stay live.
-            const expandedRowWeeksToWait = hasProtocolRewards ? 4 : 3;
-            const expandedRowUnlockMs = computeClaimUnlockTimestampMs(
-              weekData.week,
-              expandedRowWeeksToWait,
-            );
-            const isClaimable =
-              !isClaimed &&
-              weekData.isFinalized &&
-              Date.now() >= expandedRowUnlockMs;
+              weekData.isFinalized && clockMs >= weekData.unlockMs;
+            const isClaimable = !isClaimed && isWeekFullyUnlocked;
 
             const totalGlwNum = parseFloat(weekData.totalGlw || "0");
             const totalProtocolNum = Array.from(
@@ -2758,10 +2754,14 @@ export function ClaimsPanel({
               <div className="text-sm text-muted-foreground">
                 {isResolvingClaimState ? (
                   <Skeleton className="h-4 w-36 rounded" />
-                ) : isEverythingClaimed ? (
-                  t.claims.heroAllClaimed
-                ) : (
+                ) : hasClaimableRewards ? (
                   t.claims.heroWeeksReadyToClaim(totalClaimableWeeks)
+                ) : pendingWeeks.length > 0 ? (
+                  pendingWeeks.length === 1
+                    ? t.claims.pendingWeeksOne
+                    : t.claims.pendingWeeksMany(pendingWeeks.length)
+                ) : (
+                  t.claims.heroAllClaimed
                 )}
               </div>
             </div>

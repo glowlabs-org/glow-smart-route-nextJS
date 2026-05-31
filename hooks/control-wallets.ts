@@ -15,6 +15,10 @@ import {
 } from "@glowlabs-org/utils/browser";
 import { getControlRouter, getWalletsRouter } from "@/lib/api/control-routers";
 import { GENESIS_TIMESTAMP, getCurrentEpoch } from "@/utils/getCurrentEpoch";
+import {
+  computeClaimUnlockTimestampMs,
+  getWeeksToWait,
+} from "@/utils/claim-unlock";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { QUERY_CONFIG } from "@/hooks/query-config";
 
@@ -549,6 +553,10 @@ export interface WeeklyClaimableRewards {
   totalGlw: string;
   totalProtocolDeposit: Map<string, string>;
   isFinalized: boolean;
+  // Deterministic timestamp (ms) the week's rewards become claimable: the
+  // Wednesday 1pm ET following finalization. Drives the single claimability
+  // predicate across the claims panel and dashboard widgets.
+  unlockMs: number;
   weeksUntilClaimable: number;
 }
 
@@ -632,6 +640,7 @@ export function useClaimableRewards(
         totalGlw: "0",
         totalProtocolDeposit: new Map<string, string>(),
         isFinalized: false,
+        unlockMs: 0,
         weeksUntilClaimable: 0,
       };
 
@@ -699,13 +708,32 @@ export function useClaimableRewards(
     });
 
     const weeklyBreakdown = Array.from(weeklyMap.values())
-      .map((entry) => ({
-        ...entry,
-        isFinalized:
-          entry.week <= glwFinalizedThresholdWeek &&
-          entry.week <= pdFinalizedThresholdWeek,
-        weeksUntilClaimable: Math.max(0, entry.week - pdFinalizedThresholdWeek),
-      }))
+      .map((entry) => {
+        const hasGlwRewards = entry.rewards.some(
+          (reward) => reward.type === "glowInflation",
+        );
+        const hasProtocolRewards = entry.rewards.some(
+          (reward) => reward.type === "protocolDeposit",
+        );
+        // Presence-aware finalization: a stream absent for the week does not
+        // gate it. PD finalizes one epoch later than GLW inflation, so a week
+        // carrying both is only finalized once the PD threshold is met.
+        const isFinalized =
+          (!hasGlwRewards || entry.week <= glwFinalizedThresholdWeek) &&
+          (!hasProtocolRewards || entry.week <= pdFinalizedThresholdWeek);
+        return {
+          ...entry,
+          isFinalized,
+          unlockMs: computeClaimUnlockTimestampMs(
+            entry.week,
+            getWeeksToWait(hasProtocolRewards),
+          ),
+          weeksUntilClaimable: Math.max(
+            0,
+            entry.week - pdFinalizedThresholdWeek,
+          ),
+        };
+      })
       .sort((a, b) => b.week - a.week);
 
     return { aggregatedTotals: totals, weeklyBreakdown };
