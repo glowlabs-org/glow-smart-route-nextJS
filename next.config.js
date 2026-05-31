@@ -120,6 +120,18 @@ const nextConfig = {
         basePath: false,
       },
       {
+        source: "/audits/:path*",
+        has: [
+          {
+            type: "host",
+            value: "app.glow.org",
+          },
+        ],
+        destination: "https://glow.org/audits/:path*",
+        permanent: true,
+        basePath: false,
+      },
+      {
         source: "/glow-swap/:path*",
         destination: "/",
         permanent: true,
