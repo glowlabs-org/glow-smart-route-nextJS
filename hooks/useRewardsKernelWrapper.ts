@@ -3,8 +3,10 @@
 import React from "react";
 import { useCallback, useState } from "react";
 import { useWalletClient, usePublicClient } from "wagmi";
+import { mainnet, sepolia } from "wagmi/chains";
+import { useWallets as usePrivyWallets } from "@privy-io/react-auth";
 import { toast } from "sonner";
-import { getContract } from "viem";
+import { getContract, createWalletClient, custom } from "viem";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useRewardsKernel,
@@ -37,6 +39,9 @@ if (!process.env.NEXT_PUBLIC_CHAIN_ID) {
 }
 
 const CHAIN_ID = parseInt(process.env.NEXT_PUBLIC_CHAIN_ID);
+
+// Chain object used to build the dedicated claim-write wallet client.
+const ACTIVE_CHAIN = CHAIN_ID === 1 ? mainnet : sepolia;
 
 // Get SDK addresses for tokens
 const SDKAddresses = getAddresses(CHAIN_ID);
@@ -184,8 +189,57 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
   const [isClaimingWeek, setIsClaimingWeek] = useState<number | null>(null);
   const [isClaimingAll, setIsClaimingAll] = useState(false);
 
+  // @privy-io/wagmi wraps the injected connector (MetaMask) in a viem
+  // "Custom Provider" transport that passes eth_call (simulate) but silently
+  // swallows eth_sendTransaction — the write never reaches the wallet (no
+  // popup, no tx, ~96s hang) and the UI then misreports success. Build a
+  // dedicated wallet client straight from the active wallet's OWN EIP-1193
+  // provider and route claim writes through it; fall back to the wagmi client
+  // so behavior is never worse than before when the dedicated client is
+  // unavailable.
+  const { wallets: privyWallets } = usePrivyWallets();
+  const [writeWalletClient, setWriteWalletClient] =
+    useState<typeof walletClient>(undefined);
+
+  React.useEffect(() => {
+    const account = walletClient?.account?.address;
+    if (!account) {
+      setWriteWalletClient(undefined);
+      return;
+    }
+    const active = privyWallets.find(
+      (w) => w.address.toLowerCase() === account.toLowerCase(),
+    );
+    if (!active) {
+      setWriteWalletClient(undefined);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        // getEthereumProvider() does not track chain switches on its own, so
+        // pin the wallet to the active chain before building the client.
+        await active.switchChain(CHAIN_ID).catch(() => {});
+        const provider = await active.getEthereumProvider();
+        if (cancelled) return;
+        setWriteWalletClient(
+          createWalletClient({
+            account: account as `0x${string}`,
+            chain: ACTIVE_CHAIN,
+            transport: custom(provider),
+          }) as typeof walletClient,
+        );
+      } catch {
+        if (!cancelled) setWriteWalletClient(undefined);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [walletClient?.account?.address, privyWallets]);
+
   const rewardsKernel = useRewardsKernel(
-    walletClient || undefined,
+    writeWalletClient || walletClient || undefined,
     publicClient || undefined,
     CHAIN_ID,
   );
@@ -206,9 +260,12 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
     return getContract({
       address: addresses.gcaAndMinerPoolContract as `0x${string}`,
       abi: MinerPoolAndGCAABI,
-      client: { wallet: walletClient, public: publicClient },
+      client: {
+        wallet: writeWalletClient || walletClient,
+        public: publicClient,
+      },
     });
-  }, [publicClient, walletClient]);
+  }, [publicClient, walletClient, writeWalletClient]);
 
   // `useRewardsKernel` returns a new object per render; keep refs in sync so
   // checker callbacks remain referentially stable for row-level effects.
