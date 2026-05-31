@@ -191,16 +191,18 @@ export function RaffleEntry() {
   const meta = RAFFLE_META[raffle.slug] ?? {};
 
   return (
-    <div className="grid gap-6 lg:grid-cols-12 lg:gap-10">
-      {/* ---- Left: artwork + details ---- */}
-      <div className="space-y-5 lg:col-span-5">
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:items-start lg:gap-10">
+      {/* Artwork + details: left column on desktop, BELOW the CTA on mobile. */}
+      <div className="order-2 space-y-5 lg:order-1 lg:col-span-5">
         <ArtCard src={heroImage} alt={raffle.title} meta={meta} />
         <DetailsCard raffle={raffle} meta={meta} />
       </div>
 
-      {/* ---- Right: heading + status + action ---- */}
-      <div className="space-y-5 lg:col-span-7">
-        <header className="space-y-3">
+      {/* Heading / status / action: right column on desktop, FIRST on mobile so
+          the CTA is above the fold. Description sits under the title on desktop
+          but drops below the CTA on mobile (order-4). */}
+      <div className="order-1 flex flex-col gap-5 lg:order-2 lg:col-span-7">
+        <header className="order-1 space-y-3 lg:order-none">
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-delegation-purple">
               Whitelist Raffle
@@ -214,40 +216,46 @@ export function RaffleEntry() {
             Hosted by <span className="font-medium text-foreground">Glow</span>{" "}
             · Open to delegators
           </p>
-          {raffle.description ? (
-            <p className="text-sm leading-relaxed text-muted-foreground">
-              {raffle.description}
-            </p>
-          ) : null}
         </header>
 
-        <StatusStrip lifecycle={lifecycle} meta={meta} />
+        {raffle.description ? (
+          <p className="order-4 text-sm leading-relaxed text-muted-foreground lg:order-none">
+            {raffle.description}
+          </p>
+        ) : null}
 
-        {!isConnected || !wallet ? (
-          <ActionCard accent>
-            <ActionHeading step={1}>Connect your wallet</ActionHeading>
-            <p className="text-sm text-muted-foreground">
-              We&apos;ll check that it has delegated GLW or sGCTL.
-            </p>
-            <ConnectButton variant="default" />
-            <Steps current={1} discordLinked={false} />
-          </ActionCard>
-        ) : (
-          <WalletSection
-            wallet={wallet}
-            lifecycle={lifecycle}
-            dlToken={dlToken}
-            isEntering={isEntering}
-            onConnectDiscord={connectDiscord}
-            onEnter={() => enter()}
-          />
-        )}
+        <div className="order-2 lg:order-none">
+          <StatusStrip lifecycle={lifecycle} meta={meta} />
+        </div>
 
-        <p className="text-center text-xs text-muted-foreground/70">
-          Winners are drawn after the raffle closes and announced in the Glow
-          Discord.
-        </p>
+        <div className="order-3 lg:order-none">
+          {!isConnected || !wallet ? (
+            <ActionCard accent>
+              <ActionHeading step={1}>Connect your wallet</ActionHeading>
+              <p className="text-sm text-muted-foreground">
+                We&apos;ll check that it has delegated GLW or sGCTL.
+              </p>
+              <ConnectButton variant="default" />
+              <Steps current={1} discordLinked={false} />
+            </ActionCard>
+          ) : (
+            <WalletSection
+              wallet={wallet}
+              lifecycle={lifecycle}
+              dlToken={dlToken}
+              isEntering={isEntering}
+              onConnectDiscord={connectDiscord}
+              onEnter={() => enter()}
+            />
+          )}
+        </div>
       </div>
+
+      {/* Footer note: full width, last on both layouts. */}
+      <p className="order-3 text-center text-xs text-muted-foreground/70 lg:order-none lg:col-span-12">
+        Winners are drawn after the raffle closes and announced in the Glow
+        Discord.
+      </p>
     </div>
   );
 }
