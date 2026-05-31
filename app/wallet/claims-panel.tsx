@@ -2596,11 +2596,21 @@ export function ClaimsPanel({
               weekData.isFinalized && clockMs >= weekData.unlockMs;
             const isClaimable = !isClaimed && isWeekFullyUnlocked;
 
-            const totalGlwNum = parseFloat(weekData.totalGlw || "0");
-            const totalProtocolNum = Array.from(
+            // GLW total = inflation + GLW-denominated protocol deposit. Non-GLW
+            // protocol deposits (sGCTL, USDC, USDG) get their own badges and are
+            // never summed into the GLW figure.
+            const totalGlw =
+              parseFloat(weekData.totalGlw || "0") +
+              parseFloat(weekData.totalProtocolDeposit.get("GLW") || "0");
+            const otherCurrencyTotals = Array.from(
               weekData.totalProtocolDeposit.entries()
-            ).reduce((sum, [, amount]) => sum + parseFloat(amount || "0"), 0);
-            const totalRewards = totalGlwNum + totalProtocolNum;
+            )
+              .filter(([currency]) => currency !== "GLW")
+              .map(([currency, amount]) => ({
+                currency,
+                amount: parseFloat(amount || "0"),
+              }))
+              .filter((entry) => entry.amount > 0);
 
             return (
               <Collapsible
@@ -2659,14 +2669,24 @@ export function ClaimsPanel({
                       </Badge>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      {totalRewards > 0 && (
+                      {totalGlw > 0 && (
                         <Badge
                           variant="secondary"
                           className="text-xs font-mono tabular-nums"
                         >
-                          {totalRewards.toFixed(2)} GLW
+                          {totalGlw.toFixed(2)} GLW
                         </Badge>
                       )}
+                      {otherCurrencyTotals.map((entry) => (
+                        <Badge
+                          key={entry.currency}
+                          variant="secondary"
+                          className="text-xs font-mono tabular-nums"
+                        >
+                          {entry.amount.toFixed(2)}{" "}
+                          {entry.currency === "SGCTL" ? "sGCTL" : entry.currency}
+                        </Badge>
+                      ))}
                       <ChevronRight className="hidden h-4 w-4 text-muted-foreground/50 dark:text-muted-foreground/70 sm:inline-block" />
                     </div>
                   </CollapsibleTrigger>

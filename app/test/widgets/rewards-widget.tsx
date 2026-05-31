@@ -24,7 +24,7 @@ import {
 import { useClaimableRewards } from "@/hooks";
 import { useRewardsKernelWrapper } from "@/hooks/useRewardsKernelWrapper";
 import { weekToNonce } from "@/hooks/useMerkleProofs";
-import { GENESIS_TIMESTAMP, getCurrentEpoch } from "@/utils/getCurrentEpoch";
+import { getCurrentEpoch } from "@/utils/getCurrentEpoch";
 import { getLaunchpadNowMs } from "@/utils/launchpad-now";
 import { cn } from "@/lib/utils";
 import { QUERY_KEYS } from "@/hooks/query-keys";
@@ -45,20 +45,20 @@ function safeGetCurrentEpoch() {
   }
 }
 
-function RewardsCountdown(props: { initialDurationMs: number }) {
+function RewardsCountdown(props: {
+  initialDurationMs: number;
+  targetAtMs?: number | null;
+}) {
   const { t } = useLang();
-  const { initialDurationMs } = props;
+  const { initialDurationMs, targetAtMs } = props;
 
   const remainingMs = useCountdownTo({
     targetAtMs: React.useMemo(() => {
-      try {
-        const nextEpoch = getCurrentEpoch() + 1;
-        const weekSeconds = 7 * 86_400;
-        return (GENESIS_TIMESTAMP + nextEpoch * weekSeconds) * 1000;
-      } catch {
-        return Date.now() + Math.max(0, initialDurationMs);
-      }
-    }, [initialDurationMs]),
+      // Count down to the next claim's Wednesday-1pm-ET unlock, not the epoch
+      // boundary. Fall back to the supplied duration when no unlock is pending.
+      if (targetAtMs && targetAtMs > 0) return targetAtMs;
+      return Date.now() + Math.max(0, initialDurationMs);
+    }, [targetAtMs, initialDurationMs]),
   });
 
   return (
@@ -261,6 +261,16 @@ export default function RewardsWidget({
     return formatNextClaimLabel(upcomingClaimTotals);
   }, [upcomingClaimTotals]);
 
+  // Soonest upcoming claim unlock (Wednesday 1pm ET) among the wallet's weeks,
+  // used as the countdown target.
+  const nextUnlockMs = React.useMemo(() => {
+    const nowMs = getLaunchpadNowMs();
+    const future = weeklyBreakdown
+      .map((w) => w.unlockMs)
+      .filter((ms) => Number.isFinite(ms) && ms > nowMs);
+    return future.length ? Math.min(...future) : null;
+  }, [weeklyBreakdown]);
+
   const hasPending = React.useMemo(() => {
     return hasClaimable || nextClaimLabel !== null;
   }, [hasClaimable, nextClaimLabel]);
@@ -298,7 +308,10 @@ export default function RewardsWidget({
           !isWidgetError &&
           nextClaimLabel && (
             <div className="pt-0">
-              <RewardsCountdown initialDurationMs={initialDurationMs} />
+              <RewardsCountdown
+                initialDurationMs={initialDurationMs}
+                targetAtMs={nextUnlockMs}
+              />
             </div>
           )}
 
