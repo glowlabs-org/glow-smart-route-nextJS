@@ -946,6 +946,12 @@ function formatCompactAmount(value: number): string {
   });
 }
 
+// Currency label for the hero total: keep GLW/USDC/USDG as-is, render SGCTL
+// as "sGCTL". Different reward currencies are never summed together.
+function heroCurrencyLabel(currency: string): string {
+  return currency === "SGCTL" ? "sGCTL" : currency;
+}
+
 function TotalsSummaryCard({
   title,
   subtitle,
@@ -1443,6 +1449,18 @@ export function ClaimsPanel({
   const hasClaimableRewards =
     Object.keys(actualClaimableTotals).length > 0 &&
     Object.values(actualClaimableTotals).some((amount) => amount > 0);
+
+  // Per-currency claimable totals for the hero (GLW first, then by amount).
+  // The hero must NOT sum different currencies into one GLW figure.
+  const claimableCurrencyEntries = Object.entries(actualClaimableTotals)
+    .filter(([, amount]) => amount > 0)
+    .sort((a, b) => {
+      if (a[0] === "GLW") return -1;
+      if (b[0] === "GLW") return 1;
+      return b[1] - a[1];
+    });
+  const heroPrimaryEntry = claimableCurrencyEntries[0] ?? null;
+  const heroSecondaryEntries = claimableCurrencyEntries.slice(1);
 
   const totalClaimedWeeks = weeklyBreakdown.filter((weekData) => {
     if (!weekData.isFinalized) return false;
@@ -2751,25 +2769,35 @@ export function ClaimsPanel({
                   ? t.claims.heroFarmRewardsLabel
                   : t.claims.heroClaimableLabel}
               </div>
-              {/* Hero amount */}
+              {/* Hero amount — per-currency, never summed across currencies */}
               {isResolvingClaimState ? (
                 <Skeleton className="h-12 w-44 rounded-xl" />
               ) : (
-                <div className="flex items-baseline gap-2">
-                  <span className="text-5xl font-semibold font-mono tabular-nums tracking-tight text-foreground">
-                    {hasClaimableRewards
-                      ? formatCompactAmount(
-                          Object.values(actualClaimableTotals).reduce(
-                            (a, b) => a + b,
-                            0
-                          )
-                        )
-                      : "0"}
-                  </span>
-                  <span className="text-xl font-mono text-muted-foreground">
-                    GLW
-                  </span>
-                </div>
+                <>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-5xl font-semibold font-mono tabular-nums tracking-tight text-foreground">
+                      {heroPrimaryEntry
+                        ? formatCompactAmount(heroPrimaryEntry[1])
+                        : "0"}
+                    </span>
+                    <span className="text-xl font-mono text-muted-foreground">
+                      {heroCurrencyLabel(heroPrimaryEntry?.[0] ?? "GLW")}
+                    </span>
+                  </div>
+                  {heroSecondaryEntries.length > 0 && (
+                    <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+                      {heroSecondaryEntries.map(([currency, amount]) => (
+                        <span
+                          key={currency}
+                          className="text-base font-mono tabular-nums text-muted-foreground"
+                        >
+                          {formatCompactAmount(amount)}{" "}
+                          {heroCurrencyLabel(currency)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
               <div className="text-sm text-muted-foreground">
                 {isResolvingClaimState ? (
