@@ -24,7 +24,8 @@ import {
 import { useClaimableRewards } from "@/hooks";
 import { useRewardsKernelWrapper } from "@/hooks/useRewardsKernelWrapper";
 import { weekToNonce } from "@/hooks/useMerkleProofs";
-import { GENESIS_TIMESTAMP, getCurrentEpoch } from "@/utils/getCurrentEpoch";
+import { getCurrentEpoch } from "@/utils/getCurrentEpoch";
+import { getLaunchpadNowMs } from "@/utils/launchpad-now";
 import { cn } from "@/lib/utils";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { QUERY_CONFIG } from "@/hooks/query-config";
@@ -44,20 +45,20 @@ function safeGetCurrentEpoch() {
   }
 }
 
-function RewardsCountdown(props: { initialDurationMs: number }) {
+function RewardsCountdown(props: {
+  initialDurationMs: number;
+  targetAtMs?: number | null;
+}) {
   const { t } = useLang();
-  const { initialDurationMs } = props;
+  const { initialDurationMs, targetAtMs } = props;
 
   const remainingMs = useCountdownTo({
     targetAtMs: React.useMemo(() => {
-      try {
-        const nextEpoch = getCurrentEpoch() + 1;
-        const weekSeconds = 7 * 86_400;
-        return (GENESIS_TIMESTAMP + nextEpoch * weekSeconds) * 1000;
-      } catch {
-        return Date.now() + Math.max(0, initialDurationMs);
-      }
-    }, [initialDurationMs]),
+      // Count down to the next claim's Wednesday-1pm-ET unlock, not the epoch
+      // boundary. Fall back to the supplied duration when no unlock is pending.
+      if (targetAtMs && targetAtMs > 0) return targetAtMs;
+      return Date.now() + Math.max(0, initialDurationMs);
+    }, [targetAtMs, initialDurationMs]),
   });
 
   return (
@@ -124,14 +125,19 @@ export default function RewardsWidget({
 
   const { checkIfClaimed, checkIfGlwClaimed } = useRewardsKernelWrapper();
 
-  const finalizedWeeks = React.useMemo(
-    () => weeklyBreakdown.filter((week) => week.isFinalized),
+  // Claimable = finalized (both present streams) AND past the Wednesday-1pm-ET
+  // unlock — the same rule the claims panel uses.
+  const claimableWeeks = React.useMemo(
+    () =>
+      weeklyBreakdown.filter(
+        (week) => week.isFinalized && getLaunchpadNowMs() >= week.unlockMs,
+      ),
     [weeklyBreakdown],
   );
 
-  const finalizedWeeksKey = React.useMemo(
-    () => finalizedWeeks.map((week) => week.week).join(","),
-    [finalizedWeeks],
+  const claimableWeeksKey = React.useMemo(
+    () => claimableWeeks.map((week) => week.week).join(","),
+    [claimableWeeks],
   );
 
   const {
@@ -141,10 +147,10 @@ export default function RewardsWidget({
   } = useQuery<Record<string, number>>({
     queryKey: QUERY_KEYS.wallets.claimableTotals(
       address,
-      finalizedWeeksKey,
+      claimableWeeksKey,
       refreshKey,
     ),
-    enabled: Boolean(hasWallet && address && finalizedWeeks.length > 0),
+    enabled: Boolean(hasWallet && address && claimableWeeks.length > 0),
     staleTime: QUERY_CONFIG.STICKY.staleTime,
     gcTime: QUERY_CONFIG.STICKY.gcTime,
     refetchOnMount: false,
@@ -156,7 +162,7 @@ export default function RewardsWidget({
       const totals: Record<string, number> = {};
 
       await Promise.all(
-        finalizedWeeks.map(async (weekData) => {
+        claimableWeeks.map(async (weekData) => {
           const hasGlwRewards = weekData.rewards.some(
             (reward) => reward.type === "glowInflation",
           );
@@ -225,12 +231,18 @@ export default function RewardsWidget({
     );
   }, [claimableTotalsByCurrency]);
 
-  const nonFinalizedTotals = React.useMemo(() => {
-    const nonFinalizedWeeks = weeklyBreakdown.filter((w) => !w.isFinalized);
-    if (nonFinalizedWeeks.length === 0) return {};
+  const upcomingClaimTotals = React.useMemo(() => {
+    // "Upcoming" = unclaimed weeks not yet claimable now: still finalizing, or
+    // finalized and waiting for the Wednesday unlock. Surface the earliest one
+    // as the next-claim preview.
+    const nowMs = getLaunchpadNowMs();
+    const upcomingWeeks = weeklyBreakdown.filter(
+      (w) => !(w.isFinalized && nowMs >= w.unlockMs),
+    );
+    if (upcomingWeeks.length === 0) return {};
 
     // Only show the very next claim (earliest week), not all future ones
-    const nextWeek = nonFinalizedWeeks.reduce((prev, curr) =>
+    const nextWeek = upcomingWeeks.reduce((prev, curr) =>
       prev.week < curr.week ? prev : curr,
     );
 
@@ -246,8 +258,18 @@ export default function RewardsWidget({
   }, [weeklyBreakdown]);
 
   const nextClaimLabel = React.useMemo(() => {
-    return formatNextClaimLabel(nonFinalizedTotals);
-  }, [nonFinalizedTotals]);
+    return formatNextClaimLabel(upcomingClaimTotals);
+  }, [upcomingClaimTotals]);
+
+  // Soonest upcoming claim unlock (Wednesday 1pm ET) among the wallet's weeks,
+  // used as the countdown target.
+  const nextUnlockMs = React.useMemo(() => {
+    const nowMs = getLaunchpadNowMs();
+    const future = weeklyBreakdown
+      .map((w) => w.unlockMs)
+      .filter((ms) => Number.isFinite(ms) && ms > nowMs);
+    return future.length ? Math.min(...future) : null;
+  }, [weeklyBreakdown]);
 
   const hasPending = React.useMemo(() => {
     return hasClaimable || nextClaimLabel !== null;
@@ -286,7 +308,10 @@ export default function RewardsWidget({
           !isWidgetError &&
           nextClaimLabel && (
             <div className="pt-0">
-              <RewardsCountdown initialDurationMs={initialDurationMs} />
+              <RewardsCountdown
+                initialDurationMs={initialDurationMs}
+                targetAtMs={nextUnlockMs}
+              />
             </div>
           )}
 
