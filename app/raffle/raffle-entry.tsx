@@ -30,6 +30,7 @@ import {
 } from "@/hooks/use-raffle";
 
 const DL_STORAGE_KEY = "glow_raffle_dl";
+const DISCORD_NAME_STORAGE_KEY = "glow_raffle_discord_name";
 
 // Surface tokens — the palette is light, so bg tints read flat; rely on real
 // borders to give cards definition in both themes.
@@ -93,6 +94,10 @@ export function RaffleEntry() {
   // The dl token is required by POST /raffle/enter and is not stored server-side,
   // so keep it in component state (mirrored to sessionStorage for reloads).
   const [dlToken, setDlToken] = React.useState<string | null>(null);
+  // The user's OWN Discord handle, from the OAuth redirect (?u=). The public
+  // status endpoint no longer exposes any wallet's Discord identity, so this is
+  // only ever the current user's own handle for display.
+  const [discordName, setDiscordName] = React.useState<string | null>(null);
 
   // Handle the Discord callback params exactly once, then strip them from the URL
   // with history.replaceState so a reload can never replay the toast.
@@ -103,6 +108,7 @@ export function RaffleEntry() {
 
     const params = new URLSearchParams(window.location.search);
     const urlDl = params.get("dl");
+    const urlName = params.get("u");
     const discord = params.get("discord");
 
     if (urlDl) {
@@ -121,6 +127,22 @@ export function RaffleEntry() {
       }
     }
 
+    if (urlName) {
+      setDiscordName(urlName);
+      try {
+        sessionStorage.setItem(DISCORD_NAME_STORAGE_KEY, urlName);
+      } catch {
+        // ignore
+      }
+    } else {
+      try {
+        const storedName = sessionStorage.getItem(DISCORD_NAME_STORAGE_KEY);
+        if (storedName) setDiscordName(storedName);
+      } catch {
+        // ignore
+      }
+    }
+
     if (discord === "linked") toast.success("Discord connected");
     else if (discord === "denied") toast.error("Discord connection cancelled");
     else if (discord === "conflict")
@@ -128,7 +150,7 @@ export function RaffleEntry() {
     else if (discord === "error")
       toast.error("Discord connection failed, please try again");
 
-    if (urlDl || discord) {
+    if (urlDl || urlName || discord) {
       window.history.replaceState(null, "", window.location.pathname);
     }
   }, []);
@@ -243,6 +265,7 @@ export function RaffleEntry() {
               wallet={wallet}
               lifecycle={lifecycle}
               dlToken={dlToken}
+              discordName={discordName}
               isEntering={isEntering}
               onConnectDiscord={connectDiscord}
               onEnter={() => enter()}
@@ -514,6 +537,7 @@ function WalletSection({
   wallet,
   lifecycle,
   dlToken,
+  discordName,
   isEntering,
   onConnectDiscord,
   onEnter,
@@ -521,14 +545,12 @@ function WalletSection({
   wallet: RaffleWalletStatus | null;
   lifecycle: RaffleLifecycle | null;
   dlToken: string | null;
+  discordName: string | null;
   isEntering: boolean;
   onConnectDiscord: () => void;
   onEnter: () => void;
 }) {
   if (!wallet) return null;
-
-  const discordName =
-    wallet.discord?.globalName || wallet.discord?.username || wallet.discord?.id;
 
   // Already entered -> soft-green success card with a small entry stub.
   if (wallet.entryStatus === "entered") {
@@ -550,7 +572,7 @@ function WalletSection({
           </div>
         </div>
         <dl className="p-5 text-sm">
-          <Row label="Discord">{discordName ?? "—"}</Row>
+          <Row label="Discord">{discordName ?? "Connected"}</Row>
           <Row label="Wallet">{shortAddress(wallet.address)}</Row>
           {wallet.entry ? (
             <Row label="Entry ID">

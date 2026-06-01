@@ -68,12 +68,6 @@ export interface RaffleWalletStatus {
   eligible: boolean;
   eligibilityAssets: EligibilityAsset[];
   discordLinked: boolean;
-  discord: {
-    id: string;
-    username: string | null;
-    globalName: string | null;
-    avatar: string | null;
-  } | null;
   alreadyEntered: boolean;
   entry: {
     id: string;
@@ -101,6 +95,21 @@ function isUserRejection(message: string): boolean {
   return /user rejected|user denied|rejected the request|request rejected/i.test(
     message
   );
+}
+
+// The dl link token is base64url(JSON({ wallet, discordId, exp })).hmac — decode
+// the payload to recover the discordId to sign over. The backend re-verifies the
+// token's HMAC and that the signed discordId matches, so this is convenience only.
+function discordIdFromLinkToken(token: string | null | undefined): string | null {
+  if (!token) return null;
+  try {
+    let b64 = token.split(".")[0].replace(/-/g, "+").replace(/_/g, "/");
+    while (b64.length % 4) b64 += "=";
+    const payload = JSON.parse(atob(b64));
+    return typeof payload?.discordId === "string" ? payload.discordId : null;
+  } catch {
+    return null;
+  }
 }
 
 // ============================================
@@ -221,7 +230,7 @@ export function useRaffle({
       if (!w.eligible) {
         throw new Error("Wallet has not delegated GLW or sGCTL");
       }
-      const discordId = w.discord?.id;
+      const discordId = discordIdFromLinkToken(discordLinkToken);
       if (!discordId) throw new Error("Connect Discord before entering");
 
       const deadline = Math.floor(Date.now() / 1000 + 600); // 10 minutes
