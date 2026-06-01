@@ -826,6 +826,24 @@ function WeekRewardsContent({
     [address, userProof, nonce, weekData.week, claimWeekRewards, onClaimSuccess, t.claims]
   );
 
+  // A week settles in (at most) two on-chain actions: emissions via the
+  // MinerPool claim and ALL protocol-deposit currencies (GLW + sGCTL) via a
+  // single rewardsKernel claim for the nonce. The per-currency rows are just a
+  // breakdown, so render one button per action: claiming either PD currency
+  // claims both. Anchor the single "Claim PD" button to the on-chain GLW row
+  // when present, otherwise the first PD row (e.g. sGCTL-only weeks).
+  const inflationButtonIdx = weekData.rewards.findIndex(
+    (r) => r.type === "glowInflation"
+  );
+  const protocolButtonIdx = (() => {
+    const glwPdIdx = weekData.rewards.findIndex(
+      (r) => r.type === "protocolDeposit" && r.currency === "GLW"
+    );
+    return glwPdIdx !== -1
+      ? glwPdIdx
+      : weekData.rewards.findIndex((r) => r.type === "protocolDeposit");
+  })();
+
   return (
     <div className="space-y-3 border-t border-border/20 dark:border-border/40 pt-3 md:pt-4">
       {glwClaimed &&
@@ -845,9 +863,16 @@ function WeekRewardsContent({
         };
 
         const isInflation = reward.type === "glowInflation";
-        const canClaim = isInflation
-          ? !glwClaimed && isGlwFinalized
-          : !protocolClaimed && isPdFinalized && !isEpoch121PdDelayed;
+        // Only the group's anchor row shows the claim button, so two PD
+        // currencies don't render two "Claim PD" buttons for one claim.
+        const isClaimButtonRow = isInflation
+          ? idx === inflationButtonIdx
+          : idx === protocolButtonIdx;
+        const canClaim =
+          isClaimButtonRow &&
+          (isInflation
+            ? !glwClaimed && isGlwFinalized
+            : !protocolClaimed && isPdFinalized && !isEpoch121PdDelayed);
         const rewardLabel = isInflation
           ? t.claims.emissionRewards
           : reward.currency === "SGCTL"
