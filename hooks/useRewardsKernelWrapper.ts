@@ -1173,7 +1173,14 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
 
       try {
         const idx = await getWalletClaimIndex(addressLower);
-        if (idx.indexingComplete) return idx.claimedV2Nonces.has(nonceStr);
+        // Trust the index only for POSITIVES. The positions indexer can report
+        // indexingComplete=true while MISSING a claim (false negative) — seen on
+        // app.glow.org where an already-claimed nonce showed a phantom "Claim PD"
+        // that no-ops and then falsely renders "Claim Complete". When the index
+        // says unclaimed, confirm against the chain (authoritative) below.
+        if (idx.indexingComplete && idx.claimedV2Nonces.has(nonceStr)) {
+          return true;
+        }
       } catch (error) {
         console.error("Error checking claim status via API:", error);
       }
