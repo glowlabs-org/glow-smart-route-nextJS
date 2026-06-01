@@ -175,10 +175,12 @@ export default function WalletWidget({
     const bySymbol = new Map(
       holdings.map((h) => [h.symbol, h.amount] as const)
     );
-    return (["GLW", "ETH", "USDC", "USDG"] as const).map((symbol) => ({
-      symbol,
-      amount: bySymbol.get(symbol) ?? 0,
-    }));
+    return (["GLW", "ETH", "USDC", "USDG"] as const)
+      .map((symbol) => ({
+        symbol,
+        amount: bySymbol.get(symbol) ?? 0,
+      }))
+      .filter((row) => row.amount > 0);
   }, [holdings]);
 
   const handleSwapOpenChange = React.useCallback(
@@ -251,25 +253,27 @@ export default function WalletWidget({
             );
           })}
 
-          <div
-            className="flex items-center justify-between gap-3 group cursor-default py-1.5 px-2 rounded-xl hover:bg-muted/20 transition-colors w-full overflow-hidden"
-            title="sGCTL free to delegate (staked GCTL not locked in a vault)"
-          >
-            <div className="flex items-center gap-3 shrink-0">
-              <div className="h-6 w-6 rounded-full ring-1 ring-amber-500/30 bg-amber-500/20 flex items-center justify-center">
-                <Shield className="h-3.5 w-3.5 text-amber-500" />
+          {freeSgctl > 0 && (
+            <div
+              className="flex items-center justify-between gap-3 group cursor-default py-1.5 px-2 rounded-xl hover:bg-muted/20 transition-colors w-full overflow-hidden"
+              title="sGCTL free to delegate (staked GCTL not locked in a vault)"
+            >
+              <div className="flex items-center gap-3 shrink-0">
+                <div className="h-6 w-6 rounded-full ring-1 ring-amber-500/30 bg-amber-500/20 flex items-center justify-center">
+                  <Shield className="h-3.5 w-3.5 text-amber-500" />
+                </div>
+                <span className="text-sm font-mono text-muted-foreground group-hover:text-foreground/80 transition-colors">
+                  sGCTL
+                </span>
               </div>
-              <span className="text-sm font-mono text-muted-foreground group-hover:text-foreground/80 transition-colors">
-                sGCTL
+              <span
+                className="text-sm font-mono font-medium tabular-nums text-foreground truncate ml-auto"
+                title={sgctlDisplay}
+              >
+                {sgctlDisplay}
               </span>
             </div>
-            <span
-              className="text-sm font-mono font-medium tabular-nums text-foreground truncate ml-auto"
-              title={sgctlDisplay}
-            >
-              {sgctlDisplay}
-            </span>
-          </div>
+          )}
 
         <div className="pt-4 grid grid-cols-2 gap-2 mt-auto">
           <Button
