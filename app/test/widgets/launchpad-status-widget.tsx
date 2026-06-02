@@ -54,6 +54,7 @@ import {
   calculateLaunchpadPerShareRewards,
   parseDelegationStepAmount,
   resolveLaunchpadDelegationShareCount,
+  resolveLaunchpadDelegationUnitCount,
 } from "@/utils/launchpad-rewards";
 import { getLaunchpadAvailability } from "@/utils/launchpad-availability";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -425,7 +426,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
               ),
             );
           }
-          const totalShares = resolveLaunchpadDelegationShareCount(application);
+          const totalShares = resolveLaunchpadDelegationUnitCount(application);
           if (!reward || !totalShares) return 0;
           return calculateLaunchpadPerShareRewards({
             reward,
@@ -440,7 +441,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
       const weeklyPdYield = (() => {
         try {
           if (application._type === "miners") return 0;
-          const totalShares = resolveLaunchpadDelegationShareCount(application);
+          const totalShares = resolveLaunchpadDelegationUnitCount(application);
           if (!reward || !totalShares) return 0;
           const pdRewards = parseFloat(
             formatUnits(
@@ -457,7 +458,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
       const totalAmountNeeded = (() => {
         if (!application.activeFraction) return 0;
         if (application._type === "delegations") {
-          const totalSteps = resolveLaunchpadDelegationShareCount(application);
+          const totalSteps = resolveLaunchpadDelegationUnitCount(application);
           if (!Number.isFinite(cost) || cost <= 0 || totalSteps <= 0) return 0;
           return cost * totalSteps;
         }
@@ -475,7 +476,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
         if (application._type === "miners") {
           return weeklyYield * (glwSpotPrice || 0);
         }
-        const totalShares = resolveLaunchpadDelegationShareCount(application);
+        const totalShares = resolveLaunchpadDelegationUnitCount(application);
         if (!reward || totalShares <= 0) {
           return weeklyYield * (glwSpotPrice || 0);
         }
@@ -957,7 +958,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                       resolveLaunchpadDelegationShareCount(application) > 0
                         ? (() => {
                             const totalShares =
-                              resolveLaunchpadDelegationShareCount(application);
+                              resolveLaunchpadDelegationUnitCount(application);
                             const glwRewards = parseFloat(
                               formatUnits(
                                 BigInt(

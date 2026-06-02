@@ -21,6 +21,9 @@ type Build = Partial<{
   marketplaceVisibleAt: string | null;
   sgctlStepAtomic: string | null;
   currentStepUsd6: string | null;
+  delegationPhase: "hidden" | "sgctl" | "glw" | null;
+  delegationAsset: "SGCTL" | "GLW" | null;
+  remainingSteps: number | null;
 }>;
 
 function buildApplication(args: {
@@ -45,6 +48,9 @@ function buildApplication(args: {
           marketplaceVisibleAt: args.fraction.marketplaceVisibleAt ?? null,
           sgctlStepAtomic: args.fraction.sgctlStepAtomic ?? null,
           currentStepUsd6: args.fraction.currentStepUsd6 ?? null,
+          delegationPhase: args.fraction.delegationPhase ?? null,
+          delegationAsset: args.fraction.delegationAsset ?? null,
+          remainingSteps: args.fraction.remainingSteps ?? null,
         } as unknown as DelegationApplicationLike["activeFraction"])
       : null,
     applicationPriceQuotes: args.prices
@@ -198,6 +204,35 @@ describe("getLaunchpadAvailability — sGCTL phase (currency=SGCTL)", () => {
     expect(av.sold).toBe(12);
     expect(av.isSoldOut).toBe(false);
     expect(av.progressFilledPct).toBeCloseTo(12.63, 2);
+  });
+
+  it("is NOT sold out mid-sGCTL when splitsSold has caught totalSteps but remainingSteps > 0 (Eternal Florida wk129 regression)", () => {
+    // Prod 2026-06-02: Scarlet Brook / Eternal Florida had totalSteps=24 (the
+    // GLW-phase step count) and splitsSold=24 (sGCTL SHARES — a different unit)
+    // while 117 sGCTL shares were still open (backend remainingSteps=117,
+    // progressPercent~17%). The Max-button fix (0cfdb9f) made
+    // resolveFractionRemainingSteps prefer totalSteps-splitsSold = 0, so
+    // isFractionOpenForMarketplace returned false and the whole sGCTL pre-sale
+    // was hidden ("Delegations 0"). The phase-aware branch must trust the
+    // backend remainingSteps during the sGCTL phase.
+    const app = buildApplication({
+      paymentCurrency: "SGCTL",
+      finalProtocolFee: "11621440000",
+      prices: { SGCTL: "750000", GLW: "578014" },
+      fraction: {
+        totalSteps: 24,
+        splitsSold: 24,
+        delegationPhase: "sgctl",
+        delegationAsset: "SGCTL",
+        remainingSteps: 117,
+        sgctlStepAtomic: "110666666",
+        currentStepUsd6: "82999999",
+      },
+    });
+    const av = getLaunchpadAvailability(app);
+    expect(av.isSoldOut).toBe(false);
+    expect(av.sold).toBe(24);
+    expect(av.remaining).toBeGreaterThan(0);
   });
 
   it("falls back to totalSteps when sGCTL pricing fields are missing", () => {

@@ -136,7 +136,7 @@ import {
   type SplitActivity,
   type SplitsActivityResponse,
 } from "@/hooks/hub-listings";
-import { resolveLaunchpadDelegationShareCount } from "@/utils/launchpad-rewards";
+import { resolveLaunchpadDelegationUnitCount } from "@/utils/launchpad-rewards";
 import { hubGet } from "@/lib/api/hub-client";
 import type { RewardsBreakdownResponse } from "@/hooks/hub-fractions";
 import { getLaunchpadNowMs } from "@/utils/launchpad-now";
@@ -1250,7 +1250,7 @@ export function DepositDialog({
   const launchpadTotalShares = React.useMemo(
     () =>
       effectiveApplication
-        ? resolveLaunchpadDelegationShareCount(effectiveApplication)
+        ? resolveLaunchpadDelegationUnitCount(effectiveApplication)
         : 0,
     [effectiveApplication],
   );

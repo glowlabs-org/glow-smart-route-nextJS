@@ -113,7 +113,12 @@ export function isFractionOpenForMarketplace(
   fraction:
     | Pick<
         ActiveFraction,
-        "isFilled" | "remainingSteps" | "totalSteps" | "splitsSold"
+        | "isFilled"
+        | "remainingSteps"
+        | "totalSteps"
+        | "splitsSold"
+        | "delegationPhase"
+        | "delegationAsset"
       >
     | null
     | undefined
@@ -128,11 +133,35 @@ export function isFractionOpenForMarketplace(
 
 export function resolveFractionRemainingSteps(
   fraction:
-    | Pick<ActiveFraction, "remainingSteps" | "totalSteps" | "splitsSold">
+    | Pick<
+        ActiveFraction,
+        | "remainingSteps"
+        | "totalSteps"
+        | "splitsSold"
+        | "delegationPhase"
+        | "delegationAsset"
+      >
     | null
     | undefined,
 ): number {
   if (!fraction) return 0;
+
+  // sGCTL pre-sale phase: splitsSold counts sGCTL shares while totalSteps is the
+  // GLW-phase step count — different units — so (totalSteps - splitsSold) hits 0
+  // long before the sGCTL fundraise target is met, falsely reading sold-out and
+  // hiding the listing for the whole pre-sale (Eternal Florida wk129: 24/24 with
+  // 117 sGCTL shares still open). Trust the backend's phase-aware remainingSteps
+  // here; the GLW step-ledger preference below only applies to the GLW phase.
+  const isSgctlPhase =
+    fraction.delegationPhase === "sgctl" ||
+    fraction.delegationAsset === "SGCTL";
+  if (
+    isSgctlPhase &&
+    typeof fraction.remainingSteps === "number" &&
+    Number.isFinite(fraction.remainingSteps)
+  ) {
+    return Math.max(0, Math.floor(fraction.remainingSteps));
+  }
 
   // Prefer the exact step ledger (totalSteps - splitsSold). One step is one
   // whole unit, so this is precisely "units left". The API's remainingSteps is
