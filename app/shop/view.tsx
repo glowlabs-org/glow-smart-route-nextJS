@@ -26,7 +26,10 @@ import {
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/telemetry";
 import { formatNumber } from "@/utils/format";
-import { useCountdownTo } from "@/app/components/animated-countdown";
+import {
+  useCountdownTo,
+  AnimatedCountdownDhms,
+} from "@/app/components/animated-countdown";
 import { getLaunchpadNowMs } from "@/utils/launchpad-now";
 import { nextShopRestock } from "@/lib/time/shop-restock";
 import { useV2PointsBalance } from "@/hooks/v2-points";
@@ -687,6 +690,50 @@ function EmptyState({ title, body }: { title: string; body: string }) {
   );
 }
 
+/**
+ * Shown when the shop has no open week / no items (sold out or being prepared).
+ * Mirrors the launchpad-status-widget countdown hero, ticking down to the next
+ * Tuesday 1:00 PM ET restock on the same shared launchpad clock.
+ */
+function ShopRestockEmptyState() {
+  const targetAtMs = React.useMemo(
+    () => nextShopRestock(new Date(getLaunchpadNowMs())).getTime(),
+    [],
+  );
+  const remainingMs = useCountdownTo({ targetAtMs });
+  return (
+    <div className="rounded-2xl border border-border/60 bg-card px-6 py-16 text-center dark:border-white/10">
+      <div className="mx-auto flex max-w-lg flex-col items-center justify-center gap-5">
+        <h2 className="text-base font-semibold">
+          That&apos;s everything for this week
+        </h2>
+        <p className="max-w-sm text-sm text-muted-foreground">
+          New prizes drop every Tuesday at 1:00 PM ET.
+        </p>
+        <div className="mt-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          Next restock in
+        </div>
+        <div className="font-mono font-bold tracking-tighter tabular-nums text-foreground">
+          <div className="sm:hidden">
+            <AnimatedCountdownDhms
+              remainingMs={remainingMs}
+              size="lg"
+              showLabels
+            />
+          </div>
+          <div className="hidden sm:block">
+            <AnimatedCountdownDhms
+              remainingMs={remainingMs}
+              size="xl"
+              showLabels
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function purchaseRowLabel(row: V2ShopPurchaseRow): string {
   switch (row.grant.kind) {
     case "miner":
@@ -737,7 +784,7 @@ function PurchaseHistory({ wallet }: { wallet?: string }) {
           ))}
         </div>
       ) : rows.length === 0 ? (
-        <div className="rounded-2xl border border-border/60 bg-muted/20 px-5 py-8 text-center dark:border-white/10 dark:bg-zinc-900">
+        <div className="rounded-2xl border border-border/60 bg-card px-5 py-8 text-center dark:border-white/10 dark:bg-zinc-800">
           <p className="text-sm text-muted-foreground">
             No purchases yet. Redeem your points on a prize above.
           </p>
@@ -887,10 +934,7 @@ export function ShopView() {
           body="Something went wrong fetching this week's inventory. Try again shortly."
         />
       ) : !shopQuery.data?.weekKey || shopQuery.data.items.length === 0 ? (
-        <EmptyState
-          title="This week's shop is being prepared"
-          body="New prizes drop every Tuesday at 1:00 PM ET. Check back shortly."
-        />
+        <ShopRestockEmptyState />
       ) : (
         <ShopCarousel
           items={shopQuery.data.items}
