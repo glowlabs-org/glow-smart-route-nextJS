@@ -2319,12 +2319,6 @@ function SuccessLevelUp(props: {
         <div className="text-xs text-muted-foreground/80">
           {m.profileUpdateDelay}
         </div>
-        <div className="inline-flex items-center gap-2 rounded-full border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 px-3 py-1">
-          <SteeringIcon className="h-3.5 w-3.5 text-[#22D3EE]" />
-          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-            {m.steeringScore}
-          </span>
-        </div>
       </div>
 
       <div className="relative">
