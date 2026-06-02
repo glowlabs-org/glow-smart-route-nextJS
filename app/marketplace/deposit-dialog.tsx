@@ -13,6 +13,8 @@ import {
   Share2,
   RefreshCw,
   CreditCard,
+  Sparkles,
+  Zap,
 } from "lucide-react";
 import { mainnet, sepolia } from "wagmi/chains";
 import {
@@ -129,7 +131,8 @@ import {
 } from "@/hooks/useMerkleProofs";
 import type { ClaimableReward } from "@/hooks/control-wallets";
 import { QUERY_KEYS } from "@/hooks/query-keys";
-import { useV2PointsBalance } from "@/hooks/v2-points";
+import { useV2PointsBalance, useV2PointsRates } from "@/hooks/v2-points";
+import { useEstimatedAllocation } from "@/hooks/v2-impact";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   resolveFractionRemainingSteps,
@@ -677,6 +680,38 @@ export function DepositDialog({
       runtimeSelectedCurrency,
     ],
   );
+
+  // --- Pre-purchase preview: points/unit + estimated watts/unit ------------
+  // Points are one-time per action: unitUsd * rate, where the rate depends on
+  // the action (GLW delegation 4 / sGCTL delegation 16 / miner purchase 8 per
+  // $1). Watts are an upper-bound estimate from the backend (delegator bucket).
+  const { data: pointsRatesData } = useV2PointsRates();
+  const estimateQuery = useEstimatedAllocation(
+    effectiveApplication?.activeFraction?.id ?? null,
+    quantity,
+  );
+
+  const previewUnitUsd = React.useMemo(() => costInUSDC(1), [costInUSDC]);
+
+  const previewPointsPerUnit = React.useMemo(() => {
+    const r = pointsRatesData?.rates;
+    if (!r) return null;
+    const rate =
+      runtimeSelectedCurrency === "GLW"
+        ? r.glwDelegationPointsPerUsd
+        : runtimeSelectedCurrency === "SGCTL"
+          ? r.sgctlDelegationPointsPerUsd
+          : r.minerPurchasePointsPerUsd;
+    if (rate == null || !Number.isFinite(previewUnitUsd)) return null;
+    return previewUnitUsd * rate;
+  }, [pointsRatesData, runtimeSelectedCurrency, previewUnitUsd]);
+
+  const previewWattsPerUnit = estimateQuery.data?.estimatedWattsPerUnit ?? null;
+  // Totals scale with the selected quantity (what the user actually earns).
+  const previewPointsTotal =
+    previewPointsPerUnit != null ? previewPointsPerUnit * quantity : null;
+  const previewWattsTotal =
+    previewWattsPerUnit != null ? previewWattsPerUnit * quantity : null;
 
   // Smart auto-selection of payment method on open/connect
   React.useEffect(() => {
@@ -3397,6 +3432,69 @@ export function DepositDialog({
                   {estimatedRewardsUsdValue.toLocaleString(undefined, {
                     maximumFractionDigits: 2,
                   })}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* What you'll earn - compact, animated (mirrors Est. Rewards) */}
+          <div className="bg-muted/30 dark:bg-muted/50 rounded-2xl px-4 py-3 border border-border/20 dark:border-border/40 relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-foreground/5 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+            <div className="relative grid grid-cols-2 gap-3">
+              {/* Points (total, scales with quantity) */}
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="h-8 w-8 shrink-0 rounded-full bg-green-500/10 dark:bg-[#D1FF4D]/10 ring-1 ring-green-500/20 dark:ring-[#D1FF4D]/20 flex items-center justify-center">
+                  <Sparkles className="h-4 w-4 text-green-600 dark:text-[#D1FF4D]" />
+                </div>
+                <div className="min-w-0 leading-tight">
+                  <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider truncate">
+                    {dd.previewPointsPerUnit}
+                  </div>
+                  <AnimatePresence mode="popLayout">
+                    <motion.span
+                      key={`pts-${previewPointsTotal ?? "na"}`}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      className="block text-lg md:text-xl font-bold font-mono text-green-600 dark:text-[#D1FF4D] leading-none"
+                    >
+                      {previewPointsTotal != null
+                        ? previewPointsTotal.toLocaleString(undefined, {
+                            maximumFractionDigits: 0,
+                          })
+                        : "-"}
+                    </motion.span>
+                  </AnimatePresence>
+                </div>
+              </div>
+              {/* Watts (total estimate, scales with quantity) */}
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="h-8 w-8 shrink-0 rounded-full bg-green-500/10 dark:bg-[#D1FF4D]/10 ring-1 ring-green-500/20 dark:ring-[#D1FF4D]/20 flex items-center justify-center">
+                  <Zap className="h-4 w-4 text-green-600 dark:text-[#D1FF4D]" />
+                </div>
+                <div className="min-w-0 leading-tight">
+                  <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider truncate">
+                    {dd.previewWattsPerUnit}
+                  </div>
+                  <AnimatePresence mode="popLayout">
+                    <motion.span
+                      key={`w-${estimateQuery.isLoading ? "load" : previewWattsTotal ?? "na"}`}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      className="block text-lg md:text-xl font-bold font-mono text-green-600 dark:text-[#D1FF4D] leading-none"
+                    >
+                      {estimateQuery.isLoading
+                        ? "…"
+                        : previewWattsTotal != null
+                          ? dd.previewEstWatts(
+                              previewWattsTotal.toLocaleString(undefined, {
+                                maximumFractionDigits: 1,
+                              }),
+                            )
+                          : "-"}
+                    </motion.span>
+                  </AnimatePresence>
                 </div>
               </div>
             </div>

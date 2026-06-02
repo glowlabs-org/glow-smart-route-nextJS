@@ -876,6 +876,11 @@ export interface RoutesStrings {
     reviewMaxButton: string;
     reviewEstWeeklyRewards: string;
     reviewValueLabel: string;
+    previewWhatYouEarn: string;
+    previewPointsPerUnit: string;
+    previewWattsPerUnit: string;
+    previewEstWatts: (val: string) => string;
+    previewTimesQuantity: (total: string) => string;
     reviewSelectCurrency: string;
     reviewDelegationSource: string;
     reviewYouDelegate: string;
@@ -1930,6 +1935,11 @@ const en: RoutesStrings = {
     reviewMaxButton: "Max",
     reviewEstWeeklyRewards: "Est. Weekly Rewards",
     reviewValueLabel: "Value",
+    previewWhatYouEarn: "What you'll earn",
+    previewPointsPerUnit: "Points",
+    previewWattsPerUnit: "Watts",
+    previewEstWatts: (val) => `~${val} W`,
+    previewTimesQuantity: (total) => `(${total} total)`,
     reviewSelectCurrency: "Select Currency",
     reviewDelegationSource: "Delegation Source",
     reviewYouDelegate: "You Delegate",
@@ -2971,6 +2981,11 @@ const ko: RoutesStrings = {
     reviewMaxButton: "최대",
     reviewEstWeeklyRewards: "예상 주간 리워드",
     reviewValueLabel: "가치",
+    previewWhatYouEarn: "획득 예상",
+    previewPointsPerUnit: "포인트",
+    previewWattsPerUnit: "와트",
+    previewEstWatts: (val) => `~${val} W`,
+    previewTimesQuantity: (total) => `(총 ${total})`,
     reviewSelectCurrency: "통화 선택",
     reviewDelegationSource: "위임 소스",
     reviewYouDelegate: "위임 수량",
@@ -4018,6 +4033,11 @@ const zh: RoutesStrings = {
     reviewMaxButton: "最大",
     reviewEstWeeklyRewards: "预计每周奖励",
     reviewValueLabel: "价值",
+    previewWhatYouEarn: "预计获得",
+    previewPointsPerUnit: "积分",
+    previewWattsPerUnit: "瓦特",
+    previewEstWatts: (val) => `~${val} W`,
+    previewTimesQuantity: (total) => `(共 ${total})`,
     reviewSelectCurrency: "选择货币",
     reviewDelegationSource: "委托来源",
     reviewYouDelegate: "您委托",

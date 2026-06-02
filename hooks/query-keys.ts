@@ -185,6 +185,10 @@ export const QUERY_KEYS = {
     pointsLedgerAll: (wallet?: string | null) =>
       ["v2", "points-ledger", wallet?.toLowerCase() ?? null] as const,
     pointsRates: () => ["v2", "points-rates"] as const,
+    estimateAllocation: (
+      fractionId: string | null | undefined,
+      quantity: number,
+    ) => ["v2", "estimate-allocation", fractionId ?? null, quantity] as const,
     shopCurrent: () => ["v2", "shop-current"] as const,
     shopPurchases: (wallet?: string | null) =>
       ["v2", "shop-purchases", wallet?.toLowerCase() ?? null] as const,

@@ -128,3 +128,41 @@ export function useV2ImpactWallet(wallet: string | null | undefined) {
     refetchOnWindowFocus: false,
   });
 }
+
+export interface V2EstimateAllocation {
+  farmId: string;
+  fractionId: string | null;
+  quantity: number;
+  fractionTotalUnits: number;
+  expectedFarmWattsTotal: number;
+  bucket: string;
+  bucketShare: number;
+  estimatedWattsPerUnit: number;
+  estimatedWattsForQuantity: number;
+  assumptions: Record<string, unknown>;
+}
+
+/**
+ * Pre-purchase watts-per-unit estimate for a launchpad/mining-center fraction.
+ * All funding paths land in the delegator bucket (0.24) by deposit-split share;
+ * the value is an upper-bound estimate (see the backend endpoint). `enabled`
+ * only when a fractionId is known, so the UI shows a graceful fallback before.
+ */
+export function useEstimatedAllocation(
+  fractionId: string | null | undefined,
+  quantity: number,
+) {
+  const qty = Math.max(1, Math.floor(quantity) || 1);
+  return useQuery({
+    queryKey: QUERY_KEYS.v2.estimateAllocation(fractionId, qty),
+    queryFn: () =>
+      v2ApiGet<V2EstimateAllocation>(
+        `/api/impact/estimate-allocation?fractionId=${encodeURIComponent(
+          fractionId!,
+        )}&quantity=${qty}`,
+      ),
+    enabled: Boolean(fractionId),
+    staleTime: STALE_TIMES.SLOW,
+    refetchOnWindowFocus: false,
+  });
+}
