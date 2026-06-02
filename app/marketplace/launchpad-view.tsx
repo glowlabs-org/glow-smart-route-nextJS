@@ -987,9 +987,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                             }}
                           >
                             {application.activeFraction
-                              ? `${
-                                  application.activeFraction.remainingSteps || 0
-                                }/${application.activeFraction.totalSteps}`
+                              ? `${availability.remaining}/${availability.total}`
                               : "0/0"}
                           </div>
                           <div
@@ -1468,7 +1466,9 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                         )
                                       );
                                       const totalShares =
-                                        application.activeFraction.totalSteps;
+                                        resolveLaunchpadDelegationUnitCount(
+                                          application,
+                                        );
                                       const glwPerShare =
                                         glwRewards / totalShares;
                                       const pdPerShare =
