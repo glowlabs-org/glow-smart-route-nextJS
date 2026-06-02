@@ -71,7 +71,7 @@ import {
   getDelegationCurrencyDecimals,
   parseDelegationStepAmount,
   resolveDelegationCurrency,
-  resolveLaunchpadDelegationShareCount,
+  resolveLaunchpadDelegationUnitCount,
 } from "@/utils/launchpad-rewards";
 import { getLaunchpadAvailability } from "@/utils/launchpad-availability";
 
@@ -1285,8 +1285,9 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                           calculateLaunchpadPerShareRewards({
                                             reward: rewardScore,
                                             totalShares:
-                                              application.activeFraction
-                                                .totalSteps,
+                                              resolveLaunchpadDelegationUnitCount(
+                                                application,
+                                              ),
                                             delegationCurrency,
                                             glwSpotPrice,
                                           });
@@ -1379,7 +1380,9 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                       calculateLaunchpadPerShareRewards({
                                         reward: rewardScore,
                                         totalShares:
-                                          application.activeFraction.totalSteps,
+                                          resolveLaunchpadDelegationUnitCount(
+                                            application,
+                                          ),
                                         delegationCurrency,
                                         glwSpotPrice,
                                       });
@@ -1829,7 +1832,7 @@ function LaunchpadMarketplaceWidget({
           : null;
       const totalShares =
         application._type === "delegations"
-          ? resolveLaunchpadDelegationShareCount(application)
+          ? resolveLaunchpadDelegationUnitCount(application)
           : application.activeFraction?.totalSteps || 0;
       const delegationPerShareRewards =
         application._type === "delegations"
@@ -2180,7 +2183,7 @@ function LaunchpadMarketplaceWidget({
       if (isMiner) return null;
       if (!scoreData || !("userWeeklyGlwRewards" in scoreData)) return null;
       try {
-        const totalShares = resolveLaunchpadDelegationShareCount(application);
+        const totalShares = resolveLaunchpadDelegationUnitCount(application);
         if (!totalShares) return null;
         const perShareRewards = calculateLaunchpadPerShareRewards({
           reward: scoreData,
@@ -2788,7 +2791,7 @@ function LaunchpadWidgetAssetCard({
     if (!("userWeeklyPdRewards" in scoreData)) return null;
 
     try {
-      const totalShares = resolveLaunchpadDelegationShareCount(application);
+      const totalShares = resolveLaunchpadDelegationUnitCount(application);
       if (!totalShares) return null;
       const perShareRewards = calculateLaunchpadPerShareRewards({
         reward: scoreData,
@@ -3205,7 +3208,7 @@ function LaunchpadWidgetHeroCarouselCard({
     if (!isDelegation) return null;
     if (!scoreData || !("userWeeklyGlwRewards" in scoreData)) return null;
     try {
-      const totalShares = resolveLaunchpadDelegationShareCount(application);
+      const totalShares = resolveLaunchpadDelegationUnitCount(application);
       if (!totalShares) return null;
       const perShareRewards = calculateLaunchpadPerShareRewards({
         reward: scoreData,
@@ -3650,7 +3653,10 @@ function LaunchpadMarketplaceDialog({
         application._type === "delegations"
           ? resolveDelegationCurrency(application)
           : null;
-      const totalShares = application.activeFraction?.totalSteps || 0;
+      const totalShares =
+        application._type === "delegations"
+          ? resolveLaunchpadDelegationUnitCount(application)
+          : application.activeFraction?.totalSteps || 0;
       const delegationPerShareRewards =
         application._type === "delegations"
           ? calculateLaunchpadPerShareRewards({

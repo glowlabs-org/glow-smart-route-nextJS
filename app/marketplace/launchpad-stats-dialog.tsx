@@ -33,7 +33,7 @@ import {
   parseDelegationStepAmount,
   parseUsd6Amount,
   resolveDelegationCurrency,
-  resolveLaunchpadDelegationShareCount,
+  resolveLaunchpadDelegationUnitCount,
 } from "@/utils/launchpad-rewards";
 import { useLang } from "@/lib/i18n";
 
@@ -127,7 +127,7 @@ export function LaunchpadStatsDialog({
     }
   }, [application?.finalProtocolFee, weeklyCC]);
 
-  const totalFractionSteps = resolveLaunchpadDelegationShareCount(application);
+  const totalFractionSteps = resolveLaunchpadDelegationUnitCount(application);
   const stepsForMath = totalFractionSteps > 0 ? totalFractionSteps : 1;
   const perShareRewards = calculateLaunchpadPerShareRewards({
     reward: rewardScore,

@@ -250,6 +250,63 @@ export function resolveLaunchpadDelegationShareCount(
   return baseTotalSteps;
 }
 
+/**
+ * Number of delegation UNITS the deposit represents = deposit ÷ per-unit step
+ * price. This is the correct divisor for PER-UNIT reward figures (PD recovery
+ * and emissions per delegated unit).
+ *
+ * Why this is NOT resolveLaunchpadDelegationShareCount() for GLW farms: after
+ * the GLW auto-commit, `fractions.total_steps` is bumped to
+ * (splitsSold + GLW remainder), so it over-counts the units — e.g. 43 (24 sGCTL
+ * shares already sold + 19 GLW remainder) instead of the 24 units the deposit
+ * actually represents. Dividing per-unit rewards by 43 dragged PD recovery
+ * below its true value of ~1% of the step price (8.94 → 5.0). The marketplace
+ * "remaining / units available" count legitimately uses total_steps; per-unit
+ * *rewards* must divide by deposit ÷ step instead. For sGCTL this already
+ * matches the share-count helper (finalProtocolFee ÷ currentStepUsd6).
+ */
+export function resolveLaunchpadDelegationUnitCount(
+  application?: DelegationApplicationLike | null
+): number {
+  if (!application?.activeFraction) return 0;
+
+  // sGCTL already derives the unit count as finalProtocolFee ÷ stepUsd6.
+  if (resolveDelegationCurrency(application) === "SGCTL") {
+    return resolveLaunchpadDelegationShareCount(application);
+  }
+
+  // GLW: deposit ÷ per-step price. perStepUsd6 = (stepWei / 1e18) * glwPriceUsd6.
+  const finalProtocolFeeUsd6 = parseBigIntSafe(application.finalProtocolFee);
+  const stepWei = parseBigIntSafe(
+    application.activeFraction.step ?? application.activeFraction.stepPrice
+  );
+  const glwPriceUsd6 = parseBigIntSafe(
+    application.applicationPriceQuotes?.[0]?.prices?.GLW
+  );
+  if (
+    finalProtocolFeeUsd6 != null &&
+    finalProtocolFeeUsd6 > 0n &&
+    stepWei != null &&
+    stepWei > 0n &&
+    glwPriceUsd6 != null &&
+    glwPriceUsd6 > 0n
+  ) {
+    const perStepUsd6 = (stepWei * glwPriceUsd6) / 10n ** 18n;
+    if (perStepUsd6 > 0n) {
+      // Round to the nearest whole unit: the deposit is always an integer
+      // number of GLW steps, but finalFee ÷ (step × price) lands a hair below
+      // the true count due to price rounding (e.g. 23.99996 for a 24-unit
+      // deposit). Returning the raw float makes consumers that Math.floor()
+      // the divisor (calculateLaunchpadPerShareRewards) drop to 23 → per-unit
+      // rewards 13.5 instead of 12.9.
+      return Math.round(Number(finalProtocolFeeUsd6) / Number(perStepUsd6));
+    }
+  }
+
+  // Fallback to the (total_steps-based) share count when pricing is unavailable.
+  return resolveLaunchpadDelegationShareCount(application);
+}
+
 export function parseDelegationStepAmount(
   application?: DelegationApplicationLike | null
 ): number {
