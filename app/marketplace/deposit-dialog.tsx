@@ -587,6 +587,10 @@ export function DepositDialog({
   // invalidating the balance query lets it update live.
   const { data: v2PointsBalance } = useV2PointsBalance(address);
   const pointsBeforeRef = React.useRef<number | null>(null);
+  // The quantity actually submitted, captured at confirm time. The live
+  // `quantity` can go stale/negative during the post-purchase listing refetch,
+  // so the success card uses this snapshot to show what was delegated.
+  const submittedQuantityRef = React.useRef<number | null>(null);
   const [launchpadNowMs, setLaunchpadNowMs] = React.useState(() =>
     getLaunchpadNowMs(),
   );
@@ -726,11 +730,20 @@ export function DepositDialog({
   ]);
 
   const previewWattsPerUnit = estimateQuery.data?.estimatedWattsPerUnit ?? null;
-  // Totals scale with the selected quantity (what the user actually earns).
+  // Totals scale with the selected quantity (what the user actually earns). On
+  // the success screen the live `quantity` can transiently go stale/negative
+  // during the post-purchase listing refetch, so use the submitted snapshot
+  // there; clamp to >= 0 so the estimate never renders negative.
+  const previewQuantity = Math.max(
+    0,
+    phase === "success" && submittedQuantityRef.current != null
+      ? submittedQuantityRef.current
+      : quantity,
+  );
   const previewPointsTotal =
-    previewPointsPerUnit != null ? previewPointsPerUnit * quantity : null;
+    previewPointsPerUnit != null ? previewPointsPerUnit * previewQuantity : null;
   const previewWattsTotal =
-    previewWattsPerUnit != null ? previewWattsPerUnit * quantity : null;
+    previewWattsPerUnit != null ? previewWattsPerUnit * previewQuantity : null;
 
   // Smart auto-selection of payment method on open/connect
   React.useEffect(() => {
@@ -804,6 +817,7 @@ export function DepositDialog({
       setIsInsufficientSharesError(false);
       setSuccessMetrics(null);
       pointsBeforeRef.current = null;
+      submittedQuantityRef.current = null;
     }
   }, [open, runtimeSelectedCurrency]);
 
@@ -2046,6 +2060,7 @@ export function DepositDialog({
           ? currentSgctlRequiredAmount - stakedGctlBalance
           : 0n;
 
+      submittedQuantityRef.current = quantity;
       setPhase("processing");
       setErrorMessage(null);
 
@@ -2998,9 +3013,9 @@ export function DepositDialog({
           ) : null}
 
           {hasAnyEstimatedRewards ? (
-            <div className="w-full rounded-xl bg-card border border-border/20 dark:border-border/40 overflow-hidden">
+            <div className="w-full space-y-3">
               {/* Projected Weekly Rewards */}
-              <div className="px-5 py-4">
+              <div className="rounded-xl bg-muted/40 dark:bg-muted/20 border border-border/30 dark:border-border/40 px-5 py-4">
                 <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest mb-2">
                   {dd.successProjectedWeeklyRewards}
                 </div>
@@ -3060,7 +3075,7 @@ export function DepositDialog({
 
               {/* Glow Points + Watts (V2) - estimated totals (actual points once credited) */}
               {address ? (
-                <div className="px-5 py-4 border-t border-border/20 dark:border-border/40 relative overflow-hidden group">
+                <div className="rounded-xl bg-muted/40 dark:bg-muted/20 border border-border/30 dark:border-border/40 px-5 py-4 relative overflow-hidden group">
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-foreground/5 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
                   <div className="relative">
                     <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest mb-3">
@@ -3112,7 +3127,7 @@ export function DepositDialog({
                         </div>
                       </div>
                     </div>
-                    <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground/70 dark:text-muted-foreground/80">
+                    <p className="mt-3 text-left text-[11px] leading-relaxed text-muted-foreground/70 dark:text-muted-foreground/80">
                       {dd.successPointsCreditedBody(
                         runtimeSelectedCurrency === "USDC",
                         v2PointsGranted > 0,
