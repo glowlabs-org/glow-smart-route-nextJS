@@ -139,6 +139,16 @@ export interface V2EstimateAllocation {
   bucketShare: number;
   estimatedWattsPerUnit: number;
   estimatedWattsForQuantity: number;
+  /**
+   * Quote-based GLW-delegation points (the same locked GVE-quote basis the
+   * award uses), so the preview equals what gets credited. Null when the
+   * fraction has no GLW step or price quote (client keeps its local fallback).
+   */
+  estimatedUsdPerUnit: number | null;
+  estimatedPointsPerUnit: number | null;
+  estimatedPointsForQuantity: number | null;
+  quotedGlwPriceMicros: string | null;
+  pointsBasis: "gve_quote" | null;
   assumptions: Record<string, unknown>;
 }
 
@@ -164,5 +174,8 @@ export function useEstimatedAllocation(
     enabled: Boolean(fractionId),
     staleTime: STALE_TIMES.SLOW,
     refetchOnWindowFocus: false,
+    // Per-unit estimates are quantity-invariant, so hold the previous value
+    // while a new quantity refetches instead of flashing the loading state.
+    placeholderData: keepPreviousData,
   });
 }

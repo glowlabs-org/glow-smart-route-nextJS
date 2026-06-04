@@ -694,6 +694,20 @@ export function DepositDialog({
   const previewUnitUsd = React.useMemo(() => costInUSDC(1), [costInUSDC]);
 
   const previewPointsPerUnit = React.useMemo(() => {
+    // Prefer the server's quote-based points: it values the per-unit GLW at the
+    // application's locked GVE quote price -- the exact basis the award uses --
+    // so the preview equals what gets credited and does not drift with the GLW
+    // pool price (or the post-purchase listing refetch). Only for the GLW
+    // delegation path; sGCTL/miner keep the local rate*usd estimate until their
+    // award paths are quote-based too.
+    const serverPerUnit = estimateQuery.data?.estimatedPointsPerUnit;
+    if (
+      runtimeSelectedCurrency === "GLW" &&
+      serverPerUnit != null &&
+      Number.isFinite(serverPerUnit)
+    ) {
+      return serverPerUnit;
+    }
     const r = pointsRatesData?.rates;
     if (!r) return null;
     const rate =
@@ -704,7 +718,12 @@ export function DepositDialog({
           : r.minerPurchasePointsPerUsd;
     if (rate == null || !Number.isFinite(previewUnitUsd)) return null;
     return previewUnitUsd * rate;
-  }, [pointsRatesData, runtimeSelectedCurrency, previewUnitUsd]);
+  }, [
+    pointsRatesData,
+    runtimeSelectedCurrency,
+    previewUnitUsd,
+    estimateQuery.data,
+  ]);
 
   const previewWattsPerUnit = estimateQuery.data?.estimatedWattsPerUnit ?? null;
   // Totals scale with the selected quantity (what the user actually earns).
@@ -3039,35 +3058,67 @@ export function DepositDialog({
                 </div>
               </div>
 
-              {/* Glow Points (V2) */}
+              {/* Glow Points + Watts (V2) - estimated totals (actual points once credited) */}
               {address ? (
-                <div className="px-5 py-4 border-t border-border/20 dark:border-border/40">
-                  <div className="flex justify-between items-center">
-                    <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
-                      {dd.successGlowPointsEarned}
+                <div className="px-5 py-4 border-t border-border/20 dark:border-border/40 relative overflow-hidden group">
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-foreground/5 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+                  <div className="relative">
+                    <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest mb-3">
+                      {dd.previewWhatYouEarn}
                     </div>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-lg font-mono font-semibold text-foreground leading-none">
-                        {v2PointsGranted > 0
-                          ? `+${v2PointsGranted.toLocaleString(undefined, {
-                              maximumFractionDigits: 2,
-                            })}`
-                          : dd.successPointsPending}
-                      </span>
-                      {v2PointsGranted > 0 ? (
-                        <span className="text-xs font-mono text-muted-foreground">
-                          {dd.successPointsPtsUnit}
-                        </span>
-                      ) : null}
+                    <div className="grid grid-cols-2 gap-3">
+                      {/* Points */}
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="h-8 w-8 shrink-0 rounded-full bg-green-500/10 dark:bg-[#D1FF4D]/10 ring-1 ring-green-500/20 dark:ring-[#D1FF4D]/20 flex items-center justify-center">
+                          <Sparkles className="h-4 w-4 text-green-600 dark:text-[#D1FF4D]" />
+                        </div>
+                        <div className="min-w-0 leading-tight">
+                          <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider truncate">
+                            {dd.previewPointsPerUnit}
+                          </div>
+                          <span className="block text-lg md:text-xl font-bold font-mono text-green-600 dark:text-[#D1FF4D] leading-none">
+                            {v2PointsGranted > 0
+                              ? `+${v2PointsGranted.toLocaleString(undefined, {
+                                  maximumFractionDigits: 0,
+                                })}`
+                              : previewPointsTotal != null
+                                ? previewPointsTotal.toLocaleString(undefined, {
+                                    maximumFractionDigits: 0,
+                                  })
+                                : "-"}
+                          </span>
+                        </div>
+                      </div>
+                      {/* Watts */}
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="h-8 w-8 shrink-0 rounded-full bg-green-500/10 dark:bg-[#D1FF4D]/10 ring-1 ring-green-500/20 dark:ring-[#D1FF4D]/20 flex items-center justify-center">
+                          <Zap className="h-4 w-4 text-green-600 dark:text-[#D1FF4D]" />
+                        </div>
+                        <div className="min-w-0 leading-tight">
+                          <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider truncate">
+                            {dd.previewWattsPerUnit}
+                          </div>
+                          <span className="block text-lg md:text-xl font-bold font-mono text-green-600 dark:text-[#D1FF4D] leading-none">
+                            {estimateQuery.isLoading
+                              ? "…"
+                              : previewWattsTotal != null
+                                ? dd.previewEstWatts(
+                                    previewWattsTotal.toLocaleString(undefined, {
+                                      maximumFractionDigits: 1,
+                                    }),
+                                  )
+                                : "-"}
+                          </span>
+                        </div>
+                      </div>
                     </div>
+                    <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground/70 dark:text-muted-foreground/80">
+                      {dd.successPointsCreditedBody(
+                        runtimeSelectedCurrency === "USDC",
+                        v2PointsGranted > 0,
+                      )}
+                    </p>
                   </div>
-
-                  <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground/70 dark:text-muted-foreground/80">
-                    {dd.successPointsCreditedBody(
-                      runtimeSelectedCurrency === "USDC",
-                      v2PointsGranted > 0,
-                    )}
-                  </p>
                 </div>
               ) : null}
             </div>
