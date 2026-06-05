@@ -149,6 +149,18 @@ export interface V2EstimateAllocation {
   estimatedPointsForQuantity: number | null;
   quotedGlwPriceMicros: string | null;
   pointsBasis: "gve_quote" | null;
+  /**
+   * Quote-based sGCTL-delegation points (sgctlStepAtomic valued at the locked
+   * GVE quote, prices["SGCTL"]/GCTL, via the same computeSgctlDelegationAward
+   * the award uses). Mirrors the GLW fields so the sGCTL preview equals what
+   * gets credited instead of the live GCTL spot price. Null when the fraction
+   * has no locked sGCTL step or price quote (client keeps its local fallback).
+   */
+  estimatedSgctlUsdPerUnit: number | null;
+  estimatedSgctlPointsPerUnit: number | null;
+  estimatedSgctlPointsForQuantity: number | null;
+  quotedSgctlPriceMicros: string | null;
+  sgctlPointsBasis: "gve_quote" | null;
   assumptions: Record<string, unknown>;
 }
 

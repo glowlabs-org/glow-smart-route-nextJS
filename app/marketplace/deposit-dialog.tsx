@@ -698,18 +698,21 @@ export function DepositDialog({
   const previewUnitUsd = React.useMemo(() => costInUSDC(1), [costInUSDC]);
 
   const previewPointsPerUnit = React.useMemo(() => {
-    // Prefer the server's quote-based points: it values the per-unit GLW at the
-    // application's locked GVE quote price -- the exact basis the award uses --
-    // so the preview equals what gets credited and does not drift with the GLW
-    // pool price (or the post-purchase listing refetch). Only for the GLW
-    // delegation path; sGCTL/miner keep the local rate*usd estimate until their
-    // award paths are quote-based too.
-    const serverPerUnit = estimateQuery.data?.estimatedPointsPerUnit;
-    if (
-      runtimeSelectedCurrency === "GLW" &&
-      serverPerUnit != null &&
-      Number.isFinite(serverPerUnit)
-    ) {
+    // Prefer the server's quote-based points: it values the per-unit principal
+    // at the application's locked GVE quote price -- the exact basis the award
+    // uses -- so the preview equals what gets credited and does not drift with
+    // the GLW/GCTL pool price (or the post-purchase listing refetch). The GLW
+    // path uses estimatedPointsPerUnit; the sGCTL path uses
+    // estimatedSgctlPointsPerUnit (sgctlStepAtomic valued at the locked quote,
+    // not the live GCTL spot). Miner keeps the local rate*usd estimate until
+    // its award path is quote-based too.
+    const serverPerUnit =
+      runtimeSelectedCurrency === "GLW"
+        ? estimateQuery.data?.estimatedPointsPerUnit
+        : runtimeSelectedCurrency === "SGCTL"
+          ? estimateQuery.data?.estimatedSgctlPointsPerUnit
+          : null;
+    if (serverPerUnit != null && Number.isFinite(serverPerUnit)) {
       return serverPerUnit;
     }
     const r = pointsRatesData?.rates;
