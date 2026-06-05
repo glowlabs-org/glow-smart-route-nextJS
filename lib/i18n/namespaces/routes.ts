@@ -1901,7 +1901,9 @@ const en: RoutesStrings = {
         isCredited
           ? "have been credited to your balance."
           : "are credited shortly after the transaction is processed on-chain."
-      } Your farm impact accrues once the farm fully funds.`,
+      }${
+        isMiner ? "" : " Your farm impact accrues once the farm fully funds."
+      }`,
     successEmissions: "Emissions",
     successVaultBonus: "Vault Bonus",
     successMinerBonusPrefix: "3x miner bonus",
@@ -2947,7 +2949,11 @@ const ko: RoutesStrings = {
         isCredited
           ? "잔액에 적립되었습니다."
           : "트랜잭션이 온체인에서 처리된 직후 적립됩니다."
-      } 발전소가 완전히 펀딩되면 발전소 임팩트가 적립되기 시작합니다.`,
+      }${
+        isMiner
+          ? ""
+          : " 발전소가 완전히 펀딩되면 발전소 임팩트가 적립되기 시작합니다."
+      }`,
     successEmissions: "발행분",
     successVaultBonus: "볼트 보너스",
     successMinerBonusPrefix: "3배 마이너 보너스",
@@ -3999,7 +4005,7 @@ const zh: RoutesStrings = {
         isCredited
           ? "已计入您的余额。"
           : "将在交易于链上处理完成后不久计入。"
-      }待农场完全募满后,您的农场影响力将开始累积。`,
+      }${isMiner ? "" : "待农场完全募满后,您的农场影响力将开始累积。"}`,
     successEmissions: "排放",
     successVaultBonus: "金库奖励",
     successMinerBonusPrefix: "3 倍矿工奖励",

@@ -219,9 +219,7 @@ function prependSuccessfulSplitActivity(
     params.quantity,
   );
   const fractionType: SplitActivity["fractionType"] =
-    params.application.paymentCurrency === "USDC"
-      ? "mining-center"
-      : "launchpad";
+    fraction.type === "mining-center" ? "mining-center" : "launchpad";
 
   const optimisticEntry: SplitActivity = {
     transactionHash: params.txHash,
@@ -489,6 +487,11 @@ export function DepositDialog({
   const [liveApplication, setLiveApplication] =
     React.useState<AuctionApplication | null>(null);
   const effectiveApplication = liveApplication ?? application;
+  // Mining-center fills are POINTS-ONLY (no watts / no farm impact); identify by
+  // the active fraction's type, never by payment currency (USDC-paid GLW
+  // delegations still earn watts).
+  const isMiningCenter =
+    effectiveApplication?.activeFraction?.type === "mining-center";
   const runtimeSelectedCurrency = React.useMemo(
     () =>
       resolveRuntimeSelectedCurrency(
@@ -3148,7 +3151,10 @@ export function DepositDialog({
                     <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest mb-3">
                       {dd.previewWhatYouEarn}
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    {/* Mining-center fills earn points only: hide the Watts column. */}
+                    <div
+                      className={`grid ${isMiningCenter ? "grid-cols-1" : "grid-cols-2"} gap-3`}
+                    >
                       {/* Points */}
                       <div className="flex items-center gap-2.5 min-w-0">
                         <div className="h-8 w-8 shrink-0 rounded-full bg-green-500/10 dark:bg-[#D1FF4D]/10 ring-1 ring-green-500/20 dark:ring-[#D1FF4D]/20 flex items-center justify-center">
@@ -3172,31 +3178,33 @@ export function DepositDialog({
                         </div>
                       </div>
                       {/* Watts */}
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="h-8 w-8 shrink-0 rounded-full bg-green-500/10 dark:bg-[#D1FF4D]/10 ring-1 ring-green-500/20 dark:ring-[#D1FF4D]/20 flex items-center justify-center">
-                          <Zap className="h-4 w-4 text-green-600 dark:text-[#D1FF4D]" />
-                        </div>
-                        <div className="min-w-0 leading-tight">
-                          <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider truncate">
-                            {dd.previewWattsPerUnit}
+                      {!isMiningCenter && (
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="h-8 w-8 shrink-0 rounded-full bg-green-500/10 dark:bg-[#D1FF4D]/10 ring-1 ring-green-500/20 dark:ring-[#D1FF4D]/20 flex items-center justify-center">
+                            <Zap className="h-4 w-4 text-green-600 dark:text-[#D1FF4D]" />
                           </div>
-                          <span className="block text-lg md:text-xl font-bold font-mono text-green-600 dark:text-[#D1FF4D] leading-none">
-                            {estimateQuery.isLoading
-                              ? "…"
-                              : previewWattsTotal != null
-                                ? dd.previewEstWatts(
-                                    previewWattsTotal.toLocaleString(undefined, {
-                                      maximumFractionDigits: 1,
-                                    }),
-                                  )
-                                : "-"}
-                          </span>
+                          <div className="min-w-0 leading-tight">
+                            <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider truncate">
+                              {dd.previewWattsPerUnit}
+                            </div>
+                            <span className="block text-lg md:text-xl font-bold font-mono text-green-600 dark:text-[#D1FF4D] leading-none">
+                              {estimateQuery.isLoading
+                                ? "…"
+                                : previewWattsTotal != null
+                                  ? dd.previewEstWatts(
+                                      previewWattsTotal.toLocaleString(undefined, {
+                                        maximumFractionDigits: 1,
+                                      }),
+                                    )
+                                  : "-"}
+                            </span>
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                     <p className="mt-3 text-left text-[11px] leading-relaxed text-muted-foreground/70 dark:text-muted-foreground/80">
                       {dd.successPointsCreditedBody(
-                        runtimeSelectedCurrency === "USDC",
+                        isMiningCenter,
                         v2PointsGranted > 0,
                       )}
                     </p>
@@ -3573,7 +3581,10 @@ export function DepositDialog({
           {/* What you'll earn - compact, animated (mirrors Est. Rewards) */}
           <div className="bg-muted/30 dark:bg-muted/50 rounded-2xl px-4 py-3 border border-border/20 dark:border-border/40 relative overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-foreground/5 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
-            <div className="relative grid grid-cols-2 gap-3">
+            {/* Mining-center fills earn points only: hide the Watts column. */}
+            <div
+              className={`relative grid ${isMiningCenter ? "grid-cols-1" : "grid-cols-2"} gap-3`}
+            >
               {/* Points (total, scales with quantity) */}
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="h-8 w-8 shrink-0 rounded-full bg-green-500/10 dark:bg-[#D1FF4D]/10 ring-1 ring-green-500/20 dark:ring-[#D1FF4D]/20 flex items-center justify-center">
@@ -3601,35 +3612,37 @@ export function DepositDialog({
                 </div>
               </div>
               {/* Watts (total estimate, scales with quantity) */}
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="h-8 w-8 shrink-0 rounded-full bg-green-500/10 dark:bg-[#D1FF4D]/10 ring-1 ring-green-500/20 dark:ring-[#D1FF4D]/20 flex items-center justify-center">
-                  <Zap className="h-4 w-4 text-green-600 dark:text-[#D1FF4D]" />
-                </div>
-                <div className="min-w-0 leading-tight">
-                  <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider truncate">
-                    {dd.previewWattsPerUnit}
+              {!isMiningCenter && (
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="h-8 w-8 shrink-0 rounded-full bg-green-500/10 dark:bg-[#D1FF4D]/10 ring-1 ring-green-500/20 dark:ring-[#D1FF4D]/20 flex items-center justify-center">
+                    <Zap className="h-4 w-4 text-green-600 dark:text-[#D1FF4D]" />
                   </div>
-                  <AnimatePresence mode="popLayout">
-                    <motion.span
-                      key={`w-${estimateQuery.isLoading ? "load" : previewWattsTotal ?? "na"}`}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -8 }}
-                      className="block text-lg md:text-xl font-bold font-mono text-green-600 dark:text-[#D1FF4D] leading-none"
-                    >
-                      {estimateQuery.isLoading
-                        ? "…"
-                        : previewWattsTotal != null
-                          ? dd.previewEstWatts(
-                              previewWattsTotal.toLocaleString(undefined, {
-                                maximumFractionDigits: 1,
-                              }),
-                            )
-                          : "-"}
-                    </motion.span>
-                  </AnimatePresence>
+                  <div className="min-w-0 leading-tight">
+                    <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider truncate">
+                      {dd.previewWattsPerUnit}
+                    </div>
+                    <AnimatePresence mode="popLayout">
+                      <motion.span
+                        key={`w-${estimateQuery.isLoading ? "load" : previewWattsTotal ?? "na"}`}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        className="block text-lg md:text-xl font-bold font-mono text-green-600 dark:text-[#D1FF4D] leading-none"
+                      >
+                        {estimateQuery.isLoading
+                          ? "…"
+                          : previewWattsTotal != null
+                            ? dd.previewEstWatts(
+                                previewWattsTotal.toLocaleString(undefined, {
+                                  maximumFractionDigits: 1,
+                                }),
+                              )
+                            : "-"}
+                      </motion.span>
+                    </AnimatePresence>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
 
