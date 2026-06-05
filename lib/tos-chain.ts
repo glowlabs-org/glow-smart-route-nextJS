@@ -23,6 +23,10 @@ export function chainIdToName(chainId: number): string {
       return "Polygon";
     case 42161:
       return "Arbitrum";
+    case 56:
+      return "BNB Smart Chain";
+    case 97:
+      return "BNB Smart Chain Testnet";
     default:
       return `chain ${chainId}`;
   }

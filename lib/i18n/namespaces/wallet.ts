@@ -6,6 +6,7 @@ export interface WalletStrings {
   reconnectWallet: string;
   wrongNetwork: string;
   switchTo: (network: string) => string;
+  wrongNetworkBody: (connected: string, expected: string) => string;
   switching: string;
   openWalletAccount: string;
   switchedToMainnet: string;
@@ -40,6 +41,8 @@ const en: WalletStrings = {
   reconnectWallet: "Reconnect Wallet",
   wrongNetwork: "Wrong Network",
   switchTo: (network) => `Switch to ${network}`,
+  wrongNetworkBody: (connected, expected) =>
+    `Your wallet is on ${connected}. Switch to ${expected} to see your balances and continue.`,
   switching: "Switching...",
   openWalletAccount: "Open wallet account",
   switchedToMainnet: "Switched to Ethereum Mainnet",
@@ -73,6 +76,8 @@ const ko: WalletStrings = {
   reconnectWallet: "지갑 재연결",
   wrongNetwork: "잘못된 네트워크",
   switchTo: (network) => `${network}(으)로 전환`,
+  wrongNetworkBody: (connected, expected) =>
+    `지갑이 ${connected}에 연결되어 있습니다. 잔액을 확인하고 계속하려면 ${expected}(으)로 전환하세요.`,
   switching: "전환 중...",
   openWalletAccount: "지갑 계정 열기",
   switchedToMainnet: "이더리움 메인넷으로 전환되었습니다",
@@ -106,6 +111,8 @@ const zh: WalletStrings = {
   reconnectWallet: "重新连接钱包",
   wrongNetwork: "网络错误",
   switchTo: (network) => `切换到 ${network}`,
+  wrongNetworkBody: (connected, expected) =>
+    `您的钱包当前在 ${connected}。请切换到 ${expected} 以查看余额并继续。`,
   switching: "切换中...",
   openWalletAccount: "打开钱包账户",
   switchedToMainnet: "已切换到以太坊主网",

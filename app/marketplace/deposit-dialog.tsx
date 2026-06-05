@@ -15,6 +15,7 @@ import {
   CreditCard,
   Sparkles,
   Zap,
+  AlertCircle,
 } from "lucide-react";
 import { mainnet, sepolia } from "wagmi/chains";
 import {
@@ -25,7 +26,8 @@ import {
 import { capturePrivyWalletError } from "@/lib/privy-errors";
 import { GlowSymbol } from "@/components/glow-symbol";
 import { cn } from "@/lib/utils";
-import { useAccount, useChainId } from "wagmi";
+import { useAccount, useChainId, useSwitchChain, useConnectorClient } from "wagmi";
+import { resolveWalletChainId, chainIdToName } from "@/lib/tos-chain";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { SegmentedCircleProgress } from "@/components/ui/circle-progress";
 import { formatNumber } from "./utils";
@@ -416,6 +418,68 @@ export function DepositDialog({
     ethBalance,
     refetch: refetchBalances,
   } = useWalletTokenBalances(address);
+  // Wrong-network detection. wagmi's useChainId() tracks the app's configured
+  // chain, so a wallet on an unconfigured network (e.g. BNB) is invisible to it.
+  // Resolve the wallet's actual chain straight from the connector/provider.
+  const { data: connectorClient } = useConnectorClient();
+  const { switchChain, isPending: isSwitchingChain } = useSwitchChain();
+  const expectedChainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID) || 1;
+  const [activeWalletChainId, setActiveWalletChainId] = React.useState<
+    number | undefined
+  >(chainId);
+  React.useEffect(() => {
+    if (!isConnected) {
+      setActiveWalletChainId(undefined);
+      return;
+    }
+    let cancelled = false;
+    void resolveWalletChainId({
+      connectorClient: connectorClient as
+        | {
+            request?: (args: {
+              method: string;
+              params?: unknown[];
+            }) => Promise<unknown>;
+          }
+        | undefined,
+      signerProvider: signer?.provider as
+        | {
+            send?: (method: string, params: unknown[]) => Promise<unknown>;
+            getNetwork?: () => Promise<{ chainId?: unknown }>;
+          }
+        | undefined,
+      fallbackChainId: chainId,
+    }).then((resolved) => {
+      if (!cancelled && typeof resolved === "number") {
+        setActiveWalletChainId(resolved);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isConnected, connectorClient, signer, chainId]);
+  const effectiveWalletChainId = activeWalletChainId ?? chainId;
+  const isWrongNetwork =
+    isConnected &&
+    typeof effectiveWalletChainId === "number" &&
+    effectiveWalletChainId !== expectedChainId;
+  const expectedNetworkLabel = chainIdToName(expectedChainId);
+  const connectedNetworkLabel =
+    typeof effectiveWalletChainId === "number"
+      ? chainIdToName(effectiveWalletChainId)
+      : "";
+  const handleSwitchNetwork = React.useCallback(async () => {
+    try {
+      await switchChain({ chainId: expectedChainId });
+      toast.success(t.wallet.switchedTo(expectedNetworkLabel));
+    } catch (switchError) {
+      console.error(
+        "Failed to switch network in deposit dialog:",
+        switchError,
+      );
+      toast.error(t.wallet.failedToSwitchNetwork);
+    }
+  }, [switchChain, expectedChainId, expectedNetworkLabel, t.wallet]);
   const { swapEthToUsdc, estimateEthToUsdc } = useSwapETHToUSDC();
   const { swapUSDCToUSDG } = useSwapUSDCToUSDG();
   const { swap: swapUsdgToGlow } = useSwap({
@@ -3794,6 +3858,33 @@ export function DepositDialog({
           <div className="relative">
             {!isConnected ? (
               <ConnectButton size="medium" variant="default" />
+            ) : isWrongNetwork ? (
+              <div className="space-y-2">
+                <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-amber-600 dark:text-amber-400">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    {t.wallet.wrongNetwork}
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {t.wallet.wrongNetworkBody(
+                      connectedNetworkLabel,
+                      expectedNetworkLabel,
+                    )}
+                  </p>
+                </div>
+                <Button
+                  className="w-full h-12"
+                  onClick={handleSwitchNetwork}
+                  disabled={isSwitchingChain}
+                >
+                  {isSwitchingChain && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  {isSwitchingChain
+                    ? t.wallet.switching
+                    : t.wallet.switchTo(expectedNetworkLabel)}
+                </Button>
+              </div>
             ) : (
               <div className="space-y-2">
                 <Button
