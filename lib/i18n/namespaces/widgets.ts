@@ -292,6 +292,7 @@ export interface WidgetStrings {
     swappedGlwToUsdg: (glw: string, usdg: string) => string;
     swappedUsdgToGlw: (usdg: string, glw: string) => string;
     glwUsdgPool: string;
+    wattsAwarded: string;
   };
 
   impactAccumulator: {
@@ -960,6 +961,7 @@ const en: WidgetStrings = {
     swappedGlwToUsdg: (glw, usdg) => `Swapped ${glw} GLW → ${usdg} USDG`,
     swappedUsdgToGlw: (usdg, glw) => `Swapped ${usdg} USDG → ${glw} GLW`,
     glwUsdgPool: "GLW/USDG pool",
+    wattsAwarded: "Watts awarded",
   },
 
   impactAccumulator: {
@@ -1624,6 +1626,7 @@ const ko: WidgetStrings = {
     swappedGlwToUsdg: (glw, usdg) => `${glw} GLW → ${usdg} USDG 스왑`,
     swappedUsdgToGlw: (usdg, glw) => `${usdg} USDG → ${glw} GLW 스왑`,
     glwUsdgPool: "GLW/USDG 풀",
+    wattsAwarded: "와트 적립",
   },
 
   impactAccumulator: {
@@ -2283,6 +2286,7 @@ const zh: WidgetStrings = {
     swappedGlwToUsdg: (glw, usdg) => `已兑换 ${glw} GLW → ${usdg} USDG`,
     swappedUsdgToGlw: (usdg, glw) => `已兑换 ${usdg} USDG → ${glw} GLW`,
     glwUsdgPool: "GLW/USDG 池",
+    wattsAwarded: "瓦特奖励",
   },
 
   impactAccumulator: {

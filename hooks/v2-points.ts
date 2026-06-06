@@ -81,6 +81,19 @@ export interface V2PointsLedgerResponse {
   nextCursor: string | null;
 }
 
+export interface V2WattsActivityRow {
+  farmId: string;
+  farmName: string;
+  regionId: number;
+  watts: string;
+  createdAt: string;
+}
+
+export interface V2WattsActivity {
+  wallet: string;
+  rows: V2WattsActivityRow[];
+}
+
 export interface V2PointsRates {
   asOf: string;
   rates: {
@@ -121,6 +134,23 @@ export function useV2PointsLedger(
     queryFn: () =>
       v2ApiGet<V2PointsLedgerResponse>(
         `/api/points/ledger?wallet=${encodeURIComponent(wallet!)}&limit=${limit}`,
+      ),
+    enabled: Boolean(wallet),
+    staleTime: STALE_TIMES.NORMAL,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useV2WattsActivity(
+  wallet: string | null | undefined,
+  options: { limit?: number } = {},
+) {
+  const limit = options.limit ?? 50;
+  return useQuery({
+    queryKey: QUERY_KEYS.v2.wattsActivity(wallet, limit),
+    queryFn: () =>
+      v2ApiGet<V2WattsActivity>(
+        `/api/points/watts-activity?wallet=${encodeURIComponent(wallet!)}&limit=${limit}`,
       ),
     enabled: Boolean(wallet),
     staleTime: STALE_TIMES.NORMAL,

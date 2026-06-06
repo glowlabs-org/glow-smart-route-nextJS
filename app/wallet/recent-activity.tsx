@@ -12,6 +12,7 @@ import {
   Gift,
   Clock,
   Coins,
+  Zap,
   ExternalLink,
 } from "lucide-react";
 import { CashMinerIcon, DelegationIcon } from "@/components/impact-icons";
@@ -30,8 +31,10 @@ import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import type { SwapActivity } from "@/hooks/useRecentActivityFeed";
 import {
   useV2PointsLedger,
+  useV2WattsActivity,
   POINTS_EVENT_LABELS,
   type V2PointsLedgerRow,
+  type V2WattsActivityRow,
 } from "@/hooks/v2-points";
 import { useWalletRewardClaims } from "@/hooks/useWalletRewardClaims";
 import { useWalletSgctlClaimSettlements } from "@/hooks/useWalletSgctlClaimSettlements";
@@ -56,7 +59,8 @@ type ActivityKind =
   | "fraction-purchase"
   | "swap"
   | "claim"
-  | "points";
+  | "points"
+  | "watts";
 
 interface ActivityItem {
   id: string;
@@ -425,6 +429,27 @@ function buildPointsActivity(row: V2PointsLedgerRow): ActivityItem | null {
   };
 }
 
+function buildWattsActivity(
+  row: V2WattsActivityRow,
+  labels: RecentActivityLabels,
+): ActivityItem | null {
+  const timestampMs = new Date(row.createdAt).getTime();
+  if (!Number.isFinite(timestampMs)) return null;
+
+  const watts = Number(row.watts);
+  if (!Number.isFinite(watts) || watts <= 0) return null;
+
+  return {
+    id: `watts-${row.farmId}-${row.createdAt}`,
+    kind: "watts",
+    timestampMs,
+    title: `+${formatCompactNumber(watts, 0)} W`,
+    subtitle: row.farmName || labels.wattsAwarded,
+    icon: <Zap className="w-5 h-5" />,
+    iconClassName: "text-sky-400 bg-sky-500/10",
+  };
+}
+
 export function RecentActivity({
   walletAddress,
   splitsActivity,
@@ -468,6 +493,11 @@ export function RecentActivity({
   const { data: pointsLedger } = useV2PointsLedger(
     shouldFetchWalletActivity ? walletAddress : null,
     { limit: 50 },
+  );
+
+  // V2 watts-award activity (farm allocations) folded into the feed.
+  const { data: wattsActivity } = useV2WattsActivity(
+    shouldFetchWalletActivity ? walletAddress : null,
   );
 
   const { claims, isLoading: isClaimsLoading } = useWalletRewardClaims(
@@ -598,6 +628,11 @@ export function RecentActivity({
       if (item) all.push(item);
     });
 
+    (wattsActivity?.rows ?? []).forEach((row) => {
+      const item = buildWattsActivity(row, labels);
+      if (item) all.push(item);
+    });
+
     return all.sort((a, b) => {
       const timeDiff = b.timestampMs - a.timestampMs;
       if (timeDiff !== 0) return timeDiff;
@@ -617,6 +652,7 @@ export function RecentActivity({
     splitsActivity,
     swapsActivity,
     pointsLedger,
+    wattsActivity,
   ]);
 
   const isLoading =

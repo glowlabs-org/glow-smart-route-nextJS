@@ -184,6 +184,13 @@ export const QUERY_KEYS = {
     // subscription keyed with an explicit limit.
     pointsLedgerAll: (wallet?: string | null) =>
       ["v2", "points-ledger", wallet?.toLowerCase() ?? null] as const,
+    wattsActivity: (wallet?: string | null, limit?: number) =>
+      [
+        "v2",
+        "watts-activity",
+        wallet?.toLowerCase() ?? null,
+        limit ?? null,
+      ] as const,
     pointsRates: () => ["v2", "points-rates"] as const,
     estimateAllocation: (
       fractionId: string | null | undefined,
