@@ -53,8 +53,12 @@ function ItemBanner({
 }) {
   const meta = shopItemMeta(item);
   const minerLike = isMinerLikeItem(item);
+  // Featured ("Mega") watts keeps its curated hero (watts-mega.jpg, via
+  // meta.image); only a regular watts item overlays its live source-farm photo.
   const wattsSource =
-    item.kind === "watts" ? item.impactSourcePreview?.sources?.[0] : undefined;
+    item.kind === "watts" && item.details?.featured !== true
+      ? item.impactSourcePreview?.sources?.[0]
+      : undefined;
   const farmImage =
     minerLike && minerFarm?.resolved
       ? minerFarm.imageUrl
@@ -319,12 +323,6 @@ function GrantSummary({
           </div>
         );
       }
-    case "mega":
-      return (
-        <p className="text-sm text-muted-foreground">
-          Mega prize claimed. The team will follow up on fulfilment.
-        </p>
-      );
     case "early_access":
       return (
         <p className="text-sm text-muted-foreground">
@@ -603,7 +601,7 @@ export function PurchaseDialog({
               {showMinerEstimate && minerFarm ? (
                 <MinerEstimateStrip
                   minerFarm={minerFarm}
-                  isManualFulfillment={item.kind === "mega"}
+                  isManualFulfillment={false}
                 />
               ) : null}
 

@@ -26,8 +26,8 @@ export interface ShopItemMeta {
   blurb: string;
   /** Up to two compact stats. */
   stats: ShopStat[];
-  /** `mega` items get the warm headline-prize accent. */
-  isMega: boolean;
+  /** Featured headline-prize items get the warm accent + "Mega prize" treatment. */
+  isFeatured: boolean;
   /** `early_access` renders as a punched ticket instead of a photo card. */
   isTicket: boolean;
 }
@@ -40,20 +40,28 @@ function numDetail(
   return typeof v === "number" ? v : null;
 }
 
-function strDetail(
-  details: Record<string, unknown> | null,
-  key: string,
-): string | null {
-  const v = details?.[key];
-  return typeof v === "string" ? v : null;
-}
-
 export function shopItemMeta(item: V2ShopItem): ShopItemMeta {
   const d = item.details ?? null;
+  // The weekly headline prize is now a normal miner/watts item flagged with
+  // `details.featured`; it keeps the warm "Mega prize" headline treatment.
+  const isFeatured = d?.featured === true;
 
   switch (item.kind) {
     case "miner": {
       const usd = numDetail(d, "minerValueUsd");
+      if (isFeatured) {
+        return {
+          image: "/images/shop/miner.jpg",
+          eyebrow: "Mega prize",
+          headline: item.label,
+          tagline: "This week's headline reward",
+          blurb:
+            "The single biggest prize in this week's shop. Limited stock; once it's gone, it's gone.",
+          stats: [],
+          isFeatured: true,
+          isTicket: false,
+        };
+      }
       return {
         image: "/images/shop/miner.jpg",
         eyebrow: "Mining position",
@@ -67,13 +75,26 @@ export function shopItemMeta(item: V2ShopItem): ShopItemMeta {
           { label: "Position value", value: usd ? `$${usd}` : "-" },
           { label: "Reward horizon", value: "100 weeks" },
         ],
-        isMega: false,
+        isFeatured: false,
         isTicket: false,
       };
     }
 
     case "watts": {
       const watts = numDetail(d, "wattsQuantity");
+      if (isFeatured) {
+        return {
+          image: "/images/shop/watts-mega.jpg",
+          eyebrow: "Mega prize",
+          headline: item.label,
+          tagline: "This week's headline reward",
+          blurb:
+            "The single biggest prize in this week's shop. Limited stock; once it's gone, it's gone.",
+          stats: [],
+          isFeatured: true,
+          isTicket: false,
+        };
+      }
       const sources = item.impactSourcePreview?.sources ?? [];
       const source = sources[0];
       const farmName = source?.farmName ?? "a Foundation solar farm";
@@ -106,25 +127,7 @@ export function shopItemMeta(item: V2ShopItem): ShopItemMeta {
             value: sources.length > 0 ? formatNumber(carbon) : "-",
           },
         ],
-        isMega: false,
-        isTicket: false,
-      };
-    }
-
-    case "mega": {
-      const megaKey = strDetail(d, "megaKey") ?? "";
-      const isWatts = megaKey.includes("watts");
-      return {
-        image: isWatts
-          ? "/images/shop/watts-mega.jpg"
-          : "/images/shop/miner.jpg",
-        eyebrow: "Mega prize",
-        headline: item.label,
-        tagline: "This week's headline reward",
-        blurb:
-          "The single biggest prize in this week's shop. Limited stock; once it's gone, it's gone.",
-        stats: [],
-        isMega: true,
+        isFeatured: false,
         isTicket: false,
       };
     }
@@ -139,7 +142,7 @@ export function shopItemMeta(item: V2ShopItem): ShopItemMeta {
         tagline: "Skip the line on new miner windows",
         blurb: `Enter miner windows ${minutes} minutes ahead of everyone else. Valid for ${weeks} weeks, miners only. A head start does not guarantee inventory.`,
         stats: [],
-        isMega: false,
+        isFeatured: false,
         isTicket: true,
       };
     }
@@ -152,7 +155,7 @@ export function shopItemMeta(item: V2ShopItem): ShopItemMeta {
         tagline: "",
         blurb: "",
         stats: [],
-        isMega: false,
+        isFeatured: false,
         isTicket: false,
       };
   }

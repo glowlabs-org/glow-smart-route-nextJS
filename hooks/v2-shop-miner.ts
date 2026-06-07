@@ -61,18 +61,12 @@ interface MinerItemConfig {
 }
 
 /**
- * True for items that are economically a miner: the regular `miner` kind and
- * the `mega` headline prize whose `megaKey` is a miner tier (e.g.
- * `miner_500`). Both are fulfilled by a Foundation->buyer GLW split transfer,
- * so both get the same reward estimate. The `watts_20000` mega is NOT a miner.
+ * True for items that are economically a miner. The featured headline miner
+ * prize is just a normal `miner` kind with `details.featured`, fulfilled by the
+ * same Foundation->buyer GLW split transfer, so it gets the same reward estimate.
  */
 export function isMinerLikeItem(item: V2ShopItem): boolean {
-  if (item.kind === "miner") return true;
-  if (item.kind === "mega") {
-    const megaKey = item.details?.megaKey;
-    return typeof megaKey === "string" && megaKey.startsWith("miner");
-  }
-  return false;
+  return item.kind === "miner";
 }
 
 /** The control farm UUID a miner(-like) item is linked to, or null. */
@@ -87,14 +81,6 @@ export function getShopMinerValueUsd(item: V2ShopItem): number {
   const rawValue = item.details?.minerValueUsd;
   if (typeof rawValue === "number" && Number.isFinite(rawValue) && rawValue > 0) {
     return rawValue;
-  }
-  const megaKey = item.details?.megaKey;
-  if (typeof megaKey === "string") {
-    const match = megaKey.match(/^miner_(\d+(?:\.\d+)?)$/);
-    if (match) {
-      const parsed = Number(match[1]);
-      return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-    }
   }
   return 0;
 }
@@ -273,21 +259,6 @@ function purchaseToMinerSource(
       glowSplit6: g.splitTransferRef.glowPercent6Decimals,
       valueUsd: g.minerValueUsd ?? 0,
     };
-  }
-  if (g.kind === "mega") {
-    const d = g.details as {
-      sourceFarmId?: string;
-      glowSplitPercent6Decimals?: string;
-    } | null;
-    if (d?.sourceFarmId && d?.glowSplitPercent6Decimals) {
-      // megaKey like "miner_500" -> notional $500.
-      const parsed = Number(String(g.megaKey ?? "").split("_")[1]);
-      return {
-        farmId: d.sourceFarmId,
-        glowSplit6: d.glowSplitPercent6Decimals,
-        valueUsd: Number.isFinite(parsed) ? parsed : 0,
-      };
-    }
   }
   return null;
 }

@@ -39,7 +39,7 @@ export const purchaseEIP712Types = {
   ],
 } as const;
 
-export type V2ShopItemKind = "miner" | "watts" | "mega" | "early_access";
+export type V2ShopItemKind = "miner" | "watts" | "early_access";
 
 export interface V2ShopItem {
   itemId: string;
@@ -101,12 +101,6 @@ export interface V2WattsGrant {
   newWalletCarbonCredits?: string | null;
 }
 
-export interface V2MegaGrant {
-  kind: "mega";
-  megaKey: string | null;
-  details: Record<string, unknown>;
-}
-
 export interface V2EarlyAccessGrant {
   kind: "early_access";
   entitlementId: string;
@@ -115,11 +109,7 @@ export interface V2EarlyAccessGrant {
   earlyAccessMinutes: number;
 }
 
-export type V2ShopGrant =
-  | V2MinerGrant
-  | V2WattsGrant
-  | V2MegaGrant
-  | V2EarlyAccessGrant;
+export type V2ShopGrant = V2MinerGrant | V2WattsGrant | V2EarlyAccessGrant;
 
 // --- Purchase --------------------------------------------------------------
 

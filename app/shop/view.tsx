@@ -7,7 +7,6 @@ import {
   Coins,
   Clock,
   Sun,
-  Trophy,
   Ticket,
   Sparkles,
   ChevronLeft,
@@ -62,7 +61,6 @@ const KIND_ICON: Record<
 > = {
   miner: Coins,
   watts: Sun,
-  mega: Trophy,
   early_access: Ticket,
 };
 
@@ -223,10 +221,15 @@ function PrizeSlide({
 
   // A miner(-like) item linked to a real farm shows the farm's after-install
   // photo and a live reward estimate in place of the static placeholder. This
-  // covers both the regular miner and the mega "miner_500" headline prize.
+  // covers both the regular miner and the featured headline miner prize.
   const farmMiner = isMinerLikeItem(item) ? minerFarm : undefined;
+  // The featured ("Mega") watts prize keeps its curated hero image
+  // (watts-mega.jpg, via meta.image); only a regular watts item overlays its
+  // live source-farm photo.
   const wattsSource =
-    item.kind === "watts" ? item.impactSourcePreview?.sources?.[0] : undefined;
+    item.kind === "watts" && item.details?.featured !== true
+      ? item.impactSourcePreview?.sources?.[0]
+      : undefined;
   const farmImageUrl =
     farmMiner && farmMiner.resolved
       ? farmMiner.imageUrl
@@ -270,7 +273,7 @@ function PrizeSlide({
       <article
         className={cn(
           "grid overflow-hidden rounded-3xl border bg-card shadow-sm dark:bg-zinc-800 md:grid-cols-2",
-          meta.isMega
+          meta.isFeatured
             ? "border-amber-400/50 ring-1 ring-amber-400/30"
             : "border-border/60 dark:border-white/10",
         )}
@@ -318,12 +321,12 @@ function PrizeSlide({
           <span
             className={cn(
               "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-medium uppercase tracking-wider",
-              meta.isMega
+              meta.isFeatured
                 ? "bg-amber-400/90 text-black"
                 : "bg-muted text-muted-foreground dark:bg-white/10 dark:text-zinc-300",
             )}
           >
-            {meta.isMega ? (
+            {meta.isFeatured ? (
               <Sparkles className="h-3 w-3" />
             ) : (
               <Icon className="h-3 w-3" />
@@ -740,10 +743,6 @@ function purchaseRowLabel(row: V2ShopPurchaseRow): string {
       return row.grant.minerValueUsd != null
         ? `$${row.grant.minerValueUsd} miner`
         : "Miner";
-    case "mega":
-      if (row.grant.megaKey === "miner_500") return "$500 miner";
-      if (row.grant.megaKey === "watts_20000") return "20,000 watts";
-      return "Mega prize";
     case "watts":
       return `${formatNumber(Number(row.grant.wattsGranted))} watts`;
     case "early_access":
