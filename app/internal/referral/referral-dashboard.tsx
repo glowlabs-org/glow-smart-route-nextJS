@@ -205,10 +205,10 @@ function ExportSplitPill({
 }
 
 const TIER_CONFIG = {
-  Seed: { color: "#71717a", label: "5%" },
-  Grow: { color: "#3b82f6", label: "10%" },
-  Scale: { color: "#a855f7", label: "15%" },
-  Legend: { color: "#f59e0b", label: "20%" },
+  Aurora: { color: "#71717a", label: "5%" },
+  Solaris: { color: "#3b82f6", label: "10%" },
+  Zenith: { color: "#a855f7", label: "15%" },
+  "Eclipse Prime": { color: "#f59e0b", label: "20%" },
 } as const;
 
 const GENESIS_TIMESTAMP = 1700352000;
@@ -304,10 +304,10 @@ function TierDistributionChart({
   data: { seed: number; grow: number; scale: number; legend: number };
 }) {
   const chartData = [
-    { name: "Seed", value: data.seed, color: TIER_CONFIG.Seed.color },
-    { name: "Grow", value: data.grow, color: TIER_CONFIG.Grow.color },
-    { name: "Scale", value: data.scale, color: TIER_CONFIG.Scale.color },
-    { name: "Legend", value: data.legend, color: TIER_CONFIG.Legend.color },
+    { name: "Aurora", value: data.seed, color: TIER_CONFIG.Aurora.color },
+    { name: "Solaris", value: data.grow, color: TIER_CONFIG.Solaris.color },
+    { name: "Zenith", value: data.scale, color: TIER_CONFIG.Zenith.color },
+    { name: "Eclipse Prime", value: data.legend, color: TIER_CONFIG["Eclipse Prime"].color },
   ];
 
   const total = chartData.reduce((sum, d) => sum + d.value, 0);
@@ -1886,19 +1886,19 @@ export function ReferralDashboard() {
               <div className="mt-6 pt-6 border-t border-border/20 dark:border-border/40">
                 <div className="grid grid-cols-4 gap-4 text-center">
                   <div>
-                    <div className="text-xs text-muted-foreground/50 mb-1">Seed</div>
+                    <div className="text-xs text-muted-foreground/50 mb-1">Aurora</div>
                     <div className="text-sm font-medium">1 ref · 5%</div>
                   </div>
                   <div>
-                    <div className="text-xs text-muted-foreground/50 mb-1">Grow</div>
+                    <div className="text-xs text-muted-foreground/50 mb-1">Solaris</div>
                     <div className="text-sm font-medium">2-3 refs · 10%</div>
                   </div>
                   <div>
-                    <div className="text-xs text-muted-foreground/50 mb-1">Scale</div>
+                    <div className="text-xs text-muted-foreground/50 mb-1">Zenith</div>
                     <div className="text-sm font-medium">4-6 refs · 15%</div>
                   </div>
                   <div>
-                    <div className="text-xs text-muted-foreground/50 mb-1">Legend</div>
+                    <div className="text-xs text-muted-foreground/50 mb-1">Eclipse Prime</div>
                     <div className="text-sm font-medium">7+ refs · 20%</div>
                   </div>
                 </div>
