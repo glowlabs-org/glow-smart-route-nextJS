@@ -190,6 +190,9 @@ function WeeklyStreakPanel({
   const streakWeek = streak?.streakWeek ?? 0;
   const qualified = streak?.qualified ?? false;
   const nextAward = streak?.nextAwardPoints ?? 0;
+  // This-week running accrual when the backend ships it; otherwise fall
+  // back to the next-award figure so the display never goes blank.
+  const projectedThisWeek = streak?.projectedCurrentWeekPoints ?? nextAward;
   const active = streakWeek > 0;
   const capWeeks = capWeek ?? 20;
   const maxed = streakWeek >= capWeeks;
@@ -233,13 +236,13 @@ function WeeklyStreakPanel({
           </span>
         </div>
 
-        {nextAward > 0 && !maxed ? (
+        {projectedThisWeek > 0 && !maxed ? (
           <div className="text-right shrink-0">
             <div className="font-mono text-sm font-semibold text-[#4ADE80] tabular-nums">
-              +{formatPoints(String(nextAward))}
+              +{formatPoints(String(projectedThisWeek))}
             </div>
             <div className="text-[9px] uppercase tracking-wider text-muted-foreground/70">
-              pts
+              {qualified ? r.streakProjectedThisWeek : r.streakPts}
             </div>
           </div>
         ) : null}

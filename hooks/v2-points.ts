@@ -21,6 +21,12 @@ export interface V2CurrentStreak {
   qualifiedAt: string | null;
   /** Points the next streak award would grant. */
   nextAwardPoints: number;
+  /**
+   * Points accrued so far during the CURRENT week (this-week running
+   * total), as opposed to `nextAwardPoints` which is the amount the NEXT
+   * streak award would grant. Optional: the backend may not ship it yet.
+   */
+  projectedCurrentWeekPoints?: number;
 }
 
 export interface V2PointsBalance {

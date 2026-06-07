@@ -229,6 +229,8 @@ export interface WidgetStrings {
     streakLockedIn: string;
     streakKeepGoing: string;
     streakMaxed: (points: string) => string;
+    streakPts: string;
+    streakProjectedThisWeek: string;
   };
 
   netWorthWidget: {
@@ -899,6 +901,8 @@ const en: WidgetStrings = {
     streakLockedIn: "You're covered this week",
     streakKeepGoing: "Act this week to keep it going",
     streakMaxed: (points) => `Maxed out · ${points} pts/week`,
+    streakPts: "pts",
+    streakProjectedThisWeek: "Projected this week",
   },
 
   netWorthWidget: {
@@ -1564,6 +1568,8 @@ const ko: WidgetStrings = {
     streakLockedIn: "이번 주는 적립 완료",
     streakKeepGoing: "이번 주에 활동하여 연속 유지",
     streakMaxed: (points) => `최대치 · 주당 ${points} pts`,
+    streakPts: "pts",
+    streakProjectedThisWeek: "이번 주 예상",
   },
 
   netWorthWidget: {
@@ -2224,6 +2230,8 @@ const zh: WidgetStrings = {
     streakLockedIn: "本周已记录",
     streakKeepGoing: "本周采取操作以保持连续",
     streakMaxed: (points) => `已达上限 · 每周 ${points} 分`,
+    streakPts: "分",
+    streakProjectedThisWeek: "本周预计",
   },
 
   netWorthWidget: {
