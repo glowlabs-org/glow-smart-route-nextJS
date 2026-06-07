@@ -81,6 +81,10 @@ describe("sponsor listings query options", () => {
       {
         type: "mining-center",
       },
+      // F6 early-access split: the visibility variant is part of the cache key
+      // (no early-access entitlement in this test -> "public"). See
+      // hub-listings.ts (earlyAccessHeader ? "early-access" : "public").
+      "public",
     ]);
   });
 });

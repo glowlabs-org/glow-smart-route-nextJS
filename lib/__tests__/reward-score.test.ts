@@ -195,6 +195,7 @@ describe("buildRewardScoreBatchInputs", () => {
         paymentCurrencyPriceUsd6: "2",
         expectedWeeklyCarbonCredits: 10,
         regionId: 1,
+        pdRecoveryDiscount: 1.25,
       },
       {
         userId: REWARD_SCORE_FALLBACK_USER_ID,
@@ -207,6 +208,7 @@ describe("buildRewardScoreBatchInputs", () => {
         paymentCurrencyPriceUsd6: "5",
         expectedWeeklyCarbonCredits: 10,
         regionId: 1,
+        pdRecoveryDiscount: 1.25,
       },
     ]);
   });
