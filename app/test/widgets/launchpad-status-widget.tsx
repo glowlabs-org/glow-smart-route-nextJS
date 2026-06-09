@@ -114,13 +114,14 @@ function countAvailableApplications(
 
 // Helper: Get availability info for an application.
 function getActiveFractionAvailability(application: AuctionApplication) {
-  const { remaining, total, isSoldOut, progressFilledPct } =
+  const { remaining, total, isSoldOut, progressFilledPct, showTotal } =
     getLaunchpadAvailability(application);
   return {
     remaining,
     total,
     isSoldOut,
     percentFilled: Math.round(progressFilledPct),
+    showTotal,
   };
 }
 
@@ -815,10 +816,14 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
               <span className="text-xs text-muted-foreground font-medium">
                 {availability.isSoldOut
                   ? t.widgets.launchpadStatus.filled
-                  : t.widgets.launchpadStatus.leftCount(
-                      availability.remaining,
-                      availability.total,
-                    )}
+                  : availability.showTotal
+                    ? t.widgets.launchpadStatus.leftCount(
+                        availability.remaining,
+                        availability.total,
+                      )
+                    : t.widgets.launchpadStatus.leftSingleCount(
+                        availability.remaining,
+                      )}
               </span>
             </div>
 

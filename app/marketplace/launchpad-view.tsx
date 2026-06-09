@@ -987,7 +987,9 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                             }}
                           >
                             {application.activeFraction
-                              ? `${availability.remaining}/${availability.total}`
+                              ? availability.showTotal
+                                ? `${availability.remaining}/${availability.total}`
+                                : `${availability.remaining}`
                               : "0/0"}
                           </div>
                           <div
@@ -2349,10 +2351,12 @@ function LaunchpadMarketplaceWidget({
                       </span>
                       {!availability.isSoldOut && (
                         <span className="text-xs md:text-sm font-mono tabular-nums text-foreground/70 dark:text-white/60">
-                          {l.leftFraction(
-                            String(availability?.remaining),
-                            String(availability?.total),
-                          )}
+                          {availability.showTotal
+                            ? l.leftFraction(
+                                String(availability?.remaining),
+                                String(availability?.total),
+                              )
+                            : l.leftSingle(String(availability?.remaining))}
                         </span>
                       )}
                     </div>
@@ -2902,11 +2906,13 @@ function LaunchpadWidgetAssetCard({
                         application.activeFraction?.filledAt || null,
                       ),
                     )
-                  ) : (
+                  ) : availability.showTotal ? (
                     l.leftFractionUpper(
                       String(availability.remaining),
                       String(availability.total),
                     )
+                  ) : (
+                    l.leftSingleUpper(String(availability.remaining))
                   )}
                 </div>
               </div>
@@ -3193,7 +3199,9 @@ function LaunchpadWidgetHeroCarouselCard({
         getListingVisibleStartAtMs(application),
         application.activeFraction?.filledAt || null
       )
-    : `${availability.remaining.toLocaleString()} / ${availability.total.toLocaleString()}`;
+    : availability.showTotal
+    ? `${availability.remaining.toLocaleString()} / ${availability.total.toLocaleString()}`
+    : `${availability.remaining.toLocaleString()}`;
 
   const unitsSubValue = isSoldOut ? l.sellOutTime : l.available;
   const unitsRemainingPct = React.useMemo(() => {
@@ -4404,11 +4412,13 @@ function LaunchpadAssetCard({
                         application.activeFraction?.filledAt || null,
                       ),
                     )
-                  ) : (
+                  ) : availability.showTotal ? (
                     l.leftFractionUpper(
                       String(availability.remaining),
                       String(availability.total),
                     )
+                  ) : (
+                    l.leftSingleUpper(String(availability.remaining))
                   )}
                 </div>
               </div>

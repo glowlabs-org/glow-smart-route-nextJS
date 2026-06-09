@@ -402,6 +402,7 @@ export interface BigDialogsStrings {
     chartViewComponent: string;
     weekAbbrev: string;
     filledLabel: (filled: number, total: number) => string;
+    filledSingleLabel: (filled: number) => string;
     minersFilledLabel: (filled: number, total: number) => string;
     percentFilled: (percent: number) => string;
     weeksProgress: (active: number, total: number) => string;
@@ -881,6 +882,7 @@ const en: BigDialogsStrings = {
     chartViewComponent: "[ Chart View Component ]",
     weekAbbrev: "wk",
     filledLabel: (filled, total) => `${filled} / ${total} filled`,
+    filledSingleLabel: (filled) => `${filled} filled`,
     minersFilledLabel: (filled, total) => `${filled} / ${total} miners filled`,
     percentFilled: (percent) => `${percent}% filled`,
     weeksProgress: (active, total) => `${active} / ${total} weeks`,
@@ -1359,6 +1361,7 @@ const ko: BigDialogsStrings = {
     chartViewComponent: "[ 차트 보기 컴포넌트 ]",
     weekAbbrev: "주",
     filledLabel: (filled, total) => `${filled} / ${total} 충족`,
+    filledSingleLabel: (filled) => `${filled} 충족`,
     minersFilledLabel: (filled, total) => `${filled} / ${total} 마이너 충족`,
     percentFilled: (percent) => `${percent}% 충족`,
     weeksProgress: (active, total) => `${active} / ${total}주`,
@@ -1828,6 +1831,7 @@ const zh: BigDialogsStrings = {
     chartViewComponent: "[ 图表视图组件 ]",
     weekAbbrev: "周",
     filledLabel: (filled, total) => `${filled} / ${total} 已填充`,
+    filledSingleLabel: (filled) => `${filled} 已填充`,
     minersFilledLabel: (filled, total) => `${filled} / ${total} 矿工已填充`,
     percentFilled: (percent) => `${percent}% 已填充`,
     weeksProgress: (active, total) => `${active} / ${total} 周`,
