@@ -261,15 +261,29 @@ interface PerformanceRowData {
 export function formatInProgressFilledLabel(params: {
   application: AuctionApplication | null | undefined;
   fractionType: "launchpad" | "mining-center";
-  labels?: Pick<FarmsPerfLabels, "filledLabel" | "minersFilledLabel">;
+  labels?: Pick<
+    FarmsPerfLabels,
+    "filledLabel" | "filledSingleLabel" | "minersFilledLabel"
+  >;
 }): string | null {
   const application = params.application;
   if (!application?.activeFraction) return null;
 
   if (params.fractionType === "launchpad") {
-    const { total: totalShares, sold: filled } =
-      getLaunchpadAvailability(application);
+    const {
+      total: totalShares,
+      sold: filled,
+      showTotal,
+    } = getLaunchpadAvailability(application);
     if (totalShares <= 0) return null;
+    // GLW listings over-count total_steps post-commit (splits_sold + GLW
+    // remainder), so the "/ total" denominator is misleading. Only sGCTL has a
+    // real unit total; for GLW show just the filled count.
+    if (!showTotal) {
+      return params.labels?.filledSingleLabel
+        ? params.labels.filledSingleLabel(filled)
+        : `${filled} filled`;
+    }
     return params.labels?.filledLabel
       ? params.labels.filledLabel(filled, totalShares)
       : `${filled} / ${totalShares} filled`;

@@ -13,6 +13,7 @@ import {
   type ActiveFraction,
 } from "@/hooks/hub-listings";
 import {
+  resolveDelegationCurrency,
   resolveLaunchpadDelegationShareCount,
   type DelegationApplicationLike,
 } from "./launchpad-rewards";
@@ -28,6 +29,8 @@ export interface LaunchpadAvailability {
   isSoldOut: boolean;
   /** Filled percent, bounded [0, 100]. */
   progressFilledPct: number;
+  /** Whether `total` is a real unit count worth displaying as the "X / Y" denominator. Only sGCTL's total is legitimate; the GLW total_steps is over-counted post-commit (splits_sold + GLW remainder), so for GLW listings the UI must show ONLY `remaining`, never "remaining / total". */
+  showTotal: boolean;
 }
 
 const EMPTY: LaunchpadAvailability = {
@@ -36,6 +39,7 @@ const EMPTY: LaunchpadAvailability = {
   sold: 0,
   isSoldOut: true,
   progressFilledPct: 0,
+  showTotal: false,
 };
 
 export function getLaunchpadAvailability(
@@ -55,8 +59,9 @@ export function getLaunchpadAvailability(
   const isSoldOut = !isFractionOpenForMarketplace(fraction);
   const progressFilledPct =
     total > 0 ? Math.max(0, Math.min(100, (sold / total) * 100)) : 0;
+  const showTotal = resolveDelegationCurrency(application) === "SGCTL";
 
-  return { remaining, total, sold, isSoldOut, progressFilledPct };
+  return { remaining, total, sold, isSoldOut, progressFilledPct, showTotal };
 }
 
 export type LaunchpadAvailabilityFraction = Pick<

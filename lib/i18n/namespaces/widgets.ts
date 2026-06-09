@@ -68,6 +68,7 @@ export interface WidgetStrings {
     free: string;
     filled: string;
     leftCount: (remaining: number, total: number) => string;
+    leftSingleCount: (remaining: number) => string;
     soldIn: string;
     toFill: string;
     estWeekly: string;
@@ -680,6 +681,7 @@ const en: WidgetStrings = {
     free: "Free",
     filled: "filled",
     leftCount: (remaining, total) => `${remaining}/${total} left`,
+    leftSingleCount: (remaining) => `${remaining} left`,
     soldIn: "Sold In",
     toFill: "to fill",
     estWeekly: "Est. Weekly",
@@ -1346,6 +1348,7 @@ const ko: WidgetStrings = {
     free: "무료",
     filled: "완료됨",
     leftCount: (remaining, total) => `${remaining}/${total} 남음`,
+    leftSingleCount: (remaining) => `${remaining} 남음`,
     soldIn: "판매 소요",
     toFill: "완판까지",
     estWeekly: "주간 예상",
@@ -2012,6 +2015,7 @@ const zh: WidgetStrings = {
     free: "剩余",
     filled: "已认购",
     leftCount: (remaining, total) => `剩余 ${remaining}/${total}`,
+    leftSingleCount: (remaining) => `剩余 ${remaining}`,
     soldIn: "售罄用时",
     toFill: "待认购",
     estWeekly: "预计每周",

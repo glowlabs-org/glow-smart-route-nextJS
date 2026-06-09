@@ -110,6 +110,7 @@ export interface RoutesStrings {
     delegationAmount: string;
     free: string;
     leftFraction: (remaining: string, total: string) => string;
+    leftSingle: (remaining: string) => string;
     toSellOutSuffix: (time: string) => string;
     weeklyHundred: string;
     weeklyMiner: (weeks: string) => string;
@@ -148,6 +149,7 @@ export interface RoutesStrings {
     glwFromInflation: string;
     soldOutInPrefix: (time: string) => string;
     leftFractionUpper: (remaining: string, total: string) => string;
+    leftSingleUpper: (remaining: string) => string;
     weeklyGlwPerWeek: (val: string) => string;
     weeklyUsdPerWeek: (val: string) => string;
     estRewards100Weeks: string;
@@ -1079,6 +1081,7 @@ const en: RoutesStrings = {
     delegationAmount: "Delegation Amount",
     free: "Free",
     leftFraction: (remaining, total) => `${remaining}/${total} left`,
+    leftSingle: (remaining) => `${remaining} left`,
     toSellOutSuffix: (time) => `${time} to sell out`,
     weeklyHundred: "Weekly (100 wks)",
     weeklyMiner: (weeks) => `Weekly (${weeks})`,
@@ -1119,6 +1122,7 @@ const en: RoutesStrings = {
     glwFromInflation: "GLW from Inflation",
     soldOutInPrefix: (time) => `SOLD OUT IN ${time}`,
     leftFractionUpper: (remaining, total) => `${remaining} / ${total} Left`,
+    leftSingleUpper: (remaining) => `${remaining} Left`,
     weeklyGlwPerWeek: (val) => `+${val} GLW/wk`,
     weeklyUsdPerWeek: (val) => `≈ $${val} USD/wk`,
     estRewards100Weeks: "Est. Rewards (100 weeks)",
@@ -2136,6 +2140,7 @@ const ko: RoutesStrings = {
     delegationAmount: "위임 금액",
     free: "무료",
     leftFraction: (remaining, total) => `${remaining}/${total} 남음`,
+    leftSingle: (remaining) => `${remaining} 남음`,
     toSellOutSuffix: (time) => `매진까지 ${time}`,
     weeklyHundred: "주간 (100주)",
     weeklyMiner: (weeks) => `주간 (${weeks})`,
@@ -2177,6 +2182,7 @@ const ko: RoutesStrings = {
     glwFromInflation: "인플레이션으로부터 GLW",
     soldOutInPrefix: (time) => `${time} 만에 매진`,
     leftFractionUpper: (remaining, total) => `${remaining} / ${total} 남음`,
+    leftSingleUpper: (remaining) => `${remaining} 남음`,
     weeklyGlwPerWeek: (val) => `+${val} GLW/주`,
     weeklyUsdPerWeek: (val) => `≈ $${val} USD/주`,
     estRewards100Weeks: "예상 리워드 (100주)",
@@ -3186,6 +3192,7 @@ const zh: RoutesStrings = {
     delegationAmount: "委托金额",
     free: "免费",
     leftFraction: (remaining, total) => `剩余 ${remaining}/${total}`,
+    leftSingle: (remaining) => `剩余 ${remaining}`,
     toSellOutSuffix: (time) => `${time} 售罄`,
     weeklyHundred: "每周 (100 周)",
     weeklyMiner: (weeks) => `每周 (${weeks})`,
@@ -3226,6 +3233,7 @@ const zh: RoutesStrings = {
     glwFromInflation: "来自通胀的 GLW",
     soldOutInPrefix: (time) => `${time}内售罄`,
     leftFractionUpper: (remaining, total) => `剩余 ${remaining} / ${total}`,
+    leftSingleUpper: (remaining) => `剩余 ${remaining}`,
     weeklyGlwPerWeek: (val) => `+${val} GLW/周`,
     weeklyUsdPerWeek: (val) => `≈ $${val} USD/周`,
     estRewards100Weeks: "预计奖励 (100 周)",

@@ -72,6 +72,7 @@ describe("getLaunchpadAvailability — empty inputs", () => {
       sold: 0,
       isSoldOut: true,
       progressFilledPct: 0,
+      showTotal: false,
     });
   });
 
@@ -82,6 +83,7 @@ describe("getLaunchpadAvailability — empty inputs", () => {
       sold: 0,
       isSoldOut: true,
       progressFilledPct: 0,
+      showTotal: false,
     });
   });
 
@@ -93,6 +95,7 @@ describe("getLaunchpadAvailability — empty inputs", () => {
       sold: 0,
       isSoldOut: true,
       progressFilledPct: 0,
+      showTotal: false,
     });
   });
 });
@@ -109,6 +112,19 @@ describe("getLaunchpadAvailability — GLW phase (typical post-commit)", () => {
     expect(av.remaining).toBe(16);
     expect(av.isSoldOut).toBe(false);
     expect(av.progressFilledPct).toBe(0);
+    expect(av.showTotal).toBe(false);
+  });
+
+  it("sets showTotal=false for a GLW listing (total_steps is over-counted post-commit)", () => {
+    // The GLW total_steps = splits_sold + on-chain GLW remainder, which is NOT
+    // a real delegation-unit count, so the UI must show only `remaining`.
+    const app = buildApplication({
+      paymentCurrency: "USDG",
+      fraction: { totalSteps: 100, splitsSold: 92 },
+    });
+    const av = getLaunchpadAvailability(app);
+    expect(av.remaining).toBe(8);
+    expect(av.showTotal).toBe(false);
   });
 
   it("computes remaining from splitsSold, capping sold at total", () => {
@@ -182,6 +198,23 @@ describe("getLaunchpadAvailability — sGCTL phase (currency=SGCTL)", () => {
     expect(av.total).toBe(95);
     expect(av.sold).toBe(12);
     expect(av.remaining).toBe(83);
+    expect(av.showTotal).toBe(true);
+  });
+
+  it("sets showTotal=true for an sGCTL listing (its total is a real unit count)", () => {
+    const app = buildApplication({
+      paymentCurrency: "SGCTL",
+      finalProtocolFee: "7846900000",
+      prices: { SGCTL: "796135", GLW: "578014" },
+      fraction: {
+        totalSteps: 16,
+        splitsSold: 12,
+        delegationAsset: "SGCTL",
+        sgctlStepAtomic: "103750000",
+        currentStepUsd6: "82599006",
+      },
+    });
+    expect(getLaunchpadAvailability(app).showTotal).toBe(true);
   });
 
   it("reports the wk129 Spectrum live state cleanly (the original bug it caught)", () => {
