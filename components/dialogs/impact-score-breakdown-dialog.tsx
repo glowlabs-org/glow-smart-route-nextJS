@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useMemo, useState } from "react";
 import { useAccount } from "wagmi";
-import { Sparkles, ShoppingBag, HelpCircle } from "lucide-react";
+import { HelpCircle } from "lucide-react";
 
 import {
   VaultIcon,
@@ -11,6 +11,8 @@ import {
   CashMinerIcon,
   ImpactStreakIcon,
   ReferralIcon,
+  PointsIcon,
+  PointsShopIcon,
 } from "@/components/impact-icons";
 import {
   Dialog,
@@ -293,7 +295,7 @@ export function ImpactScoreBreakdownDialog({
                       <div className="space-y-0">
                         {opening > 0 && (
                           <SourceRow
-                            icon={Sparkles}
+                            icon={PointsIcon}
                             label="Opening balance"
                             sublabel="Carried over from V1"
                             points={opening}
@@ -302,7 +304,7 @@ export function ImpactScoreBreakdownDialog({
                         )}
                         {agg.adminCorrection !== 0 && (
                           <SourceRow
-                            icon={Sparkles}
+                            icon={PointsIcon}
                             label="Manual adjustment"
                             sublabel="Applied by the Glow team"
                             points={agg.adminCorrection}
@@ -311,7 +313,7 @@ export function ImpactScoreBreakdownDialog({
                         )}
                         {agg.spent < 0 && (
                           <SourceRow
-                            icon={ShoppingBag}
+                            icon={PointsShopIcon}
                             label="Shop spending"
                             sublabel="Redeemed in the points shop"
                             points={agg.spent}

@@ -13,10 +13,10 @@ import {
   Share2,
   RefreshCw,
   CreditCard,
-  Sparkles,
   Zap,
   AlertCircle,
 } from "lucide-react";
+import { PointsIcon } from "@/components/impact-icons";
 import { mainnet, sepolia } from "wagmi/chains";
 import {
   useFundWallet,
@@ -3277,7 +3277,7 @@ export function DepositDialog({
                       {/* Points */}
                       <div className="flex items-center gap-2.5 min-w-0">
                         <div className="h-8 w-8 shrink-0 rounded-full bg-green-500/10 dark:bg-[#D1FF4D]/10 ring-1 ring-green-500/20 dark:ring-[#D1FF4D]/20 flex items-center justify-center">
-                          <Sparkles className="h-4 w-4 text-green-600 dark:text-[#D1FF4D]" />
+                          <PointsIcon className="h-4 w-4 text-green-600 dark:text-[#D1FF4D]" />
                         </div>
                         <div className="min-w-0 leading-tight">
                           <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider truncate">
@@ -3707,7 +3707,7 @@ export function DepositDialog({
               {/* Points (total, scales with quantity) */}
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="h-8 w-8 shrink-0 rounded-full bg-green-500/10 dark:bg-[#D1FF4D]/10 ring-1 ring-green-500/20 dark:ring-[#D1FF4D]/20 flex items-center justify-center">
-                  <Sparkles className="h-4 w-4 text-green-600 dark:text-[#D1FF4D]" />
+                  <PointsIcon className="h-4 w-4 text-green-600 dark:text-[#D1FF4D]" />
                 </div>
                 <div className="min-w-0 leading-tight">
                   <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider truncate">

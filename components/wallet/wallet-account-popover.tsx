@@ -8,10 +8,9 @@ import {
   History,
   LogOut,
   Share2,
-  ShoppingBag,
-  Sparkles,
   Wallet,
 } from "lucide-react";
+import { PointsIcon, PointsShopIcon } from "@/components/impact-icons";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { useAccount, useChainId, useDisconnect } from "wagmi";
@@ -209,7 +208,7 @@ export function WalletAccountPopover({ trigger }: WalletAccountPopoverProps) {
                 <div className="flex items-center justify-between px-2 py-2 rounded-lg">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className="h-7 w-7 rounded-full bg-[color:var(--color-glow-orange)]/10 border border-[color:var(--color-glow-orange)]/30 flex items-center justify-center text-[color:var(--color-glow-orange)] shrink-0">
-                      <Sparkles className="h-3.5 w-3.5" />
+                      <PointsIcon className="h-3.5 w-3.5" />
                     </div>
                     <span className="text-sm font-medium">
                       {t.wallet.points}
@@ -259,7 +258,7 @@ export function WalletAccountPopover({ trigger }: WalletAccountPopoverProps) {
             onClick={() => setPopoverOpen(false)}
             className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm hover:bg-muted/40 transition-colors"
           >
-            <ShoppingBag className="h-4 w-4" />
+            <PointsShopIcon className="h-4 w-4" />
             <span>{t.wallet.pointsShop}</span>
           </Link>
           <ActionButton

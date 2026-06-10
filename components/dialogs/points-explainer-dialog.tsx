@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Coins, ShoppingBag, CalendarCheck, ArrowRight } from "lucide-react";
+import { CalendarCheck, ArrowRight } from "lucide-react";
+import { PointsIcon, PointsShopIcon } from "@/components/impact-icons";
 
 import {
   Dialog,
@@ -55,7 +56,7 @@ export function PointsExplainerDialog({
           {/* Ways to earn */}
           <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4 space-y-3">
             <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
-              <Coins className="h-3.5 w-3.5" />
+              <PointsIcon className="h-3.5 w-3.5" />
               Ways to earn
             </div>
             <ul className="text-sm text-muted-foreground space-y-2">
@@ -110,7 +111,7 @@ export function PointsExplainerDialog({
           {/* What they're for */}
           <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4 space-y-3">
             <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
-              <ShoppingBag className="h-3.5 w-3.5" />
+              <PointsShopIcon className="h-3.5 w-3.5" />
               What they are for
             </div>
             <p className="text-sm text-muted-foreground">

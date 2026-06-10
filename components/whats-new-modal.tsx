@@ -8,12 +8,11 @@ import {
   X,
   ArrowLeft,
   ArrowRight,
-  Coins,
   Zap,
   Trophy,
-  ShoppingBag,
   Check,
 } from "lucide-react";
+import { PointsIcon, PointsShopIcon } from "@/components/impact-icons";
 import {
   Dialog,
   DialogContent,
@@ -39,7 +38,7 @@ interface Feature {
 const FEATURES: Feature[] = [
   {
     key: "points",
-    Icon: Coins,
+    Icon: PointsIcon,
     chip: "bg-[color:var(--color-glow-orange)]/10 text-[color:var(--color-glow-orange)]",
     tagline: "Points are now a spendable currency.",
     heading: "Reworked Points System",
@@ -66,7 +65,7 @@ const FEATURES: Feature[] = [
   },
   {
     key: "shop",
-    Icon: ShoppingBag,
+    Icon: PointsShopIcon,
     chip: "bg-[color:var(--delegation-purple)]/10 text-[color:var(--delegation-purple)]",
     tagline: "Spend your points in the shop.",
     heading: "The Points Shop",
@@ -84,9 +83,9 @@ const CTAS: {
   href: string;
   Icon: React.ComponentType<{ className?: string }>;
 }[] = [
-  { label: "Earn points", href: "/?earn=1", Icon: Coins },
+  { label: "Earn points", href: "/?earn=1", Icon: PointsIcon },
   { label: "View the leaderboard", href: "/leaderboard", Icon: Trophy },
-  { label: "Open the Points Shop", href: "/shop", Icon: ShoppingBag },
+  { label: "Open the Points Shop", href: "/shop", Icon: PointsShopIcon },
 ];
 
 // step 0 = overview, 1..3 = features, last = get started

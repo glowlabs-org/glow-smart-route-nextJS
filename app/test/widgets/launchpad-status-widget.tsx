@@ -64,7 +64,12 @@ import { BuyGlowDialog } from "@/components/dialogs/buy-glow-dialog";
 import { trackEvent } from "@/lib/telemetry";
 import { useAccount } from "wagmi";
 import Link from "next/link";
-import { CashMinerIcon, DelegationIcon } from "@/components/impact-icons";
+import {
+  CashMinerIcon,
+  DelegationIcon,
+  PointsIcon,
+  PointsShopIcon,
+} from "@/components/impact-icons";
 import type {
   LaunchpadRewardScore,
   MiningCenterScore,
@@ -1699,6 +1704,7 @@ export default function LaunchpadStatusWidget({
                 {t.home.topPoints.label}
               </span>
               <span className="flex items-baseline gap-1.5">
+                <PointsIcon className="h-5 w-5 shrink-0 self-center text-amber-500" />
                 <span className="font-mono text-2xl font-bold leading-none tabular-nums text-foreground sm:text-3xl">
                   {pointsHeaderValue}
                 </span>
@@ -1717,8 +1723,8 @@ export default function LaunchpadStatusWidget({
               }
               className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-600 transition-colors hover:bg-amber-500/20 dark:text-amber-400"
             >
+              <PointsShopIcon className="h-4 w-4" />
               {t.home.topPoints.shopCta}
-              <ArrowUpRight className="h-4 w-4" />
             </Link>
           </div>
         )}
