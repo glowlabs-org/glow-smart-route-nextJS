@@ -1024,6 +1024,44 @@ export function DepositDialog({
     ],
   );
 
+  // Per-unit affordability (quantity = 1) so the Max button can default to the
+  // largest number of units the wallet can actually afford in the selected
+  // payment method, instead of the listing's full remaining steps.
+  const affordabilityPerUnit = React.useMemo(
+    () =>
+      calculateAffordability({
+        activeFraction: application?.activeFraction ?? null,
+        quantity: 1,
+        selectedCurrency: runtimeSelectedCurrency,
+        selectedPaymentMethod,
+        delegationStepAtomic,
+        glwSpotPrice,
+        gctlSpotPrice: gctlPriceNumber,
+        ethSpotPrice,
+        glwBalance: glwBalance ?? 0n,
+        gctlBalance: gctlWalletBalance,
+        stakedGctlBalance,
+        usdcBalance: usdcBalance ?? 0n,
+        ethBalance: ethBalance ?? 0n,
+        unclaimedGlwBalance: unclaimedGlw.totalGlwWei,
+      }),
+    [
+      application?.activeFraction,
+      delegationStepAtomic,
+      gctlWalletBalance,
+      gctlPriceNumber,
+      ethSpotPrice,
+      glwBalance,
+      runtimeSelectedCurrency,
+      selectedPaymentMethod,
+      stakedGctlBalance,
+      glwSpotPrice,
+      usdcBalance,
+      ethBalance,
+      unclaimedGlw.totalGlwWei,
+    ],
+  );
+
   // Hide a swap option entirely when the connected wallet cannot cover even ONE
   // unit in that asset: a swap that can never fund a single unit should not be
   // offered. Uses the spot-priced 1-unit cost (the same basis as the row's
@@ -1508,6 +1546,26 @@ export function DepositDialog({
   const maxQuantity = resolveFractionRemainingSteps(
     effectiveApplication?.activeFraction,
   );
+
+  // The largest number of units the wallet can afford in the selected payment
+  // method, capped by the listing's remaining steps. Drives the Max button.
+  // Falls back to the availability cap when the per-unit cost isn't known yet
+  // (e.g. a swap price still loading or no active fraction).
+  const maxAffordableUnits = React.useMemo(() => {
+    const perUnitCost =
+      affordabilityPerUnit.requiredByMethod[selectedPaymentMethod];
+    const balance = affordability.balances[selectedPaymentMethod];
+    if (perUnitCost == null || perUnitCost <= 0n || balance == null) {
+      return maxQuantity;
+    }
+    const affordable = Number(balance / perUnitCost);
+    return clampQuantity(Math.min(maxQuantity, affordable), 1, maxQuantity);
+  }, [
+    affordabilityPerUnit.requiredByMethod,
+    affordability.balances,
+    selectedPaymentMethod,
+    maxQuantity,
+  ]);
 
   // Handlers
   const handleQuantityChange = (delta: number) => {
@@ -3502,8 +3560,8 @@ export function DepositDialog({
                 <button
                   type="button"
                   onClick={() => {
-                    setQuantity(maxQuantity);
-                    setQuantityInput(maxQuantity.toString());
+                    setQuantity(maxAffordableUnits);
+                    setQuantityInput(maxAffordableUnits.toString());
                   }}
                   className="text-xs font-medium text-glow-orange hover:text-glow-orange/80 transition-colors px-2 py-0.5 rounded-md hover:bg-glow-orange/10"
                 >
