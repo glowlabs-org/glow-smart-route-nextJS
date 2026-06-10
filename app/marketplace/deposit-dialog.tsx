@@ -1024,6 +1024,31 @@ export function DepositDialog({
     ],
   );
 
+  // Hide a swap option entirely when the connected wallet cannot cover even ONE
+  // unit in that asset: a swap that can never fund a single unit should not be
+  // offered. Uses the spot-priced 1-unit cost (the same basis as the row's
+  // preview). When disconnected or the cost is not yet known, keep it visible.
+  const ethBalanceNum = ethBalance
+    ? parseFloat(formatUnits(ethBalance, 18))
+    : 0;
+  const ethOneUnitCost = costInETH(1);
+  const showEthOption =
+    !isConnected ||
+    !Number.isFinite(ethOneUnitCost) ||
+    ethOneUnitCost <= 0 ||
+    ethBalanceNum >= ethOneUnitCost;
+
+  // If ETH was auto-selected (e.g. the sGCTL fallback) but is now hidden as
+  // unaffordable, fall back to the currency's default method so the selection
+  // never points at a hidden option.
+  React.useEffect(() => {
+    if (!showEthOption && selectedPaymentMethod === "ETH") {
+      setSelectedPaymentMethod(
+        getDefaultPaymentMethodForRuntimeCurrency(runtimeSelectedCurrency),
+      );
+    }
+  }, [showEthOption, selectedPaymentMethod, runtimeSelectedCurrency]);
+
   const targetGlwForUnclaimed = React.useMemo<bigint>(() => {
     if (runtimeSelectedCurrency !== "GLW") return 0n;
     const required = affordability.requiredByMethod.UNCLAIMED_REWARDS;
@@ -1139,6 +1164,29 @@ export function DepositDialog({
     quantity,
     runtimeSelectedCurrency,
   ]);
+
+  // The Total row amount, in the selected payment asset. Extracted so the
+  // Delegation Amount row above it can be hidden when the two are identical
+  // (no swap: paying in the delegation asset itself), where the second row is
+  // just redundant.
+  const totalAmountLabel =
+    selectedPaymentMethod === "GLW"
+      ? requiredDisplayByMethod.GLW
+      : selectedPaymentMethod === "SGCTL"
+        ? requiredDisplayByMethod.SGCTL
+        : selectedPaymentMethod === "GCTL"
+          ? requiredDisplayByMethod.GCTL
+          : selectedPaymentMethod === "USDC"
+            ? `$${formatTokenAmount(
+                affordability.requiredByMethod.USDC,
+                6,
+                costInUSDC(quantity).toLocaleString(),
+              )}`
+            : selectedPaymentMethod === "ETH"
+              ? requiredDisplayByMethod.ETH
+              : selectedPaymentMethod === "UNCLAIMED_REWARDS"
+                ? requiredDisplayByMethod.UNCLAIMED_REWARDS
+                : "";
 
   const shortfallByMethod = React.useMemo(() => {
     return {
@@ -3440,7 +3488,7 @@ export function DepositDialog({
         </div>
 
         <div className="px-5 pb-5">
-          <div className="space-y-5">
+          <div className="space-y-4">
           {/* Quantity Section */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -3797,33 +3845,35 @@ export function DepositDialog({
                           : undefined
                     }
                   />
-                  {/* Option: ETH */}
-                  <PaymentOption
-                    label={dd.paymentLabelEth}
-                    balance={
-                      ethBalance
-                        ? `${parseFloat(formatUnits(ethBalance, 18)).toFixed(
-                            4,
-                          )} ETH`
-                        : "0 ETH"
-                    }
-                    icon={<TokenIcon symbol="ETH" />}
-                    selected={selectedPaymentMethod === "ETH"}
-                    onSelect={() => setSelectedPaymentMethod("ETH")}
-                    isBalanceInsufficient={
-                      isConnected &&
-                      selectedPaymentMethod === "ETH" &&
-                      !affordability.canSubmit
-                    }
-                    pricePreview={requiredDisplayByMethod.ETH}
-                    previewLabel={
-                      runtimeSelectedCurrency === "SGCTL"
-                        ? dd.previewSourceCost
-                        : runtimeSelectedCurrency === "GLW"
-                          ? dd.previewSwapCost
-                          : undefined
-                    }
-                  />
+                  {/* Option: ETH (hidden when the wallet can't cover 1 unit) */}
+                  {showEthOption && (
+                    <PaymentOption
+                      label={dd.paymentLabelEth}
+                      balance={
+                        ethBalance
+                          ? `${parseFloat(formatUnits(ethBalance, 18)).toFixed(
+                              4,
+                            )} ETH`
+                          : "0 ETH"
+                      }
+                      icon={<TokenIcon symbol="ETH" />}
+                      selected={selectedPaymentMethod === "ETH"}
+                      onSelect={() => setSelectedPaymentMethod("ETH")}
+                      isBalanceInsufficient={
+                        isConnected &&
+                        selectedPaymentMethod === "ETH" &&
+                        !affordability.canSubmit
+                      }
+                      pricePreview={requiredDisplayByMethod.ETH}
+                      previewLabel={
+                        runtimeSelectedCurrency === "SGCTL"
+                          ? dd.previewSourceCost
+                          : runtimeSelectedCurrency === "GLW"
+                            ? dd.previewSwapCost
+                            : undefined
+                      }
+                    />
+                  )}
                 </>
               )}
             </div>
@@ -3837,18 +3887,19 @@ export function DepositDialog({
         </div>
 
         <div className="px-5 pb-5 pt-4 border-t border-border/20 dark:border-border/40">
-          {runtimeSelectedCurrency !== "USDC" && (
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-mono font-medium uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                {runtimeSelectedCurrency === "SGCTL"
-                  ? dd.reviewYouDelegate
-                  : dd.reviewDelegationAmount}
-              </span>
-              <div className="text-right text-sm font-semibold font-mono">
-                {delegatedAmountLabel}
+          {runtimeSelectedCurrency !== "USDC" &&
+            delegatedAmountLabel !== totalAmountLabel && (
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-mono font-medium uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+                  {runtimeSelectedCurrency === "SGCTL"
+                    ? dd.reviewYouDelegate
+                    : dd.reviewDelegationAmount}
+                </span>
+                <div className="text-right text-sm font-semibold font-mono">
+                  {delegatedAmountLabel}
+                </div>
               </div>
-            </div>
-          )}
+            )}
           <div className="flex items-center justify-between mb-5">
             <span className="text-sm font-mono font-medium uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
               {runtimeSelectedCurrency === "SGCTL"
@@ -3859,24 +3910,17 @@ export function DepositDialog({
                   : dd.reviewTotal}
             </span>
             <div className="text-right">
-              <div className="text-xl font-bold font-mono">
-                {selectedPaymentMethod === "GLW" && requiredDisplayByMethod.GLW}
-                {selectedPaymentMethod === "SGCTL" &&
-                  requiredDisplayByMethod.SGCTL}
-                {selectedPaymentMethod === "GCTL" &&
-                  requiredDisplayByMethod.GCTL}
-                {selectedPaymentMethod === "USDC" &&
-                  `$${formatTokenAmount(
-                    affordability.requiredByMethod.USDC,
-                    6,
-                    costInUSDC(quantity).toLocaleString(),
-                  )}`}
-                {selectedPaymentMethod === "ETH" && requiredDisplayByMethod.ETH}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {selectedPaymentMethod === "USDC"
-                  ? dd.reviewStable
-                  : dd.reviewApprox(costInUSDC(quantity).toLocaleString())}
+              {/* Amount + the approx $ value inline in parens, so the value
+                  does not take its own row. */}
+              <div className="text-xl font-bold font-mono flex items-baseline justify-end gap-1.5 flex-wrap">
+                <span>{totalAmountLabel}</span>
+                <span className="text-xs font-medium text-muted-foreground">
+                  (
+                  {selectedPaymentMethod === "USDC"
+                    ? dd.reviewStable
+                    : dd.reviewApprox(costInUSDC(quantity).toLocaleString())}
+                  )
+                </span>
               </div>
             </div>
           </div>
