@@ -140,6 +140,18 @@ export interface V2EstimateAllocation {
   estimatedWattsPerUnit: number;
   estimatedWattsForQuantity: number;
   /**
+   * Per-asset deposit-share watts: one delegated unit earns watts in proportion
+   * to its share of the farm's total protocol deposit (matching the funded
+   * deposit-split attribution), so mixed sGCTL/GLW farms preview correctly. Null
+   * until the fee is finalized / a quote exists, at which point the headline
+   * `estimatedWattsPerUnit` reverts to the total_steps estimate (`wattsBasis`
+   * reports which basis produced it).
+   */
+  estimatedGlwWattsPerUnit: number | null;
+  estimatedSgctlWattsPerUnit: number | null;
+  wattsBasis: "deposit_share" | "total_steps_fallback";
+  totalFarmDepositUsd6: string;
+  /**
    * Quote-based GLW-delegation points (the same locked GVE-quote basis the
    * award uses), so the preview equals what gets credited. Null when the
    * fraction has no GLW step or price quote (client keeps its local fallback).

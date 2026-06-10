@@ -799,7 +799,20 @@ export function DepositDialog({
     estimateQuery.data,
   ]);
 
-  const previewWattsPerUnit = estimateQuery.data?.estimatedWattsPerUnit ?? null;
+  // Prefer the server's per-asset deposit-share watts (the basis that matches
+  // funded computeFarmAllocation attribution), picked by the delegated asset the
+  // same way serverPerUnit picks points above: GLW -> estimatedGlwWattsPerUnit,
+  // sGCTL -> estimatedSgctlWattsPerUnit. Fall back to the headline
+  // estimatedWattsPerUnit, which the backend already sets to the delegated
+  // asset's value (or the total_steps estimate pre-funding, per wattsBasis).
+  const previewWattsPerUnit =
+    (runtimeSelectedCurrency === "GLW"
+      ? estimateQuery.data?.estimatedGlwWattsPerUnit
+      : runtimeSelectedCurrency === "SGCTL"
+        ? estimateQuery.data?.estimatedSgctlWattsPerUnit
+        : null) ??
+    estimateQuery.data?.estimatedWattsPerUnit ??
+    null;
   // Totals scale with the selected quantity (what the user actually earns). On
   // the success screen the live `quantity` can transiently go stale/negative
   // during the post-purchase listing refetch, so use the submitted snapshot
