@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { History, Sparkles } from "lucide-react";
+import { History } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAccount, useChainId } from "wagmi";
 
@@ -20,7 +20,6 @@ import { QUERY_KEYS } from "@/hooks/query-keys";
 import { trackEvent } from "@/lib/telemetry";
 import { GlowSymbol } from "@/components/glow-symbol";
 import { useWalletPortfolio } from "./use-wallet-portfolio";
-import { useV2PointsBalance } from "@/hooks/v2-points";
 import { useRecentActivityFeed } from "@/hooks/useRecentActivityFeed";
 import { useLang } from "@/lib/i18n";
 
@@ -153,12 +152,8 @@ export default function WalletWidget({
     shouldShowSkeleton,
   } = useWalletPortfolio({ walletAddress });
 
-  // Points are now a monetary balance, so surface them alongside the tokens.
-  const pointsQuery = useV2PointsBalance(walletAddress ?? null);
-  const availablePoints = pointsQuery.data?.availablePoints;
-  const showPoints =
-    pointsQuery.isLoading ||
-    (typeof availablePoints === "number" && availablePoints > 0);
+  // The wallet card shows only tradeable on-chain assets (GLW/ETH/USDC/USDG);
+  // points are not a tradeable asset and live in the impact/rewards surfaces.
 
   // Hide assets the wallet holds none of (keep rows while still loading).
   const holdingsRows = React.useMemo(() => {
@@ -219,25 +214,6 @@ export default function WalletWidget({
         </CardHeader>
 
         <CardContent className="flex flex-col flex-1 gap-3 px-6 py-0 pb-6">
-          {showPoints ? (
-            <div className="flex items-center justify-between gap-3 group cursor-default py-1.5 px-2 rounded-xl hover:bg-muted/20 transition-colors w-full overflow-hidden">
-              <div className="flex items-center gap-3 shrink-0">
-                <div className="h-6 w-6 rounded-full bg-[color:var(--color-glow-orange)]/10 ring-1 ring-[color:var(--color-glow-orange)]/30 flex items-center justify-center text-[color:var(--color-glow-orange)]">
-                  <Sparkles className="h-3.5 w-3.5" />
-                </div>
-                <span className="text-sm font-mono text-muted-foreground group-hover:text-foreground/80 transition-colors">
-                  {t.wallet.points}
-                </span>
-              </div>
-              <span className="text-sm font-mono font-medium tabular-nums text-foreground truncate ml-auto">
-                {pointsQuery.isLoading
-                  ? "…"
-                  : (availablePoints ?? 0).toLocaleString("en-US", {
-                      maximumFractionDigits: 0,
-                    })}
-              </span>
-            </div>
-          ) : null}
           {holdingsRows.map((row) => {
             const displayValue = formatHoldingAmount(row.symbol, row.amount);
 

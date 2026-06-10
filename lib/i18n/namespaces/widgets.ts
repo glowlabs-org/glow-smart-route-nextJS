@@ -881,7 +881,7 @@ const en: WidgetStrings = {
   },
 
   rankWidget: {
-    title: "Points",
+    title: "Watts",
     totalPoints: "Total points",
     availablePoints: "Available points",
     wattsLabel: "Watts",
@@ -891,8 +891,8 @@ const en: WidgetStrings = {
     topPercentile: (value) => `Top ${value}`,
     belowTopPercentile: (value) => `Below Top ${value}`,
     connectWalletKicker: "Connect your wallet",
-    connectWalletBody: "Connect your wallet to see your points and rank.",
-    loadFailedToast: "Failed to load points",
+    connectWalletBody: "Connect your wallet to see your watts and rank.",
+    loadFailedToast: "Failed to load watts",
     rankUp: "Rank Up",
     mintAndStakeGctl: "Mint & stake GCTL",
     breakdown: "Breakdown",
@@ -1552,7 +1552,7 @@ const ko: WidgetStrings = {
   },
 
   rankWidget: {
-    title: "포인트",
+    title: "와트",
     totalPoints: "총 포인트",
     availablePoints: "사용 가능한 포인트",
     wattsLabel: "와트",
@@ -1562,8 +1562,8 @@ const ko: WidgetStrings = {
     topPercentile: (value) => `상위 ${value}`,
     belowTopPercentile: (value) => `상위 ${value} 아래`,
     connectWalletKicker: "지갑 연결",
-    connectWalletBody: "포인트와 순위를 확인하려면 지갑을 연결하세요.",
-    loadFailedToast: "포인트를 불러오지 못했습니다",
+    connectWalletBody: "와트와 순위를 확인하려면 지갑을 연결하세요.",
+    loadFailedToast: "와트를 불러오지 못했습니다",
     rankUp: "순위 올리기",
     mintAndStakeGctl: "GCTL 발행 및 스테이킹",
     breakdown: "상세 내역",
@@ -2218,7 +2218,7 @@ const zh: WidgetStrings = {
   },
 
   rankWidget: {
-    title: "积分",
+    title: "瓦特",
     totalPoints: "总积分",
     availablePoints: "可用积分",
     wattsLabel: "瓦特",
@@ -2228,8 +2228,8 @@ const zh: WidgetStrings = {
     topPercentile: (value) => `前 ${value}`,
     belowTopPercentile: (value) => `低于前 ${value}`,
     connectWalletKicker: "连接您的钱包",
-    connectWalletBody: "连接钱包以查看您的积分与排名。",
-    loadFailedToast: "积分加载失败",
+    connectWalletBody: "连接钱包以查看您的瓦特与排名。",
+    loadFailedToast: "瓦特加载失败",
     rankUp: "提升排名",
     mintAndStakeGctl: "铸造并质押 GCTL",
     breakdown: "明细",

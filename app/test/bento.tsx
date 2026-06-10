@@ -599,7 +599,16 @@ export default function GlowSoftDashboard({
                           : t.home.sections.growYourImpact
                     }
                   />
-                  <div className="rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10 p-4 sm:p-6 lg:p-12">
+                  <div
+                    className={cn(
+                      "rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10 p-4 sm:p-6 lg:p-12",
+                      // No live listings: render the countdown/empty state as a
+                      // compact, centered card instead of a full-width banner so
+                      // it does not dominate the dashboard.
+                      !shouldShowLaunchpadLiveSection &&
+                        "lg:max-w-2xl lg:mx-auto",
+                    )}
+                  >
                     <LaunchpadStatusWidget
                       variant="full-row"
                       onPayDeposit={handlePayDeposit}
@@ -706,40 +715,8 @@ export default function GlowSoftDashboard({
                 </div>
               </section>
 
-              {/* My Impact Section */}
-              <section className="flex flex-col gap-8 pt-20">
-                <SectionHeader title={t.home.sections.myImpact} />
-                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10 p-4 sm:p-6 lg:p-12">
-                  <WidgetErrorBoundary>
-                    <SolarCollectorWidget
-                      walletAddress={walletAddress}
-                      readOnly={readOnly}
-                      onMintAndStakeClick={
-                        readOnly ? undefined : () => setIsMintAndStakeOpen(true)
-                      }
-                      onFarmClick={(farmId) => {
-                        // Scroll to the farm card in the grid below
-                        const el = document.querySelector(
-                          `[data-farm-id="${farmId}"]`,
-                        );
-                        if (el) {
-                          el.scrollIntoView({
-                            behavior: "smooth",
-                            block: "center",
-                          });
-                          el.classList.add("ring-2", "ring-primary");
-                          setTimeout(
-                            () => el.classList.remove("ring-2", "ring-primary"),
-                            2000,
-                          );
-                        }
-                      }}
-                    />
-                  </WidgetErrorBoundary>
-                </div>
-              </section>
-
-              {/* Mining & Rewards Section */}
+              {/* Mining & Rewards Section (rendered above My Impact so the
+                  rewards land higher on the dashboard) */}
               <section className="flex flex-col gap-8 pt-20">
                 <SectionHeader title={t.home.sections.miningAndRewards} />
                 <div className="rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10 p-4 sm:p-6 lg:p-12">
@@ -783,6 +760,39 @@ export default function GlowSoftDashboard({
                       </DeferredLaunchWindowAnalytics>
                     </div>
                   </div>
+                </div>
+              </section>
+
+              {/* My Impact Section */}
+              <section className="flex flex-col gap-8 pt-20">
+                <SectionHeader title={t.home.sections.myImpact} />
+                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10 p-4 sm:p-6 lg:p-12">
+                  <WidgetErrorBoundary>
+                    <SolarCollectorWidget
+                      walletAddress={walletAddress}
+                      readOnly={readOnly}
+                      onMintAndStakeClick={
+                        readOnly ? undefined : () => setIsMintAndStakeOpen(true)
+                      }
+                      onFarmClick={(farmId) => {
+                        // Scroll to the farm card in the grid below
+                        const el = document.querySelector(
+                          `[data-farm-id="${farmId}"]`,
+                        );
+                        if (el) {
+                          el.scrollIntoView({
+                            behavior: "smooth",
+                            block: "center",
+                          });
+                          el.classList.add("ring-2", "ring-primary");
+                          setTimeout(
+                            () => el.classList.remove("ring-2", "ring-primary"),
+                            2000,
+                          );
+                        }
+                      }}
+                    />
+                  </WidgetErrorBoundary>
                 </div>
               </section>
 

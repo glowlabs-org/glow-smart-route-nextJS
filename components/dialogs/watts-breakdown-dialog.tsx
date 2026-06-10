@@ -222,34 +222,21 @@ export function WattsBreakdownDialog({
                       }
                     />
                     {isReferralLive && (
-                      <>
-                        <SourceRow
-                          icon={ReferralIcon}
-                          label="Delegator referrals"
-                          sublabel="A cut of each referee's delegator watts"
-                          watts={buckets.delegator_referral}
-                          accentClass="bg-[color:var(--color-glow-orange)]/10 text-[color:var(--color-glow-orange)]"
-                          ctaLabel={isOwnWallet ? "Invite" : undefined}
-                          onCta={
-                            isOwnWallet
-                              ? () => setIsReferralNetworkOpen(true)
-                              : undefined
-                          }
-                        />
-                        <SourceRow
-                          icon={ReferralIcon}
-                          label="Staker referrals"
-                          sublabel="A cut of each referee's staker watts"
-                          watts={buckets.staker_referral}
-                          accentClass="bg-[color:var(--color-glow-orange)]/10 text-[color:var(--color-glow-orange)]"
-                          ctaLabel={isOwnWallet ? "Invite" : undefined}
-                          onCta={
-                            isOwnWallet
-                              ? () => setIsReferralNetworkOpen(true)
-                              : undefined
-                          }
-                        />
-                      </>
+                      <SourceRow
+                        icon={ReferralIcon}
+                        label="Referrals"
+                        sublabel="A cut of each referee's delegator and staker watts"
+                        watts={
+                          buckets.delegator_referral + buckets.staker_referral
+                        }
+                        accentClass="bg-[color:var(--color-glow-orange)]/10 text-[color:var(--color-glow-orange)]"
+                        ctaLabel={isOwnWallet ? "Invite" : undefined}
+                        onCta={
+                          isOwnWallet
+                            ? () => setIsReferralNetworkOpen(true)
+                            : undefined
+                        }
+                      />
                     )}
                     {Math.abs(transfersWatts) > 0.5 && (
                       <SourceRow
