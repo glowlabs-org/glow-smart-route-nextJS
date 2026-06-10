@@ -104,7 +104,7 @@ export interface BigDialogsStrings {
     solaris: string;
     lifetimePointsEarned: string;
     failedToLoad: string;
-    finalizesOn: (date: string) => string;
+    updatesRealtime: string;
     youEarn: string;
     upTo20Pct: string;
     ofFriendsBasePoints: string;
@@ -508,7 +508,7 @@ const en: BigDialogsStrings = {
     projectedThisWeek: (pts) => `+${pts} pts projected this week`,
     activationBonus: "Activation Bonus",
     activationAwardedDesc: "One-time award (≥100 pts)",
-    activationPendingDesc: "Threshold met — activates at week end",
+    activationPendingDesc: "Threshold met, activates in realtime",
     awarded: "Awarded",
     pending: "Pending",
     regionalPointsDist: "Regional Points Distribution",
@@ -567,7 +567,7 @@ const en: BigDialogsStrings = {
     solaris: "Solaris",
     lifetimePointsEarned: "Lifetime Points Earned",
     failedToLoad: "Failed to load referral network.",
-    finalizesOn: (date) => `Finalizes ${date}`,
+    updatesRealtime: "Updates in realtime",
     youEarn: "You Earn",
     upTo20Pct: "Up to 20%",
     ofFriendsBasePoints: "of friends' base points",
@@ -638,29 +638,30 @@ const en: BigDialogsStrings = {
       " through your code. Points they earned before joining don't count toward this threshold. Once active, you'll start earning rewards from their activity.",
     faqRewardsQ: "How much do I earn from referrals?",
     faqRewardsBody:
-      "You earn a percentage of your referrals' base points (before multipliers). The more referrals you have, the higher your rate:",
+      "You earn a percentage of your referrals' base points. The more referrals you have, the higher your rate:",
     faqRewardsBold: "base points",
     faqTier1: "1 referral",
     faqTier2: "2-3 referrals",
     faqTier3: "4-6 referrals",
     faqTier4: "7+ referrals",
     faqRefereeQ: "What do my referrals get?",
-    faqRefereeBody1: "People who join through your link receive a ",
-    faqRefereeBoldA: "+100 point bonus",
-    faqRefereeBody2: " when they reach 100 total points (activation), plus a ",
-    faqRefereeBoldB: "10% boost on their base points for 12 weeks",
+    faqRefereeBody1: "People who join through your link earn at the ",
+    faqRefereeBoldA: "standard rates",
+    faqRefereeBody2:
+      ", with no separate referee bonus. The tiered reward share goes to ",
+    faqRefereeBoldB: "you, the referrer",
     faqRefereeBody3:
-      ". This helps them climb the leaderboard faster while getting started.",
+      " (5/10/15/20% of their base points, based on your tier). Their own points always stay theirs.",
     faqChangeQ: "Can referrals change their referrer?",
     faqChangeBody1: "Users have a ",
     faqChangeBold: "7-day grace period",
     faqChangeBody2:
       " after linking to change their referrer. After that, the link becomes permanent.",
     faqFinalizationQ: "When do rewards update?",
-    faqFinalizationBody1: "Rewards are calculated weekly and finalize every ",
-    faqFinalizationBold: "Sunday at 00:00 UTC",
+    faqFinalizationBody1: "Referral points land in your ledger ",
+    faqFinalizationBold: "in realtime",
     faqFinalizationBody2:
-      ". You'll see your earnings update at the start of each new week.",
+      ", the moment a referral earns. Activation fires the instant a referral crosses 100 points after linking, not at week end.",
   },
 
   mintStake: {
@@ -991,7 +992,7 @@ const ko: BigDialogsStrings = {
     projectedThisWeek: (pts) => `이번 주 +${pts} pts 예상`,
     activationBonus: "활성화 보너스",
     activationAwardedDesc: "일회성 보상 (100pt 이상)",
-    activationPendingDesc: "기준 충족 — 주말에 활성화됩니다",
+    activationPendingDesc: "기준 충족, 실시간으로 활성화됩니다",
     awarded: "지급됨",
     pending: "대기 중",
     regionalPointsDist: "지역별 포인트 분포",
@@ -1051,7 +1052,7 @@ const ko: BigDialogsStrings = {
     solaris: "Solaris",
     lifetimePointsEarned: "누적 획득 포인트",
     failedToLoad: "추천 네트워크를 불러오지 못했습니다.",
-    finalizesOn: (date) => `${date} 확정`,
+    updatesRealtime: "실시간 업데이트",
     youEarn: "내 보상",
     upTo20Pct: "최대 20%",
     ofFriendsBasePoints: "친구의 기본 포인트 중",
@@ -1120,7 +1121,7 @@ const ko: BigDialogsStrings = {
       "을 획득해야 합니다. 가입 전 획득한 포인트는 이 기준에 포함되지 않습니다. 활성화되면 친구의 활동에서 보상을 받기 시작합니다.",
     faqRewardsQ: "추천으로 얼마를 벌 수 있나요?",
     faqRewardsBody:
-      "추천인의 기본 포인트(배수 적용 전) 일부를 보상으로 받습니다. 추천이 많을수록 비율이 올라갑니다:",
+      "추천인의 기본 포인트 일부를 보상으로 받습니다. 추천이 많을수록 비율이 올라갑니다:",
     faqRewardsBold: "기본 포인트",
     faqTier1: "추천 1명",
     faqTier2: "추천 2-3명",
@@ -1128,21 +1129,22 @@ const ko: BigDialogsStrings = {
     faqTier4: "추천 7명 이상",
     faqRefereeQ: "추천인은 무엇을 받나요?",
     faqRefereeBody1: "내 링크로 가입한 사람은 ",
-    faqRefereeBoldA: "+100 포인트 보너스",
-    faqRefereeBody2: "를 100 포인트 누적 시(활성화) 받고, 추가로 ",
-    faqRefereeBoldB: "12주 동안 기본 포인트에 10% 부스트",
+    faqRefereeBoldA: "표준 적립률",
+    faqRefereeBody2:
+      "로 포인트를 적립하며, 별도의 피추천인 보너스는 없습니다. 등급별 보상 분배는 ",
+    faqRefereeBoldB: "추천인 본인",
     faqRefereeBody3:
-      "를 받습니다. 시작 단계에서 리더보드를 빠르게 오르는 데 도움이 됩니다.",
+      "이 받습니다 (등급에 따라 기본 포인트의 5/10/15/20%). 친구의 포인트는 항상 친구의 것입니다.",
     faqChangeQ: "추천인을 변경할 수 있나요?",
     faqChangeBody1: "사용자는 연결 후 ",
     faqChangeBold: "7일 유예 기간",
     faqChangeBody2:
       " 동안 추천인을 변경할 수 있습니다. 이후에는 연결이 영구적으로 유지됩니다.",
     faqFinalizationQ: "보상은 언제 업데이트되나요?",
-    faqFinalizationBody1: "보상은 매주 계산되며 매주 ",
-    faqFinalizationBold: "일요일 00:00 UTC",
+    faqFinalizationBody1: "추천 포인트는 추천인이 적립하는 즉시 ",
+    faqFinalizationBold: "실시간",
     faqFinalizationBody2:
-      "에 확정됩니다. 새 주 시작 시 수익이 업데이트됩니다.",
+      "으로 내 원장에 반영됩니다. 활성화는 추천인이 연결 후 100 포인트를 넘는 순간 발생하며, 주말이 아닙니다.",
   },
 
   mintStake: {
@@ -1473,7 +1475,7 @@ const zh: BigDialogsStrings = {
     projectedThisWeek: (pts) => `本周预计 +${pts} 点`,
     activationBonus: "激活奖励",
     activationAwardedDesc: "一次性奖励（≥100 点）",
-    activationPendingDesc: "已达标 — 周末激活",
+    activationPendingDesc: "已达标,实时激活",
     awarded: "已发放",
     pending: "待处理",
     regionalPointsDist: "地区点数分布",
@@ -1530,7 +1532,7 @@ const zh: BigDialogsStrings = {
     solaris: "Solaris",
     lifetimePointsEarned: "累计获得点数",
     failedToLoad: "推荐网络加载失败。",
-    finalizesOn: (date) => `${date} 确认`,
+    updatesRealtime: "实时更新",
     youEarn: "您的收益",
     upTo20Pct: "最高 20%",
     ofFriendsBasePoints: "好友的基础点数",
@@ -1600,26 +1602,28 @@ const zh: BigDialogsStrings = {
       "。加入前获得的点数不计入此门槛。一旦激活,您将开始从他们的活动中赚取奖励。",
     faqRewardsQ: "通过推荐我能赚取多少?",
     faqRewardsBody:
-      "您可以获得推荐人基础点数(倍率前)的一定比例。推荐越多,比例越高:",
+      "您可以获得推荐人基础点数的一定比例。推荐越多,比例越高:",
     faqRewardsBold: "基础点数",
     faqTier1: "1 个推荐",
     faqTier2: "2-3 个推荐",
     faqTier3: "4-6 个推荐",
     faqTier4: "7+ 个推荐",
     faqRefereeQ: "我的推荐人能获得什么?",
-    faqRefereeBody1: "通过您的链接加入的人将获得 ",
-    faqRefereeBoldA: "+100 点奖励",
-    faqRefereeBody2: ",当他们累计达到 100 点时(激活),并额外获得 ",
-    faqRefereeBoldB: "12 周内基础点数 10% 加成",
-    faqRefereeBody3: "。这有助于他们在起步阶段更快攀升排行榜。",
+    faqRefereeBody1: "通过您的链接加入的人以 ",
+    faqRefereeBoldA: "标准费率",
+    faqRefereeBody2: " 赚取积分,没有单独的被推荐人奖励。分层奖励分成归 ",
+    faqRefereeBoldB: "您(推荐人)",
+    faqRefereeBody3:
+      " 所有(根据您的等级,为其基础点数的 5/10/15/20%)。他们自己的积分始终归他们所有。",
     faqChangeQ: "推荐人能更换其推荐人吗?",
     faqChangeBody1: "用户在关联后有 ",
     faqChangeBold: "7 天宽限期",
     faqChangeBody2: " 可以更换推荐人。之后,关联将永久生效。",
     faqFinalizationQ: "奖励何时更新?",
-    faqFinalizationBody1: "奖励按周计算,并在每个 ",
-    faqFinalizationBold: "周日 00:00 UTC",
-    faqFinalizationBody2: " 确认。您将在每个新周开始时看到收益更新。",
+    faqFinalizationBody1: "推荐人每次赚取时,推荐积分会 ",
+    faqFinalizationBold: "实时",
+    faqFinalizationBody2:
+      " 计入您的账本。激活会在推荐人关联后超过 100 点的那一刻立即触发,而非在周末。",
   },
 
   mintStake: {

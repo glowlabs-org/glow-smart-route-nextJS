@@ -28,7 +28,7 @@ import { PointsExplainerDialog } from "@/components/dialogs/points-explainer-dia
 import { ReferralNetworkDialog } from "@/components/dialogs/referral-network-dialog";
 import {
   useV2PointsBalance,
-  useV2PointsLedger,
+  useV2PointsLedgerAll,
 } from "@/hooks/v2-points";
 import { useReferralLaunch } from "@/hooks/use-referral-launch";
 import { trackEvent } from "@/lib/telemetry";
@@ -134,9 +134,11 @@ export function ImpactScoreBreakdownDialog({
   const { isLive: isReferralLive } = useReferralLaunch();
 
   const balanceQuery = useV2PointsBalance(open ? walletAddress : null);
-  const ledgerQuery = useV2PointsLedger(open ? walletAddress : null, {
-    limit: 500,
-  });
+  // Follow `nextCursor` and aggregate the ENTIRE ledger. The backend clamps
+  // each page to 200 rows, so a single fetch would under-count the per-category
+  // sums for any wallet with >200 rows (Eclipse-Prime referrers hit this fast),
+  // and the breakdown would stop reconciling to the spendable hero.
+  const ledgerQuery = useV2PointsLedgerAll(open ? walletAddress : null);
 
   const [isLaunchpadOpen, setIsLaunchpadOpen] = useState(false);
   const [isReferralNetworkOpen, setIsReferralNetworkOpen] = useState(false);
@@ -155,6 +157,10 @@ export function ImpactScoreBreakdownDialog({
       streak: sumBy("weekly_streak"),
       referral: sumBy("referral"),
       spent: sumBy("shop_purchase"), // negative deltas
+      // Manual ledger adjustments. These count toward availablePoints but have
+      // no dedicated source/CTA, so they surface under "Adjustments" to keep
+      // the breakdown reconciling to the spendable hero. Can be + or -.
+      adminCorrection: sumBy("admin_correction"),
     };
   }, [ledgerQuery.data]);
 
@@ -251,16 +257,22 @@ export function ImpactScoreBreakdownDialog({
                       points={agg.streak}
                       accentClass="bg-[#4ADE80]/10 text-[#4ADE80]"
                     />
-                    {isReferralLive && (
+                    {/* Show the referral row whenever it has points (so the
+                        breakdown reconciles to the hero) even if the referral
+                        program UI is not live; only surface the Invite CTA when
+                        it is live and this is the user's own wallet. */}
+                    {(isReferralLive || agg.referral !== 0) && (
                       <SourceRow
                         icon={ReferralIcon}
                         label="Referral Network"
                         sublabel="Points from active referrals"
                         points={agg.referral}
                         accentClass="bg-[color:var(--color-glow-orange)]/10 text-[color:var(--color-glow-orange)]"
-                        ctaLabel={isOwnWallet ? "Invite" : undefined}
+                        ctaLabel={
+                          isReferralLive && isOwnWallet ? "Invite" : undefined
+                        }
                         onCta={
-                          isOwnWallet
+                          isReferralLive && isOwnWallet
                             ? () => setIsReferralNetworkOpen(true)
                             : undefined
                         }
@@ -269,7 +281,9 @@ export function ImpactScoreBreakdownDialog({
                   </div>
                 </div>
 
-                {(opening > 0 || agg.spent < 0) && (
+                {(opening > 0 ||
+                  agg.spent < 0 ||
+                  agg.adminCorrection !== 0) && (
                   <>
                     <Separator />
                     <div className="space-y-1">
@@ -283,6 +297,15 @@ export function ImpactScoreBreakdownDialog({
                             label="Opening balance"
                             sublabel="Carried over from V1"
                             points={opening}
+                            accentClass="bg-muted/60 text-foreground"
+                          />
+                        )}
+                        {agg.adminCorrection !== 0 && (
+                          <SourceRow
+                            icon={Sparkles}
+                            label="Manual adjustment"
+                            sublabel="Applied by the Glow team"
+                            points={agg.adminCorrection}
                             accentClass="bg-muted/60 text-foreground"
                           />
                         )}

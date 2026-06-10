@@ -230,7 +230,9 @@ export interface WidgetStrings {
     streakLockedIn: string;
     streakKeepGoing: string;
     streakMaxed: (points: string) => string;
+    streakMaxedAtRisk: (points: string) => string;
     streakPts: string;
+    streakWouldEarn: string;
     streakProjectedThisWeek: string;
   };
 
@@ -903,7 +905,10 @@ const en: WidgetStrings = {
     streakLockedIn: "You're covered this week",
     streakKeepGoing: "Act this week to keep it going",
     streakMaxed: (points) => `Maxed out · ${points} pts/week`,
+    streakMaxedAtRisk: (points) =>
+      `Maxed (${points} pts/wk) · act this week to keep it`,
     streakPts: "pts",
+    streakWouldEarn: "if you act",
     streakProjectedThisWeek: "Projected this week",
   },
 
@@ -1571,7 +1576,10 @@ const ko: WidgetStrings = {
     streakLockedIn: "이번 주는 적립 완료",
     streakKeepGoing: "이번 주에 활동하여 연속 유지",
     streakMaxed: (points) => `최대치 · 주당 ${points} pts`,
+    streakMaxedAtRisk: (points) =>
+      `최대치 (주당 ${points} pts) · 이번 주에 활동하여 유지`,
     streakPts: "pts",
+    streakWouldEarn: "활동 시",
     streakProjectedThisWeek: "이번 주 예상",
   },
 
@@ -2234,7 +2242,10 @@ const zh: WidgetStrings = {
     streakLockedIn: "本周已记录",
     streakKeepGoing: "本周采取操作以保持连续",
     streakMaxed: (points) => `已达上限 · 每周 ${points} 分`,
+    streakMaxedAtRisk: (points) =>
+      `已达上限(每周 ${points} 分)· 本周采取操作以保持`,
     streakPts: "分",
+    streakWouldEarn: "若采取操作",
     streakProjectedThisWeek: "本周预计",
   },
 

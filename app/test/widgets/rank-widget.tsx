@@ -199,13 +199,26 @@ function WeeklyStreakPanel({
   const filledDots = Math.max(0, Math.min(streakWeek, capWeeks));
 
   const heading = active ? r.streakWeeks(streakWeek) : r.streakNone;
+  // Check the at-risk (not-qualified-this-week) state BEFORE maxed so a wallet
+  // sitting at the cap that hasn't acted yet still gets the "act this week"
+  // warning. This matters for the most-engaged cohort (20+-week streaks carried
+  // over from the V1 seed): their streak can still reset if they go inactive.
+  const capPointsLabel = formatPoints(String(capPoints ?? 2000));
   const subtext = !active
     ? r.streakStart
-    : maxed
-      ? r.streakMaxed(formatPoints(String(capPoints ?? 2000)))
-      : qualified
-        ? r.streakLockedIn
-        : r.streakKeepGoing;
+    : !qualified
+      ? maxed
+        ? r.streakMaxedAtRisk(capPointsLabel)
+        : r.streakKeepGoing
+      : maxed
+        ? r.streakMaxed(capPointsLabel)
+        : r.streakLockedIn;
+
+  // Nothing left to earn this week only when the streak is at the cap AND the
+  // wallet has already acted (locked in). In every other state the projected/
+  // conditional chip should render.
+  const showProjectedChip = projectedThisWeek > 0 && !(maxed && qualified);
+  const chipLabel = qualified ? r.streakProjectedThisWeek : r.streakWouldEarn;
 
   return (
     <div className={containerClass}>
@@ -236,13 +249,13 @@ function WeeklyStreakPanel({
           </span>
         </div>
 
-        {projectedThisWeek > 0 && !maxed ? (
+        {showProjectedChip ? (
           <div className="text-right shrink-0">
             <div className="font-mono text-sm font-semibold text-[#4ADE80] tabular-nums">
               +{formatPoints(String(projectedThisWeek))}
             </div>
             <div className="text-[9px] uppercase tracking-wider text-muted-foreground/70">
-              {qualified ? r.streakProjectedThisWeek : r.streakPts}
+              {chipLabel}
             </div>
           </div>
         ) : null}

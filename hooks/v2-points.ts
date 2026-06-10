@@ -147,6 +147,58 @@ export function useV2PointsLedger(
   });
 }
 
+/**
+ * Like {@link useV2PointsLedger} but follows the `nextCursor` and returns the
+ * ENTIRE ledger, not just the latest page.
+ *
+ * The backend silently clamps `limit` to 200 per page (and returns a
+ * `nextCursor`), so any consumer that needs to aggregate across the whole
+ * ledger (e.g. the per-category breakdown sums, which must reconcile to the
+ * spendable balance) cannot rely on a single fetch. Eclipse-Prime referrers
+ * blow past 200 rows quickly because realtime referral writes one row per
+ * referee earning event, on top of weekly streak rows.
+ *
+ * A page cap guards against an unexpectedly huge ledger; if it is hit,
+ * `truncated` is set so callers can decide whether the sums are trustworthy.
+ */
+export function useV2PointsLedgerAll(
+  wallet: string | null | undefined,
+  options: { pageSize?: number; maxPages?: number } = {},
+) {
+  const pageSize = Math.min(options.pageSize ?? 200, 200);
+  const maxPages = options.maxPages ?? 50;
+  return useQuery({
+    queryKey: QUERY_KEYS.v2.pointsLedgerAggregate(wallet, pageSize),
+    queryFn: async () => {
+      const allRows: V2PointsLedgerRow[] = [];
+      let cursor: string | null = null;
+      let pages = 0;
+      let truncated = false;
+      do {
+        const qs = new URLSearchParams({
+          wallet: wallet!,
+          limit: String(pageSize),
+        });
+        if (cursor) qs.set("cursor", cursor);
+        const page: V2PointsLedgerResponse = await v2ApiGet<V2PointsLedgerResponse>(
+          `/api/points/ledger?${qs.toString()}`,
+        );
+        allRows.push(...page.rows);
+        cursor = page.nextCursor;
+        pages += 1;
+        if (cursor && pages >= maxPages) {
+          truncated = true;
+          break;
+        }
+      } while (cursor);
+      return { wallet: wallet ?? "", rows: allRows, truncated };
+    },
+    enabled: Boolean(wallet),
+    staleTime: STALE_TIMES.NORMAL,
+    refetchOnWindowFocus: false,
+  });
+}
+
 export function useV2WattsActivity(
   wallet: string | null | undefined,
   options: { limit?: number } = {},

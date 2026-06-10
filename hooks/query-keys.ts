@@ -184,6 +184,18 @@ export const QUERY_KEYS = {
     // subscription keyed with an explicit limit.
     pointsLedgerAll: (wallet?: string | null) =>
       ["v2", "points-ledger", wallet?.toLowerCase() ?? null] as const,
+    // Full-ledger (cursor-following) aggregate. Kept under the same
+    // `points-ledger` prefix so realtime invalidation via `pointsLedgerAll`
+    // also refetches it, but with an extra discriminator so it doesn't share a
+    // cache entry with a single page.
+    pointsLedgerAggregate: (wallet?: string | null, pageSize?: number) =>
+      [
+        "v2",
+        "points-ledger",
+        wallet?.toLowerCase() ?? null,
+        "all",
+        pageSize ?? null,
+      ] as const,
     wattsActivity: (wallet?: string | null, limit?: number) =>
       [
         "v2",

@@ -193,16 +193,6 @@ export function ReferralNetworkDialog({
   const resolvedIsLoading = mockData ? false : isLoading;
   const resolvedIsError = mockData ? false : isError;
 
-  const nextFinalizationLabel = React.useMemo(() => {
-    const now = new Date();
-    const daysUntil = (7 - now.getUTCDay()) % 7 || 7;
-    const next = new Date(now);
-    next.setUTCDate(next.getUTCDate() + daysUntil);
-    return s.finalizesOn(
-      next.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
-    );
-  }, [s]);
-
   const activationPendingCount = React.useMemo(() => {
     if (!resolvedData) return 0;
     if (resolvedData.stats.activationPendingReferees != null) {
@@ -560,7 +550,7 @@ export function ReferralNetworkDialog({
                     )}
                   </div>
                   <div className="text-[8px] sm:text-[9px] text-muted-foreground/60 dark:text-muted-foreground/80 uppercase font-medium">
-                    {nextFinalizationLabel}
+                    {s.updatesRealtime}
                   </div>
                 </div>
                 <div className="group relative overflow-hidden rounded-2xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-3 sm:p-4 space-y-1 transition-all hover:bg-muted/40 dark:hover:bg-muted/60">
