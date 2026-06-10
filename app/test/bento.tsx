@@ -57,6 +57,9 @@ import { shortAddress } from "@/utils/impact";
 import { GlowSymbolAnimated } from "@/components/glow-symbol-animated";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/lib/i18n";
+import Link from "next/link";
+import { Sparkles, ArrowUpRight } from "lucide-react";
+import { useV2PointsBalance } from "@/hooks/v2-points";
 
 interface GlowSoftDashboardProps {
   walletAddressOverride?: string | null;
@@ -84,11 +87,68 @@ function useIsClient() {
   );
 }
 
-function SectionHeader({ title }: { title: string }) {
+function SectionHeader({
+  title,
+  trailing,
+}: {
+  title: string;
+  trailing?: React.ReactNode;
+}) {
+  // Title-only headers keep their original markup; only the launchpad header
+  // passes a trailing slot, which switches to a space-between flex row.
+  if (!trailing) {
+    return (
+      <h2 className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
+        {title}
+      </h2>
+    );
+  }
   return (
-    <h2 className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
-      {title}
-    </h2>
+    <div className="flex items-center justify-between gap-3 flex-wrap">
+      <h2 className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
+        {title}
+      </h2>
+      {trailing}
+    </div>
+  );
+}
+
+// Points balance + Points Shop CTA shown in the top launchpad section header.
+// David: points belong with the launchpad (where you earn them), not under
+// "Your Wallet". Renders nothing until we know the wallet actually has points.
+function LaunchpadHeaderPoints({
+  walletAddress,
+}: {
+  walletAddress: string | null;
+}) {
+  const { t } = useLang();
+  const { data } = useV2PointsBalance(walletAddress);
+  const points = data?.availablePoints;
+  if (typeof points !== "number" || points <= 0) return null;
+  const formatted = points.toLocaleString("en-US", {
+    maximumFractionDigits: 0,
+  });
+  return (
+    <div className="flex items-center gap-2.5">
+      <span className="flex items-center gap-1.5 text-xs font-mono font-medium text-foreground/90">
+        <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+        <span className="tabular-nums">{formatted}</span>
+        <span className="text-muted-foreground">{t.home.topPoints.unit}</span>
+      </span>
+      <Link
+        href="/shop"
+        onClick={() =>
+          trackEvent("dashboard_points_shop_cta_click", {
+            source: "launchpad_header",
+            wallet_address: walletAddress,
+          })
+        }
+        className="inline-flex items-center gap-1 rounded-full border border-border/40 bg-transparent px-2.5 py-1 text-[11px] font-medium text-foreground/90 hover:bg-muted/30 transition-colors"
+      >
+        {t.home.topPoints.shopCta}
+        <ArrowUpRight className="h-3 w-3" />
+      </Link>
+    </div>
   );
 }
 
@@ -597,6 +657,9 @@ export default function GlowSoftDashboard({
                         : isApproachingLaunchpad
                           ? t.home.sections.launchpadOpeningSoon
                           : t.home.sections.growYourImpact
+                    }
+                    trailing={
+                      <LaunchpadHeaderPoints walletAddress={walletAddress} />
                     }
                   />
                   <div

@@ -44,6 +44,12 @@ export interface HomeStrings {
     refundsDescription: (listings: number, amountGlw: string) => string;
     refundsAction: string;
   };
+
+  // Points balance + shop CTA in the top launchpad section header
+  topPoints: {
+    unit: string;
+    shopCta: string;
+  };
 }
 
 const en: HomeStrings = {
@@ -108,6 +114,11 @@ const en: HomeStrings = {
       `${listings} listings · ${amountGlw} GLW`,
     refundsAction: "Claim refunds",
   },
+
+  topPoints: {
+    unit: "pts",
+    shopCta: "Points Shop",
+  },
 };
 
 const ko: HomeStrings = {
@@ -170,6 +181,11 @@ const ko: HomeStrings = {
     refundsDescription: (listings, amountGlw) =>
       `${listings}건 · ${amountGlw} GLW`,
     refundsAction: "환불 클레임",
+  },
+
+  topPoints: {
+    unit: "pts",
+    shopCta: "포인트 샵",
   },
 };
 
@@ -234,6 +250,11 @@ const zh: HomeStrings = {
     refundsDescription: (listings, amountGlw) =>
       `${listings} 项 · ${amountGlw} GLW`,
     refundsAction: "领取退款",
+  },
+
+  topPoints: {
+    unit: "pts",
+    shopCta: "积分商店",
   },
 };
 
