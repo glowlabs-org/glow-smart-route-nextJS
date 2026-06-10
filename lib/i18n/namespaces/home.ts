@@ -45,8 +45,9 @@ export interface HomeStrings {
     refundsAction: string;
   };
 
-  // Points balance + shop CTA in the top launchpad section header
+  // Points balance + shop CTA inside the top launchpad widget
   topPoints: {
+    label: string;
     unit: string;
     shopCta: string;
   };
@@ -116,6 +117,7 @@ const en: HomeStrings = {
   },
 
   topPoints: {
+    label: "Your points",
     unit: "pts",
     shopCta: "Points Shop",
   },
@@ -184,6 +186,7 @@ const ko: HomeStrings = {
   },
 
   topPoints: {
+    label: "내 포인트",
     unit: "pts",
     shopCta: "포인트 샵",
   },
@@ -253,6 +256,7 @@ const zh: HomeStrings = {
   },
 
   topPoints: {
+    label: "我的积分",
     unit: "pts",
     shopCta: "积分商店",
   },
