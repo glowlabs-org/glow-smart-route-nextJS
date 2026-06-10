@@ -53,10 +53,11 @@ function ItemBanner({
 }) {
   const meta = shopItemMeta(item);
   const minerLike = isMinerLikeItem(item);
-  // Featured ("Mega") watts keeps its curated hero (watts-mega.jpg, via
-  // meta.image); only a regular watts item overlays its live source-farm photo.
+  // Any watts prize (featured or regular) overlays its live source-farm photo
+  // (the "farm story") when one exists; when there's no source preview, the
+  // banner falls back to meta.image (watts-mega.jpg for the featured prize).
   const wattsSource =
-    item.kind === "watts" && item.details?.featured !== true
+    item.kind === "watts"
       ? item.impactSourcePreview?.sources?.[0]
       : undefined;
   const farmImage =

@@ -223,11 +223,11 @@ function PrizeSlide({
   // photo and a live reward estimate in place of the static placeholder. This
   // covers both the regular miner and the featured headline miner prize.
   const farmMiner = isMinerLikeItem(item) ? minerFarm : undefined;
-  // The featured ("Mega") watts prize keeps its curated hero image
-  // (watts-mega.jpg, via meta.image); only a regular watts item overlays its
-  // live source-farm photo.
+  // Any watts prize (featured or regular) overlays its live source-farm photo
+  // (the "farm story") when one exists; when there's no source preview, the
+  // visual falls back to meta.image (watts-mega.jpg for the featured prize).
   const wattsSource =
-    item.kind === "watts" && item.details?.featured !== true
+    item.kind === "watts"
       ? item.impactSourcePreview?.sources?.[0]
       : undefined;
   const farmImageUrl =

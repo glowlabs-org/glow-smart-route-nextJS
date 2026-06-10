@@ -84,6 +84,10 @@ export function shopItemMeta(item: V2ShopItem): ShopItemMeta {
       const watts = numDetail(d, "wattsQuantity");
       if (isFeatured) {
         return {
+          // Curated hero used only as a FALLBACK: the cards (view.tsx /
+          // purchase-dialog.tsx) prefer the live source-farm photo (the "farm
+          // story") via impactSourcePreview, and drop to this image when no
+          // source preview exists.
           image: "/images/shop/watts-mega.jpg",
           eyebrow: "Mega prize",
           headline: item.label,
