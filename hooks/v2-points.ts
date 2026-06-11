@@ -39,7 +39,7 @@ export interface V2PointsBalance {
   updatedAt: string;
 }
 
-/** A `points_ledger` row event type. `admin_correction` is rare. */
+/** A `points_ledger` row event type. `admin_correction`/`admin_grant` are rare. */
 export type V2PointsEventType =
   | "legacy_points_migration"
   | "glw_delegation"
@@ -48,7 +48,8 @@ export type V2PointsEventType =
   | "weekly_streak"
   | "referral"
   | "shop_purchase"
-  | "admin_correction";
+  | "admin_correction"
+  | "admin_grant";
 
 /**
  * Plain, user-facing labels for each ledger event type. The V2 spec
@@ -64,6 +65,7 @@ export const POINTS_EVENT_LABELS: Record<V2PointsEventType, string> = {
   referral: "Referral",
   shop_purchase: "Shop purchase",
   admin_correction: "Admin correction",
+  admin_grant: "Points grant",
 };
 
 export interface V2PointsLedgerRow {
