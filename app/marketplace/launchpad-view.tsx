@@ -947,7 +947,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                       )}
                     </div>
 
-                    <div className="p-6 pb-0 space-y-4">
+                    <div className="p-4 md:p-6 pb-0 space-y-4">
                       {/* Farm Name with Type Badge */}
                       <div className="flex items-center gap-2 flex-wrap">
                         {application.farmName && (
@@ -964,7 +964,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                         <Badge
                           variant="secondary"
                           className={cn(
-                            "ml-auto text-xl font-semibold border",
+                            "md:ml-auto text-base md:text-xl font-semibold border",
                             application._type === "miners"
                               ? "border-[color:var(--color-miner)]/30 bg-[color:var(--color-miner)]/10 text-miner"
                               : "border-purple-500/30 bg-purple-500/10 text-foreground"
@@ -980,7 +980,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
                           <div
-                            className="text-3xl lg:text-4xl leading-none mb-2"
+                            className="text-2xl md:text-3xl lg:text-4xl leading-none mb-2"
                             style={{
                               fontFamily: "Söhne, sans-serif",
                               fontWeight: 600,
@@ -1004,9 +1004,9 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                         </div>
                         {/* Reward Score - Only for delegations */}
                         {application._type === "delegations" && (
-                          <div className="text-right ml-6">
+                          <div className="text-right md:ml-6">
                             <div
-                              className="text-3xl lg:text-4xl leading-none mb-2"
+                              className="text-2xl md:text-3xl lg:text-4xl leading-none mb-2"
                               style={{
                                 fontFamily: "Söhne, sans-serif",
                                 fontWeight: 600,
@@ -1049,7 +1049,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                         )}
                       </div>
 
-                      <div className="grid md:grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {/* Amount per Delegation/Miner - Left Column */}
                         <div
                           className={cn(

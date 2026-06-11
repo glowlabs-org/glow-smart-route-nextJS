@@ -324,8 +324,8 @@ function WalletCell({
   t: LeaderboardStrings;
 }) {
   return (
-    <div className="inline-flex items-center gap-2">
-      <div className="flex flex-col gap-0.5">
+    <div className="flex items-center gap-2 min-w-0">
+      <div className="flex flex-col gap-0.5 min-w-0 flex-1">
         {ens ? (
           <>
             <span
@@ -616,7 +616,7 @@ export function ImpactView() {
                     placeholder="Search wallet or ENS"
                     spellCheck={false}
                     autoCapitalize="none"
-                    className="w-[200px] pl-8"
+                    className="w-full sm:w-[200px] pl-8"
                   />
                 </div>
                 <Button type="submit" size="sm" variant="outline">
@@ -635,7 +635,7 @@ export function ImpactView() {
                 value={regionId === null ? "all" : String(regionId)}
                 onValueChange={handleRegionChange}
               >
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="w-full sm:w-[200px]">
                   <SelectValue placeholder={lb.v2AllRegions} />
                 </SelectTrigger>
                 <SelectContent>

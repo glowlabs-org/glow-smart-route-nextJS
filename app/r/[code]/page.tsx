@@ -282,7 +282,7 @@ export default function ReferralLandingPage() {
                 <GlowLockup className="h-6 sm:h-8 w-auto" />
               </div>
 
-              <div className="flex flex-1 flex-col justify-center gap-6 sm:gap-7 lg:max-w-md lg:gap-0">
+              <div className="flex flex-1 flex-col justify-center gap-4 sm:gap-7 lg:max-w-md lg:gap-0">
                 <div className="space-y-3 sm:space-y-4">
                   <div className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.22em] text-[#4ade80]">
                     {r.youreIn}
@@ -399,7 +399,7 @@ export default function ReferralLandingPage() {
                 <div className="absolute left-0 right-0 top-12 px-4 sm:top-8 sm:px-8 lg:top-12 lg:px-12">
                   <div className="flex justify-center gap-5 sm:gap-12 lg:gap-24">
                     <div className="text-center text-white">
-                      <div className="text-[2rem] font-bold tracking-tight sm:text-5xl lg:text-7xl">
+                      <div className="text-2xl font-bold tracking-tight sm:text-5xl lg:text-7xl">
                         100%
                       </div>
                       <div className="mt-1 sm:mt-2 text-xs sm:text-sm lg:text-base font-semibold text-[#4ade80]">
@@ -416,7 +416,7 @@ export default function ReferralLandingPage() {
                     </div>
 
                     <div className="text-center text-white">
-                      <div className="text-[2rem] font-bold tracking-tight sm:text-5xl lg:text-7xl">
+                      <div className="text-2xl font-bold tracking-tight sm:text-5xl lg:text-7xl">
                         5-20%
                       </div>
                       <div className="mt-1 sm:mt-2 text-xs sm:text-sm lg:text-base font-semibold text-white/80">
@@ -449,7 +449,7 @@ export default function ReferralLandingPage() {
                 <GlowLockup className="h-6 sm:h-8 w-auto" />
               </div>
 
-              <div className="flex flex-1 flex-col justify-center gap-6 sm:gap-7 lg:max-w-md lg:gap-0">
+              <div className="flex flex-1 flex-col justify-center gap-4 sm:gap-7 lg:max-w-md lg:gap-0">
                 <div className="space-y-3 sm:space-y-4">
                   <div className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
                     {r.personalInvitation}
@@ -614,7 +614,7 @@ export default function ReferralLandingPage() {
                 <div className="absolute left-0 right-0 top-12 px-4 sm:top-8 sm:px-8 lg:top-12 lg:px-12">
                   <div className="flex justify-center gap-5 sm:gap-12 lg:gap-24">
                     <div className="text-center text-white">
-                      <div className="text-[2rem] font-bold tracking-tight sm:text-5xl lg:text-7xl">
+                      <div className="text-2xl font-bold tracking-tight sm:text-5xl lg:text-7xl">
                         100%
                       </div>
                       <div className="mt-1 sm:mt-2 text-xs sm:text-sm lg:text-base font-semibold">
@@ -631,7 +631,7 @@ export default function ReferralLandingPage() {
                     </div>
 
                     <div className="text-center text-white">
-                      <div className="text-[2rem] font-bold tracking-tight sm:text-5xl lg:text-7xl">
+                      <div className="text-2xl font-bold tracking-tight sm:text-5xl lg:text-7xl">
                         5-20%
                       </div>
                       <div className="mt-1 sm:mt-2 text-xs sm:text-sm lg:text-base font-semibold">

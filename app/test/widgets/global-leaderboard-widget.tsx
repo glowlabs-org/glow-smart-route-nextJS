@@ -130,7 +130,7 @@ export default function GlobalLeaderboardWidget({
                           >
                             {rank}
                           </div>
-                          <div className="text-sm font-semibold text-foreground truncate max-w-[200px]">
+                          <div className="text-sm font-semibold text-foreground truncate max-w-[120px] sm:max-w-[200px]">
                             {name}
                           </div>
                         </div>

@@ -357,7 +357,7 @@ export default function RewardsWidget({
                         className={cn(
                           "leading-tight",
                           entry.isPrimary
-                            ? "text-5xl lg:text-6xl font-semibold tracking-tight text-foreground"
+                            ? "text-3xl sm:text-5xl lg:text-6xl font-semibold tracking-tight text-foreground"
                             : "text-lg font-medium text-muted-foreground/60 flex items-center gap-1.5",
                         )}
                       >

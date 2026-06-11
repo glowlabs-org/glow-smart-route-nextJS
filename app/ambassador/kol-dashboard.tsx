@@ -741,7 +741,7 @@ function KolContent({
                   )}
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-4 text-right md:gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-right md:gap-6">
                 <div>
                   <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
                     {t.ambassador.yourBase}

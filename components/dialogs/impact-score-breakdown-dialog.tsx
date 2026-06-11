@@ -187,7 +187,7 @@ export function ImpactScoreBreakdownDialog({
             <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
               {title || "Available Points"}
             </DialogTitle>
-            <div className="text-6xl font-mono font-semibold text-foreground tracking-tighter">
+            <div className="text-4xl sm:text-6xl font-mono font-semibold text-foreground tracking-tighter">
               {isLoading ? "—" : fmtPts(available)}
             </div>
             <div className="text-[10px] font-mono text-muted-foreground/50 uppercase tracking-wider mt-2">

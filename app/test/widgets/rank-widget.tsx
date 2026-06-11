@@ -473,7 +473,7 @@ export function RankWidget({
                 <div className="font-mono text-xs uppercase tracking-wider text-muted-foreground blur-[1px] opacity-60">
                   {t.widgets.rankWidget.wattsLabel}
                 </div>
-                <div className="mt-2 font-mono text-5xl md:text-6xl font-bold tracking-tighter text-foreground tabular-nums blur-[2px] opacity-60">
+                <div className="mt-2 font-mono text-3xl sm:text-5xl md:text-6xl font-bold tracking-tighter text-foreground tabular-nums blur-[2px] opacity-60">
                   —
                 </div>
 

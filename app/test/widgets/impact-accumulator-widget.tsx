@@ -200,7 +200,7 @@ export default function ImpactAccumulatorWidget({
                 <span>{t.widgets.impactAccumulator.infrastructureEquivalent}</span>
               </div>
               <div className="flex items-center gap-3">
-                <span className="font-mono text-2xl sm:text-5xl font-semibold text-foreground tabular-nums leading-none">
+                <span className="font-mono text-xl sm:text-3xl md:text-5xl font-semibold text-foreground tabular-nums leading-none">
                   <NumberTicker value={mockData.totalPanels} />
                 </span>
                 <span className="font-mono text-lg sm:text-xl font-medium text-muted-foreground/70">

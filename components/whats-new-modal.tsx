@@ -175,7 +175,7 @@ export function WhatsNewModal({
         </div>
 
         {/* Body */}
-        <div className="min-h-[268px] px-7 pt-7 pb-3">
+        <div className="min-h-[268px] px-4 sm:px-7 pt-7 pb-3">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={step}
@@ -194,7 +194,7 @@ export function WhatsNewModal({
         </div>
 
         {/* Footer: back · dots · next/done */}
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-7 pb-7 pt-3">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 sm:px-7 pb-7 pt-3">
           <div className="justify-self-start">
             {step > 0 && (
               <button

@@ -65,7 +65,7 @@ export function PositionsView() {
   return (
     <div className="min-h-screen relative overflow-hidden">
       {/* Main Content with Sidebar Layout */}
-      <div className="max-w-screen-xl 2xl:max-w-screen-2xl lg:px-8 py-2">
+      <div className="max-w-screen-xl 2xl:max-w-screen-2xl px-4 sm:px-6 lg:px-8 py-2">
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_500px] gap-4">
           {/* Main Content Area */}
           <div className="space-y-4">
@@ -768,7 +768,7 @@ const PositionCard = React.memo(function PositionCard({
           usdgAmount={position.usdgAmount}
         />
 
-        <div className="grid grid-cols-2 gap-3 mt-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
           <div className="rounded-md border p-3">
             <div className="flex items-center justify-between">
               <div className="text-xs text-muted-foreground">{liq.glwRewards}</div>

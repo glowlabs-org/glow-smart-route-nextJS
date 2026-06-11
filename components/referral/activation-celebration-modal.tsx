@@ -158,7 +158,7 @@ export function ActivationCelebrationModal({
                 }}
               />
             ))}
-          <div className="relative p-8 text-center space-y-5">
+          <div className="relative p-4 sm:p-8 text-center space-y-5">
             <motion.div
               className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#16a34a]/10 text-[#16a34a] shadow-[0_0_20px_-6px_rgba(22,163,74,0.6)] dark:bg-[#4ade80]/10 dark:text-[#4ade80] dark:shadow-[0_0_20px_-6px_rgba(74,222,128,0.6)]"
               initial={shouldReduceMotion ? false : { scale: 0.7, opacity: 0 }}

@@ -323,7 +323,7 @@ export function ReferralNetworkDialog({
             </DialogTitle>
 
             <div className="flex flex-col items-center">
-              <div className="text-4xl sm:text-6xl font-mono font-semibold text-[#16a34a] dark:text-[#4ade80] tracking-tighter">
+              <div className="text-2xl sm:text-6xl font-mono font-semibold text-[#16a34a] dark:text-[#4ade80] tracking-tighter">
                 {resolvedIsLoading ? (
                   <Skeleton className="h-10 sm:h-14 w-24 sm:w-32 mx-auto" />
                 ) : (
@@ -346,7 +346,7 @@ export function ReferralNetworkDialog({
               <Skeleton className="h-64 w-full rounded-2xl" />
             </div>
           ) : resolvedIsError || !resolvedData ? (
-            <div className="p-12 text-center text-muted-foreground">
+            <div className="p-4 sm:p-12 text-center text-muted-foreground">
               {s.failedToLoad}
             </div>
           ) : (

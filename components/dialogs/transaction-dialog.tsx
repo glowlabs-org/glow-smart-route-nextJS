@@ -218,7 +218,7 @@ export function TransactionDialog({
 
         <div
           className={cn(
-            "px-8 py-12 max-h-[80vh] overflow-y-auto",
+            "px-4 sm:px-8 py-6 sm:py-12 max-h-[80vh] overflow-y-auto",
             bodyClassName
           )}
         >

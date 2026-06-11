@@ -717,7 +717,7 @@ export default function GlowSoftDashboard({
 
               {/* Mining & Rewards Section (rendered above My Impact so the
                   rewards land higher on the dashboard) */}
-              <section className="flex flex-col gap-8 pt-20">
+              <section className="flex flex-col gap-8 pt-12 sm:pt-20">
                 <SectionHeader title={t.home.sections.miningAndRewards} />
                 <div className="rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10 p-4 sm:p-6 lg:p-12">
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/20 dark:divide-white/10 items-stretch">
@@ -764,7 +764,7 @@ export default function GlowSoftDashboard({
               </section>
 
               {/* My Impact Section */}
-              <section className="flex flex-col gap-8 pt-20">
+              <section className="flex flex-col gap-8 pt-12 sm:pt-20">
                 <SectionHeader title={t.home.sections.myImpact} />
                 <div className="rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10 p-4 sm:p-6 lg:p-12">
                   <WidgetErrorBoundary>
@@ -797,7 +797,7 @@ export default function GlowSoftDashboard({
               </section>
 
               {/* My Farms Section */}
-              <section className="flex flex-col gap-8 pt-20 pb-20">
+              <section className="flex flex-col gap-8 pt-12 sm:pt-20 pb-20">
                 <SectionHeader title={t.home.sections.myFarms} />
                 <div className="rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10 p-4 sm:p-6 lg:p-12">
                   <WidgetErrorBoundary>

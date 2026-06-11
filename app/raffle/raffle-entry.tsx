@@ -360,7 +360,7 @@ function DetailsCard({
   return (
     <div className={`p-5 ${CARD}`}>
       <h2 className="text-sm font-semibold text-foreground">Details</h2>
-      <dl className="mt-3 grid grid-cols-2 gap-3">
+      <dl className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
         {items.map((item) => (
           <div key={item.label} className={`p-3 ${TILE}`}>
             <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
@@ -419,7 +419,7 @@ function StatusStrip({
       : "Closed";
 
   return (
-    <div className={`grid grid-cols-3 divide-x divide-border ${CARD}`}>
+    <div className={`grid grid-cols-1 sm:grid-cols-3 divide-x divide-border ${CARD}`}>
       <Stat label="Status">
         <span className="inline-flex items-center gap-1.5">
           {lifecycle === "open" ? (
@@ -716,7 +716,7 @@ function CenteredCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className={`mx-auto max-w-md p-8 text-center ${CARD}`}>
+    <div className={`mx-auto max-w-md p-5 sm:p-8 text-center ${CARD}`}>
       <div className="flex items-center justify-center gap-2 text-foreground">
         {icon}
         <h2 className="text-lg font-semibold">{title}</h2>
@@ -749,7 +749,7 @@ function Row({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-border/60 py-1.5 last:border-b-0">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border/60 py-1.5 last:border-b-0">
       <dt className="text-muted-foreground">{label}</dt>
       <dd className="text-foreground">{children}</dd>
     </div>

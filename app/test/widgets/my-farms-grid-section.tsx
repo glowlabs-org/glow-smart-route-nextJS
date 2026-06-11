@@ -3135,7 +3135,7 @@ export default function MyFarmsGridSection({
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent border-border/20 dark:border-border/40">
-                <TableHead className="w-[300px] text-[10px] uppercase tracking-wider font-mono font-bold">
+                <TableHead className="w-full sm:w-[300px] text-[10px] uppercase tracking-wider font-mono font-bold">
                   {t.widgets.myFarms.listItem}
                 </TableHead>
                 <TableHead className="text-[10px] uppercase tracking-wider font-mono font-bold">

@@ -450,7 +450,7 @@ export function Header({
   return (
     <>
       <header className={headerClassName}>
-        <div className="mx-auto flex h-[72px] w-full max-w-screen-2xl items-center justify-between gap-6 px-6">
+        <div className="mx-auto flex h-[72px] w-full max-w-screen-2xl items-center justify-between gap-3 sm:gap-6 px-6">
           <Link href="/" className="flex items-center space-x-2 group">
             <GlowSymbol className="w-10 md:w-12 shrink-0 relative z-10 text-zinc-900 dark:text-zinc-100" />
           </Link>

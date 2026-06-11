@@ -305,10 +305,10 @@ export function GlowCommit({ walletAddress, weeksToDisplay }: GlowCommitProps) {
       <div className="py-4 rounded-xl">
         <CardHeader className="items-center space-y-4 text-center">
           <div className="flex flex-col items-center gap-1">
-            <span className="text-6xl font-black leading-none tracking-tight text-foreground">
+            <span className="text-4xl sm:text-6xl font-black leading-none tracking-tight text-foreground">
               {longestStreak}
             </span>
-            <span className="text-xs uppercase tracking-[0.4em] text-muted-foreground font-semibold">
+            <span className="text-xs uppercase tracking-[0.2em] sm:tracking-[0.4em] text-muted-foreground font-semibold">
               longest mining streak
             </span>
           </div>
@@ -331,7 +331,7 @@ export function GlowCommit({ walletAddress, weeksToDisplay }: GlowCommitProps) {
             </p>
           ) : (
             <div className="space-y-6">
-              <div className="rounded-lg bg-muted/30 p-6">
+              <div className="rounded-lg bg-muted/30 p-3 sm:p-6">
                 <div className="flex flex-col gap-3">
                   {monthGroups.map((group, groupIdx) => (
                     <div
@@ -372,7 +372,7 @@ export function GlowCommit({ walletAddress, weeksToDisplay }: GlowCommitProps) {
                                 </span>
                               </div>
 
-                              <div className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 min-w-[180px] -translate-x-1/2 rounded-md border bg-popover px-3 py-2 text-xs shadow-lg opacity-0 transition-opacity duration-100 group-hover:opacity-100">
+                              <div className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 min-w-[160px] sm:min-w-[180px] -translate-x-1/2 rounded-md border bg-popover px-3 py-2 text-xs shadow-lg opacity-0 transition-opacity duration-100 group-hover:opacity-100">
                                 <div className="font-semibold text-foreground">
                                   {tooltipTitle}
                                 </div>
@@ -391,7 +391,7 @@ export function GlowCommit({ walletAddress, weeksToDisplay }: GlowCommitProps) {
 
               {/* Legend */}
               <div className="flex flex-col gap-3 text-xs text-muted-foreground">
-                <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center justify-start sm:justify-between gap-2">
                   <div className="flex items-center gap-1.5">
                     <div
                       className="h-4 w-4 rounded-[4px] border border-border/50"
@@ -427,7 +427,7 @@ export function GlowCommit({ walletAddress, weeksToDisplay }: GlowCommitProps) {
         </CardContent>
       </div>
       {hasWallet && weekCells.length > 0 && (
-        <div className="px-6 pb-6">
+        <div className="px-4 sm:px-6 pb-4 sm:pb-6">
           <Button
             variant="outline"
             className="w-full justify-center gap-2 text-sm font-semibold"

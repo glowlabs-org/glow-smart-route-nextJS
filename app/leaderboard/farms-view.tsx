@@ -1266,7 +1266,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                           </TableCell>
                           <TableCell>
                             <div className="space-y-0.5">
-                              <div className="font-medium text-sm">
+                              <div className="font-medium text-sm max-w-[150px] truncate">
                                 {farm.name ||
                                   fl.farmFallback(farm.farmId.slice(0, 8))}
                               </div>

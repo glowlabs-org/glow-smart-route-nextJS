@@ -2515,12 +2515,12 @@ const OverviewSection = React.memo(function OverviewSection({
               {p.clickForBasics}
             </div>
           </div>
-          <div className="relative z-10 mx-auto w-full max-w-5xl px-5 py-10 pt-14 sm:px-12 sm:py-14 sm:pt-16 lg:py-16 lg:pt-16 grid grid-cols-1 gap-8 md:grid-cols-3 md:gap-x-12 md:gap-y-8 md:items-end">
+          <div className="relative z-10 mx-auto w-full max-w-5xl px-4 py-6 pt-8 gap-4 sm:px-12 sm:py-14 sm:pt-16 sm:gap-8 lg:py-16 lg:pt-16 grid grid-cols-1 md:grid-cols-3 md:gap-x-12 md:gap-y-8 md:items-end">
             <div className="grid grid-rows-[auto_auto] gap-3 md:col-span-3 md:justify-self-center md:items-center md:text-center">
               <div className="text-[10px] font-mono uppercase tracking-widest text-white/75">
                 {p.marketCap}
               </div>
-              <div className="text-6xl sm:text-7xl lg:text-8xl font-bold tracking-tight font-mono tabular-nums leading-none text-white">
+              <div className="text-3xl sm:text-6xl lg:text-8xl font-bold tracking-tight font-mono tabular-nums leading-none text-white">
                 {marketCapDisplay}
               </div>
             </div>
@@ -2603,7 +2603,7 @@ const OverviewSection = React.memo(function OverviewSection({
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
                 {p.monthlySolarConstruction}
               </div>
-              <div className="mt-4 text-5xl sm:text-7xl font-semibold tracking-tight font-mono tabular-nums leading-none">
+              <div className="mt-4 text-3xl sm:text-5xl lg:text-7xl font-semibold tracking-tight font-mono tabular-nums leading-none">
                 {monthlySolarConstructionKw !== null
                   ? formatNumber(Math.round(monthlySolarConstructionKw))
                   : "—"}
@@ -3141,7 +3141,7 @@ const LiquidityGctlWalletsSection = React.memo(
               </div>
             </CardHeader>
             <CardContent className="flex flex-col gap-5 h-full">
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-6">
                 <MetricCard
                   label={p.embeddedLiquidity}
                   value={
@@ -3553,7 +3553,7 @@ const DelegationRegionsAndImpactSection = React.memo(
                 </div>
               </CardHeader>
               <CardContent className="flex flex-col gap-6 h-full">
-                <div className="grid grid-cols-3 gap-3 sm:gap-4">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3 lg:gap-4">
                   <MiniStat
                     label={p.glwDelegated}
                     value={delegatedDisplay}
@@ -5731,7 +5731,7 @@ export function PolDashboardView() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <section className="max-w-screen-2xl mx-auto px-4 md:px-6 lg:px-12 pb-16 pt-8">
-        <div className="flex flex-col gap-8">
+        <div className="flex flex-col gap-4 sm:gap-8">
           <OverviewSection
             marketCapDisplay={marketCapDisplay}
             priceDisplay={priceDisplay}

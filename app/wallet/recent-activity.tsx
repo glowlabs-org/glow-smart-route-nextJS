@@ -714,7 +714,7 @@ export function RecentActivity({
 
       {showKpis && !isLoading && activities.length > 0 && (
         <div className="px-4 pb-3">
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
             <div className="rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-3">
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
                 {labels.kpiTotal}
@@ -834,7 +834,7 @@ export function RecentActivity({
                             ) : null}
                           </div>
                           <div className="mt-1 text-[11px] font-mono text-muted-foreground">
-                            <span className="tabular-nums whitespace-nowrap">
+                            <span className="tabular-nums text-[9px] sm:text-[11px]">
                               {formatDateTime(activity.timestampMs)}
                             </span>
                             {activity.subtitle ? (
