@@ -38,6 +38,21 @@ export const adminPointsGrantEIP712Types = {
 // Types
 // ============================================
 
+/** Where the in-flight grant currently is, so the UI can say exactly what it
+ * is waiting on (network switch vs wallet popup vs server round-trip). */
+export type GrantPhase = "idle" | "switching-chain" | "signing" | "submitting";
+
+/** API failure carrying the backend error code so the UI can map it to a
+ * friendly, actionable message (e.g. SIGNER_NOT_ALLOWLISTED). */
+export class GrantApiError extends Error {
+  code: string | null;
+  constructor(message: string, code?: string | null) {
+    super(message);
+    this.name = "GrantApiError";
+    this.code = code ?? null;
+  }
+}
+
 export interface GrantRecipientInput {
   /** 0x-prefixed wallet (any casing; normalized before signing). */
   wallet: string;
@@ -71,6 +86,7 @@ export interface GrantResponse {
 
 export function useAdminPointsGrant() {
   const { address, isConnected } = useAccount();
+  const [phase, setPhase] = React.useState<GrantPhase>("idle");
   const { signTypedDataAsync } = useSignTypedData();
   const { data: connectorClient } = useConnectorClient();
   const { switchChainAsync } = useSwitchChain();
@@ -167,47 +183,55 @@ export function useAdminPointsGrant() {
       const idempotencyKey = params.idempotencyKey || crypto.randomUUID();
       const deadline = BigInt(Math.floor(Date.now() / 1000 + 600)); // 10 min
 
-      await ensureCorrectChain();
+      try {
+        setPhase("switching-chain");
+        await ensureCorrectChain();
 
-      const signature = await signTypedDataAsync({
-        account: signer,
-        domain: adminPointsGrantEIP712Domain(chainId),
-        types: adminPointsGrantEIP712Types,
-        primaryType: "AdminPointsGrant",
-        message: {
-          recipients: recipients as Hex[],
-          amounts: amountsMicros,
-          reason: params.reason,
-          idempotencyKey,
-          deadline,
-        },
-      });
+        setPhase("signing");
+        const signature = await signTypedDataAsync({
+          account: signer,
+          domain: adminPointsGrantEIP712Domain(chainId),
+          types: adminPointsGrantEIP712Types,
+          primaryType: "AdminPointsGrant",
+          message: {
+            recipients: recipients as Hex[],
+            amounts: amountsMicros,
+            reason: params.reason,
+            idempotencyKey,
+            deadline,
+          },
+        });
 
-      const response = await fetch("/api/internal/points/grant", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          signer,
-          recipients,
-          amounts: amountsMicros.map((a) => a.toString()),
-          reason: params.reason,
-          idempotencyKey,
-          deadline: deadline.toString(),
-          signature,
-          chainId,
-        }),
-      });
+        setPhase("submitting");
+        const response = await fetch("/api/internal/points/grant", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            signer,
+            recipients,
+            amounts: amountsMicros.map((a) => a.toString()),
+            reason: params.reason,
+            idempotencyKey,
+            deadline: deadline.toString(),
+            signature,
+            chainId,
+          }),
+        });
 
-      const payload = (await response.json().catch(() => null)) as
-        | (GrantResponse & { error?: string; code?: string })
-        | null;
+        const payload = (await response.json().catch(() => null)) as
+          | (GrantResponse & { error?: string; code?: string })
+          | null;
 
-      if (!response.ok || !payload?.ok) {
-        throw new Error(
-          payload?.error ?? `Grant failed (HTTP ${response.status})`,
-        );
+        if (!response.ok || !payload?.ok) {
+          throw new GrantApiError(
+            payload?.error ?? `Grant failed (HTTP ${response.status})`,
+            payload?.code ?? null,
+          );
+        }
+        return payload;
+      } finally {
+        setPhase("idle");
       }
-      return payload;
     },
   });
 
@@ -216,6 +240,8 @@ export function useAdminPointsGrant() {
     isConnected,
     grant: grantMutation.mutateAsync,
     isGranting: grantMutation.isPending,
+    /** What the in-flight grant is waiting on ("idle" when not granting). */
+    phase,
     grantError: grantMutation.error,
     lastResult: grantMutation.data ?? null,
     reset: grantMutation.reset,
