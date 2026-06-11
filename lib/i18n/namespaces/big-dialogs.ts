@@ -40,8 +40,6 @@ export interface BigDialogsStrings {
     privateReferralData: string;
     activeReferrals: (n: number) => string;
     activePendingReferrals: (active: number, pending: number) => string;
-    referralBonuses: string;
-    referralBonus10: string;
     weeksRemaining: (n: string) => string;
     change: string;
     totalEarned: string;
@@ -109,8 +107,6 @@ export interface BigDialogsStrings {
     upTo20Pct: string;
     ofFriendsBasePoints: string;
     theyGet: string;
-    bonus10Pct: string;
-    forTwelveWeeks: string;
     yourReferrer: string;
     gracePeriod: string;
     linkedOn: (date: string) => string;
@@ -500,8 +496,6 @@ const en: BigDialogsStrings = {
     activeReferrals: (n) => `${n} active referrals`,
     activePendingReferrals: (active, pending) =>
       `${active} active · ${pending} pending`,
-    referralBonuses: "Referral Bonuses",
-    referralBonus10: "+10% Referral Bonus",
     weeksRemaining: (n) => `${n} weeks remaining`,
     change: "Change",
     totalEarned: "Total Earned",
@@ -572,8 +566,6 @@ const en: BigDialogsStrings = {
     upTo20Pct: "Up to 20%",
     ofFriendsBasePoints: "of friends' base points",
     theyGet: "They Get",
-    bonus10Pct: "+10% Bonus",
-    forTwelveWeeks: "for 12 weeks",
     yourReferrer: "Your Referrer",
     gracePeriod: "Grace Period",
     linkedOn: (date) => `Linked ${date}`,
@@ -984,8 +976,6 @@ const ko: BigDialogsStrings = {
     activeReferrals: (n) => `활성 추천 ${n}명`,
     activePendingReferrals: (active, pending) =>
       `활성 ${active}명 · 대기 ${pending}명`,
-    referralBonuses: "추천 보너스",
-    referralBonus10: "+10% 추천 보너스",
     weeksRemaining: (n) => `${n}주 남음`,
     change: "변경",
     totalEarned: "누적 획득",
@@ -1057,8 +1047,6 @@ const ko: BigDialogsStrings = {
     upTo20Pct: "최대 20%",
     ofFriendsBasePoints: "친구의 기본 포인트 중",
     theyGet: "친구의 보상",
-    bonus10Pct: "+10% 보너스",
-    forTwelveWeeks: "12주 동안",
     yourReferrer: "내 추천인",
     gracePeriod: "유예 기간",
     linkedOn: (date) => `연결일 ${date}`,
@@ -1467,8 +1455,6 @@ const zh: BigDialogsStrings = {
     activeReferrals: (n) => `${n} 个活跃推荐`,
     activePendingReferrals: (active, pending) =>
       `${active} 个活跃 · ${pending} 个待激活`,
-    referralBonuses: "推荐奖励",
-    referralBonus10: "+10% 推荐奖励",
     weeksRemaining: (n) => `剩余 ${n} 周`,
     change: "更改",
     totalEarned: "累计获得",
@@ -1537,8 +1523,6 @@ const zh: BigDialogsStrings = {
     upTo20Pct: "最高 20%",
     ofFriendsBasePoints: "好友的基础点数",
     theyGet: "好友的奖励",
-    bonus10Pct: "+10% 奖励",
-    forTwelveWeeks: "持续 12 周",
     yourReferrer: "您的推荐人",
     gracePeriod: "宽限期",
     linkedOn: (date) => `关联于 ${date}`,

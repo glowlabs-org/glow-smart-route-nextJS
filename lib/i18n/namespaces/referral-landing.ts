@@ -65,16 +65,17 @@ const en: ReferralLandingStrings = {
   youreIn: "You're In",
   referralLinkedTo: "Referral Linked to",
   changeSuccessBody:
-    "Your boost stays on its original schedule. The +100 bonus points will unlock after you reach 100 points.",
+    "You're now linked to this referrer. You earn at the standard rates and your points always stay yours. They start earning a share of your points (at no cost to you) once you reach 100 points.",
   newSuccessBody:
-    "Your 12-week boost starts now. Earn 10% more points each week, and unlock +100 bonus points after you reach 100 points.",
+    "You earn at the standard rates and your points always stay yours. Your referrer earns a share of your points (at no cost to you) once you reach 100 points.",
   startYourOwnNetwork: "Start your own network",
   inviteFriendsBody:
-    "Invite friends and earn up to 20% of their points. They'll get the same bonuses you just unlocked.",
+    "Invite friends and earn 5 to 20% of their points, at no cost to them. They earn at the standard rates and keep all of their own points.",
   copied: "Copied!",
   copyYourLink: "Copy Your Link",
   toastReferralLinkCopied: "Your referral link copied!",
-  startEarningPoints: "Start earning points to unlock your activation bonus.",
+  startEarningPoints:
+    "Earn at the standard rates and keep all of your points. Reach 100 points and your referrer starts earning a share, at no cost to you.",
   heroAlt: "Solar panels with worker",
 
   personalInvitation: "Personal Invitation",
@@ -92,7 +93,7 @@ const en: ReferralLandingStrings = {
   goToDashboardSuccess: "Go to Dashboard",
   tryDifferentWallet: "Try Different Wallet",
   walletAlreadyLinked: "This wallet is already linked to a referrer",
-  claimBonus: "Claim Bonus",
+  claimBonus: "Link Referral",
   verifying: "Verifying...",
 
   connectWalletToVerify: "Connect wallet to verify eligibility",
@@ -102,19 +103,19 @@ const en: ReferralLandingStrings = {
   unableToVerify: "Unable to verify this referral right now.",
   canSwitchPending: "You can switch referrers while your referral is pending.",
 
-  badgeActiveNow: "Active Now",
-  badgePending: "Pending",
-  badgeBoostingPoints1: "Boosting your points",
-  badgeBoostingPoints2: "for 12 weeks",
-  badgeBoostingPointsMobile: "12 weeks",
-  badgeUnlocksAfter1: "Unlocks after your first",
-  badgeUnlocksAfter2: "100 points",
-  badgeAt100PtsMobile: "At 100 pts",
-  badgeImpactPointsBonus: "Points Bonus",
-  badgeAddedToBase1: "Added to your base points",
-  badgeAddedToBase2: "for 12 weeks",
-  badgeBonusPoints: "Bonus Points",
-  badgeAt100Points: "At 100 points",
+  badgeActiveNow: "Standard rates",
+  badgePending: "5 to 20% share",
+  badgeBoostingPoints1: "You keep all of",
+  badgeBoostingPoints2: "your own points",
+  badgeBoostingPointsMobile: "Your points stay yours",
+  badgeUnlocksAfter1: "Your referrer earns a share,",
+  badgeUnlocksAfter2: "at no cost to you",
+  badgeAt100PtsMobile: "At no cost to you",
+  badgeImpactPointsBonus: "Standard rates",
+  badgeAddedToBase1: "You keep all of",
+  badgeAddedToBase2: "your own points",
+  badgeBonusPoints: "5 to 20% share",
+  badgeAt100Points: "At no cost to you",
 };
 
 const ko: ReferralLandingStrings = {
@@ -125,17 +126,17 @@ const ko: ReferralLandingStrings = {
   youreIn: "참여 완료",
   referralLinkedTo: "다음 추천인에 연결됨:",
   changeSuccessBody:
-    "부스트는 원래 일정대로 유지됩니다. +100 보너스 포인트는 100포인트에 도달한 후 해제됩니다.",
+    "이제 이 추천인에 연결되었습니다. 표준 적립률로 포인트를 적립하며, 포인트는 항상 본인의 것입니다. 100포인트에 도달하면 추천인이 회원님의 포인트 일부를 적립하기 시작합니다 (회원님께는 비용이 없습니다).",
   newSuccessBody:
-    "12주 부스트가 지금 시작됩니다. 매주 10% 더 많은 포인트를 적립하고, 100포인트에 도달하면 +100 보너스 포인트를 해제합니다.",
+    "표준 적립률로 포인트를 적립하며, 포인트는 항상 본인의 것입니다. 100포인트에 도달하면 추천인이 회원님의 포인트 일부를 적립합니다 (회원님께는 비용이 없습니다).",
   startYourOwnNetwork: "내 네트워크 시작하기",
   inviteFriendsBody:
-    "친구를 초대하고 그들의 임팩트 포인트의 최대 20%를 적립하세요. 친구들은 방금 해제하신 것과 동일한 보너스를 받습니다.",
+    "친구를 초대하고 그들의 포인트의 5~20%를 적립하세요. 친구에게는 비용이 없습니다. 친구는 표준 적립률로 포인트를 적립하고 자신의 포인트를 모두 유지합니다.",
   copied: "복사됨!",
   copyYourLink: "내 링크 복사",
   toastReferralLinkCopied: "추천 링크가 복사되었습니다!",
   startEarningPoints:
-    "활성화 보너스를 해제하려면 포인트 적립을 시작하세요.",
+    "표준 적립률로 포인트를 적립하고 포인트를 모두 유지하세요. 100포인트에 도달하면 추천인이 일부를 적립하기 시작합니다. 회원님께는 비용이 없습니다.",
   heroAlt: "작업자와 태양광 패널",
 
   personalInvitation: "개인 초대",
@@ -153,7 +154,7 @@ const ko: ReferralLandingStrings = {
   goToDashboardSuccess: "대시보드로 이동",
   tryDifferentWallet: "다른 지갑 사용",
   walletAlreadyLinked: "이 지갑은 이미 추천인에 연결되어 있습니다",
-  claimBonus: "보너스 청구",
+  claimBonus: "추천 연결",
   verifying: "확인 중...",
 
   connectWalletToVerify: "자격 확인을 위해 지갑을 연결하세요",
@@ -163,19 +164,19 @@ const ko: ReferralLandingStrings = {
   unableToVerify: "이 추천을 지금 확인할 수 없습니다.",
   canSwitchPending: "추천이 대기 중인 동안 추천인을 변경할 수 있습니다.",
 
-  badgeActiveNow: "지금 활성",
-  badgePending: "대기 중",
-  badgeBoostingPoints1: "12주 동안",
-  badgeBoostingPoints2: "포인트 부스트 중",
-  badgeBoostingPointsMobile: "12주",
-  badgeUnlocksAfter1: "첫 100포인트",
-  badgeUnlocksAfter2: "후 해제",
-  badgeAt100PtsMobile: "100포인트에서",
-  badgeImpactPointsBonus: "임팩트 포인트 보너스",
-  badgeAddedToBase1: "기본 포인트에 추가",
-  badgeAddedToBase2: "12주 동안",
-  badgeBonusPoints: "보너스 포인트",
-  badgeAt100Points: "100포인트에서",
+  badgeActiveNow: "표준 적립률",
+  badgePending: "5~20% 분배",
+  badgeBoostingPoints1: "본인의 포인트는",
+  badgeBoostingPoints2: "모두 본인의 것",
+  badgeBoostingPointsMobile: "포인트는 본인의 것",
+  badgeUnlocksAfter1: "추천인이 일부를 적립,",
+  badgeUnlocksAfter2: "회원님께는 비용 없음",
+  badgeAt100PtsMobile: "회원님께 비용 없음",
+  badgeImpactPointsBonus: "표준 적립률",
+  badgeAddedToBase1: "본인의 포인트는",
+  badgeAddedToBase2: "모두 본인의 것",
+  badgeBonusPoints: "5~20% 분배",
+  badgeAt100Points: "회원님께 비용 없음",
 };
 
 const zh: ReferralLandingStrings = {
@@ -186,16 +187,17 @@ const zh: ReferralLandingStrings = {
   youreIn: "您已加入",
   referralLinkedTo: "推荐已关联至",
   changeSuccessBody:
-    "您的加成将按原定时间继续有效。达到 100 分后即可解锁 +100 奖励积分。",
+    "您现已关联至此推荐人。您按标准费率赚取积分,积分始终归您所有。当您达到 100 分后,推荐人将开始赚取您积分的一部分(您无需承担任何费用)。",
   newSuccessBody:
-    "您的 12 周加成现已开启。每周可多获得 10% 积分,达到 100 分后还能解锁 +100 奖励积分。",
+    "您按标准费率赚取积分,积分始终归您所有。当您达到 100 分后,推荐人将赚取您积分的一部分(您无需承担任何费用)。",
   startYourOwnNetwork: "开启您自己的网络",
   inviteFriendsBody:
-    "邀请好友,赚取他们最高 20% 的影响力积分。他们也将获得您刚刚解锁的同样奖励。",
+    "邀请好友,赚取他们积分的 5 至 20%,好友无需承担任何费用。他们按标准费率赚取积分,并保留自己的全部积分。",
   copied: "已复制!",
   copyYourLink: "复制您的链接",
   toastReferralLinkCopied: "推荐链接已复制!",
-  startEarningPoints: "开始累积积分,解锁您的激活奖励。",
+  startEarningPoints:
+    "按标准费率赚取积分并保留全部积分。达到 100 分后,推荐人将开始赚取一部分,您无需承担任何费用。",
   heroAlt: "工作人员与太阳能板",
 
   personalInvitation: "专属邀请",
@@ -213,7 +215,7 @@ const zh: ReferralLandingStrings = {
   goToDashboardSuccess: "前往控制台",
   tryDifferentWallet: "尝试其他钱包",
   walletAlreadyLinked: "此钱包已关联推荐人",
-  claimBonus: "领取奖励",
+  claimBonus: "关联推荐",
   verifying: "验证中...",
 
   connectWalletToVerify: "请连接钱包以验证资格",
@@ -223,19 +225,19 @@ const zh: ReferralLandingStrings = {
   unableToVerify: "暂时无法验证此推荐。",
   canSwitchPending: "在推荐处于待处理状态时,您可以更换推荐人。",
 
-  badgeActiveNow: "已激活",
-  badgePending: "待处理",
-  badgeBoostingPoints1: "提升您的积分",
-  badgeBoostingPoints2: "持续 12 周",
-  badgeBoostingPointsMobile: "12 周",
-  badgeUnlocksAfter1: "首次达到",
-  badgeUnlocksAfter2: "100 分后解锁",
-  badgeAt100PtsMobile: "达到 100 分时",
-  badgeImpactPointsBonus: "影响力积分奖励",
-  badgeAddedToBase1: "加至您的基础积分",
-  badgeAddedToBase2: "持续 12 周",
-  badgeBonusPoints: "奖励积分",
-  badgeAt100Points: "达到 100 分时",
+  badgeActiveNow: "标准费率",
+  badgePending: "5 至 20% 分成",
+  badgeBoostingPoints1: "您的积分",
+  badgeBoostingPoints2: "始终归您所有",
+  badgeBoostingPointsMobile: "积分归您所有",
+  badgeUnlocksAfter1: "推荐人赚取一部分,",
+  badgeUnlocksAfter2: "您无需承担费用",
+  badgeAt100PtsMobile: "您无需承担费用",
+  badgeImpactPointsBonus: "标准费率",
+  badgeAddedToBase1: "您的积分",
+  badgeAddedToBase2: "始终归您所有",
+  badgeBonusPoints: "5 至 20% 分成",
+  badgeAt100Points: "您无需承担费用",
 };
 
 export const referralLandingTranslations: Record<Lang, ReferralLandingStrings> =

@@ -113,7 +113,8 @@ export default async function Image({
               maxWidth: "700px",
             }}
           >
-            Earn bonus points when you sign up with this referral link.
+            Join Glow with this referral link. Sponsor solar farms and earn GLW
+            rewards.
           </div>
         </div>
       </div>

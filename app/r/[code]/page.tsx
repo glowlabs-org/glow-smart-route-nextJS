@@ -395,12 +395,12 @@ export default function ReferralLandingPage() {
                   <GlowLockup className="h-6 w-auto brightness-0 invert" />
                 </div>
 
-                {/* Bonus badges - now showing as "unlocked" */}
+                {/* Value badges - referee earns at standard rates; referrer earns a share */}
                 <div className="absolute left-0 right-0 top-12 px-4 sm:top-8 sm:px-8 lg:top-12 lg:px-12">
                   <div className="flex justify-center gap-5 sm:gap-12 lg:gap-24">
                     <div className="text-center text-white">
                       <div className="text-[2rem] font-bold tracking-tight sm:text-5xl lg:text-7xl">
-                        +10%
+                        100%
                       </div>
                       <div className="mt-1 sm:mt-2 text-xs sm:text-sm lg:text-base font-semibold text-[#4ade80]">
                         {r.badgeActiveNow}
@@ -417,7 +417,7 @@ export default function ReferralLandingPage() {
 
                     <div className="text-center text-white">
                       <div className="text-[2rem] font-bold tracking-tight sm:text-5xl lg:text-7xl">
-                        +100
+                        5-20%
                       </div>
                       <div className="mt-1 sm:mt-2 text-xs sm:text-sm lg:text-base font-semibold text-white/80">
                         {r.badgePending}
@@ -610,12 +610,12 @@ export default function ReferralLandingPage() {
                   <GlowLockup className="h-6 w-auto brightness-0 invert" />
                 </div>
 
-                {/* Bonus badges */}
+                {/* Value badges - referee earns at standard rates; referrer earns a share */}
                 <div className="absolute left-0 right-0 top-12 px-4 sm:top-8 sm:px-8 lg:top-12 lg:px-12">
                   <div className="flex justify-center gap-5 sm:gap-12 lg:gap-24">
                     <div className="text-center text-white">
                       <div className="text-[2rem] font-bold tracking-tight sm:text-5xl lg:text-7xl">
-                        +10%
+                        100%
                       </div>
                       <div className="mt-1 sm:mt-2 text-xs sm:text-sm lg:text-base font-semibold">
                         {r.badgeImpactPointsBonus}
@@ -632,7 +632,7 @@ export default function ReferralLandingPage() {
 
                     <div className="text-center text-white">
                       <div className="text-[2rem] font-bold tracking-tight sm:text-5xl lg:text-7xl">
-                        +100
+                        5-20%
                       </div>
                       <div className="mt-1 sm:mt-2 text-xs sm:text-sm lg:text-base font-semibold">
                         {r.badgeBonusPoints}
