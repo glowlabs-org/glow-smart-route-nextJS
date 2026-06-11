@@ -279,7 +279,7 @@ function PrizeSlide({
         )}
       >
       {/* Visual pane */}
-      <div className="relative min-h-[220px] md:min-h-[400px]">
+      <div className="relative min-h-[170px] sm:min-h-[220px] md:min-h-[400px]">
         {meta.isTicket ? (
           <TicketVisual />
         ) : farmImageUrl ? (
@@ -316,7 +316,7 @@ function PrizeSlide({
       </div>
 
       {/* Content pane */}
-      <div className="flex flex-col gap-5 p-6 md:p-8">
+      <div className="flex flex-col gap-3.5 p-4 sm:gap-5 sm:p-6 md:p-8">
         <div className="flex items-center justify-between gap-3">
           <span
             className={cn(
@@ -362,7 +362,7 @@ function PrizeSlide({
           </div>
         ) : null}
 
-        <div className="mt-auto flex flex-wrap items-end justify-between gap-4 border-t border-border/50 pt-5 dark:border-white/10">
+        <div className="mt-auto flex flex-col gap-3 border-t border-border/50 pt-4 dark:border-white/10 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:gap-4 sm:pt-5">
           <div>
             <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/60">
               Price
@@ -379,7 +379,7 @@ function PrizeSlide({
             isConnected={isConnected}
             canAfford={canAfford}
             onBuy={onBuy}
-            className="min-w-[160px] px-8"
+            className="w-full px-8 sm:w-auto sm:min-w-[160px]"
           />
         </div>
       </div>
@@ -420,8 +420,11 @@ function ArrowButton({
       aria-label={direction === "prev" ? "Previous prize" : "Next prize"}
       onClick={onClick}
       className={cn(
-        "absolute top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-border/60 bg-card text-foreground shadow-md transition-all hover:scale-105 hover:bg-foreground hover:text-background dark:border-white/10 dark:bg-zinc-800",
-        direction === "prev" ? "left-1 sm:left-3" : "right-1 sm:right-3",
+        // Hidden on mobile: the card is near-full-width there, so arrows would
+        // overlap it. Touch swipe + the dot indicators cover navigation; arrows
+        // return on sm+ where the narrower card leaves room beside it.
+        "absolute top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-border/60 bg-card text-foreground shadow-md transition-all hover:scale-105 hover:bg-foreground hover:text-background dark:border-white/10 dark:bg-zinc-800 sm:flex",
+        direction === "prev" ? "sm:left-3" : "sm:right-3",
       )}
     >
       {direction === "prev" ? (
@@ -462,7 +465,7 @@ function ShopCarousel({
   }, [api]);
 
   return (
-    <div className="rounded-[28px] border border-border/60 bg-muted p-3 dark:border-white/10 dark:bg-zinc-900 sm:p-5">
+    <div className="rounded-[20px] border border-border/60 bg-muted p-2 dark:border-white/10 dark:bg-zinc-900 sm:rounded-[28px] sm:p-5">
       <div className="relative">
         <Carousel
           setApi={setApi}
@@ -478,7 +481,7 @@ function ShopCarousel({
                   if (i !== selected) api?.scrollTo(i);
                 }}
                 className={cn(
-                  "flex min-w-0 shrink-0 grow-0 basis-[88%] items-center pl-4 sm:basis-[80%] lg:basis-[72%]",
+                  "flex min-w-0 shrink-0 grow-0 basis-[93%] items-center pl-4 sm:basis-[80%] lg:basis-[72%]",
                   i !== selected && "cursor-pointer",
                 )}
               >
@@ -601,8 +604,8 @@ function BalancePanel({
 }) {
   if (!isConnected || !address) {
     return (
-      <div className="mb-6 overflow-hidden rounded-2xl border border-border/60 bg-card dark:border-white/10 dark:bg-zinc-800">
-        <div className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-4 overflow-hidden rounded-2xl border border-border/60 bg-card dark:border-white/10 dark:bg-zinc-800 sm:mb-6">
+        <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
           <div>
             <Overline>Your balance</Overline>
             <p className="mt-1.5 max-w-sm text-sm text-muted-foreground">
@@ -622,7 +625,7 @@ function BalancePanel({
   const streak = streakWeeks ?? 0;
 
   return (
-    <div className="mb-6 overflow-hidden rounded-2xl border border-border/60 bg-card">
+    <div className="mb-4 overflow-hidden rounded-2xl border border-border/60 bg-card sm:mb-6">
       <div className="flex flex-col divide-y divide-border/50 dark:divide-white/10 sm:flex-row sm:items-stretch sm:divide-x sm:divide-y-0">
         {/* Available points — hero */}
         <StatCell label="Available points" className="sm:flex-[1.2]">
@@ -892,12 +895,12 @@ export function ShopView() {
   );
 
   return (
-    <section className="mx-auto w-full max-w-screen-2xl px-4 pb-20 pt-8 sm:px-6 lg:px-12">
-      <header className="mb-5">
-        <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
+    <section className="mx-auto w-full max-w-screen-2xl px-4 pb-20 pt-6 sm:px-6 sm:pt-8 lg:px-12">
+      <header className="mb-4 sm:mb-5">
+        <h1 className="text-3xl font-semibold tracking-tight sm:text-5xl">
           Points Shop
         </h1>
-        <p className="mt-3 max-w-lg text-[15px] leading-relaxed text-muted-foreground">
+        <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted-foreground sm:mt-3 sm:text-[15px]">
           Spend your Glow points on this week's prizes. Fresh inventory drops
           every Tuesday at 1:00 PM ET.
         </p>
