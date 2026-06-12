@@ -80,7 +80,9 @@ describe("formatInProgressFilledLabel", () => {
     const application = createApplication({
       paymentCurrency: "USDG",
       activeFraction: {
-        ...createApplication().activeFraction,
+        // activeFraction is `ActiveFraction | null` on this branch; the
+        // fixture always sets it, so assert away the null for the spread.
+        ...createApplication().activeFraction!,
         totalSteps: 10,
         remainingSteps: 7,
         sgctlStepAtomic: null,
