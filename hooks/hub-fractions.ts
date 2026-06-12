@@ -296,6 +296,67 @@ export function useRewardsBreakdown(
   } as const;
 }
 
+// --- Wallet reward splits + per-farm V1 (pre-97) rewards ---------------------
+// Backs the farms-performance dialog's lifetime totals + real deposit cost for
+// V1/V2 farms. The `farmRewards` array in this endpoint only covers the pre-97
+// (V1) era and holds FARM totals (2-decimal), so callers scale by the wallet's
+// split to get its share. `depositPaid*` is the on-chain protocol deposit the
+// wallet actually paid (atomic units, by currency).
+export interface WalletRewardSplitFarmReward {
+  weekNumber: number;
+  glowRewards: string;
+  usdgRewards: string;
+}
+
+export interface WalletRewardSplitRow {
+  id: string;
+  walletAddress: string;
+  applicationId: string | null;
+  glowSplitPercent: string;
+  usdgSplitPercent: string;
+  depositPaidAmount: string | null;
+  depositPaidCurrency: string | null;
+  depositPaidTxHash: string | null;
+  farm: {
+    id: string;
+    farmRewards: WalletRewardSplitFarmReward[] | null;
+  } | null;
+}
+
+export interface WalletRewardSplitsResponse {
+  rewardSplits: WalletRewardSplitRow[];
+}
+
+export function useWalletRewardSplitsAndFarmRewards(
+  params: { walletAddress?: string | null; enabled?: boolean } = {}
+) {
+  const { walletAddress, enabled = true } = params;
+  const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
+
+  const query = useQuery<WalletRewardSplitsResponse | null>({
+    queryKey: QUERY_KEYS.fractions.walletRewardSplits(normalizedWalletAddress),
+    enabled: enabled && Boolean(walletAddress),
+    staleTime: QUERY_CONFIG.DEFAULT.staleTime * 2,
+    refetchOnWindowFocus: QUERY_CONFIG.DEFAULT.refetchOnWindowFocus,
+    queryFn: async () =>
+      await hubGet<WalletRewardSplitsResponse | null>(
+        "/rewards/wallet-reward-splits-and-farm-rewards",
+        {
+          params: { wallet: walletAddress ?? undefined },
+          notFound: null,
+        }
+      ),
+  });
+
+  return {
+    data: query.data ?? null,
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+  } as const;
+}
+
 export interface WalletActivity {
   walletAddress: string;
   glwDelegated: string;
