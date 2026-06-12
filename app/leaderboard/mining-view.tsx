@@ -831,7 +831,7 @@ export function MiningView() {
                 return (
                   <Card
                     key={farm.farmId}
-                    className="border-border/60 hover:border-primary/50 transition-colors"
+                    className="border-border/60 hover:border-primary/50 transition-colors [content-visibility:auto] [contain-intrinsic-size:auto_320px]"
                   >
                     <CardHeader className="pb-3">
                       <div className="space-y-2">

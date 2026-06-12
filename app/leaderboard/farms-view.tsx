@@ -1245,11 +1245,11 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                       return (
                         <TableRow
                           key={farm.farmId}
-                          className={
+                          className={`[content-visibility:auto] [contain-intrinsic-size:auto_56px] ${
                             farm.totalRewardsUsd > 0
                               ? "cursor-pointer hover:bg-muted/30"
                               : ""
-                          }
+                          }`}
                           onClick={() => {
                             if (farm.totalRewardsUsd > 0) {
                               setSelectedFarmForDialog({

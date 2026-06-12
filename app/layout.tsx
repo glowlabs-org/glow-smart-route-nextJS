@@ -7,7 +7,34 @@ import { LangProvider } from "@/lib/i18n";
 import { Analytics } from "@vercel/analytics/next";
 import Script from "next/script";
 import { Metadata } from "next";
+import { preconnect } from "react-dom";
 import { SEO } from "@/lib/seo";
+
+// Origins the app connects to immediately on most pages (backend APIs + RPC).
+// Preconnecting starts DNS+TCP+TLS before the first fetch/RPC call, shaving
+// ~100-300ms off initial data load. Derived from env so it follows staging/prod;
+// `URL(...).origin` strips any path/API-key, so only the bare origin is hinted.
+function toOrigin(url: string | undefined): string | null {
+  if (!url) return null;
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
+
+const PRECONNECT_ORIGINS = Array.from(
+  new Set(
+    [
+      process.env.NEXT_PUBLIC_HUB_URL,
+      process.env.NEXT_PUBLIC_CONTROL_API_URL,
+      process.env.NEXT_PUBLIC_MAINNET_RPC_URL,
+      process.env.NEXT_PUBLIC_MAINNET_RPC_FALLBACK_URL,
+    ]
+      .map(toOrigin)
+      .filter((origin): origin is string => origin !== null)
+  )
+);
 
 export const metadata: Metadata = {
   title: {
@@ -90,6 +117,11 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Emit <link rel="preconnect"> for backend/RPC origins before render.
+  for (const origin of PRECONNECT_ORIGINS) {
+    preconnect(origin);
+  }
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
