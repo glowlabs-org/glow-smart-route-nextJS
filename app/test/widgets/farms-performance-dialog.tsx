@@ -712,6 +712,91 @@ const ShopMinerRow = ({ data }: { data: PerformanceRowData }) => {
   );
 };
 
+// Module scope so the component identity is stable across FarmPerformanceRow renders.
+const ProgressDisplay = ({
+  data,
+  fp,
+  isPendingStart,
+  isInProgress,
+  isOther,
+  pendingPhaseLabel,
+  valuePercent,
+  className,
+}: {
+  data: PerformanceRowData;
+  fp: FarmsPerfLabels;
+  isPendingStart: boolean;
+  isInProgress: boolean;
+  isOther: boolean;
+  pendingPhaseLabel: string;
+  valuePercent: number;
+  className?: string;
+}) => {
+  if (isPendingStart) {
+    return (
+      <div
+        className={cn(
+          "text-xs font-bold font-mono text-muted-foreground",
+          className
+        )}
+      >
+        {pendingPhaseLabel.toUpperCase()}
+      </div>
+    );
+  }
+  if (isInProgress) {
+    return (
+      <div
+        className={cn(
+          "text-xs font-bold font-mono text-muted-foreground",
+          className
+        )}
+      >
+        {fp.inProgress}
+      </div>
+    );
+  }
+  if (isOther) {
+    // Once the deposit cost is known (V1/V2 farms), show real value progress
+    // (earned / cost); otherwise fall back to the generic "Rewards" status.
+    if (data.initialCost > 0) {
+      return (
+        <div
+          className={cn(
+            "text-sm font-bold font-mono tabular-nums",
+            valuePercent >= 100 ? "text-emerald-500" : "text-muted-foreground",
+            className
+          )}
+        >
+          {valuePercent.toFixed(1)}%
+        </div>
+      );
+    }
+    return (
+      <div
+        className={cn(
+          "text-xs font-bold font-mono text-emerald-600 dark:text-[color:var(--color-glow-green)]",
+          className
+        )}
+      >
+        {fp.rewardsStatus}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={cn(
+        "text-sm font-bold font-mono tabular-nums",
+        valuePercent >= 100 ? "text-emerald-500" : "text-muted-foreground",
+        className
+      )}
+    >
+      {valuePercent.toFixed(1)}%
+    </div>
+  );
+};
+
 // --- COMPONENT: THE FARM ROW ---
 const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
   const { t } = useLang();
@@ -861,78 +946,6 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
     return "bg-[color:var(--color-glow-green)]/10 border-[color:var(--color-glow-green)] text-emerald-700 dark:text-[color:var(--color-glow-green)]";
   };
 
-  const ProgressDisplay = ({ className }: { className?: string }) => {
-    if (isPendingStart) {
-      return (
-        <div
-          className={cn(
-            "text-xs font-bold font-mono text-muted-foreground",
-            className
-          )}
-        >
-          {pendingPhaseLabel.toUpperCase()}
-        </div>
-      );
-    }
-    if (isInProgress) {
-      return (
-        <div
-          className={cn(
-            "text-xs font-bold font-mono text-muted-foreground",
-            className
-          )}
-        >
-          {fp.inProgress}
-        </div>
-      );
-    }
-    // "Other" / Rewards rows don't really have a "Cost" so progress is just 100% or hidden?
-    // User didn't specify for "Other", but "Progress" usually implies ROI.
-    // For "Other" (rewards), valuePercent is 0 in current logic (line 116).
-    // Let's check logic: const valuePercent = data.type === "other" ? 0 : (totalEarned / denom) * 100;
-    // Maybe show nothing or "N/A" for other? Or just the earned amount is enough?
-    // Let's stick to percentage if meaningful.
-    if (isOther) {
-      // Once the deposit cost is known (V1/V2 farms), show real value progress
-      // (earned / cost); otherwise fall back to the generic "Rewards" status.
-      if (data.initialCost > 0) {
-        return (
-          <div
-            className={cn(
-              "text-sm font-bold font-mono tabular-nums",
-              valuePercent >= 100 ? "text-emerald-500" : "text-muted-foreground",
-              className
-            )}
-          >
-            {valuePercent.toFixed(1)}%
-          </div>
-        );
-      }
-      return (
-        <div
-          className={cn(
-            "text-xs font-bold font-mono text-emerald-600 dark:text-[color:var(--color-glow-green)]",
-            className
-          )}
-        >
-          {fp.rewardsStatus}
-        </div>
-      );
-    }
-
-    return (
-      <div
-        className={cn(
-          "text-sm font-bold font-mono tabular-nums",
-          valuePercent >= 100 ? "text-emerald-500" : "text-muted-foreground",
-          className
-        )}
-      >
-        {valuePercent.toFixed(1)}%
-      </div>
-    );
-  };
-
   return (
     <div
       className={cn(
@@ -965,7 +978,15 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
             </div>
           </div>
           <div className="shrink-0 flex items-center gap-2">
-            <ProgressDisplay />
+            <ProgressDisplay
+              data={data}
+              fp={fp}
+              isPendingStart={isPendingStart}
+              isInProgress={isInProgress}
+              isOther={isOther}
+              pendingPhaseLabel={pendingPhaseLabel}
+              valuePercent={valuePercent}
+            />
             {!isInProgress && (
               <ChevronDown
                 className={cn(
@@ -1383,7 +1404,15 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
 
           {/* COLUMN 4: PROGRESS */}
           <div className="col-span-2 flex items-center justify-end gap-2">
-            <ProgressDisplay />
+            <ProgressDisplay
+              data={data}
+              fp={fp}
+              isPendingStart={isPendingStart}
+              isInProgress={isInProgress}
+              isOther={isOther}
+              pendingPhaseLabel={pendingPhaseLabel}
+              valuePercent={valuePercent}
+            />
             {!isInProgress && (
               <ChevronDown
                 className={cn(

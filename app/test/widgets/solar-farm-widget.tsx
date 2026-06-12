@@ -328,6 +328,39 @@ interface InProgressFarmData {
   totalAmount?: bigint;
 }
 
+const ProgressDisplay = ({
+  isPending,
+  labels,
+  className,
+}: {
+  isPending: boolean;
+  labels: Strings["widgets"]["solarFarm"];
+  className?: string;
+}) => {
+  if (isPending) {
+    return (
+      <div
+        className={cn(
+          "text-xs font-bold font-mono text-muted-foreground",
+          className
+        )}
+      >
+        {labels.pendingBadge}
+      </div>
+    );
+  }
+  return (
+    <div
+      className={cn(
+        "text-xs font-bold font-mono text-muted-foreground",
+        className
+      )}
+    >
+      {labels.inProgressBadge}
+    </div>
+  );
+};
+
 const PendingFarmRow = ({
   data,
   isPending,
@@ -389,31 +422,6 @@ const PendingFarmRow = ({
       return "bg-[color:var(--color-miner)]/12 border-[color:var(--color-miner)] text-[color:var(--color-miner-contrast)]";
     }
     return "bg-delegation-purple/12 border-delegation-purple text-delegation-purple dark:text-delegation-purple";
-  };
-
-  const ProgressDisplay = ({ className }: { className?: string }) => {
-    if (isPending) {
-      return (
-        <div
-          className={cn(
-            "text-xs font-bold font-mono text-muted-foreground",
-            className
-          )}
-        >
-          {labels.pendingBadge}
-        </div>
-      );
-    }
-    return (
-      <div
-        className={cn(
-          "text-xs font-bold font-mono text-muted-foreground",
-          className
-        )}
-      >
-        {labels.inProgressBadge}
-      </div>
-    );
   };
 
   return (
@@ -632,7 +640,7 @@ const PendingFarmRow = ({
 
           {/* COLUMN 4: PROGRESS */}
           <div className="col-span-2 flex items-center justify-end gap-2">
-            <ProgressDisplay />
+            <ProgressDisplay isPending={isPending} labels={labels} />
           </div>
         </div>
       </div>

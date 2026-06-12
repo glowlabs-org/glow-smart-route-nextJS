@@ -389,6 +389,49 @@ type Phase =
   | "error"
   | "pending_confirmation";
 
+// Icon Helpers (module scope so the component identity is stable across renders)
+const TOKEN_ICON_SRC_BY_SYMBOL = {
+  ETH: "/images/tokens/eth.svg",
+  USDC: "/images/tokens/usdc.svg",
+} as const;
+
+function TokenIcon(props: { symbol: "ETH" | "GLW" | "USDC" | "GCTL" }) {
+  const { symbol } = props;
+
+  if (symbol === "GLW") {
+    return (
+      <div className="h-6 w-6 rounded-full bg-muted border border-border flex items-center justify-center">
+        <GlowSymbol className="h-4 w-4" />
+      </div>
+    );
+  }
+
+  if (symbol === "GCTL") {
+    return (
+      <div className="h-6 w-6 rounded-full bg-muted border border-border flex items-center justify-center text-[10px] font-mono font-semibold">
+        G
+      </div>
+    );
+  }
+
+  const iconSrc =
+    symbol === "ETH" || symbol === "USDC"
+      ? TOKEN_ICON_SRC_BY_SYMBOL[symbol]
+      : null;
+
+  if (iconSrc) {
+    return (
+      <img
+        src={iconSrc}
+        alt={`${symbol} token`}
+        className="h-6 w-6 rounded-full"
+        draggable={false}
+      />
+    );
+  }
+  return <Coins className="h-6 w-6" />;
+}
+
 export function DepositDialog({
   open,
   onOpenChange,
@@ -941,48 +984,6 @@ export function DepositDialog({
     };
   }, [application?.id, fetchLatestApplication, open]);
 
-  // Icon Helpers
-  const TOKEN_ICON_SRC_BY_SYMBOL = {
-    ETH: "/images/tokens/eth.svg",
-    USDC: "/images/tokens/usdc.svg",
-  } as const;
-
-  function TokenIcon(props: { symbol: "ETH" | "GLW" | "USDC" | "GCTL" }) {
-    const { symbol } = props;
-
-    if (symbol === "GLW") {
-      return (
-        <div className="h-6 w-6 rounded-full bg-muted border border-border flex items-center justify-center">
-          <GlowSymbol className="h-4 w-4" />
-        </div>
-      );
-    }
-
-    if (symbol === "GCTL") {
-      return (
-        <div className="h-6 w-6 rounded-full bg-muted border border-border flex items-center justify-center text-[10px] font-mono font-semibold">
-          G
-        </div>
-      );
-    }
-
-    const iconSrc =
-      symbol === "ETH" || symbol === "USDC"
-        ? TOKEN_ICON_SRC_BY_SYMBOL[symbol]
-        : null;
-
-    if (iconSrc) {
-      return (
-        <img
-          src={iconSrc}
-          alt={`${symbol} token`}
-          className="h-6 w-6 rounded-full"
-          draggable={false}
-        />
-      );
-    }
-    return <Coins className="h-6 w-6" />;
-  }
   const unclaimedGlw = useUnclaimedGlwForDelegation(
     runtimeSelectedCurrency === "GLW" ? address : undefined,
   );
