@@ -26,6 +26,8 @@ export const QUERY_KEYS = {
       ["refundable-fractions", walletAddress] as const,
     splits: (walletAddress?: string | null, fractionId?: string | null) =>
       ["fraction-splits", walletAddress, fractionId] as const,
+    walletRewardSplits: (walletAddress?: string | null) =>
+      ["wallet-reward-splits-and-farm-rewards", walletAddress] as const,
   },
   impact: {
     leaderboard: () => ["impact-leaderboard"] as const,
