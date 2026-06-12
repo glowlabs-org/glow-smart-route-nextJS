@@ -2446,7 +2446,7 @@ export function FarmsPerformanceDialogContent({
   }, [inProgressRows, pendingStartRows, rows]);
 
   return (
-    <DialogContent className="max-w-5xl h-[92dvh] sm:h-[80vh] min-h-0 flex flex-col p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40">
+    <DialogContent className="max-w-6xl h-[92dvh] sm:h-[80vh] min-h-0 flex flex-col p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40">
       {/* Header */}
       <DialogHeader className="px-4 sm:px-6 py-4 sm:py-5 border-b border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 flex-shrink-0 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6 space-y-0">
         <DialogTitle className="text-xl sm:text-2xl font-bold font-mono uppercase tracking-wide leading-tight">
