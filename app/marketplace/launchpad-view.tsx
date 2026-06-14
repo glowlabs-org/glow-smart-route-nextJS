@@ -73,7 +73,15 @@ import {
   resolveEffectiveDelegationCurrency,
   resolveLaunchpadDelegationUnitCount,
 } from "@/utils/launchpad-rewards";
-import { getLaunchpadAvailability } from "@/utils/launchpad-availability";
+import {
+  getLaunchpadAvailability,
+  getLaunchpadLegAvailability,
+} from "@/utils/launchpad-availability";
+import {
+  expandLaunchpadCardEntries,
+  hasBuyableSgctlLeg,
+  type LaunchpadCardLeg,
+} from "@/utils/launchpad-card-legs";
 import { useSgctlEligibility } from "@/hooks/use-sgctl-eligibility";
 
 import { Skeleton } from "@/components/ui/skeleton";
@@ -2756,6 +2764,7 @@ function LaunchpadWidgetAssetCard({
 }: {
   row: {
     application: TaggedAuctionApplication;
+    delegationCurrency?: LaunchpadCardLeg;
     availability: ReturnType<typeof getActiveFractionAvailability>;
     score: number;
     scoreData:
@@ -2794,7 +2803,6 @@ function LaunchpadWidgetAssetCard({
 }) {
   const { t } = useLang();
   const l = t.routes.launchpad;
-  const isSgctlEligible = useIsSgctlEligible();
   const { application, availability, scoreData, cost, weeklyYield } = row;
   const isDelegation = application._type === "delegations";
   const minerWeeksRemaining = !isDelegation
@@ -2802,11 +2810,10 @@ function LaunchpadWidgetAssetCard({
         scoreData as { weeksOfMinerLifeRemaining?: number } | null
       )?.weeksOfMinerLifeRemaining
     : null;
+  // Two-tile: the leg currency is decided upstream (entry.leg) and carried on the
+  // row; no per-card eligibility morph here.
   const delegationCurrency = isDelegation
-    ? resolveEffectiveDelegationCurrency(
-        application,
-        isSgctlEligible(application.id)
-      )
+    ? row.delegationCurrency ?? "GLW"
     : "GLW";
   const isSoldOut = availability.isSoldOut;
   const remainingPct = React.useMemo(() => {
@@ -3191,6 +3198,7 @@ function LaunchpadWidgetHeroCarouselCard({
 }: {
   row: {
     application: TaggedAuctionApplication;
+    delegationCurrency?: LaunchpadCardLeg;
     availability: ReturnType<typeof getActiveFractionAvailability>;
     score: number;
     scoreData:
@@ -3228,7 +3236,6 @@ function LaunchpadWidgetHeroCarouselCard({
 }) {
   const { t } = useLang();
   const l = t.routes.launchpad;
-  const isSgctlEligible = useIsSgctlEligible();
   const { application, availability, scoreData, cost, weeklyYield } = row;
   const isDelegation = application._type === "delegations";
   const minerWeeksRemaining = !isDelegation
@@ -3236,11 +3243,10 @@ function LaunchpadWidgetHeroCarouselCard({
         scoreData as { weeksOfMinerLifeRemaining?: number } | null
       )?.weeksOfMinerLifeRemaining
     : null;
+  // Two-tile: the leg currency is decided upstream (entry.leg) and carried on the
+  // row; no per-card eligibility morph here.
   const delegationCurrency = isDelegation
-    ? resolveEffectiveDelegationCurrency(
-        application,
-        isSgctlEligible(application.id)
-      )
+    ? row.delegationCurrency ?? "GLW"
     : "GLW";
   const isSoldOut = availability.isSoldOut;
 
@@ -3639,10 +3645,31 @@ function LaunchpadMarketplaceDialog({
     [taggedDelegations]
   );
 
+  // Two-tile model: a GLW-forced score map for the GLW tiles and a separate
+  // SGCTL-forced map for the sGCTL tiles (matching the status widget). The sGCTL
+  // tile's displayed reward score is pinned to (GLW score + 10) below; the SGCTL
+  // map is used only for its weekly-amount fields.
   const { rewardScoreMap, isLoading: isRewardScoresLoading } = useRewardScore({
     applications: activeDelegationsForScores,
     paymentCurrency: rewardScoreFallbackCurrency,
+    forceCurrency: "GLW",
     enabled: activeDelegationsForScores.length > 0,
+    walletAddress: address || null,
+  });
+
+  const sgctlLegDelegationsForScores = React.useMemo(
+    () => activeDelegationsForScores.filter(hasBuyableSgctlLeg),
+    [activeDelegationsForScores]
+  );
+
+  const {
+    rewardScoreMap: sgctlRewardScoreMap,
+    isLoading: isSgctlRewardScoresLoading,
+  } = useRewardScore({
+    applications: sgctlLegDelegationsForScores,
+    paymentCurrency: "SGCTL" as PaymentCurrency,
+    forceCurrency: "SGCTL",
+    enabled: sgctlLegDelegationsForScores.length > 0,
     walletAddress: address || null,
   });
 
@@ -3702,25 +3729,52 @@ function LaunchpadMarketplaceDialog({
     const zoneFiltered =
       zoneId == null ? list : list.filter((a) => a.zone.id === zoneId);
 
-    const withMetrics = zoneFiltered.map((application) => {
-      const availability = getActiveFractionAvailability(application);
+    // Two-tile expansion: a dual-leg farm yields a GLW entry and (for eligible,
+    // non-frozen wallets) an sGCTL entry; miners stay a single entry.
+    const withMetrics = expandLaunchpadCardEntries({
+      applications: zoneFiltered,
+      isSgctlEligible,
+      isDelegation: (a) => a._type === "delegations",
+    }).map((entry) => {
+      const application = entry.application;
+      const leg = entry.leg;
+      const availability =
+        leg === null
+          ? getActiveFractionAvailability(application)
+          : getLaunchpadLegAvailability(application, leg);
       const efficiency = getFarmEfficiency(application);
 
-      const reward = getRewardScoreForApplication(
+      const glwReward = getRewardScoreForApplication(
         rewardScoreMap,
         application.id
       );
+      const reward =
+        leg === "SGCTL"
+          ? getRewardScoreForApplication(sgctlRewardScoreMap, application.id)
+          : glwReward;
       const mining = getMiningScoreForApplication(
         miningScoreMap,
         application.id
       );
 
-      const rewardScore = application._type === "delegations" ? reward : null;
+      // The sGCTL tile's displayed score is pinned to (GLW score + 10); the
+      // SGCTL map's own score is not used for the badge (its deposit context
+      // differs and won't differ by exactly 10).
+      const pinnedRewardScore =
+        glwReward?.rewardScore != null
+          ? leg === "SGCTL"
+            ? glwReward.rewardScore + 10
+            : glwReward.rewardScore
+          : null;
+      const rewardScore =
+        application._type === "delegations" && reward
+          ? { ...reward, rewardScore: pinnedRewardScore ?? reward.rewardScore }
+          : null;
       const miningScore = application._type === "miners" ? mining : null;
 
       const score =
         application._type === "delegations"
-          ? reward?.rewardScore ?? 0
+          ? pinnedRewardScore ?? 0
           : mining?.miningScore ?? 0;
 
       const scoreData =
@@ -3739,13 +3793,8 @@ function LaunchpadMarketplaceDialog({
               weeksOfMinerLifeRemaining: mining.weeksOfMinerLifeRemaining,
             }
           : null;
-      const delegationCurrency =
-        application._type === "delegations"
-          ? resolveEffectiveDelegationCurrency(
-              application,
-              isSgctlEligible(application.id)
-            )
-          : null;
+      const delegationCurrency: LaunchpadCardLeg =
+        application._type === "delegations" ? leg : null;
       const totalShares =
         application._type === "delegations"
           ? resolveLaunchpadDelegationUnitCount(application)
@@ -3829,6 +3878,9 @@ function LaunchpadMarketplaceDialog({
 
       return {
         application,
+        leg,
+        delegationCurrency,
+        entryKey: entry.key,
         availability,
         efficiency,
         score,
@@ -3898,6 +3950,7 @@ function LaunchpadMarketplaceDialog({
     glwSpotPrice,
     miningScoreMap,
     rewardScoreMap,
+    sgctlRewardScoreMap,
     safeSortBy,
     tab,
     taggedDelegations,
@@ -3907,9 +3960,24 @@ function LaunchpadMarketplaceDialog({
   ]);
 
   const globalStats = React.useMemo(() => {
-    const list = rows.map((r) => r.application);
-    const activeFarms = rows.filter((r) => !r.availability.isSoldOut).length;
-    const totals = rows.reduce(
+    // Two-tile expansion yields up to two rows per farm; dedupe by application id
+    // (preferring the GLW/miner tile over the sGCTL tile) so farm-level stats are
+    // not double-counted.
+    const uniqueRows = (() => {
+      const byApp = new Map<string, (typeof rows)[number]>();
+      for (const r of rows) {
+        const cur = byApp.get(r.application.id);
+        if (!cur || (cur.leg === "SGCTL" && r.leg !== "SGCTL")) {
+          byApp.set(r.application.id, r);
+        }
+      }
+      return [...byApp.values()];
+    })();
+    const list = uniqueRows.map((r) => r.application);
+    const activeFarms = uniqueRows.filter(
+      (r) => !r.availability.isSoldOut
+    ).length;
+    const totals = uniqueRows.reduce(
       (acc, r) => {
         acc.remaining += r.availability.remaining;
         acc.total += r.availability.total;
@@ -3917,7 +3985,7 @@ function LaunchpadMarketplaceDialog({
       },
       { remaining: 0, total: 0 }
     );
-    const scores = rows
+    const scores = uniqueRows
       .map((r) => r.score)
       .filter((s) => Number.isFinite(s) && s > 0);
     const avgScore =
@@ -3999,6 +4067,7 @@ function LaunchpadMarketplaceDialog({
           error={error}
           rows={rows}
           isRewardScoresLoading={isRewardScoresLoading}
+          isSgctlRewardScoresLoading={isSgctlRewardScoresLoading}
           isMiningScoresLoading={isMiningScoresLoading}
           globalStats={globalStats}
           glwSpotPrice={glwSpotPrice}
@@ -4038,6 +4107,7 @@ function LaunchpadMarketplaceDialogContent({
   error,
   rows,
   isRewardScoresLoading,
+  isSgctlRewardScoresLoading,
   isMiningScoresLoading,
   globalStats,
   glwSpotPrice,
@@ -4065,6 +4135,9 @@ function LaunchpadMarketplaceDialogContent({
   error: Error | null;
   rows: Array<{
     application: TaggedAuctionApplication;
+    leg: LaunchpadCardLeg;
+    delegationCurrency: LaunchpadCardLeg;
+    entryKey: string;
     availability: ReturnType<typeof getActiveFractionAvailability>;
     efficiency: number;
     score: number;
@@ -4086,6 +4159,7 @@ function LaunchpadMarketplaceDialogContent({
     totalAmountNeeded: number;
   }>;
   isRewardScoresLoading: boolean;
+  isSgctlRewardScoresLoading: boolean;
   isMiningScoresLoading: boolean;
   globalStats: {
     activeFarms: number;
@@ -4287,11 +4361,13 @@ function LaunchpadMarketplaceDialogContent({
         ) : (
           rows.map((row) => (
             <LaunchpadAssetCard
-              key={row.application.id}
+              key={row.entryKey}
               row={row}
               isScoresLoading={
                 row.application._type === "delegations"
-                  ? isRewardScoresLoading
+                  ? row.leg === "SGCTL"
+                    ? isSgctlRewardScoresLoading
+                    : isRewardScoresLoading
                   : isMiningScoresLoading
               }
               glwSpotPrice={glwSpotPrice}
@@ -4314,6 +4390,7 @@ function LaunchpadAssetCard({
 }: {
   row: {
     application: TaggedAuctionApplication;
+    delegationCurrency?: LaunchpadCardLeg;
     availability: ReturnType<typeof getActiveFractionAvailability>;
     score: number;
     scoreData:
@@ -4349,7 +4426,6 @@ function LaunchpadAssetCard({
 }) {
   const { t } = useLang();
   const l = t.routes.launchpad;
-  const isSgctlEligible = useIsSgctlEligible();
   const { application, availability, scoreData, cost, weeklyYield } = row;
   const isDelegation = application._type === "delegations";
   const minerWeeksRemaining = !isDelegation
@@ -4357,11 +4433,10 @@ function LaunchpadAssetCard({
         scoreData as { weeksOfMinerLifeRemaining?: number } | null
       )?.weeksOfMinerLifeRemaining
     : null;
+  // Two-tile: the leg currency is decided upstream (entry.leg) and carried on the
+  // row; no per-card eligibility morph here.
   const delegationCurrency = isDelegation
-    ? resolveEffectiveDelegationCurrency(
-        application,
-        isSgctlEligible(application.id)
-      )
+    ? row.delegationCurrency ?? "GLW"
     : "GLW";
   const isSoldOut = availability.isSoldOut;
   const remainingPct = React.useMemo(() => {
