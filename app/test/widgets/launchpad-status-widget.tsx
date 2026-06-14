@@ -1459,6 +1459,7 @@ interface LaunchpadStatusWidgetProps {
   onPayDeposit?: (
     application: TaggedAuctionApplication,
     scoreData?: LaunchpadRewardScore | MiningCenterScore | null,
+    selectedCurrency?: "GLW" | "SGCTL" | "USDC",
   ) => void;
 }
 
@@ -1654,8 +1655,11 @@ export default function LaunchpadStatusWidget({
     (
       application: TaggedAuctionApplication,
       scoreData?: LaunchpadRewardScore | MiningCenterScore | null,
+      selectedCurrency?: "GLW" | "SGCTL" | "USDC",
     ) => {
-      onPayDeposit?.(application, scoreData);
+      // Forward the tile's leg currency so the deposit dialog opens the right
+      // leg (sGCTL vs GLW) instead of defaulting to GLW.
+      onPayDeposit?.(application, scoreData, selectedCurrency);
     },
     [onPayDeposit],
   );

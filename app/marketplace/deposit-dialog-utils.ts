@@ -186,15 +186,23 @@ function resolveLaunchpadRewardShareCountForDialog(
     ? Math.max(0, Math.floor(activeFraction.remainingSteps ?? 0))
     : 0;
 
-  if (selectedCurrency === "SGCTL") {
-    return remainingSteps > 0 ? remainingSteps : baseTotalSteps;
-  }
-
+  // The sGCTL leg is unit-gated by sgctl.remainingUnits, NOT the GLW step
+  // ledger. Returning the GLW remainingSteps/totalSteps here would show wrong
+  // per-unit/remaining counts whenever the sGCTL unit count (S) differs from
+  // the GLW unit count (G).
   if (
-    selectedCurrency == null &&
-    activeFraction.delegationAsset === "SGCTL"
+    selectedCurrency === "SGCTL" ||
+    (selectedCurrency == null && activeFraction.delegationAsset === "SGCTL")
   ) {
-    return remainingSteps > 0 ? remainingSteps : baseTotalSteps;
+    // New consolidated-window shape: read the sGCTL leg's unit inventory. During
+    // the deploy gap (legacy listings with no `sgctl` leg object) fall back to
+    // the step ledger so older fixtures/listings keep working.
+    return activeFraction.sgctl &&
+      Number.isFinite(activeFraction.sgctl.remainingUnits)
+      ? Math.max(0, Math.floor(activeFraction.sgctl.remainingUnits))
+      : remainingSteps > 0
+      ? remainingSteps
+      : baseTotalSteps;
   }
 
   return baseTotalSteps;
@@ -1400,6 +1408,32 @@ export function calculateSuccessMetrics(
   selectedCurrency?: DepositSelectedCurrency | null
 ): SuccessMetrics | null {
   try {
+    const userSteps = Math.max(0, Math.floor(quantity));
+
+    const isSgctlLeg =
+      (selectedCurrency === "SGCTL" ||
+        (selectedCurrency == null &&
+          activeFraction.delegationAsset === "SGCTL")) &&
+      activeFraction.sgctl != null &&
+      Number.isFinite(activeFraction.sgctl.remainingUnits);
+    if (isSgctlLeg) {
+      // The listing payload exposes only sgctl.remainingUnits (no sGCTL total S
+      // and no sGCTL sold count), so we cannot show a true X/S capacity ring and
+      // must NOT fall back to the GLW step ledger (remainingSteps/splitsSold).
+      // Show the user's own contribution against the sGCTL units still
+      // available: total = remaining + userSteps, nothing pre-filled. (Legacy
+      // listings with no sgctl leg fall through to the GLW logic below.)
+      const remainingUnits = Math.max(
+        0,
+        Math.floor(activeFraction.sgctl!.remainingUnits),
+      );
+      return {
+        totalSteps: remainingUnits + userSteps,
+        filledBeforeSteps: 0,
+        userSteps,
+      };
+    }
+
     const totalSteps = resolveLaunchpadRewardShareCountForDialog(
       activeFraction,
       selectedCurrency
@@ -1427,7 +1461,7 @@ export function calculateSuccessMetrics(
     return {
       totalSteps,
       filledBeforeSteps,
-      userSteps: Math.max(0, Math.floor(quantity)),
+      userSteps,
     };
   } catch {
     return null;

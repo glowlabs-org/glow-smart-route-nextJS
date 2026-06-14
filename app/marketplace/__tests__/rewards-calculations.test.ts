@@ -11,6 +11,7 @@ import {
   calculateEstimatedRewardsBreakdown,
   calculateImpactPointsBreakdown,
   calculateCostInGLW,
+  calculateSuccessMetrics,
   type ActiveFraction,
   type LaunchpadRewardScore,
   type MiningCenterScore,
@@ -546,6 +547,60 @@ describe("calculateImpactPointsBreakdown", () => {
 
       // Even with large GLW step value, miners get 0 vault bonus
       expect(result.vaultBonusPoints).toBe(0);
+    });
+  });
+
+  describe("calculateSuccessMetrics — sGCTL success ring", () => {
+    it("uses the sGCTL leg units (not the GLW step ledger) when S != G", () => {
+      // GLW leg = 10 steps, sGCTL leg = 4 units remaining. The success ring for
+      // an sGCTL delegation must reflect the sGCTL leg, not the GLW counts.
+      const fraction = createFraction({
+        totalSteps: 10,
+        remainingSteps: 8,
+        splitsSold: 2,
+        sgctl: {
+          remainingUnits: 4,
+          unitAtomic: parseUnits("633", 6).toString(),
+          splitBonusPercent: "9",
+        },
+      });
+
+      const metrics = calculateSuccessMetrics(fraction, 2, "SGCTL");
+      // total = remaining(4) + userSteps(2) = 6; nothing pre-filled; user took 2.
+      expect(metrics).toEqual({
+        totalSteps: 6,
+        filledBeforeSteps: 0,
+        userSteps: 2,
+      });
+      // It must NOT show the GLW totalSteps (10) nor GLW fill (10 - 8 = 2).
+      expect(metrics?.totalSteps).not.toBe(10);
+    });
+
+    it("uses the GLW step ledger for a GLW delegation", () => {
+      const fraction = createFraction({ totalSteps: 10, remainingSteps: 8 });
+      const metrics = calculateSuccessMetrics(fraction, 3, "GLW");
+      // total = 10, filledBefore = 10 - 8 = 2, user took 3.
+      expect(metrics).toEqual({
+        totalSteps: 10,
+        filledBeforeSteps: 2,
+        userSteps: 3,
+      });
+    });
+
+    it("falls back to the GLW ledger for a legacy sGCTL listing with no sgctl leg", () => {
+      const fraction = createFraction({
+        totalSteps: 10,
+        remainingSteps: 8,
+        delegationAsset: "SGCTL",
+      });
+      const metrics = calculateSuccessMetrics(fraction, 1, "SGCTL");
+      // No sgctl leg object -> deploy-gap fallback to the legacy step-ledger
+      // behavior (sGCTL resolved to remainingSteps=8), so filledBefore = 8-8 = 0.
+      expect(metrics).toEqual({
+        totalSteps: 8,
+        filledBeforeSteps: 0,
+        userSteps: 1,
+      });
     });
   });
 });

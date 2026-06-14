@@ -2694,7 +2694,9 @@ function LaunchpadMarketplaceWidget({
                   )}
                   onClick={() => {
                     if (!row.scoreData || row.availability.isSoldOut) return;
-                    onPayDeposit(row.application, row.scoreData);
+                    // Carry the leg currency (matches the grid card onClick) so
+                    // an sGCTL listing opens the sGCTL flow, not GLW.
+                    onPayDeposit(row.application, row.scoreData, row.delegationCurrency ?? undefined);
                   }}
                 >
                   {isHeroCarousel ? (
@@ -3489,7 +3491,9 @@ function LaunchpadWidgetHeroCarouselCard({
               disabled={isSoldOut || isScoresLoading || !scoreData}
               onClick={() => {
                 if (isSoldOut || !scoreData) return;
-                onPayDeposit(application, scoreData);
+                // Pass the resolved leg currency so a "Delegate sGCTL" CTA opens
+                // the sGCTL flow instead of falling back to GLW in the dialog.
+                onPayDeposit(application, scoreData, delegationCurrency ?? undefined);
               }}
             >
               {isSoldOut
@@ -4595,7 +4599,9 @@ function LaunchpadAssetCard({
             disabled={isSoldOut || isScoresLoading || !scoreData}
             onClick={() => {
               if (isSoldOut || !scoreData) return;
-              onPayDeposit(application, scoreData);
+              // Pass the resolved leg currency so a "Delegate sGCTL" CTA opens
+              // the sGCTL flow instead of falling back to GLW in the dialog.
+              onPayDeposit(application, scoreData, delegationCurrency ?? undefined);
             }}
           >
             {isSoldOut

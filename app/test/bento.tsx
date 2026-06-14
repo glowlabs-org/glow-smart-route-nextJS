@@ -270,6 +270,12 @@ export default function GlowSoftDashboard({
   const [selectedRewardScore, setSelectedRewardScore] = React.useState<
     LaunchpadRewardScore | MiningCenterScore | null
   >(null);
+  // The leg currency the user actually clicked (GLW vs sGCTL tile), threaded
+  // from the launchpad grid's onPayDeposit so the deposit dialog opens the right
+  // leg instead of always GLW.
+  const [selectedDepositCurrency, setSelectedDepositCurrency] = React.useState<
+    "GLW" | "SGCTL" | "USDC" | null
+  >(null);
   const [dashboardRefreshNonce, setDashboardRefreshNonce] = React.useState(0);
   const refundToastIdRef = React.useRef<string | number | null>(null);
   const migrationToastIdRef = React.useRef<string | number | null>(null);
@@ -487,6 +493,7 @@ export default function GlowSoftDashboard({
     (
       application: TaggedAuctionApplication,
       scoreData?: LaunchpadRewardScore | MiningCenterScore | null,
+      selectedCurrency?: "GLW" | "SGCTL" | "USDC" | null,
     ) => {
       trackEvent("dashboard_launchpad_deposit_open_click", {
         source: "bento",
@@ -494,10 +501,16 @@ export default function GlowSoftDashboard({
         wallet_address: normalizedWalletAddress,
         application_id: application.id,
         listing_type: application._type,
-        payment_currency: application._type === "miners" ? "USDC" : "GLW",
+        payment_currency:
+          application._type === "miners"
+            ? "USDC"
+            : selectedCurrency === "SGCTL"
+            ? "SGCTL"
+            : "GLW",
       });
       setSelectedApplicationForDeposit(application);
       setSelectedRewardScore(scoreData ?? null);
+      setSelectedDepositCurrency(selectedCurrency ?? null);
       setIsDepositDialogOpen(true);
     },
     [isConnected, normalizedWalletAddress],
@@ -508,6 +521,7 @@ export default function GlowSoftDashboard({
     if (nextOpen) return;
     setSelectedApplicationForDeposit(null);
     setSelectedRewardScore(null);
+    setSelectedDepositCurrency(null);
   }, []);
 
   // "Earn points" deep-link (?earn=1) from the What's New modal: open the
@@ -1027,7 +1041,9 @@ export default function GlowSoftDashboard({
               open={isDepositDialogOpen}
               onOpenChange={handleDepositOpenChange}
               application={selectedApplicationForDeposit}
-              selectedCurrency="GLW"
+              selectedCurrency={
+                selectedDepositCurrency === "SGCTL" ? "SGCTL" : "GLW"
+              }
               rewardScore={selectedRewardScore as LaunchpadRewardScore | null}
               onSuccess={refreshDashboardWidgets}
             />
