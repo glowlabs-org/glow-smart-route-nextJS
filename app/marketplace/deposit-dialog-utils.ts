@@ -5,7 +5,6 @@
 
 import { formatUnits, parseUnits } from "viem";
 import { normalizeMinerWeeksRemainingDisplay } from "@/lib/mining-score";
-import { getNextTuesdayAtETHour } from "@/utils/nextTuesdayET";
 
 export {
   getInitialPositionValueGuard,
@@ -30,6 +29,15 @@ export interface ActiveFraction {
   splitsSold?: number;
   amountRaised?: string | null;
   totalAmountNeeded?: string | null;
+  // Consolidated-launch-window shape: single 9 AM ET boundary + per-leg inventory.
+  visibleAt?: string | null;
+  glw?: { remainingSteps: number; stepWei: string } | null;
+  sgctl?: {
+    remainingUnits: number;
+    unitAtomic: string;
+    splitBonusPercent: string | null;
+  } | null;
+  // @deprecated legacy phase fields (still emitted during the deploy gap).
   delegationAsset?: "GLW" | "SGCTL" | null;
   delegationPhase?: "hidden" | "sgctl" | "glw" | null;
 }
@@ -306,11 +314,33 @@ export const SWAP_VOLATILITY_ERROR_MESSAGE =
 export const SPLIT_CONFIRMATION_DELAYED_MESSAGE =
   "Transaction submitted but confirmation is delayed. Please refresh before retrying.";
 
+/**
+ * Asset selection is now caller-driven, not phase-driven: the marketplace card
+ * opens the dialog with the explicit leg the user chose (GLW / sGCTL / USDC).
+ * The legacy `delegationAsset === "SGCTL"` auto-flip is gone — under the
+ * consolidated launch window both legs are live simultaneously, so the leg is a
+ * deliberate choice. The only inference left is the degenerate sGCTL-only
+ * listing (no GLW leg), which still resolves to the sGCTL path.
+ */
 export function resolveDepositDialogMode(
   selectedCurrency: DepositSelectedCurrency,
   activeFraction: ActiveFraction | null
 ): DepositDialogMode {
   if (selectedCurrency === "USDC") return "miners";
+  if (selectedCurrency === "SGCTL") return "sgctl_delegation";
+
+  const hasGlwLeg = activeFraction?.glw != null;
+  const hasSgctlLeg = activeFraction?.sgctl != null;
+  if (hasGlwLeg || hasSgctlLeg) {
+    // New shape present: GLW requested but the listing has only an sGCTL leg
+    // (no GLW units) -> resolve to the sGCTL path so a GLW-defaulted entry point
+    // still works. Otherwise honor the GLW request (both legs are live; the leg
+    // is a deliberate caller choice).
+    if (!hasGlwLeg && hasSgctlLeg) return "sgctl_delegation";
+    return "glw_delegation";
+  }
+
+  // Legacy fallback (deploy gap: new leg objects not yet emitted).
   if (activeFraction?.delegationAsset === "SGCTL") return "sgctl_delegation";
   return "glw_delegation";
 }
@@ -1362,77 +1392,6 @@ export interface SuccessMetrics {
   totalSteps: number;
   filledBeforeSteps: number;
   userSteps: number;
-}
-
-export const SGCTL_PREPARATION_CUTOFF_HOUR_ET = 12;
-export const SGCTL_STAKED_ONLY_GRACE_END_MINUTE_ET = 5;
-
-export interface SgctlPreparationCutoffGuardInput {
-  selectedCurrency: DepositSelectedCurrency;
-  sgctlSource: SgctlSourceMode | null;
-  fractionCreatedAt: string | Date | null | undefined;
-  nowMs?: number;
-}
-
-export interface SgctlPreparationCutoffGuardResult {
-  isBlocked: boolean;
-  cutoffAt: Date | null;
-  message: string | null;
-}
-
-function normalizeDateInput(
-  value: string | Date | null | undefined,
-): Date | null {
-  if (value instanceof Date) {
-    return Number.isNaN(value.getTime()) ? null : value;
-  }
-
-  if (typeof value !== "string") return null;
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-export function getSgctlPreparationCutoffGuard(
-  params: SgctlPreparationCutoffGuardInput,
-): SgctlPreparationCutoffGuardResult {
-  if (
-    params.selectedCurrency !== "SGCTL" ||
-    params.sgctlSource == null ||
-    params.sgctlSource === "staked"
-  ) {
-    return {
-      isBlocked: false,
-      cutoffAt: null,
-      message: null,
-    };
-  }
-
-  const createdAt = normalizeDateInput(params.fractionCreatedAt);
-  if (!createdAt) {
-    return {
-      isBlocked: false,
-      cutoffAt: null,
-      message: null,
-    };
-  }
-
-  const cutoffAt = getNextTuesdayAtETHour(
-    SGCTL_PREPARATION_CUTOFF_HOUR_ET,
-    createdAt,
-  );
-  const nowMs =
-    typeof params.nowMs === "number" && Number.isFinite(params.nowMs)
-      ? params.nowMs
-      : Date.now();
-  const isBlocked = nowMs >= cutoffAt.getTime();
-
-  return {
-    isBlocked,
-    cutoffAt,
-    message: isBlocked
-      ? `Minting or staking SGCTL for this listing closed at 12:00 PM ET. Only already-staked SGCTL can still be delegated until 12:0${SGCTL_STAKED_ONLY_GRACE_END_MINUTE_ET} PM ET.`
-      : null,
-  };
 }
 
 export function calculateSuccessMetrics(

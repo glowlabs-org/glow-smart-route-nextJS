@@ -3,13 +3,14 @@
 // this inline with subtly different math (launchpad-view, launchpad-status-widget,
 // farms-performance-dialog). The composition was the bug surface for the
 // wk128 Spectrum Canopy regression: `total` from resolveLaunchpadDelegationShareCount
-// returned sGCTL-share units while `remaining` from resolveFractionRemainingSteps
-// returned GLW-step units, so the displayed "sold" was computed by subtracting
-// values in different units. Centralizing the math here forces every caller
-// through the same invariant.
+// returned sGCTL-share units while `remaining` was computed in GLW-step units,
+// so the displayed "sold" was computed by subtracting values in different units.
+// Centralizing the math here forces every caller through the same invariant.
 
 import {
   isFractionOpenForMarketplace,
+  resolveGlwRemainingSteps,
+  resolveSgctlRemainingUnits,
   type ActiveFraction,
 } from "@/hooks/hub-listings";
 import {
@@ -68,3 +69,39 @@ export type LaunchpadAvailabilityFraction = Pick<
   ActiveFraction,
   "splitsSold" | "totalSteps" | "remainingSteps" | "isFilled"
 >;
+
+/**
+ * Per-leg availability for the two-distinct-tiles model (consolidated launch
+ * window). Each tile shows its OWN leg's "X left" and sold-out state:
+ *   - GLW tile: sold out when no GLW steps remain.
+ *   - sGCTL tile: sold out when no sGCTL units remain — which ALSO covers the
+ *     Foundation backstop having filled the leg (GLW full + 1h grace). Crucially
+ *     we do NOT use the GLW-centric `isFractionOpenForMarketplace` here, so the
+ *     sGCTL tile stays OPEN during the grace window after GLW sells out.
+ * We don't receive the sGCTL leg's original total (S), so — like the GLW tile
+ * already does — both tiles show only "X left" (showTotal = false), no
+ * "X / Y" denominator.
+ */
+export function getLaunchpadLegAvailability(
+  application: DelegationApplicationLike | null | undefined,
+  leg: "GLW" | "SGCTL"
+): LaunchpadAvailability {
+  if (!application) return EMPTY;
+  const fraction = application.activeFraction;
+  if (!fraction) return EMPTY;
+
+  const remaining =
+    leg === "SGCTL"
+      ? resolveSgctlRemainingUnits(fraction)
+      : resolveGlwRemainingSteps(fraction);
+  const isSoldOut = remaining <= 0 || fraction.isFilled === true;
+
+  return {
+    remaining,
+    total: 0,
+    sold: 0,
+    isSoldOut,
+    progressFilledPct: isSoldOut ? 100 : 0,
+    showTotal: false,
+  };
+}

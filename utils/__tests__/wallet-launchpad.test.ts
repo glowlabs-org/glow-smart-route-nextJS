@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { parseUnits } from "viem";
-import type { AuctionApplication, SplitActivity } from "@/hooks/hub-listings";
+import type {
+  ActiveFraction,
+  AuctionApplication,
+  SplitActivity,
+} from "@/hooks/hub-listings";
 import {
   buildCurrentLaunchpadCurrencyByFarmId,
   buildLaunchpadCurrenciesByFarmId,
@@ -8,9 +12,13 @@ import {
   resolveLaunchpadActivityFarmId,
 } from "@/utils/wallet-launchpad";
 
+type ApplicationOverrides = Partial<Omit<AuctionApplication, "activeFraction">> & {
+  activeFraction?: Partial<ActiveFraction> | null;
+};
+
 function createApplication(
   id: string,
-  overrides: Partial<AuctionApplication> = {}
+  overrides: ApplicationOverrides = {}
 ): AuctionApplication {
   return {
     id,

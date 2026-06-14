@@ -34,6 +34,26 @@ export function resolveDelegationCurrency(
   return "GLW";
 }
 
+/**
+ * Eligibility-aware delegation currency for card/listing DISPLAY (spec §1.4).
+ *
+ * The sGCTL leg is UI-gated on per-wallet regional-stake eligibility: a wallet
+ * that cannot cover at least one sGCTL unit must see no sGCTL UI at all. Every
+ * consolidated listing has a GLW leg (G > 0 is enforced at publish), so an
+ * ineligible wallet simply falls back to the always-available GLW leg.
+ *
+ * `isSgctlEligible` comes from `useSgctlEligibility` (the single source of truth
+ * for sGCTL visibility). Server-side purchase enforcement stays in Control.
+ */
+export function resolveEffectiveDelegationCurrency(
+  application: DelegationApplicationLike | null | undefined,
+  isSgctlEligible: boolean
+): DelegationCurrency {
+  const currency = resolveDelegationCurrency(application);
+  if (currency === "SGCTL" && !isSgctlEligible) return "GLW";
+  return currency;
+}
+
 export function normalizeDelegationCurrency(
   asset: string | null | undefined
 ): DelegationCurrency {

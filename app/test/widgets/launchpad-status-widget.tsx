@@ -49,14 +49,23 @@ import {
   type AuctionApplication,
 } from "@/hooks";
 import { getLaunchpadNowMs } from "@/utils/launchpad-now";
-import { getNextTuesdayAt1amET } from "@/utils/nextTuesdayET";
+import { getNextTuesdayAt9amET } from "@/utils/nextTuesdayET";
 import {
   calculateLaunchpadPerShareRewards,
   parseDelegationStepAmount,
   resolveLaunchpadDelegationShareCount,
   resolveLaunchpadDelegationUnitCount,
 } from "@/utils/launchpad-rewards";
-import { getLaunchpadAvailability } from "@/utils/launchpad-availability";
+import {
+  getLaunchpadAvailability,
+  getLaunchpadLegAvailability,
+} from "@/utils/launchpad-availability";
+import {
+  expandLaunchpadCardEntries,
+  hasBuyableSgctlLeg,
+  type LaunchpadCardLeg,
+} from "@/utils/launchpad-card-legs";
+import { useSgctlEligibility } from "@/hooks/use-sgctl-eligibility";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import { SponsoredFarmsActivity } from "@/app/marketplace/sponsored-farms-activity";
@@ -133,15 +142,6 @@ function getActiveFractionAvailability(application: AuctionApplication) {
   };
 }
 
-function getDelegationPaymentCurrency(
-  application: AuctionApplication,
-): "SGCTL" | "GLW" {
-  const asset = application.activeFraction?.delegationAsset;
-  if (asset === "SGCTL" || asset === "GLW") return asset;
-  if (application.paymentCurrency === "SGCTL") return "SGCTL";
-  return "GLW";
-}
-
 function getPaymentCurrencyDecimals(
   currency: "USDC" | "GLW" | "SGCTL",
 ): number {
@@ -216,17 +216,6 @@ function getMinerWeeksRemaining(
   );
 }
 
-function formatEtDateTime(value: number): string {
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    timeZoneName: "short",
-  }).format(value);
-}
-
 // Extended type for applications with type tagging
 type LocalTaggedApplication = AuctionApplication & {
   _type: "miners" | "delegations";
@@ -235,6 +224,8 @@ type LocalTaggedApplication = AuctionApplication & {
 // Row data structure for the grid
 interface ListingRow {
   application: LocalTaggedApplication;
+  /** Which tile this row is: "GLW"/"SGCTL" for delegations, null for miners. */
+  leg: LaunchpadCardLeg;
   availability: ReturnType<typeof getActiveFractionAvailability>;
   score: number;
   scoreData: LaunchpadRewardScore | MiningCenterScore | null;
@@ -254,6 +245,7 @@ interface FullRowLaunchpadGridProps {
   onPayDeposit?: (
     application: TaggedAuctionApplication,
     scoreData?: LaunchpadRewardScore | MiningCenterScore | null,
+    selectedCurrency?: "GLW" | "SGCTL" | "USDC",
   ) => void;
 }
 
@@ -339,11 +331,38 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
     [taggedMiners],
   );
 
+  // sGCTL eligibility (spec §1.4): drives which farms get a second (sGCTL) tile.
+  const { isSgctlEligible } = useSgctlEligibility({
+    applications: taggedDelegations,
+    walletAddress: address,
+  });
+
+  // Two-tile model: fetch a FORCED-GLW score map (the GLW tile's score, no
+  // bonus) and a FORCED-SGCTL score map (the sGCTL tile's score, with the
+  // solved n). The sGCTL map only covers farms with a buyable sGCTL leg.
+  const sgctlLegDelegationsForScores = React.useMemo(
+    () => activeDelegationsForScores.filter(hasBuyableSgctlLeg),
+    [activeDelegationsForScores],
+  );
+
   // Fetch scores
-  const { rewardScoreMap, isLoading: isRewardScoresLoading } = useRewardScore({
-    applications: activeDelegationsForScores,
-    paymentCurrency: "GLW",
-    enabled: activeDelegationsForScores.length > 0,
+  const { rewardScoreMap: glwRewardScoreMap, isLoading: isRewardScoresLoading } =
+    useRewardScore({
+      applications: activeDelegationsForScores,
+      paymentCurrency: "GLW",
+      forceCurrency: "GLW",
+      enabled: activeDelegationsForScores.length > 0,
+      walletAddress: address || null,
+    });
+
+  const {
+    rewardScoreMap: sgctlRewardScoreMap,
+    isLoading: isSgctlRewardScoresLoading,
+  } = useRewardScore({
+    applications: sgctlLegDelegationsForScores,
+    paymentCurrency: "SGCTL",
+    forceCurrency: "SGCTL",
+    enabled: sgctlLegDelegationsForScores.length > 0,
     walletAddress: address || null,
   });
 
@@ -365,27 +384,74 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
 
   // Build rows with metrics
   const allRows = React.useMemo(() => {
-    const allApplications = [...taggedDelegations, ...taggedMiners];
+    // Expand into per-leg tiles: a GLW-only tile always, plus a separate
+    // sGCTL-only tile when the farm has a buyable sGCTL leg AND the wallet is
+    // eligible. Miners stay single tiles (leg = null).
+    const entries = expandLaunchpadCardEntries({
+      applications: [...taggedDelegations, ...taggedMiners],
+      isSgctlEligible,
+      isDelegation: (app) => app._type === "delegations",
+    });
 
-    return allApplications.map((application) => {
-      const availability = getActiveFractionAvailability(application);
-      const delegationCurrency =
-        application._type === "delegations"
-          ? getDelegationPaymentCurrency(application)
-          : null;
-
-      const reward = getRewardScoreForApplication(
-        rewardScoreMap,
+    return entries.map((entry) => {
+      const application = entry.application;
+      const leg = entry.leg;
+      // The GLW (no-bonus) estimate is the base for BOTH tiles' score: the sGCTL
+      // tile's reward score is pinned frontend-side to (GLW score + 10) below.
+      // The sGCTL (+n) estimate is used only for the sGCTL tile's weekly-reward
+      // AMOUNTS (it reflects the bonus emission). Pinning here — rather than
+      // trusting control's per-call pin — guarantees the two tiles ALWAYS differ
+      // by exactly 10, since the two estimate calls use different deposit
+      // contexts (GLW wei vs GCTL atomic) and can't otherwise be kept in lockstep.
+      const glwReward = getRewardScoreForApplication(
+        glwRewardScoreMap,
         application.id,
       );
+      const reward =
+        leg === "SGCTL"
+          ? getRewardScoreForApplication(sgctlRewardScoreMap, application.id)
+          : glwReward;
+      // Per-leg availability/sold-out for delegation tiles; miners use the
+      // combined fraction availability. Normalize the per-leg result to the
+      // same shape getActiveFractionAvailability returns (percentFilled).
+      const availability =
+        leg === null
+          ? getActiveFractionAvailability(application)
+          : (() => {
+              const legAvailability = getLaunchpadLegAvailability(
+                application,
+                leg,
+              );
+              return {
+                remaining: legAvailability.remaining,
+                total: legAvailability.total,
+                isSoldOut: legAvailability.isSoldOut,
+                percentFilled: Math.round(legAvailability.progressFilledPct),
+                showTotal: legAvailability.showTotal,
+              };
+            })();
+      // The tile's asset is its leg ("GLW"/"SGCTL"); null for miners.
+      const delegationCurrency: LaunchpadCardLeg = leg;
+
       const mining = getMiningScoreForApplication(
         miningScoreMap,
         application.id,
       );
 
+      // Reward score per tile: GLW tile = GLW score; sGCTL tile = GLW score + 10
+      // (pinned product promise). null when the GLW score isn't loaded yet.
+      const delegationRewardScore: number | null =
+        application._type !== "delegations"
+          ? null
+          : glwReward?.rewardScore != null
+            ? leg === "SGCTL"
+              ? glwReward.rewardScore + 10
+              : glwReward.rewardScore
+            : null;
+
       const score =
         application._type === "delegations"
-          ? (reward?.rewardScore ?? 0)
+          ? (delegationRewardScore ?? 0)
           : (mining?.miningScore ?? 0);
 
       const scoreData: LaunchpadRewardScore | MiningCenterScore | null =
@@ -495,14 +561,12 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
         }).totalUsdPerShare;
       })();
 
-      // Get reward score for delegations
-      const rewardScore =
-        application._type === "delegations"
-          ? (reward?.rewardScore ?? null)
-          : null;
+      // Get reward score for delegations (sGCTL tile pinned to GLW + 10).
+      const rewardScore = delegationRewardScore;
 
       return {
         application,
+        leg,
         availability,
         score,
         scoreData,
@@ -517,7 +581,9 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
   }, [
     taggedDelegations,
     taggedMiners,
-    rewardScoreMap,
+    isSgctlEligible,
+    glwRewardScoreMap,
+    sgctlRewardScoreMap,
     miningScoreMap,
     glwSpotPrice,
   ]);
@@ -539,11 +605,11 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
     // Only surface sold-out listings that sold out during the current
     // launchpad week. Last week's sold-out farms roll off so the section
     // never shows stale listings as filler. The week boundary is the most
-    // recent Tuesday 1 AM ET (the weekly batch release), computed against
-    // the launchpad clock so it respects LAUNCHPAD_TIME_OVERRIDE_ISO.
+    // recent Tuesday 9 AM ET (the consolidated weekly batch release), computed
+    // against the launchpad clock so it respects LAUNCHPAD_TIME_OVERRIDE_ISO.
     const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
     const launchpadNowMs = getLaunchpadNowMs();
-    const nextWeekStartMs = getNextTuesdayAt1amET(
+    const nextWeekStartMs = getNextTuesdayAt9amET(
       new Date(launchpadNowMs),
     ).getTime();
     const currentWeekStartMs =
@@ -640,6 +706,9 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
       onPayDeposit?.(
         row.application as TaggedAuctionApplication,
         row.scoreData,
+        // The tile's leg decides which deposit dialog opens. Miners (leg null)
+        // open the USDC/miner dialog (the opener also routes by _type).
+        row.leg ?? "USDC",
       );
     },
     [isConnected, walletAddress, onPayDeposit],
@@ -649,6 +718,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
   const renderListingCard = (row: ListingRow, index: number) => {
     const {
       application,
+      leg,
       availability,
       cost,
       weeklyYield,
@@ -667,17 +737,19 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
       isMiner &&
       Number.isFinite(minerVisibleAtMs) &&
       getLaunchpadNowMs() < minerVisibleAtMs;
+    // Leg-aware score loading: the sGCTL tile waits on the sGCTL score map.
     const isRowScoreLoading = isMiner
       ? isMiningScoresLoading
-      : isRewardScoresLoading;
-    const currency = isMiner
-      ? "USDC"
-      : getDelegationPaymentCurrency(application);
-    const delegationCurrency = currency === "SGCTL" ? "SGCTL" : "GLW";
+      : leg === "SGCTL"
+        ? isSgctlRewardScoresLoading
+        : isRewardScoresLoading;
+    // This tile is single-asset: GLW tile -> GLW, sGCTL tile -> SGCTL.
+    const delegationCurrency: "GLW" | "SGCTL" = leg === "SGCTL" ? "SGCTL" : "GLW";
+    const currency = isMiner ? "USDC" : delegationCurrency;
     const imageUrl = application.afterInstallPictures?.[0]?.url;
-    // Some datasets include the same application id for both listing types.
-    // Include type + fraction identity to prevent React key collisions.
-    const cardKey = `${application._type}:${application.id}:${
+    // Two tiles can share one farm id (GLW + sGCTL), so the key includes the
+    // leg as well as type + fraction identity to prevent React key collisions.
+    const cardKey = `${application._type}:${leg ?? "MINER"}:${application.id}:${
       application.activeFraction?.id ??
       application.activeFraction?.nonce ??
       index
@@ -924,26 +996,24 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                         </span>
                       </>
                     ) : (
+                      // sGCTL tile: mirror the GLW tile's layout exactly (one big
+                      // value row + one sub-line) so both tiles are the SAME
+                      // height. The GLW emission is the headline; the SGCTL PD
+                      // recovery rides on the sub-line.
                       <>
-                        <div className="flex flex-row items-baseline gap-3 flex-wrap">
-                          <div className="flex items-baseline gap-1">
-                            <span className="text-xl lg:text-base xl:text-lg font-bold text-foreground font-mono tabular-nums leading-tight">
-                              {formatRewardAmount(weeklyPdYield)}
-                            </span>
-                            <span className="text-xs text-muted-foreground font-medium">
-                              SGCTL
-                            </span>
-                          </div>
-                          <div className="flex items-baseline gap-1">
-                            <span className="text-xl lg:text-base xl:text-lg font-bold text-foreground font-mono tabular-nums leading-tight">
-                              +{formatRewardAmount(weeklyYield)}
-                            </span>
-                            <span className="text-xs text-muted-foreground font-medium">
-                              GLW
-                            </span>
-                          </div>
+                        <div className="flex items-baseline gap-1 flex-wrap">
+                          <span className="text-xl lg:text-base xl:text-lg font-bold text-foreground font-mono tabular-nums leading-tight">
+                            +{formatRewardAmount(weeklyYield)}
+                          </span>
+                          <span className="text-xs text-muted-foreground font-medium">
+                            GLW
+                            {weeklyYieldUsd > 0 &&
+                              ` · $${formatNumber(weeklyYieldUsd, 2)}`}
+                          </span>
                         </div>
                         <span className="text-xs text-muted-foreground font-medium">
+                          {weeklyPdYield > 0 &&
+                            `+${formatRewardAmount(weeklyPdYield)} SGCTL · `}
                           {t.widgets.launchpadStatus.for100Weeks}
                         </span>
                       </>
@@ -1407,8 +1477,6 @@ export default function LaunchpadStatusWidget({
   const {
     isLive,
     nextBatchAtMs,
-    nextMinerBatchAtMs,
-    nextDelegationBatchAtMs,
     refreshNextBatchAtMs,
     isLoading,
     isError,
@@ -1448,13 +1516,9 @@ export default function LaunchpadStatusWidget({
   }, [isLive, nextBatchAtMs]);
 
   const effectiveIsApproaching = isApproaching || internalIsApproaching;
-  const hasSplitBatchSchedule =
-    nextMinerBatchAtMs !== nextDelegationBatchAtMs &&
-    nextMinerBatchAtMs < nextDelegationBatchAtMs;
-  const splitDelegationLaunchLabel = React.useMemo(() => {
-    if (!hasSplitBatchSchedule) return null;
-    return formatEtDateTime(nextDelegationBatchAtMs);
-  }, [hasSplitBatchSchedule, nextDelegationBatchAtMs]);
+  // Consolidated launch window: miners and delegations now share one Tuesday
+  // 9 AM ET batch, so there is no longer a miner lead window or split schedule.
+  const hasSplitBatchSchedule = false;
 
   type ListTypeFilter = "all" | "delegations" | "miners" | "activity";
   const [liveTypeFilter, setLiveTypeFilter] = React.useState<ListTypeFilter>(
@@ -1493,7 +1557,6 @@ export default function LaunchpadStatusWidget({
     [minerApplications],
   );
   const hasDelegationsAvailable = delegationsAvailableCount > 0;
-  const hasMinersAvailable = minersAvailableCount > 0;
   const totalAvailable = delegationsAvailableCount + minersAvailableCount;
   const hasAnyListings = totalAvailable > 0;
   // Only present the live listings UI when the window is open AND there is
@@ -1504,11 +1567,6 @@ export default function LaunchpadStatusWidget({
   // of the header.
   const isCountdownState =
     !isLoading && !isError && !showLiveListings && !effectiveIsApproaching;
-  const hasMinerLeadWindow =
-    hasSplitBatchSchedule &&
-    hasMinersAvailable &&
-    !hasDelegationsAvailable &&
-    getLaunchpadNowMs() < nextDelegationBatchAtMs;
 
   const resolvedTab = React.useMemo((): ListTypeFilter => {
     if (!isLive) return liveTypeFilter;
@@ -1811,17 +1869,6 @@ export default function LaunchpadStatusWidget({
           ) : variant === "full-row" ? (
             <div className="min-h-0 flex-1">
               <div className="min-h-0 flex h-full flex-col">
-                {hasMinerLeadWindow && splitDelegationLaunchLabel ? (
-                  <div className="px-4 pt-3">
-                    <div className="rounded-2xl border border-border/30 bg-muted/25 px-4 py-3 text-sm text-muted-foreground">
-                      {t.widgets.launchpadStatus.minersLiveDelegationsPre}
-                      <span className="font-medium text-foreground">
-                        {splitDelegationLaunchLabel}
-                      </span>
-                      {t.widgets.launchpadStatus.minersLiveDelegationsPost}
-                    </div>
-                  </div>
-                ) : null}
                 <div className="min-h-0 flex-1">
                   <FullRowLaunchpadGrid onPayDeposit={handlePayDeposit} />
                 </div>

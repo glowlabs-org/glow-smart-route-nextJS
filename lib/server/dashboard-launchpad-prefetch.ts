@@ -37,17 +37,18 @@ const SPONSOR_LISTINGS_ENDPOINT = "/applications/sponsor-listings-applications";
 const PREFETCH_TIMEOUT_MS = 3_000;
 const DASHBOARD_LISTINGS_REVALIDATE_SECONDS = 30;
 
-// Phase-transition cache busting: include the current launchpad delegation
-// slot in the cache key so that a stale-but-still-fresh entry from one slot
-// never serves data into the next slot. Boundaries on Tuesdays in ET:
+// Launch-boundary cache busting: include the current launchpad slot in the
+// cache key so a stale-but-still-fresh pre-launch entry never serves data
+// into the live window. The consolidated launch window has a SINGLE boundary
+// on Tuesdays in ET (GLW + sGCTL + miners all go live together):
 //
-//     pre-1AM   ── 1 AM ─→ sgctl  ── 12:05 PM ─→ sgctl_ended  ── 1 PM ─→ glw
+//     pre-9AM   ── 9 AM ─→ live
 //
-// Without this, a user who lands on the dashboard at 17:00:01 UTC can be
-// served the SSR cache that was generated at 16:59:45 UTC — pre-1PM data,
-// missing the freshly-visible miners/launchpad. With the fingerprint in the
-// key, every Tuesday phase boundary creates a new cache entry; the old one
-// is orphaned. Mirrors the backend's same approach in publicRoutes.ts.
+// Without this, a user who lands on the dashboard just after 9 AM ET can be
+// served the SSR cache generated seconds earlier — pre-launch data, missing
+// the freshly-visible miners/launchpad. With the fingerprint in the key, the
+// Tuesday 9 AM boundary creates a new cache entry; the old one is orphaned.
+// Mirrors the backend's single-boundary approach in publicRoutes.ts.
 function getLaunchpadPhaseFingerprint(now: Date = new Date()): string {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/New_York",
@@ -66,12 +67,8 @@ function getLaunchpadPhaseFingerprint(now: Date = new Date()): string {
 
   const dayKey = `${parts.year}-${parts.month}-${parts.day}`;
   const minutesIntoEtDay = Number(parts.hour) * 60 + Number(parts.minute);
-  // Boundaries in minutes-since-midnight ET: 1 AM = 60, 12:05 PM = 725, 1 PM = 780
-  let slot: string;
-  if (minutesIntoEtDay < 60) slot = "0-pre1am";
-  else if (minutesIntoEtDay < 725) slot = "1-1am-to-1205pm";
-  else if (minutesIntoEtDay < 780) slot = "2-1205pm-to-1pm";
-  else slot = "3-post-1pm";
+  // Single boundary in minutes-since-midnight ET: 9 AM = 540.
+  const slot = minutesIntoEtDay < 540 ? "0-pre9am" : "1-post9am";
   return `${dayKey}-${slot}`;
 }
 

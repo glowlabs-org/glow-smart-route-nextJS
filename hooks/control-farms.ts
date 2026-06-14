@@ -390,6 +390,10 @@ export interface RewardScoreParams {
   paymentCurrency: PaymentCurrency;
   enabled?: boolean;
   walletAddress?: string | null;
+  // Force this currency for every application (no per-app sGCTL auto-resolve).
+  // The two-tile launchpad UI calls this hook twice: forceCurrency "GLW" for the
+  // GLW tiles and "SGCTL" for the sGCTL tiles, so each tile shows its own score.
+  forceCurrency?: PaymentCurrency;
 }
 
 export function useRewardScore(params: RewardScoreParams) {
@@ -398,10 +402,12 @@ export function useRewardScore(params: RewardScoreParams) {
     paymentCurrency,
     enabled = true,
     walletAddress,
+    forceCurrency,
   } = params;
   const rewardScoreCurrencyKey = buildRewardScoreCurrencyKey(
     applications,
-    paymentCurrency
+    paymentCurrency,
+    forceCurrency
   );
 
   const query = useQuery({
@@ -423,6 +429,7 @@ export function useRewardScore(params: RewardScoreParams) {
         applications,
         paymentCurrency,
         walletAddress,
+        forceCurrency,
       });
 
       if (!batchParams.length) {

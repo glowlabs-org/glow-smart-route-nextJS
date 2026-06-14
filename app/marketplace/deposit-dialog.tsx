@@ -98,7 +98,6 @@ import {
   getErrorCode,
   getErrorMessage,
   hasConfirmedSplitPurchase,
-  getSgctlPreparationCutoffGuard,
   isDelayedSplitConfirmationErrorMessage,
   getSwapVolatilityErrorMessage,
   getInitialPositionValueGuard,
@@ -137,14 +136,14 @@ import { useV2PointsBalance, useV2PointsRates } from "@/hooks/v2-points";
 import { useEstimatedAllocation } from "@/hooks/v2-impact";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
-  resolveFractionRemainingSteps,
+  resolveGlwRemainingSteps,
+  resolveSgctlRemainingUnits,
   type SplitActivity,
   type SplitsActivityResponse,
 } from "@/hooks/hub-listings";
 import { resolveLaunchpadDelegationUnitCount } from "@/utils/launchpad-rewards";
 import { hubGet } from "@/lib/api/hub-client";
 import type { RewardsBreakdownResponse } from "@/hooks/hub-fractions";
-import { getLaunchpadNowMs } from "@/utils/launchpad-now";
 import { normalizeMinerWeeksRemainingDisplay } from "@/lib/mining-score";
 import { useLang } from "@/lib/i18n";
 
@@ -163,16 +162,37 @@ export type MiningCenterScore = {
 function updateApplicationAfterSuccessfulPurchase(
   application: AuctionApplication,
   quantity: number,
+  currency: DepositSelectedCurrency,
 ): AuctionApplication {
   const fraction = application.activeFraction;
   if (!fraction) return application;
 
+  const purchased = Math.max(0, quantity);
+
+  // sGCTL purchases consume the sGCTL leg only; the on-chain GLW step ledger
+  // (splitsSold / remainingSteps / totalSteps) is untouched.
+  if (currency === "SGCTL") {
+    const sgctlLeg = fraction.sgctl;
+    if (!sgctlLeg) return application;
+    const nextRemainingUnits = Math.max(0, sgctlLeg.remainingUnits - purchased);
+    return {
+      ...application,
+      activeFraction: {
+        ...fraction,
+        sgctl: {
+          ...sgctlLeg,
+          remainingUnits: nextRemainingUnits,
+        },
+      },
+    };
+  }
+
   const totalSteps = Math.max(0, Math.floor(fraction.totalSteps ?? 0));
-  const prevRemaining = resolveFractionRemainingSteps(fraction);
-  const nextRemaining = Math.max(0, prevRemaining - Math.max(0, quantity));
+  const prevRemaining = resolveGlwRemainingSteps(fraction);
+  const nextRemaining = Math.max(0, prevRemaining - purchased);
   const nextSplitsSold = Math.max(
     0,
-    Math.floor(fraction.splitsSold ?? 0) + Math.max(0, quantity),
+    Math.floor(fraction.splitsSold ?? 0) + purchased,
   );
   const filled = Math.max(0, totalSteps - nextRemaining);
   const progressPercent =
@@ -182,6 +202,9 @@ function updateApplicationAfterSuccessfulPurchase(
     ...application,
     activeFraction: {
       ...fraction,
+      glw: fraction.glw
+        ? { ...fraction.glw, remainingSteps: nextRemaining }
+        : fraction.glw,
       remainingSteps: nextRemaining,
       splitsSold: nextSplitsSold,
       progressPercent,
@@ -217,6 +240,7 @@ function prependSuccessfulSplitActivity(
   const updatedApplication = updateApplicationAfterSuccessfulPurchase(
     params.application,
     params.quantity,
+    params.currency,
   );
   const fractionType: SplitActivity["fractionType"] =
     fraction.type === "mining-center" ? "mining-center" : "launchpad";
@@ -369,7 +393,10 @@ type DepositDialogProps =
       open: boolean;
       onOpenChange: (open: boolean) => void;
       application: AuctionApplication | null;
-      selectedCurrency: "GLW";
+      // GLW and sGCTL are both launchpad delegation legs; the caller picks the
+      // explicit leg (no more phase-driven auto-flip). sGCTL entry points are
+      // only surfaced by the card when the wallet is eligible.
+      selectedCurrency: "GLW" | "SGCTL";
       rewardScore?: LaunchpadRewardScore | null;
       onSuccess?: () => void;
     }
@@ -701,22 +728,6 @@ export function DepositDialog({
   // `quantity` can go stale/negative during the post-purchase listing refetch,
   // so the success card uses this snapshot to show what was delegated.
   const submittedQuantityRef = React.useRef<number | null>(null);
-  const [launchpadNowMs, setLaunchpadNowMs] = React.useState(() =>
-    getLaunchpadNowMs(),
-  );
-
-  React.useEffect(() => {
-    if (!open || runtimeSelectedCurrency !== "SGCTL") return;
-
-    setLaunchpadNowMs(getLaunchpadNowMs());
-    const intervalId = window.setInterval(() => {
-      setLaunchpadNowMs(getLaunchpadNowMs());
-    }, 5_000);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, [open, runtimeSelectedCurrency]);
 
   const fetchLatestApplication = React.useCallback(async () => {
     if (!application?.id) return application;
@@ -1406,30 +1417,8 @@ export function DepositDialog({
     signer,
     walletClient,
   ]);
-  const sgctlPreparationCutoffGuard = React.useMemo(
-    () =>
-      getSgctlPreparationCutoffGuard({
-        selectedCurrency: runtimeSelectedCurrency,
-        sgctlSource: sgctlSourceMode,
-        fractionCreatedAt: effectiveApplication?.activeFraction?.createdAt,
-        nowMs: launchpadNowMs,
-      }),
-    [
-      effectiveApplication?.activeFraction?.createdAt,
-      launchpadNowMs,
-      runtimeSelectedCurrency,
-      sgctlSourceMode,
-    ],
-  );
-
   React.useEffect(() => {
     if (runtimeSelectedCurrency !== "SGCTL") return;
-    if (sgctlPreparationCutoffGuard.isBlocked) {
-      if (showStakedSgctlOption && selectedPaymentMethod !== "SGCTL") {
-        setSelectedPaymentMethod("SGCTL");
-      }
-      return;
-    }
     if (showStakedSgctlOption && selectedPaymentMethod === "GCTL") {
       setSelectedPaymentMethod("SGCTL");
     }
@@ -1439,25 +1428,6 @@ export function DepositDialog({
   }, [
     runtimeSelectedCurrency,
     selectedPaymentMethod,
-    sgctlPreparationCutoffGuard.isBlocked,
-    showStakedSgctlOption,
-  ]);
-
-  React.useEffect(() => {
-    if (
-      runtimeSelectedCurrency !== "SGCTL" ||
-      !sgctlPreparationCutoffGuard.isBlocked ||
-      !showStakedSgctlOption ||
-      selectedPaymentMethod === "SGCTL"
-    ) {
-      return;
-    }
-
-    setSelectedPaymentMethod("SGCTL");
-  }, [
-    runtimeSelectedCurrency,
-    selectedPaymentMethod,
-    sgctlPreparationCutoffGuard.isBlocked,
     showStakedSgctlOption,
   ]);
 
@@ -1465,8 +1435,6 @@ export function DepositDialog({
     ? dd.ctaPreparingWallet
     : isCheckingInitialPositionEligibility
       ? dd.ctaCheckingEligibility
-      : sgctlPreparationCutoffGuard.isBlocked
-        ? dd.ctaStakedSgctlOnly
       : initialPositionValueGuard.isBlocked
         ? dd.ctaMinimumToStart(
             initialPositionValueGuard.minimumUsd.toLocaleString(),
@@ -1544,9 +1512,12 @@ export function DepositDialog({
     return dd.weeklyFor100Weeks;
   }, [dd, runtimeSelectedCurrency, rewardScore]);
 
-  const maxQuantity = resolveFractionRemainingSteps(
-    effectiveApplication?.activeFraction,
-  );
+  // Per-leg Max: sGCTL delegations cap on the sGCTL unit leg, GLW delegations
+  // (and miner purchases, which ride the GLW step ledger) cap on the GLW leg.
+  const maxQuantity =
+    runtimeSelectedCurrency === "SGCTL"
+      ? resolveSgctlRemainingUnits(effectiveApplication?.activeFraction)
+      : resolveGlwRemainingSteps(effectiveApplication?.activeFraction);
 
   // The largest number of units the wallet can afford in the selected payment
   // method, capped by the listing's remaining steps. Drives the Max button.
@@ -2174,10 +2145,6 @@ export function DepositDialog({
       toast.error(initialPositionMinimumMessage);
       return;
     }
-    if (sgctlPreparationCutoffGuard.isBlocked) {
-      toast.error(sgctlPreparationCutoffGuard.message);
-      return;
-    }
     if (isPreparingWalletAuthorization) {
       toast.message(
         runtimeSelectedCurrency === "SGCTL"
@@ -2204,7 +2171,10 @@ export function DepositDialog({
 
       setLiveApplication(currentApplication);
 
-      const availableSteps = resolveFractionRemainingSteps(activeFraction);
+      const availableSteps =
+        runtimeSelectedCurrency === "SGCTL"
+          ? resolveSgctlRemainingUnits(activeFraction)
+          : resolveGlwRemainingSteps(activeFraction);
       if (availableSteps <= 0) {
         toast.error(dd.toastListingNoLongerAvailable);
         return;
@@ -2679,6 +2649,7 @@ export function DepositDialog({
       const optimisticApplication = updateApplicationAfterSuccessfulPurchase(
         currentApplication,
         quantity,
+        runtimeSelectedCurrency,
       );
 
       setLiveApplication(optimisticApplication);
@@ -3607,11 +3578,6 @@ export function DepositDialog({
                 {initialPositionMinimumMessage}
               </div>
             ) : null}
-            {sgctlPreparationCutoffGuard.isBlocked ? (
-              <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-muted-foreground">
-                {sgctlPreparationCutoffGuard.message}
-              </div>
-            ) : null}
           </div>
 
           {/* Estimated Rewards - Animated */}
@@ -3854,7 +3820,6 @@ export function DepositDialog({
                 />
               )}
               {runtimeSelectedCurrency === "SGCTL" &&
-                !sgctlPreparationCutoffGuard.isBlocked &&
                 !showStakedSgctlOption && (
                   <PaymentOption
                     label={dd.paymentLabelGctl}
@@ -3874,8 +3839,7 @@ export function DepositDialog({
                   />
                 )}
               {(runtimeSelectedCurrency !== "SGCTL" ||
-                (!showStakedSgctlOption &&
-                  !sgctlPreparationCutoffGuard.isBlocked)) && (
+                !showStakedSgctlOption) && (
                 <>
                   {/* Option: USDC */}
                   <PaymentOption
@@ -4023,7 +3987,6 @@ export function DepositDialog({
                     isSubmitting ||
                     isPreparingWalletAuthorization ||
                     isCheckingInitialPositionEligibility ||
-                    sgctlPreparationCutoffGuard.isBlocked ||
                     initialPositionValueGuard.isBlocked ||
                     !affordability.canSubmit
                   }

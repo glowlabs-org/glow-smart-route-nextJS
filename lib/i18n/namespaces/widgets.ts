@@ -714,7 +714,7 @@ const en: WidgetStrings = {
     learnMore: "Learn more",
     beReadyTitle: "Be ready for Tuesday launchpad windows.",
     beReadyBody:
-      "Launchpad listings open in sGCTL at Tuesday 1:00 AM ET, then shift to GLW at Tuesday 1:00 PM ET. Listings created after 1:00 AM ET join at the 1:00 PM ET GLW release.",
+      "Launchpad listings and miners all open at Tuesday 9:00 AM ET. GLW and sGCTL delegations go live together in the same window.",
     earlyAccessBadge: "Early access",
     earlyAccessActive: (minutes) =>
       `Early access active. Miner windows open ${minutes} minutes early.`,
@@ -1385,7 +1385,7 @@ const ko: WidgetStrings = {
     learnMore: "자세히 보기",
     beReadyTitle: "화요일 런치패드 오픈을 준비하세요.",
     beReadyBody:
-      "런치패드 등록은 화요일 오전 1시(동부시간)에 sGCTL로 오픈되며, 이후 화요일 오후 1시(동부시간)에 GLW로 전환됩니다. 오전 1시(동부시간) 이후에 생성된 등록은 오후 1시(동부시간) GLW 오픈에 합류합니다.",
+      "런치패드 등록과 마이너는 모두 화요일 오전 9시(동부시간)에 오픈됩니다. GLW와 sGCTL 위임이 동일한 창에서 함께 시작됩니다.",
     earlyAccessBadge: "얼리 액세스",
     earlyAccessActive: (minutes) =>
       `얼리 액세스가 활성화되었습니다. 마이너 창이 ${minutes}분 일찍 열립니다.`,
@@ -2054,7 +2054,7 @@ const zh: WidgetStrings = {
     learnMore: "了解更多",
     beReadyTitle: "为周二启动板窗口做好准备。",
     beReadyBody:
-      "启动板列表于美东时间周二凌晨 1:00 以 sGCTL 形式开放,随后在美东时间周二下午 1:00 转为 GLW。在凌晨 1:00 之后创建的列表将与下午 1:00 的 GLW 释放一同上线。",
+      "启动板列表和矿机均于美东时间周二上午 9:00 开放。GLW 与 sGCTL 委托在同一窗口同时上线。",
     earlyAccessBadge: "抢先体验",
     earlyAccessActive: (minutes) =>
       `抢先体验已激活。矿工窗口将提前 ${minutes} 分钟开放。`,

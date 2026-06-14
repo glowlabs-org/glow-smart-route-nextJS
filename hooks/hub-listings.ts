@@ -4,10 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Decimal from "decimal.js";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { QUERY_CONFIG } from "@/hooks/query-config";
-import {
-  getLaunchpadNowMs,
-  isMarketplaceVisibleAt,
-} from "@/utils/launchpad-now";
+import { getLaunchpadNowMs, isMarketplaceVisibleAt } from "@/utils/launchpad-now";
 
 export type PaymentCurrency = "USDG" | "USDC" | "GLW" | "GCTL" | "SGCTL";
 export type DelegationPhase = "hidden" | "sgctl" | "glw" | null;
@@ -77,6 +74,29 @@ export interface WeeklyCarbonDebt {
   applicationId: string;
 }
 
+/**
+ * The GLW leg of a launchpad listing (consolidated-launch-window shape).
+ * `remainingSteps` is a whole-unit count; `stepWei` is the per-step GLW price
+ * in wei (18 decimals).
+ */
+export interface ActiveFractionGlwLeg {
+  remainingSteps: number;
+  stepWei: string;
+}
+
+/**
+ * The sGCTL leg of a launchpad listing, or `null` when the listing has no
+ * sGCTL leg (GLW-only / pre-consolidated-window era). `unitAtomic` is the
+ * locked per-unit GCTL price in 6-decimal atomics (= fractions.sgctl_step_atomic),
+ * NOT wei. `splitBonusPercent` (n) is present only for the new era and backs the
+ * pinned +10 reward score economically; its presence era-gates boost math.
+ */
+export interface ActiveFractionSgctlLeg {
+  remainingUnits: number;
+  unitAtomic: string;
+  splitBonusPercent: string | null;
+}
+
 export interface ActiveFraction {
   id: string;
   nonce: number;
@@ -96,10 +116,23 @@ export interface ActiveFraction {
   token: string;
   owner: string;
   txHash: string | null;
+  /**
+   * Consolidated-launch-window shape: a single 9 AM ET visibility boundary plus
+   * per-leg inventory. Read `glw.remainingSteps` / `sgctl.remainingUnits`
+   * directly — never derive remaining from the legacy phase fields.
+   */
+  visibleAt?: string | null;
+  glw?: ActiveFractionGlwLeg | null;
+  sgctl?: ActiveFractionSgctlLeg | null;
+  /**
+   * @deprecated Legacy phase fields. The backend still emits these (computed
+   * from the new model) so Control's tolerant gate and not-yet-deployed
+   * frontends keep working during the deploy gap. Prefer `glw`/`sgctl`/
+   * `visibleAt`. Do not gate UI on these once the new shape is available.
+   */
   delegationAsset?: DelegationAsset;
   delegationPhase?: DelegationPhase;
   marketplaceVisibleAt?: string | null;
-  glwDelegationVisibleAt?: string | null;
   progressPercent: number;
   remainingSteps: number | null;
   remainingUsd6?: string | null;
@@ -117,8 +150,7 @@ export function isFractionOpenForMarketplace(
         | "remainingSteps"
         | "totalSteps"
         | "splitsSold"
-        | "delegationPhase"
-        | "delegationAsset"
+        | "glw"
       >
     | null
     | undefined
@@ -126,48 +158,41 @@ export function isFractionOpenForMarketplace(
   if (!fraction) return false;
 
   const totalSteps = fraction.totalSteps ?? 0;
-  const remainingSteps = resolveFractionRemainingSteps(fraction);
+  const remainingSteps = resolveGlwRemainingSteps(fraction);
 
   return !fraction.isFilled && remainingSteps > 0 && totalSteps > 0;
 }
 
-export function resolveFractionRemainingSteps(
+/**
+ * Whole GLW units still for sale. Reads the consolidated-launch-window
+ * `glw.remainingSteps` leg directly. Falls back to the legacy step ledger
+ * (totalSteps - splitsSold) only when the new leg is absent (deploy gap with a
+ * not-yet-migrated payload) — and to `remainingSteps` if even the step counts
+ * are missing.
+ */
+export function resolveGlwRemainingSteps(
   fraction:
     | Pick<
         ActiveFraction,
-        | "remainingSteps"
-        | "totalSteps"
-        | "splitsSold"
-        | "delegationPhase"
-        | "delegationAsset"
+        "remainingSteps" | "totalSteps" | "splitsSold" | "glw"
       >
     | null
     | undefined,
 ): number {
   if (!fraction) return 0;
 
-  // sGCTL pre-sale phase: splitsSold counts sGCTL shares while totalSteps is the
-  // GLW-phase step count — different units — so (totalSteps - splitsSold) hits 0
-  // long before the sGCTL fundraise target is met, falsely reading sold-out and
-  // hiding the listing for the whole pre-sale (Eternal Florida wk129: 24/24 with
-  // 117 sGCTL shares still open). Trust the backend's phase-aware remainingSteps
-  // here; the GLW step-ledger preference below only applies to the GLW phase.
-  const isSgctlPhase =
-    fraction.delegationPhase === "sgctl" ||
-    fraction.delegationAsset === "SGCTL";
+  const glwLeg = fraction.glw;
   if (
-    isSgctlPhase &&
-    typeof fraction.remainingSteps === "number" &&
-    Number.isFinite(fraction.remainingSteps)
+    glwLeg &&
+    typeof glwLeg.remainingSteps === "number" &&
+    Number.isFinite(glwLeg.remainingSteps)
   ) {
-    return Math.max(0, Math.floor(fraction.remainingSteps));
+    return Math.max(0, Math.floor(glwLeg.remainingSteps));
   }
 
-  // Prefer the exact step ledger (totalSteps - splitsSold). One step is one
-  // whole unit, so this is precisely "units left". The API's remainingSteps is
-  // derived from leftover USD/GLW amounts and can floor to one short of a whole
-  // step (dust in amountRaised), which made the "Max" button buy every unit but
-  // the last. Only fall back to remainingSteps when the step counts are missing.
+  // Legacy fallback: the exact step ledger (totalSteps - splitsSold). One step
+  // is one whole unit, so this is precisely "GLW units left". Only fall back to
+  // the API's amount-derived remainingSteps when the step counts are missing.
   const hasTotalSteps =
     typeof fraction.totalSteps === "number" &&
     Number.isFinite(fraction.totalSteps);
@@ -198,15 +223,88 @@ export function resolveFractionRemainingSteps(
   return Math.max(0, totalSteps - soldSteps);
 }
 
+/**
+ * Whole sGCTL units still for sale, or 0 when the listing has no sGCTL leg.
+ * Reads the consolidated-launch-window `sgctl.remainingUnits` leg directly.
+ */
+export function resolveSgctlRemainingUnits(
+  fraction: Pick<ActiveFraction, "sgctl"> | null | undefined,
+): number {
+  if (!fraction || !fraction.sgctl) return 0;
+  const remainingUnits = fraction.sgctl.remainingUnits;
+  if (typeof remainingUnits !== "number" || !Number.isFinite(remainingUnits)) {
+    return 0;
+  }
+  return Math.max(0, Math.floor(remainingUnits));
+}
+
 export function isFractionPubliclyVisible(
   fraction:
-    | Pick<ActiveFraction, "marketplaceVisibleAt">
+    | Pick<ActiveFraction, "visibleAt" | "marketplaceVisibleAt">
     | null
     | undefined,
   nowMs: number = Date.now()
 ): boolean {
   if (!fraction) return false;
-  return isMarketplaceVisibleAt(fraction.marketplaceVisibleAt, nowMs);
+  // Prefer the consolidated `visibleAt` (single 9 AM ET boundary; the API
+  // returns the per-wallet effective value for early-access reads). Fall back to
+  // the legacy `marketplaceVisibleAt` during the deploy gap.
+  const effectiveVisibleAt = fraction.visibleAt ?? fraction.marketplaceVisibleAt;
+  return isMarketplaceVisibleAt(effectiveVisibleAt, nowMs);
+}
+
+/**
+ * Foundation backstop grace window. The sGCTL leg is publicly buyable for at
+ * least this long after the listing becomes visible. Mirrors the backend
+ * SGCTL_BACKSTOP_GRACE_PERIOD_MS (gca-crm sgctlBackstop.ts) so the UI freezes
+ * in lockstep with the server.
+ */
+export const SGCTL_BACKSTOP_GRACE_PERIOD_MS = 60 * 60 * 1000; // 1 hour
+
+/**
+ * Organic sGCTL registrations are FROZEN — and the sGCTL tile must be hidden —
+ * once BOTH hold:
+ *   - the GLW leg is sold out (`glw.remainingSteps <= 0`), AND
+ *   - the listing has been publicly visible for at least the 1h grace window
+ *     (`now >= visibleAt + 1h`).
+ * From that instant only the Foundation backstop fills the remaining sGCTL
+ * units, so there is nothing left for a user to buy; showing the tile would
+ * just open a dialog that the server rejects (the backend FREEZE,
+ * isSgctlOrganicRegistrationFrozen / the /delegate-sgctl reject_frozen gate).
+ *
+ * NOTE: the grace is anchored to the listing's `visibleAt`. For an early-access
+ * wallet the API returns that wallet's earlier effective visible-at, so the tile
+ * may hide slightly sooner than the server's public-anchored freeze — the safe
+ * direction (never shows a tile that can't be bought; at worst hides one that an
+ * early-access wallet could still have bought during the public grace hour).
+ */
+export function isSgctlOrganicLegFrozen(
+  fraction:
+    | Pick<
+        ActiveFraction,
+        | "visibleAt"
+        | "marketplaceVisibleAt"
+        | "glw"
+        | "remainingSteps"
+        | "totalSteps"
+        | "splitsSold"
+      >
+    | null
+    | undefined,
+  nowMs: number = Date.now()
+): boolean {
+  if (!fraction) return false;
+  if (resolveGlwRemainingSteps(fraction) > 0) return false;
+
+  const effectiveVisibleAt = fraction.visibleAt ?? fraction.marketplaceVisibleAt;
+  // No visible-at known: GLW is sold out and we can't time the grace, so fall
+  // back to GLW-sold-out alone (conservative — hide, matching the server which
+  // only backstop-fills once GLW is full).
+  if (!effectiveVisibleAt) return true;
+  const visibleAtMs = Date.parse(effectiveVisibleAt);
+  if (!Number.isFinite(visibleAtMs)) return true;
+
+  return getLaunchpadNowMs(nowMs) >= visibleAtMs + SGCTL_BACKSTOP_GRACE_PERIOD_MS;
 }
 
 export interface AuctionApplication {

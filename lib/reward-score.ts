@@ -39,6 +39,13 @@ export interface RewardScoreBatchParams {
    * Defaults to 1.25 in the control backend if omitted.
    */
   pdRecoveryDiscount?: number;
+  /**
+   * Solved sGCTL split bonus `n` (percentage points) for new-era listings.
+   * When present, the control backend bumps the sGCTL glow split by `n` and
+   * pins the displayed score to (GLW score + 10). MUST be omitted for GLW-leg
+   * estimates so the baseline `glwContributionRaw` is at the un-bumped split.
+   */
+  sgctlSplitBonusPercent?: number;
 }
 
 interface RewardScoreBatchRequestEntry {
@@ -67,6 +74,14 @@ export function resolveRewardScorePaymentCurrency(
   application: AuctionApplication,
   fallbackCurrency: PaymentCurrency
 ): PaymentCurrency {
+  // Consolidated-launch-window shape: a listing has an sGCTL leg whenever
+  // `sgctl` is present. The score difference between legs is now the server's
+  // pinned +10 (the persisted split bonus n), so we no longer assume anything
+  // about a 2x multiplier here — we only pick the currency to estimate.
+  if (application.activeFraction?.sgctl != null) {
+    return "SGCTL";
+  }
+  // Legacy fallback during the deploy gap (new shape not yet emitted).
   if (application.activeFraction?.delegationAsset === "SGCTL") {
     return "SGCTL";
   }
@@ -75,17 +90,25 @@ export function resolveRewardScorePaymentCurrency(
 
 export function buildRewardScoreCurrencyKey(
   applications: AuctionApplication[],
-  fallbackCurrency: PaymentCurrency
+  fallbackCurrency: PaymentCurrency,
+  // When set, the score is estimated for THIS currency on every application
+  // (no per-app sGCTL auto-resolve). The two-tile launchpad UI fetches a forced
+  // GLW map and a forced SGCTL map so each tile shows its own leg's score.
+  forceCurrency?: PaymentCurrency
 ): string {
-  return applications
-    .map(
-      (application) =>
-        `${application.id}:${resolveRewardScorePaymentCurrency(
-          application,
-          fallbackCurrency
-        )}`
-    )
-    .join("|");
+  const prefix = forceCurrency ? `force:${forceCurrency}|` : "";
+  return (
+    prefix +
+    applications
+      .map(
+        (application) =>
+          `${application.id}:${
+            forceCurrency ??
+            resolveRewardScorePaymentCurrency(application, fallbackCurrency)
+          }`
+      )
+      .join("|")
+  );
 }
 
 export interface RewardScoresBatchResponse {
@@ -162,16 +185,20 @@ export function buildRewardScoreBatchInputs(params: {
   applications: AuctionApplication[];
   paymentCurrency: PaymentCurrency;
   walletAddress?: string | null;
+  // When set, estimate for THIS currency on every application instead of the
+  // per-app sGCTL auto-resolve. Used by the two-tile UI: a forced-GLW pass (the
+  // GLW tile's score, no bonus) and a forced-SGCTL pass (the sGCTL tile's score,
+  // with the solved n).
+  forceCurrency?: PaymentCurrency;
 }) {
-  const { applications, paymentCurrency, walletAddress } = params;
+  const { applications, paymentCurrency, walletAddress, forceCurrency } = params;
   const addressForEstimation = walletAddress || REWARD_SCORE_FALLBACK_USER_ID;
 
   const requestList = applications
     .map((application) => {
-      const resolvedPaymentCurrency = resolveRewardScorePaymentCurrency(
-        application,
-        paymentCurrency
-      );
+      const resolvedPaymentCurrency =
+        forceCurrency ??
+        resolveRewardScorePaymentCurrency(application, paymentCurrency);
       const protocolDepositAmount = calculateProtocolDepositAmount(
         application.finalProtocolFee,
         application.applicationPriceQuotes,
@@ -220,6 +247,20 @@ export function buildRewardScoreBatchInputs(params: {
             const parsed = Number(raw);
             return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
           })(),
+          // Forward the solved n ONLY for the sGCTL leg, so new-era sGCTL cards
+          // render the pinned (GLW + 10) score instead of the legacy 2x branch.
+          // GLW-leg estimates intentionally omit it (baseline split).
+          sgctlSplitBonusPercent:
+            resolvedPaymentCurrency === "SGCTL"
+              ? (() => {
+                  const raw = application.activeFraction?.sgctl?.splitBonusPercent;
+                  if (raw == null) return undefined;
+                  const parsed = Number(raw);
+                  return Number.isFinite(parsed) && parsed > 0
+                    ? parsed
+                    : undefined;
+                })()
+              : undefined,
         },
       } as RewardScoreBatchRequestEntry;
     })

@@ -133,14 +133,11 @@ export function getNextTuesdayAtETHour(
   return getNextTuesdayAtETTime(hour, 0, fromDate);
 }
 
-export function getNextTuesdayAt1amET(fromDate: Date = new Date()): Date {
-  return getNextTuesdayAtETHour(1, fromDate);
-}
-
-// Computes the next Tuesday at 1:00 PM America/New_York (ET), from the current moment.
-// If today is Tuesday but past 1:00 PM ET, it returns next week's Tuesday.
-export function getNextTuesdayAt1pmET(fromDate: Date = new Date()): Date {
-  return getNextTuesdayAtETHour(13, fromDate);
+// Consolidated launch window: a single Tuesday 9:00 AM ET boundary for GLW
+// delegations, sGCTL delegations, and miners. Replaces the old 1 AM sGCTL /
+// 1 PM GLW split.
+export function getNextTuesdayAt9amET(fromDate: Date = new Date()): Date {
+  return getNextTuesdayAtETHour(9, fromDate);
 }
 
 // Computes the next Wednesday at the given ET hour, from the supplied moment.
@@ -184,36 +181,26 @@ export function getNextWednesdayAt1pmET(fromDate?: Date): Date {
   return getNextWednesdayAtETTime(13, 0, fromDate);
 }
 
+// Miners now share the consolidated 9 AM ET Tuesday window (no 12-hour
+// head start).
 export function getNextMiningCenterBatchAtET(
   fromDate?: Date,
 ): Date {
   const baseDate = fromDate ?? new Date(getLaunchpadNowMs());
-  return getNextTuesdayAt1amET(baseDate);
+  return getNextTuesdayAt9amET(baseDate);
 }
 
+// GLW + sGCTL delegations open together at 9 AM ET Tuesday.
 export function getNextLaunchpadDelegationBatchAtET(
   fromDate?: Date,
 ): Date {
   const baseDate = fromDate ?? new Date(getLaunchpadNowMs());
-  const etNow = getETParts(baseDate);
-
-  if (etNow.weekday === TUESDAY && etNow.hour >= 1 && etNow.hour < 13) {
-    return getNextTuesdayAt1pmET(baseDate);
-  }
-
-  return getNextTuesdayAt1amET(baseDate);
+  return getNextTuesdayAt9amET(baseDate);
 }
 
 export function getNextSponsorListingsBatchAtET(
   fromDate?: Date,
 ): Date {
   const baseDate = fromDate ?? new Date(getLaunchpadNowMs());
-  const nextMiningCenterBatchAt = getNextMiningCenterBatchAtET(baseDate);
-  const nextLaunchpadDelegationBatchAt =
-    getNextLaunchpadDelegationBatchAtET(baseDate);
-
-  return nextMiningCenterBatchAt.getTime() <=
-    nextLaunchpadDelegationBatchAt.getTime()
-    ? nextMiningCenterBatchAt
-    : nextLaunchpadDelegationBatchAt;
+  return getNextTuesdayAt9amET(baseDate);
 }

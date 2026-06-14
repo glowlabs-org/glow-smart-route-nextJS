@@ -2,8 +2,16 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import { parseUnits } from "viem";
-import type { AuctionApplication, SplitActivity } from "@/hooks/hub-listings";
+import type {
+  ActiveFraction,
+  AuctionApplication,
+  SplitActivity,
+} from "@/hooks/hub-listings";
 import type { ApplicationRewardScore } from "@/lib/reward-score";
+
+type ApplicationOverrides = Partial<Omit<AuctionApplication, "activeFraction">> & {
+  activeFraction?: Partial<ActiveFraction> | null;
+};
 
 const { mockUseGlowLaunchpad, mockUseRewardScore } = vi.hoisted(() => ({
   mockUseGlowLaunchpad: vi.fn(),
@@ -22,7 +30,7 @@ import { useWalletLaunchpadInProgress } from "@/hooks/use-wallet-launchpad-in-pr
 
 function createApplication(
   id: string,
-  overrides: Partial<AuctionApplication> = {}
+  overrides: ApplicationOverrides = {}
 ): AuctionApplication {
   return {
     id,

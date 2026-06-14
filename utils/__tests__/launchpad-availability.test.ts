@@ -239,34 +239,16 @@ describe("getLaunchpadAvailability — sGCTL phase (currency=SGCTL)", () => {
     expect(av.progressFilledPct).toBeCloseTo(12.63, 2);
   });
 
-  it("is NOT sold out mid-sGCTL when splitsSold has caught totalSteps but remainingSteps > 0 (Eternal Florida wk129 regression)", () => {
-    // Prod 2026-06-02: Scarlet Brook / Eternal Florida had totalSteps=24 (the
-    // GLW-phase step count) and splitsSold=24 (sGCTL SHARES — a different unit)
-    // while 117 sGCTL shares were still open (backend remainingSteps=117,
-    // progressPercent~17%). The Max-button fix (0cfdb9f) made
-    // resolveFractionRemainingSteps prefer totalSteps-splitsSold = 0, so
-    // isFractionOpenForMarketplace returned false and the whole sGCTL pre-sale
-    // was hidden ("Delegations 0"). The phase-aware branch must trust the
-    // backend remainingSteps during the sGCTL phase.
-    const app = buildApplication({
-      paymentCurrency: "SGCTL",
-      finalProtocolFee: "11621440000",
-      prices: { SGCTL: "750000", GLW: "578014" },
-      fraction: {
-        totalSteps: 24,
-        splitsSold: 24,
-        delegationPhase: "sgctl",
-        delegationAsset: "SGCTL",
-        remainingSteps: 117,
-        sgctlStepAtomic: "110666666",
-        currentStepUsd6: "82999999",
-      },
-    });
-    const av = getLaunchpadAvailability(app);
-    expect(av.isSoldOut).toBe(false);
-    expect(av.sold).toBe(24);
-    expect(av.remaining).toBeGreaterThan(0);
-  });
+  // NOTE (consolidated launch window): the "Eternal Florida wk129 regression"
+  // test was removed here. It guarded the legacy sGCTL-phase data shape where
+  // splitsSold (counting sGCTL SHARES) overflowed the GLW totalSteps while the
+  // backend remainingSteps still reported open sGCTL units — and relied on the
+  // phase-aware resolveFractionRemainingSteps hack to trust remainingSteps mid
+  // sGCTL. Under the consolidated window the two inventories are tracked
+  // separately (sgctl.remainingUnits / sgctlUnitsSold), splitsSold returns to
+  // meaning strictly "GLW steps sold on-chain", and `splits_sold > total_steps`
+  // can no longer occur (spec PLAN-consolidated-launch-window §3). The
+  // phase-aware hack is deliberately deleted, so that scenario is unreachable.
 
   it("falls back to totalSteps when sGCTL pricing fields are missing", () => {
     // Without sgctlStepAtomic + price quote, resolveLaunchpadDelegationShareCount

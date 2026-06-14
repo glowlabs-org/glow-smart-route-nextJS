@@ -26,6 +26,11 @@ export function LaunchpadDialog({ open, onOpenChange }: LaunchpadDialogProps) {
   const [selectedRewardScore, setSelectedRewardScore] = React.useState<
     LaunchpadRewardScore | MiningCenterScore | null
   >(null);
+  // The leg the card chose (eligibility-gated). Drives the delegation dialog's
+  // mode so an eligible "Delegate sGCTL" opens the sGCTL path, not GLW.
+  const [selectedDepositCurrency, setSelectedDepositCurrency] = React.useState<
+    "GLW" | "SGCTL" | "USDC" | null
+  >(null);
 
   const handleLaunchpadOpenChange = React.useCallback(
     (nextOpen: boolean) => {
@@ -34,6 +39,7 @@ export function LaunchpadDialog({ open, onOpenChange }: LaunchpadDialogProps) {
       setDepositOpen(false);
       setSelectedApplicationForDeposit(null);
       setSelectedRewardScore(null);
+      setSelectedDepositCurrency(null);
     },
     [onOpenChange]
   );
@@ -41,10 +47,12 @@ export function LaunchpadDialog({ open, onOpenChange }: LaunchpadDialogProps) {
   const handlePayDeposit = React.useCallback(
     (
       application: TaggedAuctionApplication,
-      scoreData?: LaunchpadRewardScore | MiningCenterScore | null
+      scoreData?: LaunchpadRewardScore | MiningCenterScore | null,
+      selectedCurrency?: "GLW" | "SGCTL" | "USDC"
     ) => {
       setSelectedApplicationForDeposit(application);
       setSelectedRewardScore(scoreData ?? null);
+      setSelectedDepositCurrency(selectedCurrency ?? null);
       setDepositOpen(true);
     },
     [onOpenChange]
@@ -74,7 +82,12 @@ export function LaunchpadDialog({ open, onOpenChange }: LaunchpadDialogProps) {
           open={depositOpen}
           onOpenChange={setDepositOpen}
           application={selectedApplicationForDeposit}
-          selectedCurrency="GLW"
+          // Caller-driven leg: the card passes the eligibility-gated currency it
+          // displayed, so an eligible "Delegate sGCTL" opens the sGCTL path.
+          // Falls back to GLW (always available) when the card didn't specify.
+          selectedCurrency={
+            selectedDepositCurrency === "SGCTL" ? "SGCTL" : "GLW"
+          }
           rewardScore={selectedRewardScore as LaunchpadRewardScore | null}
         />
       )}

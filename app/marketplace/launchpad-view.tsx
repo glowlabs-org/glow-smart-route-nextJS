@@ -70,10 +70,11 @@ import {
   calculateLaunchpadPerShareRewards,
   getDelegationCurrencyDecimals,
   parseDelegationStepAmount,
-  resolveDelegationCurrency,
+  resolveEffectiveDelegationCurrency,
   resolveLaunchpadDelegationUnitCount,
 } from "@/utils/launchpad-rewards";
 import { getLaunchpadAvailability } from "@/utils/launchpad-availability";
+import { useSgctlEligibility } from "@/hooks/use-sgctl-eligibility";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { GlowSymbol } from "@/components/glow-symbol";
@@ -327,12 +328,33 @@ interface LaunchpadViewProps {
           weeklyGlwRewards?: string;
           weeklyGlwRewardsUsd?: string;
         }
-      | null
+      | null,
+    // The leg the card chose for this listing (eligibility-gated for sGCTL).
+    // The opener uses it to open the deposit dialog in the matching mode so an
+    // eligible user's "Delegate sGCTL" actually runs an sGCTL delegation.
+    // Optional so existing 2-arg openers remain assignable.
+    selectedCurrency?: "GLW" | "SGCTL" | "USDC"
   ) => void;
   variant?: "page" | "dialog" | "widget";
   typeFilter?: "all" | "delegations" | "miners";
   widgetLayout?: "stack" | "grid" | "carousel";
   widgetCarouselVariant?: "compact" | "hero";
+}
+
+/**
+ * sGCTL eligibility for card DISPLAY, shared across the launchpad render scopes.
+ *
+ * The top-level views (Content / Widget / Dialog) compute eligibility once from
+ * their visible listings + the connected wallet and provide it; leaf cards read
+ * it via `useIsSgctlEligible()`. Default `() => false` means a card rendered
+ * outside a provider hides its sGCTL leg (safe: no-eligibility-info == ineligible).
+ */
+const SgctlEligibilityContext = React.createContext<
+  (applicationId: string) => boolean
+>(() => false);
+
+function useIsSgctlEligible(): (applicationId: string) => boolean {
+  return React.useContext(SgctlEligibilityContext);
 }
 
 function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
@@ -493,6 +515,13 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
   );
 
   const { zones } = useAvailableZones(allApplications);
+
+  // sGCTL eligibility (spec §1.4): hide the sGCTL leg from wallets that can't
+  // cover one unit in the listing's region. Local source of truth for this view.
+  const { isSgctlEligible } = useSgctlEligibility({
+    applications: allLaunchpadApplications,
+    walletAddress: address,
+  });
 
   const shouldShowFilters = React.useMemo(() => {
     const activeDelegations = countActiveListings(allLaunchpadApplications);
@@ -1278,8 +1307,9 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                       application.activeFraction?.totalSteps
                                     ? (() => {
                                         const delegationCurrency =
-                                          resolveDelegationCurrency(
-                                            application
+                                          resolveEffectiveDelegationCurrency(
+                                            application,
+                                            isSgctlEligible(application.id)
                                           );
                                         const perShareRewards =
                                           calculateLaunchpadPerShareRewards({
@@ -1372,7 +1402,10 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                   application.activeFraction?.totalSteps ? (
                                   (() => {
                                     const delegationCurrency =
-                                      resolveDelegationCurrency(application);
+                                      resolveEffectiveDelegationCurrency(
+                                        application,
+                                        isSgctlEligible(application.id)
+                                      );
                                     if (delegationCurrency === "SGCTL") {
                                       return null;
                                     }
@@ -1446,7 +1479,10 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                 application.activeFraction?.totalSteps
                                   ? (() => {
                                       const delegationCurrency =
-                                        resolveDelegationCurrency(application);
+                                        resolveEffectiveDelegationCurrency(
+                                          application,
+                                          isSgctlEligible(application.id)
+                                        );
                                       const pdDecimals =
                                         getDelegationCurrencyDecimals(
                                           delegationCurrency
@@ -1541,7 +1577,13 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                               application,
                               application._type === "miners"
                                 ? miningScore
-                                : rewardScore
+                                : rewardScore,
+                              application._type === "miners"
+                                ? "USDC"
+                                : resolveEffectiveDelegationCurrency(
+                                    application,
+                                    isSgctlEligible(application.id)
+                                  )
                             );
                           }}
                           disabled={
@@ -1560,8 +1602,10 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                               ? l.unavailable
                               : application._type === "miners"
                               ? l.buyMiners
-                              : resolveDelegationCurrency(application) ===
-                                "SGCTL"
+                              : resolveEffectiveDelegationCurrency(
+                                  application,
+                                  isSgctlEligible(application.id)
+                                ) === "SGCTL"
                               ? l.delegateSgctl
                               : l.delegateGlw}
                           </span>
@@ -1732,6 +1776,12 @@ function LaunchpadMarketplaceWidget({
     filters: { includeFilled: true },
   });
 
+  // sGCTL eligibility (spec §1.4): provided to leaf cards via context below.
+  const { isSgctlEligible } = useSgctlEligibility({
+    applications: launchpadApplications,
+    walletAddress: address,
+  });
+
   const {
     applications: minersApplications,
     isLoading: isLoadingMiners,
@@ -1830,7 +1880,10 @@ function LaunchpadMarketplaceWidget({
           : null;
       const delegationCurrency =
         application._type === "delegations"
-          ? resolveDelegationCurrency(application)
+          ? resolveEffectiveDelegationCurrency(
+              application,
+              isSgctlEligible(application.id)
+            )
           : null;
       const totalShares =
         application._type === "delegations"
@@ -1923,6 +1976,7 @@ function LaunchpadMarketplaceWidget({
         weeklyYield,
         yieldUsdPerWeek,
         yieldPer1000Usd,
+        delegationCurrency,
         rewardScore: application._type === "delegations" ? reward : null,
         miningScore: application._type === "miners" ? mining : null,
         amountRaised,
@@ -2008,6 +2062,7 @@ function LaunchpadMarketplaceWidget({
     taggedDelegations,
     taggedMiners,
     typeFilter,
+    isSgctlEligible,
   ]);
 
   const isLoading = isLoadingLaunchpad || isLoadingMiners;
@@ -2178,7 +2233,10 @@ function LaunchpadMarketplaceWidget({
       : null;
     const delegationCurrency = isMiner
       ? null
-      : resolveDelegationCurrency(application);
+      : resolveEffectiveDelegationCurrency(
+          application,
+          isSgctlEligible(application.id)
+        );
     const currency = isMiner ? "USDC" : delegationCurrency || "GLW";
 
     const rewardsBreakdown = (() => {
@@ -2452,7 +2510,7 @@ function LaunchpadMarketplaceWidget({
                   size="lg"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onPayDeposit(application, row.scoreData);
+                    onPayDeposit(application, row.scoreData, row.delegationCurrency ?? undefined);
                   }}
                   disabled={
                     availability.isSoldOut ||
@@ -2469,7 +2527,10 @@ function LaunchpadMarketplaceWidget({
                       ? l.soldOut
                       : isMiner
                       ? l.buyMiners
-                      : resolveDelegationCurrency(application) === "SGCTL"
+                      : resolveEffectiveDelegationCurrency(
+                          application,
+                          isSgctlEligible(application.id)
+                        ) === "SGCTL"
                       ? l.delegateSgctl
                       : l.delegateGlw}
                 </Button>
@@ -2581,7 +2642,7 @@ function LaunchpadMarketplaceWidget({
               )}
               onClick={() => {
                 if (!row.scoreData || row.availability.isSoldOut) return;
-                onPayDeposit(row.application, row.scoreData);
+                onPayDeposit(row.application, row.scoreData, row.delegationCurrency ?? undefined);
               }}
             >
               {renderHeroCard(row)}
@@ -2639,22 +2700,24 @@ function LaunchpadMarketplaceWidget({
                   {isHeroCarousel ? (
                     renderHeroCard(row)
                   ) : (
-                    <LaunchpadWidgetAssetCard /* Keeping the non-hero variant as standard component for now unless requested */
-                      row={row}
-                      isScoresLoading={
-                        row.application._type === "delegations"
-                          ? isRewardScoresLoading
-                          : isMiningScoresLoading
-                      }
-                      glwSpotPrice={glwSpotPrice}
-                      ethPrice={ethPrice}
-                      onPayDeposit={onPayDeposit}
-                      onOpenStats={(application, scoreData) => {
-                        setSelectedApplicationForStats(application);
-                        setSelectedScoreDataForStats(scoreData ?? null);
-                        setStatsDialogOpen(true);
-                      }}
-                    />
+                    <SgctlEligibilityContext.Provider value={isSgctlEligible}>
+                      <LaunchpadWidgetAssetCard /* Keeping the non-hero variant as standard component for now unless requested */
+                        row={row}
+                        isScoresLoading={
+                          row.application._type === "delegations"
+                            ? isRewardScoresLoading
+                            : isMiningScoresLoading
+                        }
+                        glwSpotPrice={glwSpotPrice}
+                        ethPrice={ethPrice}
+                        onPayDeposit={onPayDeposit}
+                        onOpenStats={(application, scoreData) => {
+                          setSelectedApplicationForStats(application);
+                          setSelectedScoreDataForStats(scoreData ?? null);
+                          setStatsDialogOpen(true);
+                        }}
+                      />
+                    </SgctlEligibilityContext.Provider>
                   )}
                 </div>
               ))}
@@ -2729,6 +2792,7 @@ function LaunchpadWidgetAssetCard({
 }) {
   const { t } = useLang();
   const l = t.routes.launchpad;
+  const isSgctlEligible = useIsSgctlEligible();
   const { application, availability, scoreData, cost, weeklyYield } = row;
   const isDelegation = application._type === "delegations";
   const minerWeeksRemaining = !isDelegation
@@ -2737,7 +2801,10 @@ function LaunchpadWidgetAssetCard({
       )?.weeksOfMinerLifeRemaining
     : null;
   const delegationCurrency = isDelegation
-    ? resolveDelegationCurrency(application)
+    ? resolveEffectiveDelegationCurrency(
+        application,
+        isSgctlEligible(application.id)
+      )
     : "GLW";
   const isSoldOut = availability.isSoldOut;
   const remainingPct = React.useMemo(() => {
@@ -2924,13 +2991,13 @@ function LaunchpadWidgetAssetCard({
                 disabled={isSoldOut || isScoresLoading || !scoreData}
                 onClick={() => {
                   if (isSoldOut || !scoreData) return;
-                  onPayDeposit(application, scoreData);
+                  onPayDeposit(application, scoreData, delegationCurrency);
                 }}
               >
                 {isSoldOut
                   ? l.waitlist
                   : isDelegation
-                  ? resolveDelegationCurrency(application) === "SGCTL"
+                  ? delegationCurrency === "SGCTL"
                     ? l.delegateSgctl
                     : l.delegateGlw
                   : l.buyMiners}
@@ -3159,6 +3226,7 @@ function LaunchpadWidgetHeroCarouselCard({
 }) {
   const { t } = useLang();
   const l = t.routes.launchpad;
+  const isSgctlEligible = useIsSgctlEligible();
   const { application, availability, scoreData, cost, weeklyYield } = row;
   const isDelegation = application._type === "delegations";
   const minerWeeksRemaining = !isDelegation
@@ -3167,7 +3235,10 @@ function LaunchpadWidgetHeroCarouselCard({
       )?.weeksOfMinerLifeRemaining
     : null;
   const delegationCurrency = isDelegation
-    ? resolveDelegationCurrency(application)
+    ? resolveEffectiveDelegationCurrency(
+        application,
+        isSgctlEligible(application.id)
+      )
     : "GLW";
   const isSoldOut = availability.isSoldOut;
 
@@ -3424,7 +3495,7 @@ function LaunchpadWidgetHeroCarouselCard({
               {isSoldOut
                 ? l.waitlist
                 : isDelegation
-                ? resolveDelegationCurrency(application) === "SGCTL"
+                ? delegationCurrency === "SGCTL"
                   ? l.delegateSgctl
                   : l.delegateGlw
                 : l.buyMiners}
@@ -3483,6 +3554,13 @@ function LaunchpadMarketplaceDialog({
     error: errorLaunchpad,
   } = useGlowLaunchpad({
     filters: {},
+  });
+
+  // sGCTL eligibility (spec §1.4): used by the dialog rows and provided to the
+  // dialog's asset cards via context below.
+  const { isSgctlEligible } = useSgctlEligibility({
+    applications: launchpadApplications,
+    walletAddress: address,
   });
 
   const {
@@ -3659,7 +3737,10 @@ function LaunchpadMarketplaceDialog({
           : null;
       const delegationCurrency =
         application._type === "delegations"
-          ? resolveDelegationCurrency(application)
+          ? resolveEffectiveDelegationCurrency(
+              application,
+              isSgctlEligible(application.id)
+            )
           : null;
       const totalShares =
         application._type === "delegations"
@@ -3818,6 +3899,7 @@ function LaunchpadMarketplaceDialog({
     taggedDelegations,
     taggedMiners,
     zoneId,
+    isSgctlEligible,
   ]);
 
   const globalStats = React.useMemo(() => {
@@ -3895,33 +3977,35 @@ function LaunchpadMarketplaceDialog({
           }
         />
       )}
-      <LaunchpadMarketplaceDialogContent
-        tab={activeTab}
-        onTabChange={setTab}
-        sortBy={safeSortBy}
-        onSortByChange={setSortBy}
-        sortOptions={sortOptions}
-        tabCounts={tabCounts}
-        isLive={isLive}
-        zoneId={zoneId}
-        onZoneIdChange={setZoneId}
-        shouldShowRegionFilter={shouldShowRegionFilter}
-        zones={zones}
-        isLoading={isLoading}
-        isError={isError}
-        error={error}
-        rows={rows}
-        isRewardScoresLoading={isRewardScoresLoading}
-        isMiningScoresLoading={isMiningScoresLoading}
-        globalStats={globalStats}
-        glwSpotPrice={glwSpotPrice}
-        onPayDeposit={onPayDeposit}
-        onOpenStats={(application, scoreData) => {
-          setSelectedApplicationForStats(application);
-          setSelectedScoreDataForStats(scoreData ?? null);
-          setStatsDialogOpen(true);
-        }}
-      />
+      <SgctlEligibilityContext.Provider value={isSgctlEligible}>
+        <LaunchpadMarketplaceDialogContent
+          tab={activeTab}
+          onTabChange={setTab}
+          sortBy={safeSortBy}
+          onSortByChange={setSortBy}
+          sortOptions={sortOptions}
+          tabCounts={tabCounts}
+          isLive={isLive}
+          zoneId={zoneId}
+          onZoneIdChange={setZoneId}
+          shouldShowRegionFilter={shouldShowRegionFilter}
+          zones={zones}
+          isLoading={isLoading}
+          isError={isError}
+          error={error}
+          rows={rows}
+          isRewardScoresLoading={isRewardScoresLoading}
+          isMiningScoresLoading={isMiningScoresLoading}
+          globalStats={globalStats}
+          glwSpotPrice={glwSpotPrice}
+          onPayDeposit={onPayDeposit}
+          onOpenStats={(application, scoreData) => {
+            setSelectedApplicationForStats(application);
+            setSelectedScoreDataForStats(scoreData ?? null);
+            setStatsDialogOpen(true);
+          }}
+        />
+      </SgctlEligibilityContext.Provider>
     </div>
   );
 }
@@ -4261,6 +4345,7 @@ function LaunchpadAssetCard({
 }) {
   const { t } = useLang();
   const l = t.routes.launchpad;
+  const isSgctlEligible = useIsSgctlEligible();
   const { application, availability, scoreData, cost, weeklyYield } = row;
   const isDelegation = application._type === "delegations";
   const minerWeeksRemaining = !isDelegation
@@ -4269,7 +4354,10 @@ function LaunchpadAssetCard({
       )?.weeksOfMinerLifeRemaining
     : null;
   const delegationCurrency = isDelegation
-    ? resolveDelegationCurrency(application)
+    ? resolveEffectiveDelegationCurrency(
+        application,
+        isSgctlEligible(application.id)
+      )
     : "GLW";
   const isSoldOut = availability.isSoldOut;
   const remainingPct = React.useMemo(() => {
@@ -4513,7 +4601,7 @@ function LaunchpadAssetCard({
             {isSoldOut
               ? l.waitlist
               : isDelegation
-              ? resolveDelegationCurrency(application) === "SGCTL"
+              ? delegationCurrency === "SGCTL"
                 ? l.delegateSgctl
                 : l.delegateGlw
               : l.buyMiners}

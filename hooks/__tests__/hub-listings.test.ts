@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   isFractionOpenForMarketplace,
   isFractionPubliclyVisible,
-  resolveFractionRemainingSteps,
+  isSgctlOrganicLegFrozen,
+  resolveGlwRemainingSteps,
+  SGCTL_BACKSTOP_GRACE_PERIOD_MS,
   type ActiveFraction,
 } from "../hub-listings";
 
@@ -63,12 +65,12 @@ describe("isFractionOpenForMarketplace", () => {
       isFilled: false,
     });
 
-    expect(resolveFractionRemainingSteps(fraction)).toBe(16);
+    expect(resolveGlwRemainingSteps(fraction)).toBe(16);
     expect(isFractionOpenForMarketplace(fraction)).toBe(true);
   });
 });
 
-describe("resolveFractionRemainingSteps", () => {
+describe("resolveGlwRemainingSteps", () => {
   it("prefers the exact step ledger over a USD-derived remainingSteps that floors short", () => {
     // The backend derives remainingSteps from leftover USD/GLW, which can floor
     // to one short of a whole step. Trusting it made "Max" buy every unit but
@@ -80,7 +82,7 @@ describe("resolveFractionRemainingSteps", () => {
       isFilled: false,
     });
 
-    expect(resolveFractionRemainingSteps(fraction)).toBe(85);
+    expect(resolveGlwRemainingSteps(fraction)).toBe(85);
   });
 
   it("clamps overfilled fractions (splitsSold > totalSteps) to zero", () => {
@@ -91,7 +93,7 @@ describe("resolveFractionRemainingSteps", () => {
       isFilled: true,
     });
 
-    expect(resolveFractionRemainingSteps(fraction)).toBe(0);
+    expect(resolveGlwRemainingSteps(fraction)).toBe(0);
   });
 
   it("falls back to remainingSteps when step counts are unavailable", () => {
@@ -101,15 +103,15 @@ describe("resolveFractionRemainingSteps", () => {
       remainingSteps: 7,
     });
 
-    expect(resolveFractionRemainingSteps(fraction)).toBe(7);
+    expect(resolveGlwRemainingSteps(fraction)).toBe(7);
   });
 
   it("returns 0 when the fraction is null", () => {
-    expect(resolveFractionRemainingSteps(null)).toBe(0);
+    expect(resolveGlwRemainingSteps(null)).toBe(0);
   });
 
   it("returns 0 when the fraction is undefined", () => {
-    expect(resolveFractionRemainingSteps(undefined)).toBe(0);
+    expect(resolveGlwRemainingSteps(undefined)).toBe(0);
   });
 
   it("wk129 Spectrum post-fix snapshot: total=25, sold=12, remaining=13", () => {
@@ -124,7 +126,7 @@ describe("resolveFractionRemainingSteps", () => {
       isFilled: false,
     });
 
-    expect(resolveFractionRemainingSteps(fraction)).toBe(13);
+    expect(resolveGlwRemainingSteps(fraction)).toBe(13);
   });
 
   it("rounds non-integer totalSteps and splitsSold down before subtracting", () => {
@@ -135,7 +137,7 @@ describe("resolveFractionRemainingSteps", () => {
       isFilled: false,
     });
 
-    expect(resolveFractionRemainingSteps(fraction)).toBe(12);
+    expect(resolveGlwRemainingSteps(fraction)).toBe(12);
   });
 
   it("clamps negative computed remaining to 0", () => {
@@ -146,7 +148,7 @@ describe("resolveFractionRemainingSteps", () => {
       isFilled: false,
     });
 
-    expect(resolveFractionRemainingSteps(fraction)).toBe(0);
+    expect(resolveGlwRemainingSteps(fraction)).toBe(0);
   });
 
   it("ignores fractional remainingSteps fallback in favor of the integer step ledger", () => {
@@ -157,7 +159,7 @@ describe("resolveFractionRemainingSteps", () => {
       isFilled: false,
     });
 
-    expect(resolveFractionRemainingSteps(fraction)).toBe(12);
+    expect(resolveGlwRemainingSteps(fraction)).toBe(12);
   });
 });
 
@@ -233,5 +235,74 @@ describe("isFractionPubliclyVisible", () => {
 
   it("treats missing marketplaceVisibleAt as visible", () => {
     expect(isFractionPubliclyVisible(createFraction(), 0)).toBe(true);
+  });
+});
+
+describe("isSgctlOrganicLegFrozen (hide sGCTL tile after GLW sold out + 1h grace)", () => {
+  const VISIBLE_AT = "2026-03-24T17:00:00.000Z";
+  const visibleAtMs = Date.parse(VISIBLE_AT);
+  const graceEndMs = visibleAtMs + SGCTL_BACKSTOP_GRACE_PERIOD_MS; // visibleAt + 1h
+
+  // GLW sold out via the consolidated-window leg; sGCTL leg still has units so
+  // we prove the freeze hides the tile REGARDLESS of remaining (those units go
+  // to the Foundation backstop, not buyers).
+  const glwSoldOut = createFraction({
+    visibleAt: VISIBLE_AT,
+    glw: { remainingSteps: 0, stepWei: "1000000000000000000" },
+    sgctl: { remainingUnits: 5, unitAtomic: "1000000", splitBonusPercent: "8" },
+  });
+
+  it("GLW NOT sold out -> never frozen, even long after the grace hour", () => {
+    const glwOpen = createFraction({
+      visibleAt: VISIBLE_AT,
+      glw: { remainingSteps: 3, stepWei: "1000000000000000000" },
+      sgctl: { remainingUnits: 5, unitAtomic: "1000000", splitBonusPercent: "8" },
+    });
+    expect(isSgctlOrganicLegFrozen(glwOpen, graceEndMs + 10 * 60 * 1000)).toBe(
+      false
+    );
+  });
+
+  it("GLW sold out but within the grace hour -> NOT frozen", () => {
+    expect(
+      isSgctlOrganicLegFrozen(glwSoldOut, visibleAtMs + 30 * 60 * 1000)
+    ).toBe(false);
+  });
+
+  it("GLW sold out and exactly at the grace edge -> frozen", () => {
+    expect(isSgctlOrganicLegFrozen(glwSoldOut, graceEndMs)).toBe(true);
+  });
+
+  it("GLW sold out and past the grace hour -> frozen", () => {
+    expect(
+      isSgctlOrganicLegFrozen(glwSoldOut, graceEndMs + 60 * 1000)
+    ).toBe(true);
+  });
+
+  it("falls back to marketplaceVisibleAt when visibleAt is absent", () => {
+    const legacy = createFraction({
+      visibleAt: null,
+      marketplaceVisibleAt: VISIBLE_AT,
+      glw: { remainingSteps: 0, stepWei: "1000000000000000000" },
+      sgctl: { remainingUnits: 5, unitAtomic: "1000000", splitBonusPercent: null },
+    });
+    expect(isSgctlOrganicLegFrozen(legacy, visibleAtMs + 30 * 60 * 1000)).toBe(
+      false
+    );
+    expect(isSgctlOrganicLegFrozen(legacy, graceEndMs)).toBe(true);
+  });
+
+  it("GLW sold out with NO visible-at known -> frozen (conservative)", () => {
+    const noVisible = createFraction({
+      visibleAt: null,
+      marketplaceVisibleAt: null,
+      glw: { remainingSteps: 0, stepWei: "1000000000000000000" },
+      sgctl: { remainingUnits: 5, unitAtomic: "1000000", splitBonusPercent: null },
+    });
+    expect(isSgctlOrganicLegFrozen(noVisible, graceEndMs)).toBe(true);
+  });
+
+  it("returns false for a null fraction", () => {
+    expect(isSgctlOrganicLegFrozen(null, graceEndMs)).toBe(false);
   });
 });
