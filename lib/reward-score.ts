@@ -21,6 +21,11 @@ export interface ApplicationRewardScore {
   /** The wallet's share of farm GLW inflation, scaled6. Lets a caller
    *  re-base `userWeeklyGlwRewards` onto a different split. */
   userGlowSplitPercent: string;
+  /** NEW-ERA SGCTL leg only: the reward-score bump above the GLW-leg score,
+   *  derived by control from the persisted split bonus `n` (publish-time
+   *  `sgctlRewardScoreBump`, default 10). Undefined for GLW / old-era legs.
+   *  The two-tile UI pins the sGCTL tile to (GLW tile score + this). */
+  sgctlScoreBumpOverGlwLeg?: number;
   error?: string;
 }
 
@@ -291,6 +296,7 @@ export function mapRewardScoresBatchToApplications(params: {
         userEstimatedWeeklyCash: result.data.userEstimatedWeeklyCash,
         userProtocolDeposit: result.data.userProtocolDeposit,
         userGlowSplitPercent: result.data.userGlowSplitPercent,
+        sgctlScoreBumpOverGlwLeg: result.data.sgctlScoreBumpOverGlwLeg,
       });
       return;
     }

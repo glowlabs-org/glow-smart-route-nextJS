@@ -407,12 +407,14 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
       const application = entry.application;
       const leg = entry.leg;
       // The GLW (no-bonus) estimate is the base for BOTH tiles' score: the sGCTL
-      // tile's reward score is pinned frontend-side to (GLW score + 10) below.
-      // The sGCTL (+n) estimate is used only for the sGCTL tile's weekly-reward
-      // AMOUNTS (it reflects the bonus emission). Pinning here — rather than
-      // trusting control's per-call pin — guarantees the two tiles ALWAYS differ
-      // by exactly 10, since the two estimate calls use different deposit
-      // contexts (GLW wei vs GCTL atomic) and can't otherwise be kept in lockstep.
+      // tile's reward score is pinned frontend-side to (GLW score + the bump)
+      // below, where the bump is the live, control-derived sgctlScoreBumpOverGlwLeg.
+      // The sGCTL (+n) estimate is used for the sGCTL tile's weekly-reward AMOUNTS
+      // (it reflects the bonus emission) AND carries that derived bump. Pinning
+      // here — rather than trusting the sGCTL call's absolute score — guarantees
+      // the two tiles ALWAYS differ by exactly the configured bump, since the two
+      // estimate calls use different deposit contexts (GLW wei vs GCTL atomic) and
+      // can't otherwise be kept in lockstep.
       const glwReward = getRewardScoreForApplication(
         glwRewardScoreMap,
         application.id,
@@ -448,14 +450,20 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
         application.id,
       );
 
-      // Reward score per tile: GLW tile = GLW score; sGCTL tile = GLW score + 10
-      // (pinned product promise). null when the GLW score isn't loaded yet.
+      // Reward score per tile: GLW tile = GLW score; sGCTL tile = GLW score +
+      // the bump control derived from the persisted split bonus n (publish-time
+      // `sgctlRewardScoreBump`, default 10). Pinning to the GLW tile's score
+      // (rather than trusting the sGCTL estimate's absolute score) keeps the two
+      // tiles in lockstep across their different deposit contexts; sourcing the
+      // bump from the live estimate honors a non-default configured bump. Falls
+      // back to 10 if the field is absent (control pre-deploy / old-era leg).
+      // null when the GLW score isn't loaded yet.
       const delegationRewardScore: number | null =
         application._type !== "delegations"
           ? null
           : glwReward?.rewardScore != null
             ? leg === "SGCTL"
-              ? glwReward.rewardScore + 10
+              ? glwReward.rewardScore + (reward?.sgctlScoreBumpOverGlwLeg ?? 10)
               : glwReward.rewardScore
             : null;
 
