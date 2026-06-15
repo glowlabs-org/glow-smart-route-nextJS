@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import { CashMinerIcon, DelegationIcon } from "@/components/impact-icons";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useAccount } from "wagmi";
 import {
@@ -87,6 +86,12 @@ interface RecentActivityProps {
   className?: string;
   maxItems?: number;
   showKpis?: boolean;
+  /**
+   * Group activities under sticky per-day headers ("Today", "Yesterday", or a
+   * formatted date). Enabled for the full-feed dialogs; left off for compact
+   * previews where a flat list reads better.
+   */
+  groupByDay?: boolean;
 }
 
 function formatCompactNumber(value: number, maximumFractionDigits: number) {
@@ -103,6 +108,63 @@ function formatDateTime(timestampMs: number) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function formatTimeOfDay(timestampMs: number) {
+  return new Date(timestampMs).toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function startOfDayMs(timestampMs: number) {
+  const d = new Date(timestampMs);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+function formatDayHeader(dayStartMs: number, labels: RecentActivityLabels) {
+  const now = new Date();
+  const todayStart = startOfDayMs(now.getTime());
+  const oneDay = 86_400_000;
+  if (dayStartMs === todayStart) return labels.today;
+  if (dayStartMs === todayStart - oneDay) return labels.yesterday;
+  const d = new Date(dayStartMs);
+  const sameYear = d.getFullYear() === now.getFullYear();
+  return d.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    ...(sameYear ? {} : { year: "numeric" }),
+  });
+}
+
+interface ActivityDayGroup {
+  key: string;
+  label: string;
+  items: ActivityItem[];
+}
+
+// Activities arrive pre-sorted newest-first, so a single sequential pass keeps
+// each day's rows contiguous and in order.
+function groupActivitiesByDay(
+  items: ActivityItem[],
+  labels: RecentActivityLabels,
+): ActivityDayGroup[] {
+  const groups: ActivityDayGroup[] = [];
+  let current: ActivityDayGroup | null = null;
+
+  for (const item of items) {
+    const dayStart = startOfDayMs(item.timestampMs);
+    const key = String(dayStart);
+    if (!current || current.key !== key) {
+      current = { key, label: formatDayHeader(dayStart, labels), items: [] };
+      groups.push(current);
+    }
+    current.items.push(item);
+  }
+
+  return groups;
 }
 
 function getExplorerUrl(txHash: string) {
@@ -450,6 +512,84 @@ function buildWattsActivity(
   };
 }
 
+interface ActivityRowProps {
+  activity: ActivityItem;
+  labels: RecentActivityLabels;
+  /** When grouped under a day header, only the time is shown on the right. */
+  grouped: boolean;
+  onView: (activity: ActivityItem) => void;
+}
+
+function ActivityRow({ activity, labels, grouped, onView }: ActivityRowProps) {
+  const hasTx = Boolean(activity.txHash);
+  const timeText = grouped
+    ? formatTimeOfDay(activity.timestampMs)
+    : formatDateTime(activity.timestampMs);
+
+  return (
+    <div
+      className={cn(
+        "group flex items-center gap-3 -mx-2 rounded-lg border-b border-border/20 px-2 py-3 transition-colors last:border-b-0 dark:border-border/40",
+        hasTx && "cursor-pointer hover:bg-muted/40 dark:hover:bg-muted/60",
+      )}
+      role={hasTx ? "button" : undefined}
+      tabIndex={hasTx ? 0 : undefined}
+      onClick={hasTx ? () => onView(activity) : undefined}
+      onKeyDown={
+        hasTx
+          ? (e) => {
+              if (e.key !== "Enter" && e.key !== " ") return;
+              e.preventDefault();
+              onView(activity);
+            }
+          : undefined
+      }
+    >
+      <div
+        className={cn(
+          "flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg",
+          activity.iconClassName,
+        )}
+      >
+        {activity.icon}
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="truncate text-sm font-medium tracking-tight text-foreground">
+            {activity.title}
+          </span>
+          {activity.pill ? (
+            <Badge
+              variant="secondary"
+              className="flex-shrink-0 text-[10px] font-mono uppercase"
+            >
+              {activity.pill}
+            </Badge>
+          ) : null}
+        </div>
+        {activity.subtitle ? (
+          <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
+            {activity.subtitle}
+          </div>
+        ) : null}
+      </div>
+
+      <div className="flex flex-shrink-0 flex-col items-end gap-1 pl-2">
+        <span className="whitespace-nowrap font-mono text-[11px] tabular-nums text-muted-foreground/70 dark:text-muted-foreground/80">
+          {timeText}
+        </span>
+        {hasTx ? (
+          <ExternalLink
+            className="h-3 w-3 text-muted-foreground/40 transition-colors group-hover:text-foreground/70"
+            aria-label={labels.ariaViewTx}
+          />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export function RecentActivity({
   walletAddress,
   splitsActivity,
@@ -463,6 +603,7 @@ export function RecentActivity({
   className,
   maxItems,
   showKpis = true,
+  groupByDay = false,
 }: RecentActivityProps) {
   const { t } = useLang();
   const { isConnecting, isReconnecting } = useAccount();
@@ -765,17 +906,18 @@ export function RecentActivity({
 
       <CardContent className="min-h-0 flex-1 px-6 pb-6">
         {isLoading ? (
-          <div className="space-y-2">
-            {Array.from({ length: 5 }).map((_, i) => (
+          <div>
+            {Array.from({ length: 6 }).map((_, i) => (
               <div
                 key={i}
-                className="flex items-start gap-3 rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-3 animate-pulse"
+                className="flex items-center gap-3 border-b border-border/20 py-3 last:border-b-0 dark:border-border/40"
               >
-                <div className="h-9 w-9 rounded-lg bg-muted/50 dark:bg-muted flex-shrink-0" />
+                <div className="h-9 w-9 flex-shrink-0 animate-pulse rounded-lg bg-muted/50 dark:bg-muted" />
                 <div className="flex-1 space-y-2">
-                  <div className="h-4 w-3/4 bg-muted/50 dark:bg-muted rounded" />
-                  <div className="h-3 w-1/2 bg-muted/50 dark:bg-muted rounded" />
+                  <div className="h-3.5 w-2/5 animate-pulse rounded bg-muted/50 dark:bg-muted" />
+                  <div className="h-2.5 w-1/4 animate-pulse rounded bg-muted/40 dark:bg-muted/80" />
                 </div>
+                <div className="h-3 w-12 animate-pulse rounded bg-muted/40 dark:bg-muted/80" />
               </div>
             ))}
           </div>
@@ -793,153 +935,50 @@ export function RecentActivity({
           </div>
         ) : (
           <div className="h-full min-h-0">
-            {maxItems ? (
-              <div className="space-y-2 pb-2">
-                {displayedActivities.map((activity) => (
-                  <div
-                    key={activity.id}
-                    className="group flex items-start gap-3 rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-3 hover:bg-muted/50 dark:hover:bg-muted/70 transition-colors"
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => handleViewTransaction(activity)}
-                    onKeyDown={(e) => {
-                      if (e.key !== "Enter" && e.key !== " ") return;
-                      e.preventDefault();
-                      handleViewTransaction(activity);
-                    }}
-                  >
-                    <div
-                      className={cn(
-                        "h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0",
-                        activity.iconClassName
-                      )}
-                    >
-                      {activity.icon}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-semibold tracking-tight text-foreground truncate">
-                              {activity.title}
-                            </span>
-                            {activity.pill ? (
-                              <Badge
-                                variant="secondary"
-                                className="text-[10px] font-mono uppercase flex-shrink-0"
-                              >
-                                {activity.pill}
-                              </Badge>
-                            ) : null}
-                          </div>
-                          <div className="mt-1 text-[11px] font-mono text-muted-foreground">
-                            <span className="tabular-nums text-[9px] sm:text-[11px]">
-                              {formatDateTime(activity.timestampMs)}
-                            </span>
-                            {activity.subtitle ? (
-                              <span className="hidden sm:inline ml-2 truncate">
-                                {activity.subtitle}
-                              </span>
-                            ) : null}
-                          </div>
+            {(() => {
+              const list = groupByDay ? (
+                <div className="space-y-5 pb-2">
+                  {groupActivitiesByDay(displayedActivities, labels).map(
+                    (group) => (
+                      <div key={group.key}>
+                        <div className="sticky top-0 z-10 -mx-2 mb-0.5 bg-card px-2 py-1.5">
+                          <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+                            {group.label}
+                          </span>
                         </div>
-
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className={cn(
-                            "h-8 w-8 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:flex",
-                            !activity.txHash && "pointer-events-none"
-                          )}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleViewTransaction(activity);
-                          }}
-                          aria-label={labels.ariaViewTx}
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
+                        {group.items.map((activity) => (
+                          <ActivityRow
+                            key={activity.id}
+                            activity={activity}
+                            labels={labels}
+                            grouped
+                            onView={handleViewTransaction}
+                          />
+                        ))}
                       </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <ScrollArea className="h-full pr-2 -mr-2">
-                <div className="space-y-2 pb-2">
+                    ),
+                  )}
+                </div>
+              ) : (
+                <div className="pb-2">
                   {displayedActivities.map((activity) => (
-                    <div
+                    <ActivityRow
                       key={activity.id}
-                      className="group flex items-start gap-3 rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-3 hover:bg-muted/50 dark:hover:bg-muted/70 transition-colors"
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => handleViewTransaction(activity)}
-                      onKeyDown={(e) => {
-                        if (e.key !== "Enter" && e.key !== " ") return;
-                        e.preventDefault();
-                        handleViewTransaction(activity);
-                      }}
-                    >
-                      <div
-                        className={cn(
-                          "h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0",
-                          activity.iconClassName
-                        )}
-                      >
-                        {activity.icon}
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-semibold tracking-tight text-foreground truncate">
-                                {activity.title}
-                              </span>
-                              {activity.pill ? (
-                                <Badge
-                                  variant="secondary"
-                                  className="text-[10px] font-mono uppercase flex-shrink-0"
-                                >
-                                  {activity.pill}
-                                </Badge>
-                              ) : null}
-                            </div>
-                            <div className="mt-1 text-[11px] font-mono text-muted-foreground">
-                              <span className="tabular-nums whitespace-nowrap">
-                                {formatDateTime(activity.timestampMs)}
-                              </span>
-                              {activity.subtitle ? (
-                                <span className="hidden sm:inline ml-2 truncate">
-                                  {activity.subtitle}
-                                </span>
-                              ) : null}
-                            </div>
-                          </div>
-
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className={cn(
-                              "h-8 w-8 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:flex",
-                              !activity.txHash && "pointer-events-none"
-                            )}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleViewTransaction(activity);
-                            }}
-                            aria-label={labels.ariaViewTx}
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
+                      activity={activity}
+                      labels={labels}
+                      grouped={false}
+                      onView={handleViewTransaction}
+                    />
                   ))}
                 </div>
-              </ScrollArea>
-            )}
+              );
+
+              return maxItems ? (
+                list
+              ) : (
+                <ScrollArea className="-mr-2 h-full pr-2">{list}</ScrollArea>
+              );
+            })()}
           </div>
         )}
       </CardContent>

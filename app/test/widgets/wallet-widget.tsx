@@ -300,6 +300,7 @@ export default function WalletWidget({
               showHeader={false}
               showKpis={false}
               maxItems={50}
+              groupByDay
             />
           </div>
         </DialogContent>

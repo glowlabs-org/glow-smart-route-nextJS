@@ -90,6 +90,7 @@ export default function RecentActivityWidget({
                 showHeader={false}
                 showKpis={false}
                 maxItems={50}
+                groupByDay
               />
             </div>
           </DialogContent>
