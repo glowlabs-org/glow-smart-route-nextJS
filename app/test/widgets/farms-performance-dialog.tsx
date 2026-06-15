@@ -106,17 +106,14 @@ function formatProtocolDepositAsset(asset: string | null | undefined): string {
 
 function formatTokenAmountByAsset(
   value: number,
-  asset: string | null | undefined
+  // Asset retained for call-site clarity; all token amounts now render without
+  // decimals per design, so the asset no longer changes the precision.
+  _asset: string | null | undefined
 ): string {
   if (!Number.isFinite(value)) return "—";
-  const normalized = formatProtocolDepositAsset(asset);
-  const maximumFractionDigits =
-    normalized === "SGCTL" || normalized === "USDC" || normalized === "USDG"
-      ? 2
-      : 0;
   return value.toLocaleString("en-US", {
     minimumFractionDigits: 0,
-    maximumFractionDigits,
+    maximumFractionDigits: 0,
   });
 }
 
@@ -166,6 +163,53 @@ function formatEstimatedWeeklyRewards(params: {
     Number.isFinite(params.estimatedUserWeeklyUsd)
   ) {
     return `~$${fmtUsdAmount(params.estimatedUserWeeklyUsd ?? 0)}/${weekAbbrev}`;
+  }
+
+  return null;
+}
+
+// Desktop-row variant of the estimated-weekly label, split into at most two
+// lines (GLW on top, protocol-deposit asset below) so the cell never spills to
+// a third row. The "EST. WEEKLY" column label already conveys the per-week
+// cadence, so the "/wk" suffix is dropped to keep each line on one row.
+function formatEstimatedWeeklyRewardsParts(params: {
+  estimatedUserWeeklyGlw?: number;
+  estimatedUserWeeklyUsd?: number;
+  estimatedUserWeeklyPd?: number;
+  estimatedUserWeeklyPdAsset?: string | null;
+}): { primary: string; secondary?: string } | null {
+  const pdAsset = formatProtocolDepositAsset(params.estimatedUserWeeklyPdAsset);
+  const hasGlw =
+    (params.estimatedUserWeeklyGlw ?? 0) > 0 &&
+    Number.isFinite(params.estimatedUserWeeklyGlw);
+  const hasPd =
+    pdAsset !== "GLW" &&
+    (params.estimatedUserWeeklyPd ?? 0) > 0 &&
+    Number.isFinite(params.estimatedUserWeeklyPd);
+
+  if (hasPd) {
+    const pd = `${formatTokenAmountByAsset(
+      params.estimatedUserWeeklyPd ?? 0,
+      pdAsset
+    )} ${pdAsset}`;
+    if (hasGlw) {
+      return {
+        primary: `~${fmtGlw(params.estimatedUserWeeklyGlw ?? 0)} GLW`,
+        secondary: pd,
+      };
+    }
+    return { primary: `~${pd}` };
+  }
+
+  if (hasGlw) {
+    return { primary: `~${fmtGlw(params.estimatedUserWeeklyGlw ?? 0)} GLW` };
+  }
+
+  if (
+    (params.estimatedUserWeeklyUsd ?? 0) > 0 &&
+    Number.isFinite(params.estimatedUserWeeklyUsd)
+  ) {
+    return { primary: `~$${fmtUsdAmount(params.estimatedUserWeeklyUsd ?? 0)}` };
   }
 
   return null;
@@ -459,8 +503,8 @@ function getTotalRewardsClassName(data: PerformanceRowData) {
 function formatGlwPrecise(value: number) {
   if (!Number.isFinite(value)) return "—";
   return value.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   });
 }
 
@@ -667,7 +711,7 @@ const ShopMinerRow = ({ data }: { data: PerformanceRowData }) => {
               </span>
             </div>
           </div>
-          <div className="col-span-3 px-2">
+          <div className="col-span-2 px-2">
             <div className="text-xs font-mono text-muted-foreground">
               {fp.shopMinerSource}
             </div>
@@ -677,24 +721,24 @@ const ShopMinerRow = ({ data }: { data: PerformanceRowData }) => {
               </div>
             ) : null}
           </div>
-          <div className="col-span-4 flex items-center justify-center gap-6">
-            <div className="text-center min-w-[70px]">
+          <div className="col-span-5 flex items-start justify-center gap-3">
+            <div className="flex-1 min-w-0 text-center">
               <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
                 {fp.cost}
               </div>
-              <div className="text-lg font-bold font-mono text-foreground tabular-nums leading-tight">
+              <div className="text-base font-bold font-mono text-foreground tabular-nums leading-tight">
                 {pointsLabel}
               </div>
             </div>
-            <div className="text-center min-w-[70px]">
+            <div className="flex-1 min-w-0 text-center">
               <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
                 {fp.estWeekly}
               </div>
-              <div className="text-lg font-bold font-mono text-[color:var(--color-miner-contrast)] tabular-nums leading-tight">
+              <div className="text-base font-bold font-mono text-[color:var(--color-miner-contrast)] tabular-nums leading-tight">
                 {estWeeklyLabel}
               </div>
             </div>
-            <div className="text-center min-w-[70px]">
+            <div className="flex-1 min-w-0 text-center">
               <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
                 {fp.lastWeek}
               </div>
@@ -848,6 +892,13 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
       estimatedUserWeeklyPdAsset:
         data.estimatedUserWeeklyPdAsset ?? data.protocolDepositAsset,
     }, fp) ?? "—";
+  const estimatedWeeklyParts = formatEstimatedWeeklyRewardsParts({
+    estimatedUserWeeklyGlw: data.estimatedUserWeeklyGlw,
+    estimatedUserWeeklyUsd: data.estimatedUserWeeklyUsd,
+    estimatedUserWeeklyPd: data.estimatedUserWeeklyPd,
+    estimatedUserWeeklyPdAsset:
+      data.estimatedUserWeeklyPdAsset ?? data.protocolDepositAsset,
+  });
   const pendingTimeline = React.useMemo(() => {
     if (!isPendingStart || !data.purchaseDate) return null;
     return buildPendingRewardTimeline({ purchaseDate: data.purchaseDate });
@@ -1266,7 +1317,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
           </div>
 
           {/* COLUMN 2: LIFECYCLE BAR */}
-          <div className="col-span-3 px-2">
+          <div className="col-span-2 px-2">
             {isInProgress ? (
               <div className="text-xs font-mono text-muted-foreground">
                 {data.inProgressFilledLabel ??
@@ -1300,7 +1351,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
           </div>
 
           {/* COLUMN 3: KEY METRICS (INVESTED / EARNED) */}
-          <div className="col-span-4 flex items-center justify-center gap-4">
+          <div className="col-span-5 flex items-start justify-center gap-3">
             {isInProgress ? (
               <div className="flex items-center gap-4 w-full">
                 <div className="flex-1">
@@ -1329,14 +1380,14 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
               </div>
             ) : (
               <>
-                <div className="text-center min-w-[70px]">
+                <div className="flex-1 min-w-0 text-center">
                   <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
                     {isOther ? fp.cost : isMiner ? fp.cost : fp.delegated}
                   </div>
                   <div className="flex items-baseline justify-center gap-1">
                     <span
                       className={cn(
-                        "text-lg font-bold font-mono tabular-nums leading-tight",
+                        "text-base font-bold font-mono tabular-nums leading-tight",
                         costCellIsEmpty
                           ? "text-muted-foreground"
                           : "text-foreground"
@@ -1346,7 +1397,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                     </span>
                   </div>
                 </div>
-                <div className="text-center min-w-[70px]">
+                <div className="flex-1 min-w-0 text-center">
                   <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
                     {isPendingStart && data.estimatedUserWeeklyGlw
                       ? fp.estWeekly
@@ -1354,20 +1405,33 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                   </div>
                   <div className="flex flex-col items-center leading-tight">
                     {isPendingStart ? (
-                      <span className="text-base font-bold font-mono tabular-nums whitespace-nowrap text-muted-foreground">
-                        {estimatedWeeklyLabel}
-                      </span>
+                      estimatedWeeklyParts ? (
+                        <>
+                          <span className="text-base font-bold font-mono tabular-nums text-muted-foreground">
+                            {estimatedWeeklyParts.primary}
+                          </span>
+                          {estimatedWeeklyParts.secondary && (
+                            <span className="text-xs font-bold font-mono tabular-nums text-muted-foreground/80">
+                              + {estimatedWeeklyParts.secondary}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-base font-bold font-mono tabular-nums text-muted-foreground">
+                          {estimatedWeeklyLabel}
+                        </span>
+                      )
                     ) : isMiner ? (
-                      <span className="text-lg font-bold font-mono tabular-nums leading-tight whitespace-nowrap text-[color:var(--color-miner-contrast)]">
+                      <span className="text-base font-bold font-mono tabular-nums leading-tight text-[color:var(--color-miner-contrast)]">
                         {fmtGlw(totalEarnedGlw)}
                       </span>
                     ) : earnedParts ? (
                       <>
-                        <span className="text-base font-bold font-mono tabular-nums whitespace-nowrap text-delegation-purple dark:text-delegation-purple">
+                        <span className="text-base font-bold font-mono tabular-nums text-delegation-purple dark:text-delegation-purple">
                           {earnedParts.primary}
                         </span>
                         {earnedParts.secondary && (
-                          <span className="text-xs font-bold font-mono tabular-nums whitespace-nowrap text-delegation-purple/80 dark:text-delegation-purple/80">
+                          <span className="text-xs font-bold font-mono tabular-nums text-delegation-purple/80 dark:text-delegation-purple/80">
                             + {earnedParts.secondary}
                           </span>
                         )}
@@ -1375,18 +1439,18 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                     ) : null}
                   </div>
                 </div>
-                <div className="text-center min-w-[70px]">
+                <div className="flex-1 min-w-0 text-center">
                   <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
                     {fp.lastWeek}
                   </div>
                   <div className="flex flex-col items-center leading-tight">
                     {lastWeekParts ? (
                       <>
-                        <span className="text-sm font-mono font-semibold text-foreground tabular-nums whitespace-nowrap">
+                        <span className="text-sm font-mono font-semibold text-foreground tabular-nums">
                           {lastWeekParts.primary}
                         </span>
                         {lastWeekParts.secondary && (
-                          <span className="text-[11px] font-mono font-semibold text-delegation-purple/80 dark:text-delegation-purple/80 tabular-nums whitespace-nowrap">
+                          <span className="text-[11px] font-mono font-semibold text-delegation-purple/80 dark:text-delegation-purple/80 tabular-nums">
                             + {lastWeekParts.secondary}
                           </span>
                         )}
@@ -2731,8 +2795,8 @@ export function FarmsPerformanceDialogContent({
       {/* Legend / Columns */}
       <div className="hidden sm:grid grid-cols-12 px-6 py-3 border-b border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 text-xs font-mono uppercase text-muted-foreground tracking-wider flex-shrink-0 gap-4">
         <div className="col-span-3">{fp.identity}</div>
-        <div className="col-span-3 px-2">{fp.lifecycle}</div>
-        <div className="col-span-4 text-center">{fp.keyMetrics}</div>
+        <div className="col-span-2 px-2">{fp.lifecycle}</div>
+        <div className="col-span-5 text-center">{fp.keyMetrics}</div>
         <div className="col-span-2 text-right">{fp.progress}</div>
       </div>
 

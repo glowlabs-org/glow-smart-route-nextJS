@@ -374,10 +374,12 @@ export default function NetWorthWidget({
               ),
           )}
         >
-          {/* min-h kept modest so this card doesn't drive the overview row
-              taller than the Points/Wallet content cards; on desktop the chart
-              still fills (flex-1) to the shared equal-height row. */}
-          <div className="flex flex-1 min-h-[160px]">
+          {/* On desktop the chart drops its height floor (lg:min-h-0) so this
+              card conforms to the Points/Wallet content cards' height instead of
+              driving the equal-height row taller (which left a dead band above
+              their footer buttons). The chart still fills via flex-1. On mobile
+              the cards stack full-width, so keep a sensible min height there. */}
+          <div className="flex flex-1 min-h-[160px] lg:min-h-0">
             <div className="flex flex-col sm:flex-row flex-1 min-h-0">
               {/* Left Side: Chart */}
               <div
