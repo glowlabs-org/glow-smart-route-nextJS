@@ -7,11 +7,15 @@ const {
   mockUseMiningCenter,
   mockUseRewardScore,
   mockUseMiningScore,
+  mockUseSgctlEligibility,
+  mockUseAccount,
 } = vi.hoisted(() => ({
   mockUseGlowLaunchpad: vi.fn(),
   mockUseMiningCenter: vi.fn(),
   mockUseRewardScore: vi.fn(),
   mockUseMiningScore: vi.fn(),
+  mockUseSgctlEligibility: vi.fn(),
+  mockUseAccount: vi.fn(),
 }));
 
 vi.mock("@tanstack/react-query", () => ({
@@ -26,10 +30,7 @@ vi.mock("next/link", () => ({
 }));
 
 vi.mock("wagmi", () => ({
-  useAccount: () => ({
-    address: null,
-    isConnected: false,
-  }),
+  useAccount: mockUseAccount,
 }));
 
 vi.mock("lucide-react", () => {
@@ -157,6 +158,10 @@ vi.mock("@/hooks/useWalletTokenBalances", () => ({
   }),
 }));
 
+vi.mock("@/hooks/use-sgctl-eligibility", () => ({
+  useSgctlEligibility: mockUseSgctlEligibility,
+}));
+
 vi.mock("@/app/components/animated-countdown", () => ({
   AnimatedCountdownDhms: () => null,
   useCountdownTo: () => ({
@@ -214,6 +219,21 @@ function createLaunchpadApplication(id: string) {
   } as any;
 }
 
+function createLaunchpadApplicationWithSgctl(id: string) {
+  const application = createLaunchpadApplication(id);
+  application.activeFraction = {
+    ...application.activeFraction,
+    glw: {
+      remainingSteps: 120,
+    },
+    sgctl: {
+      unitAtomic: "1000000",
+      remainingUnits: 6,
+    },
+  };
+  return application;
+}
+
 function createMinerApplication(id: string) {
   return {
     id,
@@ -238,6 +258,13 @@ describe("LaunchpadStatusWidget", () => {
     mockUseMiningCenter.mockReset();
     mockUseRewardScore.mockReset();
     mockUseMiningScore.mockReset();
+    mockUseSgctlEligibility.mockReset();
+    mockUseAccount.mockReset();
+
+    mockUseAccount.mockReturnValue({
+      address: null,
+      isConnected: false,
+    });
 
     mockUseGlowLaunchpad.mockReturnValue({
       applications: [createLaunchpadApplication("launchpad-app")],
@@ -255,6 +282,12 @@ describe("LaunchpadStatusWidget", () => {
       miningScoreMap: new Map(),
       isLoading: false,
     });
+    mockUseSgctlEligibility.mockReturnValue({
+      eligibilityByApplicationId: new Map(),
+      isEligibilityLoading: false,
+      isEligibilityFetching: false,
+      isSgctlEligible: () => false,
+    });
   });
 
   it("passes visible launchpad applications into mining score estimation", () => {
@@ -271,5 +304,61 @@ describe("LaunchpadStatusWidget", () => {
         enabled: true,
       })
     );
+  });
+
+  it("waits for connected-wallet sGCTL eligibility before rendering cards", () => {
+    mockUseAccount.mockReturnValue({
+      address: "0x0000000000000000000000000000000000000001",
+      isConnected: true,
+    });
+    mockUseGlowLaunchpad.mockReturnValue({
+      applications: [createLaunchpadApplicationWithSgctl("launchpad-app")],
+      isLoading: false,
+    });
+    mockUseMiningCenter.mockReturnValue({
+      applications: [],
+      isLoading: false,
+    });
+    mockUseSgctlEligibility.mockReturnValue({
+      eligibilityByApplicationId: new Map(),
+      isEligibilityLoading: true,
+      isEligibilityFetching: true,
+      isSgctlEligible: () => false,
+    });
+
+    const html = renderToStaticMarkup(
+      React.createElement(LaunchpadStatusWidget, { variant: "full-row" })
+    );
+
+    expect(html).not.toContain("ClearSky Vale");
+  });
+
+  it("shows an asset filter when the wallet can see GLW and sGCTL tiles", () => {
+    mockUseAccount.mockReturnValue({
+      address: "0x0000000000000000000000000000000000000001",
+      isConnected: true,
+    });
+    mockUseGlowLaunchpad.mockReturnValue({
+      applications: [createLaunchpadApplicationWithSgctl("launchpad-app")],
+      isLoading: false,
+    });
+    mockUseMiningCenter.mockReturnValue({
+      applications: [],
+      isLoading: false,
+    });
+    mockUseSgctlEligibility.mockReturnValue({
+      eligibilityByApplicationId: new Map([["launchpad-app", true]]),
+      isEligibilityLoading: false,
+      isEligibilityFetching: false,
+      isSgctlEligible: (applicationId: string) => applicationId === "launchpad-app",
+    });
+
+    const html = renderToStaticMarkup(
+      React.createElement(LaunchpadStatusWidget, { variant: "full-row" })
+    );
+
+    expect(html).toContain("All assets");
+    expect(html).toContain("GLW");
+    expect(html).toContain("sGCTL");
   });
 });

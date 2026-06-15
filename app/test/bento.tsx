@@ -615,7 +615,10 @@ export default function GlowSoftDashboard({
                   />
                   <div
                     className={cn(
-                      "rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10 p-4 sm:p-6 lg:p-12",
+                      "rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10",
+                      shouldShowLaunchpadLiveSection
+                        ? "p-4 sm:p-6 lg:p-12"
+                        : "p-3 sm:p-4 lg:p-4",
                       // No live listings: render the countdown/empty state as a
                       // compact, centered card instead of a full-width banner so
                       // it does not dominate the dashboard.

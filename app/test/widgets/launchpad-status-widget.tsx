@@ -259,7 +259,10 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
 
   // Tab filter state
   type TabFilter = "all" | "delegations" | "miners";
+  type AssetFilter = "all" | "GLW" | "SGCTL";
   const [activeTab, setActiveTab] = React.useState<TabFilter>("all");
+  const [activeAssetFilter, setActiveAssetFilter] =
+    React.useState<AssetFilter>("all");
   const [pageIndex, setPageIndex] = React.useState(0);
 
   // Stats dialog state
@@ -332,10 +335,17 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
   );
 
   // sGCTL eligibility (spec §1.4): drives which farms get a second (sGCTL) tile.
-  const { isSgctlEligible } = useSgctlEligibility({
+  const { isSgctlEligible, isEligibilityLoading } = useSgctlEligibility({
     applications: taggedDelegations,
     walletAddress: address,
   });
+
+  const hasPotentialSgctlDelegations = React.useMemo(
+    () => taggedDelegations.some(hasBuyableSgctlLeg),
+    [taggedDelegations],
+  );
+  const isWaitingForSgctlEligibility =
+    Boolean(walletAddress) && hasPotentialSgctlDelegations && isEligibilityLoading;
 
   // Two-tile model: fetch a FORCED-GLW score map (the GLW tile's score, no
   // bonus) and a FORCED-SGCTL score map (the sGCTL tile's score, with the
@@ -588,7 +598,33 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
     glwSpotPrice,
   ]);
 
-  // Filter and sort rows based on active tab
+  const assetFilterCounts = React.useMemo(() => {
+    const relevantRows = allRows.filter(
+      (row) =>
+        row.application._type === "delegations" &&
+        (activeTab === "all" || activeTab === "delegations"),
+    );
+    const glw = relevantRows.filter((row) => row.leg === "GLW").length;
+    const sgctl = relevantRows.filter((row) => row.leg === "SGCTL").length;
+    return {
+      all: glw + sgctl,
+      GLW: glw,
+      SGCTL: sgctl,
+    };
+  }, [activeTab, allRows]);
+
+  const showAssetFilter =
+    activeTab !== "miners" &&
+    assetFilterCounts.GLW > 0 &&
+    assetFilterCounts.SGCTL > 0;
+
+  React.useEffect(() => {
+    if (!showAssetFilter && activeAssetFilter !== "all") {
+      setActiveAssetFilter("all");
+    }
+  }, [activeAssetFilter, showAssetFilter]);
+
+  // Filter and sort rows based on active tab + delegation asset filter.
   const filteredRows = React.useMemo(() => {
     let filtered = allRows;
 
@@ -597,6 +633,13 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
       filtered = allRows.filter((r) => r.application._type === "delegations");
     } else if (activeTab === "miners") {
       filtered = allRows.filter((r) => r.application._type === "miners");
+    }
+
+    if (showAssetFilter && activeAssetFilter !== "all") {
+      filtered = filtered.filter(
+        (r) =>
+          r.application._type === "delegations" && r.leg === activeAssetFilter,
+      );
     }
 
     // Partition into active and sold out
@@ -668,7 +711,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
     }
 
     return finalRows;
-  }, [allRows, activeTab]);
+  }, [activeAssetFilter, activeTab, allRows, showAssetFilter]);
 
   const cardsPerPage = isMobile ? 1 : 3;
   const pageCount = Math.max(1, Math.ceil(filteredRows.length / cardsPerPage));
@@ -679,13 +722,14 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
 
   React.useEffect(() => {
     setPageIndex(0);
-  }, [activeTab, cardsPerPage]);
+  }, [activeAssetFilter, activeTab, cardsPerPage]);
 
   React.useEffect(() => {
     setPageIndex((current) => Math.min(current, pageCount - 1));
   }, [pageCount]);
 
-  const isLoading = isDelegationsLoading || isMinersLoading;
+  const isLoading =
+    isDelegationsLoading || isMinersLoading || isWaitingForSgctlEligibility;
 
   // Determine which tabs to show (hide if no listings of that type)
   const showDelegationsTab = taggedDelegations.length > 0;
@@ -1312,6 +1356,57 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
         )}
       </div>
 
+      {showAssetFilter && (
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          {(
+            [
+              {
+                value: "all",
+                label: t.widgets.launchpadStatus.assetFilterAll,
+                count: assetFilterCounts.all,
+              },
+              {
+                value: "GLW",
+                label: t.widgets.launchpadStatus.assetFilterGlw,
+                count: assetFilterCounts.GLW,
+              },
+              {
+                value: "SGCTL",
+                label: t.widgets.launchpadStatus.assetFilterSgctl,
+                count: assetFilterCounts.SGCTL,
+              },
+            ] as const
+          ).map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              aria-pressed={activeAssetFilter === option.value}
+              onClick={() => {
+                trackEvent("dashboard_launchpad_asset_filter_change", {
+                  source,
+                  wallet_connected: isConnected,
+                  wallet_address: walletAddress,
+                  asset_filter: option.value,
+                  tab: activeTab,
+                });
+                setActiveAssetFilter(option.value);
+              }}
+              className={cn(
+                "px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-colors whitespace-nowrap",
+                activeAssetFilter === option.value
+                  ? "bg-foreground text-background"
+                  : "bg-muted/30 dark:bg-muted/50 text-muted-foreground hover:bg-muted/50 dark:hover:bg-muted/70",
+              )}
+            >
+              {option.label}{" "}
+              <span className="ml-0.5 sm:ml-1 font-mono tabular-nums text-[10px] sm:text-xs opacity-70">
+                {option.count}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* V2 miner early access: opt-in unlock banner for entitled wallets */}
       {activeMinerEntitlement ? (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[color:var(--color-miner)]/30 bg-[color:var(--color-miner)]/10 px-4 py-3">
@@ -1669,7 +1764,12 @@ export default function LaunchpadStatusWidget({
       className={cn(
         "flex flex-col overflow-hidden min-w-0 gap-2 py-0 w-full",
         isMinimal
-          ? "bg-muted/20 dark:bg-muted/30 border border-border/10 dark:border-border/20 rounded-2xl h-full"
+          ? cn(
+              "bg-muted/20 dark:bg-muted/30 border border-border/10 dark:border-border/20 rounded-2xl",
+              isCountdownState || effectiveIsApproaching
+                ? "h-auto self-start sm:gap-4 sm:py-4"
+                : "h-full",
+            )
           : isFlow
             ? "bg-card/30 border-foreground/5 min-h-[380px]"
             : isFullRow
@@ -1679,6 +1779,9 @@ export default function LaunchpadStatusWidget({
                   isMobile ? "min-h-[620px]" : "h-full",
                 ),
         className,
+        isMinimal &&
+          (isCountdownState || effectiveIsApproaching) &&
+          "h-auto self-start",
       )}
     >
       {/* Hide header for full-row live state (tabs are in the grid) */}
@@ -1975,7 +2078,7 @@ export default function LaunchpadStatusWidget({
                   <div className="hidden sm:block">
                     <AnimatedCountdownDhms
                       remainingMs={remainingMs}
-                      size="xl"
+                      size="lg"
                       showLabels
                     />
                   </div>
@@ -2063,16 +2166,16 @@ export default function LaunchpadStatusWidget({
           // --- COUNTDOWN STATE (not approaching, more than 1h away) ---
           <div
             className={cn(
-              "flex-1 flex flex-col gap-6",
+              "flex flex-col gap-4",
               variant === "full-row"
-                ? "px-3 pb-4 lg:grid lg:grid-cols-3 lg:items-center lg:gap-6"
+                ? "px-0 pb-0 lg:grid lg:grid-cols-3 lg:items-center lg:gap-4"
                 : "px-5 pb-5",
             )}
           >
             {/* Big Countdown Hero */}
             <div
               className={cn(
-                "flex-1 flex flex-col items-center justify-center py-2 gap-6",
+                "flex flex-col items-center justify-center py-0 gap-3",
                 isFullRow && "lg:col-span-2",
               )}
             >
@@ -2094,7 +2197,7 @@ export default function LaunchpadStatusWidget({
                 <div className="hidden sm:block">
                   <AnimatedCountdownDhms
                     remainingMs={remainingMs}
-                    size="xl"
+                    size="lg"
                     showLabels
                   />
                 </div>
@@ -2104,7 +2207,7 @@ export default function LaunchpadStatusWidget({
             {/* Prep Section — aligned sibling blocks (price, copy, CTA) */}
             <div
               className={cn(
-                "mt-auto flex flex-col gap-3",
+                "mt-auto flex flex-col gap-2.5",
                 isFullRow && "lg:mt-0 lg:col-span-1",
               )}
             >
@@ -2113,7 +2216,7 @@ export default function LaunchpadStatusWidget({
                 href={DEFINED_POOL_ACTIVITY_URL}
                 target="_blank"
                 rel="noreferrer"
-                className="flex flex-col items-center justify-center p-4 rounded-xl bg-card border border-border/60 gap-0.5 hover:bg-muted/50 hover:border-border transition-colors group"
+                className="flex flex-col items-center justify-center p-3 rounded-xl bg-card border border-border/60 gap-0.5 hover:bg-muted/50 hover:border-border transition-colors group"
               >
                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
                   GLW

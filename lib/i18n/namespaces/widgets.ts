@@ -45,6 +45,9 @@ export interface WidgetStrings {
     tabDelegations: string;
     tabDelegationsShort: string;
     tabMiners: string;
+    assetFilterAll: string;
+    assetFilterGlw: string;
+    assetFilterSgctl: string;
     // Split batch notice (miners live, delegations later).
     // Rendered as: `${minersLiveDelegationsPre}<span>{time}</span>${minersLiveDelegationsPost}`.
     minersLiveDelegationsPre: string;
@@ -665,6 +668,9 @@ const en: WidgetStrings = {
     tabDelegations: "Delegations",
     tabDelegationsShort: "Deleg.",
     tabMiners: "Miners",
+    assetFilterAll: "All assets",
+    assetFilterGlw: "GLW",
+    assetFilterSgctl: "sGCTL",
     minersLiveDelegationsPre: "Miners are live now. Delegations open at ",
     minersLiveDelegationsPost: ".",
     noListings: "No listings available at this time.",
@@ -1335,6 +1341,9 @@ const ko: WidgetStrings = {
     tabDelegations: "위임",
     tabDelegationsShort: "위임",
     tabMiners: "마이너",
+    assetFilterAll: "모든 자산",
+    assetFilterGlw: "GLW",
+    assetFilterSgctl: "sGCTL",
     minersLiveDelegationsPre: "마이너는 현재 오픈되어 있습니다. 위임은 ",
     minersLiveDelegationsPost: "에 시작됩니다.",
     noListings: "현재 이용 가능한 항목이 없습니다.",
@@ -2005,6 +2014,9 @@ const zh: WidgetStrings = {
     tabDelegations: "委托",
     tabDelegationsShort: "委托",
     tabMiners: "矿机",
+    assetFilterAll: "全部资产",
+    assetFilterGlw: "GLW",
+    assetFilterSgctl: "sGCTL",
     minersLiveDelegationsPre: "矿机现已上线。委托将于 ",
     minersLiveDelegationsPost: " 开放。",
     noListings: "目前暂无可用项目。",
