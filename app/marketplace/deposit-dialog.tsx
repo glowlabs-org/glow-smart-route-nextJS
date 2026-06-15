@@ -76,6 +76,7 @@ import {
   TransactionStepper,
   type StepStatus,
 } from "@/components/transaction-stepper";
+import { NetworkRequirementBanner } from "@/components/dialogs/network-requirement-banner";
 
 import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
 import { usePatchedOffchainFractions } from "@/hooks/usePatchedOffchainFractions";
@@ -536,6 +537,17 @@ export function DepositDialog({
     typeof effectiveWalletChainId === "number"
       ? chainIdToName(effectiveWalletChainId)
       : "";
+  const networkRequirementCopy = React.useMemo(
+    () => ({
+      title: t.wallet.networkRequirementTitle,
+      connected: t.wallet.networkRequirementConnected,
+      disconnected: t.wallet.networkRequirementDisconnected,
+      wrong: t.wallet.networkRequirementWrong,
+      switchTo: t.wallet.switchTo,
+      switching: t.wallet.switching,
+    }),
+    [t.wallet],
+  );
   const handleSwitchNetwork = React.useCallback(async () => {
     try {
       await switchChain({ chainId: expectedChainId });
@@ -3505,15 +3517,28 @@ export function DepositDialog({
     return (
       <>
         <div className="px-6 pt-6 pb-3">
-          <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-            {runtimeSelectedCurrency === "USDC"
-              ? dd.reviewTitleMiners
-              : runtimeSelectedCurrency === "SGCTL"
-                ? dd.reviewTitleSgctl
-                : dd.reviewTitleGlw}
-          </DialogTitle>
-          <div className="text-sm text-muted-foreground mt-1">
-            {application?.farmName} • {application?.zone?.name}
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+                {runtimeSelectedCurrency === "USDC"
+                  ? dd.reviewTitleMiners
+                  : runtimeSelectedCurrency === "SGCTL"
+                    ? dd.reviewTitleSgctl
+                    : dd.reviewTitleGlw}
+              </DialogTitle>
+              <div className="mt-1 truncate text-sm text-muted-foreground">
+                {application?.farmName} • {application?.zone?.name}
+              </div>
+            </div>
+            <NetworkRequirementBanner
+              expectedNetworkLabel={expectedNetworkLabel}
+              connectedNetworkLabel={connectedNetworkLabel}
+              isConnected={isConnected}
+              isWrongNetwork={isWrongNetwork}
+              isSwitching={isSwitchingChain}
+              onSwitchNetwork={handleSwitchNetwork}
+              copy={networkRequirementCopy}
+            />
           </div>
         </div>
 

@@ -7,6 +7,10 @@ export interface WalletStrings {
   wrongNetwork: string;
   switchTo: (network: string) => string;
   wrongNetworkBody: (connected: string, expected: string) => string;
+  networkRequirementTitle: (network: string) => string;
+  networkRequirementConnected: (network: string) => string;
+  networkRequirementDisconnected: (network: string) => string;
+  networkRequirementWrong: (connected: string, expected: string) => string;
   switching: string;
   openWalletAccount: string;
   switchedToMainnet: string;
@@ -43,6 +47,13 @@ const en: WalletStrings = {
   switchTo: (network) => `Switch to ${network}`,
   wrongNetworkBody: (connected, expected) =>
     `Your wallet is on ${connected}. Switch to ${expected} to see your balances and continue.`,
+  networkRequirementTitle: (network) => `Network: ${network}`,
+  networkRequirementConnected: (network) =>
+    `You're connected to ${network}. Use ${network} assets for this purchase.`,
+  networkRequirementDisconnected: (network) =>
+    `Connect a wallet on ${network}. Assets on Base, BNB, or other networks will not appear here.`,
+  networkRequirementWrong: (connected, expected) =>
+    `On ${connected}; switch to ${expected}. Base/BNB assets won't show here.`,
   switching: "Switching...",
   openWalletAccount: "Open wallet account",
   switchedToMainnet: "Switched to Ethereum Mainnet",
@@ -78,6 +89,13 @@ const ko: WalletStrings = {
   switchTo: (network) => `${network}(으)로 전환`,
   wrongNetworkBody: (connected, expected) =>
     `지갑이 ${connected}에 연결되어 있습니다. 잔액을 확인하고 계속하려면 ${expected}(으)로 전환하세요.`,
+  networkRequirementTitle: (network) => `네트워크: ${network}`,
+  networkRequirementConnected: (network) =>
+    `${network}에 연결되어 있습니다. 이 구매에는 ${network}의 자산을 사용하세요.`,
+  networkRequirementDisconnected: (network) =>
+    `${network}의 지갑을 연결하세요. Base, BNB 또는 다른 네트워크의 자산은 여기에 표시되지 않습니다.`,
+  networkRequirementWrong: (connected, expected) =>
+    `${connected}에 있습니다. ${expected}(으)로 전환하세요. Base/BNB 자산은 여기에 표시되지 않습니다.`,
   switching: "전환 중...",
   openWalletAccount: "지갑 계정 열기",
   switchedToMainnet: "이더리움 메인넷으로 전환되었습니다",
@@ -113,6 +131,13 @@ const zh: WalletStrings = {
   switchTo: (network) => `切换到 ${network}`,
   wrongNetworkBody: (connected, expected) =>
     `您的钱包当前在 ${connected}。请切换到 ${expected} 以查看余额并继续。`,
+  networkRequirementTitle: (network) => `网络：${network}`,
+  networkRequirementConnected: (network) =>
+    `您已连接到 ${network}。本次购买请使用 ${network} 上的资产。`,
+  networkRequirementDisconnected: (network) =>
+    `请连接 ${network} 上的钱包。Base、BNB 或其他网络上的资产不会在这里显示。`,
+  networkRequirementWrong: (connected, expected) =>
+    `当前在 ${connected}；请切换到 ${expected}。Base/BNB 资产不会在这里显示。`,
   switching: "切换中...",
   openWalletAccount: "打开钱包账户",
   switchedToMainnet: "已切换到以太坊主网",

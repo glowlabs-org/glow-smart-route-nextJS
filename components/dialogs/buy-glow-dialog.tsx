@@ -48,7 +48,9 @@ import {
   useAccount,
   useBalance,
   useChainId,
+  useConnectorClient,
   usePublicClient,
+  useSwitchChain,
   useWalletClient,
 } from "wagmi";
 import { mainnet, sepolia } from "wagmi/chains";
@@ -71,6 +73,8 @@ import {
 } from "@privy-io/react-auth";
 import { capturePrivyWalletError } from "@/lib/privy-errors";
 import { useLang } from "@/lib/i18n";
+import { NetworkRequirementBanner } from "@/components/dialogs/network-requirement-banner";
+import { chainIdToName, resolveWalletChainId } from "@/lib/tos-chain";
 
 const ONE_E18 = 1_000_000_000_000_000_000n;
 const POINTS_PER_GLW_WORTH_SCALED6 = 1_000n;
@@ -244,6 +248,8 @@ export function BuyGlowDialog({
   const wasOpenRef = React.useRef(false);
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
+  const { data: connectorClient } = useConnectorClient();
+  const { switchChain, isPending: isSwitchingChain } = useSwitchChain();
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
   const [isSmartAccountWarningOpen, setIsSmartAccountWarningOpen] =
@@ -290,6 +296,68 @@ export function BuyGlowDialog({
   }, [connectWallet]);
 
   const { authenticated: isPrivyAuthenticated } = usePrivy();
+  const expectedChainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID) || 1;
+  const [activeWalletChainId, setActiveWalletChainId] = React.useState<
+    number | undefined
+  >(chainId);
+  React.useEffect(() => {
+    if (!isConnected) {
+      setActiveWalletChainId(undefined);
+      return;
+    }
+
+    let cancelled = false;
+    void resolveWalletChainId({
+      connectorClient: connectorClient as
+        | {
+            request?: (args: {
+              method: string;
+              params?: unknown[];
+            }) => Promise<unknown>;
+          }
+        | undefined,
+      fallbackChainId: chainId,
+    }).then((resolved) => {
+      if (!cancelled && typeof resolved === "number") {
+        setActiveWalletChainId(resolved);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [chainId, connectorClient, isConnected]);
+
+  const effectiveWalletChainId = activeWalletChainId ?? chainId;
+  const isWrongNetwork =
+    isConnected &&
+    typeof effectiveWalletChainId === "number" &&
+    effectiveWalletChainId !== expectedChainId;
+  const expectedNetworkLabel = chainIdToName(expectedChainId);
+  const connectedNetworkLabel =
+    typeof effectiveWalletChainId === "number"
+      ? chainIdToName(effectiveWalletChainId)
+      : "";
+  const networkRequirementCopy = React.useMemo(
+    () => ({
+      title: t.wallet.networkRequirementTitle,
+      connected: t.wallet.networkRequirementConnected,
+      disconnected: t.wallet.networkRequirementDisconnected,
+      wrong: t.wallet.networkRequirementWrong,
+      switchTo: t.wallet.switchTo,
+      switching: t.wallet.switching,
+    }),
+    [t.wallet],
+  );
+  const handleSwitchNetwork = React.useCallback(async () => {
+    try {
+      await switchChain({ chainId: expectedChainId });
+      toast.success(t.wallet.switchedTo(expectedNetworkLabel));
+    } catch (switchError) {
+      console.error("Failed to switch network in buy GLW dialog:", switchError);
+      toast.error(t.wallet.failedToSwitchNetwork);
+    }
+  }, [expectedChainId, expectedNetworkLabel, switchChain, t.wallet]);
   const pendingCardFundRef = React.useRef<{
     address: `0x${string}`;
     amount: string;
@@ -745,6 +813,14 @@ export function BuyGlowDialog({
       return;
     }
 
+    if (isWrongNetwork) {
+      toast.error(t.wallet.wrongNetworkBody(
+        connectedNetworkLabel,
+        expectedNetworkLabel,
+      ));
+      return;
+    }
+
     if (inputAmount !== lastEstimatedAmount) {
       toast.error(t.buyGlow.toastEstimateUpdating);
       return;
@@ -1140,6 +1216,10 @@ export function BuyGlowDialog({
     uniswapLastTxHashRef,
     source,
     t.buyGlow,
+    t.wallet,
+    isWrongNetwork,
+    connectedNetworkLabel,
+    expectedNetworkLabel,
   ]);
 
   const handleClose = React.useCallback(() => {
@@ -1414,11 +1494,24 @@ export function BuyGlowDialog({
     return (
       <>
         <div className="px-6 pt-8 pb-4 border-b border-border/40">
-          <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-            {t.buyGlow.title}
-          </DialogTitle>
-          <div className="text-sm text-muted-foreground mt-2">
-            {t.buyGlow.subtitle}
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+                {t.buyGlow.title}
+              </DialogTitle>
+              <div className="mt-2 text-sm text-muted-foreground">
+                {t.buyGlow.subtitle}
+              </div>
+            </div>
+            <NetworkRequirementBanner
+              expectedNetworkLabel={expectedNetworkLabel}
+              connectedNetworkLabel={connectedNetworkLabel}
+              isConnected={isConnected}
+              isWrongNetwork={isWrongNetwork}
+              isSwitching={isSwitchingChain}
+              onSwitchNetwork={handleSwitchNetwork}
+              copy={networkRequirementCopy}
+            />
           </div>
         </div>
 
@@ -1662,6 +1755,21 @@ export function BuyGlowDialog({
               <Wallet className="mr-2 h-4 w-4" />
               {t.buyGlow.connectWallet}
             </Button>
+          ) : isWrongNetwork ? (
+            <div className="space-y-2">
+              <Button
+                className="w-full h-12 rounded-xl text-base font-medium"
+                onClick={handleSwitchNetwork}
+                disabled={isSwitchingChain}
+              >
+                {isSwitchingChain && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                {isSwitchingChain
+                  ? t.wallet.switching
+                  : t.wallet.switchTo(expectedNetworkLabel)}
+              </Button>
+            </div>
           ) : (
             <div className="space-y-2">
               <Button
