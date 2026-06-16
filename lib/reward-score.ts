@@ -35,6 +35,10 @@ export interface RewardScoreBatchParams {
   protocolDepositAmount: string;
   protocolDepositUsd6: string;
   paymentCurrencyPriceUsd6?: string;
+  /** Locked GLW price (6 decimals) from the application GVE quote, used to value
+   *  the GLW emission leg so the reward score is stable (matches points) instead
+   *  of drifting with the live EDGAP price. Passed on every leg. */
+  glwPriceQuoteUsd6?: string;
   paymentCurrency: PaymentCurrency;
   expectedWeeklyCarbonCredits: number;
   regionId: number;
@@ -240,6 +244,12 @@ export function buildRewardScoreBatchInputs(params: {
               application.applicationPriceQuotes,
               resolvedPaymentCurrency
             ) || undefined,
+          // Always the GLW quote (emission is GLW-denominated on every leg,
+          // including sGCTL where paymentCurrency resolves to the GCTL quote).
+          // Locks the emission valuation to the quote so the score is stable.
+          glwPriceQuoteUsd6:
+            getAssetPriceQuote(application.applicationPriceQuotes, "GLW") ||
+            undefined,
           paymentCurrency: resolvedPaymentCurrency,
           expectedWeeklyCarbonCredits:
             application.auditFields.netCarbonCreditEarningWeekly,
