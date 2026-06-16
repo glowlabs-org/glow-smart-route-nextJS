@@ -1,6 +1,7 @@
 # GOAL: Refactor `deposit-dialog.tsx` (ponytail-guided, behavior-preserving)
 
-Status: SETUP COMPLETE, awaiting kickoff. Created 2026-06-15.
+Status: COMPLETE 2026-06-15. deposit-dialog.tsx 4,205 -> 2,789 (-34%) across 9 commits,
+every one gated green; the pinned baseline failure set never moved. See Outcome at the bottom.
 Owner loop: drive items top-to-bottom, one commit per item, full gate per commit.
 
 ## North star
@@ -125,3 +126,30 @@ Every Phase 2 step is its own gated commit.
 - Every commit passed the gate; the baseline failure set is unchanged.
 - No DO-NOT-TOUCH region changed in behavior; C1 resolved or consciously deferred with a comment.
 - Deposit flow eyeballed on a preview deploy: miner (USDC), GLW delegation, sGCTL delegation.
+
+## Outcome (2026-06-15)
+
+`deposit-dialog.tsx`: 4,205 -> 2,789 lines (-34%). 9 commits, each gated green
+(tsc 0 non-test errors, marketplace suite 355/355, full suite 634/1/3 = baseline,
+lint 0 errors / 37 warnings = baseline).
+
+Commits:
+- 94734ac hoist APP_DOMAIN_PLAIN_TEXT
+- 8179165 toNum helper (guarded balance->number)
+- d7663cc collapse calculateCostInGLW/GCTL
+- bcbad99 totalAmountLabel -> lookup
+- 499dd75 P2-1 usePostSuccessSync (-543)
+- 039c77c P2-2 useStakeSyncDelegation (-127)
+- 3187d16 P2-3 useDepositConfirm / handleConfirm (-708)
+- 84c402e drop 27 orphaned imports (-27)
+
+New hooks: hooks/usePostSuccessSync.ts, hooks/useStakeSyncDelegation.ts, hooks/useDepositConfirm.ts.
+The two large extractions were byte-exact mechanical slices (tsc as completeness checker).
+
+Skipped/deferred: A2 (would remove an EIP-712 signing guard), B4/B5/C2 (marginal).
+STILL OPEN: C1 (stale `application?.activeFraction` in the affordability memo) — untouched,
+needs a decision (comment-and-defer vs separate fix).
+
+Caveat: the post-success-sync and handleConfirm paths have no unit tests; they were moved
+byte-exact, but the authoritative check is eyeballing the miner / GLW / sGCTL deposit paths
+on a preview deploy.
