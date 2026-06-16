@@ -460,6 +460,9 @@ function TokenIcon(props: { symbol: "ETH" | "GLW" | "USDC" | "GCTL" }) {
   return <Coins className="h-6 w-6" />;
 }
 
+// Zero-width spaces keep the share text from auto-linking the domain.
+const APP_DOMAIN_PLAIN_TEXT = "app.\u200Bglow.\u200Borg";
+
 export function DepositDialog({
   open,
   onOpenChange,
@@ -468,8 +471,6 @@ export function DepositDialog({
   rewardScore,
   onSuccess,
 }: DepositDialogProps) {
-  const APP_DOMAIN_PLAIN_TEXT = "app.\u200Bglow.\u200Borg";
-
   const { t } = useLang();
   const dd = t.routes.depositDialog;
   const { isConnected, address, connector } = useAccount();
