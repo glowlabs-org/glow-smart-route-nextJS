@@ -34,6 +34,10 @@ export interface ActiveFraction {
   glw?: { remainingSteps: number; stepWei: string } | null;
   sgctl?: {
     remainingUnits: number;
+    /** Fixed sGCTL inventory (S) and units sold so far. Optional during the
+     *  backend deploy gap; when present they drive a true capacity ring. */
+    totalUnits?: number;
+    soldUnits?: number;
     unitAtomic: string;
     splitBonusPercent: string | null;
   } | null;
@@ -1419,18 +1423,34 @@ export function calculateSuccessMetrics(
       activeFraction.sgctl != null &&
       Number.isFinite(activeFraction.sgctl.remainingUnits);
     if (isSgctlLeg) {
-      // The listing payload exposes only sgctl.remainingUnits (no sGCTL total S
-      // and no sGCTL sold count), so we cannot show a true X/S capacity ring and
-      // must NOT fall back to the GLW step ledger (remainingSteps/splitsSold).
-      // Show the user's own contribution against the sGCTL units still
-      // available: total = remaining + userSteps, nothing pre-filled. (Legacy
-      // listings with no sgctl leg fall through to the GLW logic below.)
-      const remainingUnits = Math.max(
-        0,
-        Math.floor(activeFraction.sgctl!.remainingUnits),
-      );
+      const sgctl = activeFraction.sgctl!;
+      // Preferred: a TRUE capacity ring (sold/total). The success modal snapshots
+      // the PRE-purchase fraction, so soldUnits is the count filled before this
+      // purchase and totalUnits is the fixed sGCTL inventory S. The user's slice
+      // (userSteps) is added on top at the call site.
+      const totalUnits =
+        sgctl.totalUnits != null && Number.isFinite(sgctl.totalUnits)
+          ? Math.max(0, Math.floor(sgctl.totalUnits))
+          : null;
+      const soldUnits =
+        sgctl.soldUnits != null && Number.isFinite(sgctl.soldUnits)
+          ? Math.max(0, Math.floor(sgctl.soldUnits))
+          : null;
+      if (totalUnits != null && totalUnits > 0 && soldUnits != null) {
+        return {
+          totalSteps: totalUnits,
+          filledBeforeSteps: Math.min(totalUnits, soldUnits),
+          userSteps,
+        };
+      }
+      // Fallback (older payloads exposing only remainingUnits, no total/sold):
+      // the user buys FROM the units that were available, so the ring is their
+      // contribution out of remainingUnits. total = remainingUnits (NOT
+      // remaining + userSteps, which double-counts the purchase and wrongly
+      // shows "N left" after buying all N). Math.max guards userSteps > remaining.
+      const remainingUnits = Math.max(0, Math.floor(sgctl.remainingUnits));
       return {
-        totalSteps: remainingUnits + userSteps,
+        totalSteps: Math.max(remainingUnits, userSteps),
         filledBeforeSteps: 0,
         userSteps,
       };

@@ -353,4 +353,60 @@ describe("calculateSuccessMetrics", () => {
       userSteps: 6,
     });
   });
+
+  it("sGCTL leg: buying all available units shows 0 left (total = remaining, not remaining + bought)", () => {
+    const fraction = createFraction({
+      delegationAsset: "SGCTL",
+      sgctl: {
+        remainingUnits: 2,
+        unitAtomic: "1000000",
+        splitBonusPercent: null,
+      },
+    });
+
+    // Buying both available units -> ring is 2/2, 0 left. (Regression: the old
+    // `remaining + userSteps` made this 2/4 and showed "2 left" after buying all.)
+    expect(calculateSuccessMetrics(fraction, 2)).toEqual({
+      totalSteps: 2,
+      filledBeforeSteps: 0,
+      userSteps: 2,
+    });
+  });
+
+  it("sGCTL leg: buying part of the available units leaves the rest", () => {
+    const fraction = createFraction({
+      delegationAsset: "SGCTL",
+      sgctl: {
+        remainingUnits: 5,
+        unitAtomic: "1000000",
+        splitBonusPercent: null,
+      },
+    });
+
+    expect(calculateSuccessMetrics(fraction, 2)).toEqual({
+      totalSteps: 5,
+      filledBeforeSteps: 0,
+      userSteps: 2,
+    });
+  });
+
+  it("sGCTL leg: true capacity ring (sold/total) when the inventory is exposed", () => {
+    const fraction = createFraction({
+      delegationAsset: "SGCTL",
+      sgctl: {
+        remainingUnits: 2,
+        totalUnits: 3,
+        soldUnits: 1, // filled before this purchase (e.g. an earlier delegation)
+        unitAtomic: "1000000",
+        splitBonusPercent: null,
+      },
+    });
+
+    // Buy the 2 that were left -> 3/3, 0 left, with 1 shown as already-filled.
+    expect(calculateSuccessMetrics(fraction, 2)).toEqual({
+      totalSteps: 3,
+      filledBeforeSteps: 1,
+      userSteps: 2,
+    });
+  });
 });
