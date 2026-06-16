@@ -195,6 +195,14 @@ export function buildMiningScoreExtraLiveFarmsKey(
     .join("|");
 }
 
+// MiningScoreParams comes from the published @glowlabs-org/utils package, so we
+// extend it locally to carry the locked GLW quote. Control reads it to value the
+// mining-score GLW rewards at the quote (stable, matches points) instead of the
+// live EDGAP price; it is forwarded as-is through the mining-scores proxy.
+type MiningScoreParamsWithQuote = MiningScoreParams & {
+  glwPriceQuoteUsd6?: string;
+};
+
 export function buildMiningScoreBatchInputs(
   applications: AuctionApplication[],
   extraLiveApplications: AuctionApplication[] = [],
@@ -204,7 +212,7 @@ export function buildMiningScoreBatchInputs(
     (application) => application.farmId !== null
   );
 
-  const farmParams: MiningScoreParams[] = applicationsWithFarmIds.map(
+  const farmParams: MiningScoreParamsWithQuote[] = applicationsWithFarmIds.map(
     (application) => {
       const userIdForEstimation =
         application.userId || MINING_SCORE_FALLBACK_USER_ID;
@@ -220,6 +228,10 @@ export function buildMiningScoreBatchInputs(
               4
             ).toString()
           : "0",
+        // Locked GLW price (6 decimals) from the application's GVE quote, so the
+        // mining score is stable instead of drifting with the live EDGAP price.
+        glwPriceQuoteUsd6:
+          application.applicationPriceQuotes?.[0]?.prices?.["GLW"] || undefined,
       };
     }
   );
