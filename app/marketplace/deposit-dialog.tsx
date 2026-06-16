@@ -31,12 +31,9 @@ import { resolveWalletChainId, chainIdToName } from "@/lib/tos-chain";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { SegmentedCircleProgress } from "@/components/ui/circle-progress";
 import { formatNumber } from "./utils";
-import { formatUnits, parseUnits } from "viem";
+import { formatUnits } from "viem";
 import {
   DECIMALS_BY_TOKEN,
-  buildDelegateSgctlMessage,
-  delegateSgctlEIP712Types,
-  stakeControlEIP712Domain,
 } from "@glowlabs-org/utils/browser";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWalletClient } from "wagmi";
@@ -56,11 +53,7 @@ import {
 import { useGctlPreparationOrchestrator } from "@/hooks/useGctlPreparationOrchestrator";
 import { ConnectButton } from "@/components/connect-button";
 import { trackEvent } from "@/lib/telemetry";
-import { bucketUsd } from "@/lib/telemetry-buckets";
-import { getStoredReferralAttribution } from "@/lib/referral-attribution";
-import * as Sentry from "@sentry/nextjs";
 import { AnimatePresence, motion } from "framer-motion";
-import { getControlRouter } from "@/lib/api/control-routers";
 import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
 import { publicClient } from "@/web3/web3/clients/publicClient";
 import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-warning-dialog";
@@ -79,8 +72,6 @@ import { NetworkRequirementBanner } from "@/components/dialogs/network-requireme
 import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
 import { usePatchedOffchainFractions } from "@/hooks/usePatchedOffchainFractions";
 import {
-  CONTRACT_ERROR_MESSAGES,
-  RPC_INTERNAL_ERROR_MESSAGE,
   calculateAffordability,
   calculateCostInETH,
   calculateCostInGCTL,
@@ -88,20 +79,12 @@ import {
   calculateCostInUSDC,
   calculateEstimatedRewardsBreakdown,
   calculateShortfall,
-  calculateSuccessMetrics,
   clampQuantity,
   coerceToBigInt,
-  findErrorInMessage,
   getDefaultPaymentMethodForRuntimeCurrency,
   generateShareUrl,
-  getErrorCode,
-  getErrorMessage,
   hasConfirmedSplitPurchase,
-  isDelayedSplitConfirmationErrorMessage,
-  getSwapVolatilityErrorMessage,
   getInitialPositionValueGuard,
-  initializeTransactionSteps,
-  isInternalRpcError,
   MIN_INITIAL_POSITION_USD,
   parseAvailableStakeSnapshot,
   parseQuantityInput,
@@ -111,28 +94,17 @@ import {
   selectClaimSetForGlwDelegation,
   SPLIT_CONFIRMATION_DELAYED_MESSAGE,
   updateTransactionStepStatus,
-  withInternalRpcRetry,
-  type ClaimableGlwItem,
   type ClaimSetSelection,
   type DepositPaymentMethod,
-  type DepositSelectedCurrency,
   type SgctlSourceMode,
   type SuccessMetrics,
   type TransactionStep,
 } from "./deposit-dialog-utils";
 import { useUnclaimedGlwForDelegation } from "@/hooks/useUnclaimedGlwForDelegation";
 import { useRewardsKernelWrapper } from "@/hooks/useRewardsKernelWrapper";
-import {
-  fetchWeeklyReportData,
-  getHotWalletAddress,
-  weekToNonce,
-  type ReadableLeafReward,
-} from "@/hooks/useMerkleProofs";
-import type { ClaimableReward } from "@/hooks/control-wallets";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import {
   usePostSuccessSync,
-  updateApplicationAfterSuccessfulPurchase,
 } from "@/hooks/usePostSuccessSync";
 import { useStakeSyncDelegation } from "@/hooks/useStakeSyncDelegation";
 import {
