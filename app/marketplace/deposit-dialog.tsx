@@ -1230,24 +1230,16 @@ export function DepositDialog({
   // Delegation Amount row above it can be hidden when the two are identical
   // (no swap: paying in the delegation asset itself), where the second row is
   // just redundant.
+  // Same as requiredDisplayByMethod[method], except USDC renders as a $-prefixed
+  // amount rather than the "... USDC" suffix form.
   const totalAmountLabel =
-    selectedPaymentMethod === "GLW"
-      ? requiredDisplayByMethod.GLW
-      : selectedPaymentMethod === "SGCTL"
-        ? requiredDisplayByMethod.SGCTL
-        : selectedPaymentMethod === "GCTL"
-          ? requiredDisplayByMethod.GCTL
-          : selectedPaymentMethod === "USDC"
-            ? `$${formatTokenAmount(
-                affordability.requiredByMethod.USDC,
-                6,
-                costInUSDC(quantity).toLocaleString(),
-              )}`
-            : selectedPaymentMethod === "ETH"
-              ? requiredDisplayByMethod.ETH
-              : selectedPaymentMethod === "UNCLAIMED_REWARDS"
-                ? requiredDisplayByMethod.UNCLAIMED_REWARDS
-                : "";
+    selectedPaymentMethod === "USDC"
+      ? `$${formatTokenAmount(
+          affordability.requiredByMethod.USDC,
+          6,
+          costInUSDC(quantity).toLocaleString(),
+        )}`
+      : requiredDisplayByMethod[selectedPaymentMethod];
 
   const shortfallByMethod = React.useMemo(() => {
     return {
