@@ -463,6 +463,10 @@ function TokenIcon(props: { symbol: "ETH" | "GLW" | "USDC" | "GCTL" }) {
 // Zero-width spaces keep the share text from auto-linking the domain.
 const APP_DOMAIN_PLAIN_TEXT = "app.\u200Bglow.\u200Borg";
 
+// Token balance (atomic bigint, or null) -> JS number; 0 when absent.
+const toNum = (balance: bigint | null | undefined, decimals: number) =>
+  balance ? parseFloat(formatUnits(balance, decimals)) : 0;
+
 export function DepositDialog({
   open,
   onOpenChange,
@@ -901,12 +905,8 @@ export function DepositDialog({
       if (runtimeSelectedCurrency === "GLW") {
         // Delegation: Prefer GLW if enough, else USDC, else ETH
         const costGLW = costInGLW(1);
-        const glwBalNum = glwBalance
-          ? parseFloat(formatUnits(glwBalance, 18))
-          : 0;
-        const usdcBalNum = usdcBalance
-          ? parseFloat(formatUnits(usdcBalance, 6))
-          : 0;
+        const glwBalNum = toNum(glwBalance, 18);
+        const usdcBalNum = toNum(usdcBalance, 6);
 
         if (glwBalNum >= costGLW) {
           setSelectedPaymentMethod("GLW");
@@ -1091,9 +1091,7 @@ export function DepositDialog({
   // unit in that asset: a swap that can never fund a single unit should not be
   // offered. Uses the spot-priced 1-unit cost (the same basis as the row's
   // preview). When disconnected or the cost is not yet known, keep it visible.
-  const ethBalanceNum = ethBalance
-    ? parseFloat(formatUnits(ethBalance, 18))
-    : 0;
+  const ethBalanceNum = toNum(ethBalance, 18);
   const ethOneUnitCost = costInETH(1);
   const showEthOption =
     !isConnected ||
