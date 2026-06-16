@@ -602,9 +602,13 @@ export async function withInternalRpcRetry<T>(
 // Cost Calculation Functions
 // ============================================================================
 
-export function calculateCostInGLW(
+// GLW and GCTL step costs are identical apart from token decimals; this is the
+// shared core. Keep calculateCostInGLW / calculateCostInGCTL as thin wrappers so
+// callers and tests are unaffected.
+function calculateStepCost(
   quantity: number,
   activeFraction: ActiveFraction | null,
+  decimals: number,
   delegationStepAtomic?: bigint | null
 ): number {
   if (!activeFraction) return 0;
@@ -616,8 +620,16 @@ export function calculateCostInGLW(
     }
   })();
   const stepAtomic = delegationStepAtomic ?? fallbackStep;
-  const step = parseFloat(formatUnits(stepAtomic, 18));
+  const step = parseFloat(formatUnits(stepAtomic, decimals));
   return step * quantity;
+}
+
+export function calculateCostInGLW(
+  quantity: number,
+  activeFraction: ActiveFraction | null,
+  delegationStepAtomic?: bigint | null
+): number {
+  return calculateStepCost(quantity, activeFraction, 18, delegationStepAtomic);
 }
 
 export function calculateCostInGCTL(
@@ -625,17 +637,7 @@ export function calculateCostInGCTL(
   activeFraction: ActiveFraction | null,
   delegationStepAtomic?: bigint | null
 ): number {
-  if (!activeFraction) return 0;
-  const fallbackStep = (() => {
-    try {
-      return BigInt(activeFraction.step);
-    } catch {
-      return 0n;
-    }
-  })();
-  const stepAtomic = delegationStepAtomic ?? fallbackStep;
-  const step = parseFloat(formatUnits(stepAtomic, 6));
-  return step * quantity;
+  return calculateStepCost(quantity, activeFraction, 6, delegationStepAtomic);
 }
 
 export function calculateCostInUSDC(
