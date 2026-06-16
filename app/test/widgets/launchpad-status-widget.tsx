@@ -17,6 +17,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -345,7 +352,9 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
     [taggedDelegations],
   );
   const isWaitingForSgctlEligibility =
-    Boolean(walletAddress) && hasPotentialSgctlDelegations && isEligibilityLoading;
+    Boolean(walletAddress) &&
+    hasPotentialSgctlDelegations &&
+    isEligibilityLoading;
 
   // Two-tile model: fetch a FORCED-GLW score map (the GLW tile's score, no
   // bonus) and a FORCED-SGCTL score map (the sGCTL tile's score, with the
@@ -356,14 +365,16 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
   );
 
   // Fetch scores
-  const { rewardScoreMap: glwRewardScoreMap, isLoading: isRewardScoresLoading } =
-    useRewardScore({
-      applications: activeDelegationsForScores,
-      paymentCurrency: "GLW",
-      forceCurrency: "GLW",
-      enabled: activeDelegationsForScores.length > 0,
-      walletAddress: address || null,
-    });
+  const {
+    rewardScoreMap: glwRewardScoreMap,
+    isLoading: isRewardScoresLoading,
+  } = useRewardScore({
+    applications: activeDelegationsForScores,
+    paymentCurrency: "GLW",
+    forceCurrency: "GLW",
+    enabled: activeDelegationsForScores.length > 0,
+    walletAddress: address || null,
+  });
 
   const {
     rewardScoreMap: sgctlRewardScoreMap,
@@ -796,7 +807,8 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
         ? isSgctlRewardScoresLoading
         : isRewardScoresLoading;
     // This tile is single-asset: GLW tile -> GLW, sGCTL tile -> SGCTL.
-    const delegationCurrency: "GLW" | "SGCTL" = leg === "SGCTL" ? "SGCTL" : "GLW";
+    const delegationCurrency: "GLW" | "SGCTL" =
+      leg === "SGCTL" ? "SGCTL" : "GLW";
     const currency = isMiner ? "USDC" : delegationCurrency;
     const imageUrl = application.afterInstallPictures?.[0]?.url;
     // Two tiles can share one farm id (GLW + sGCTL), so the key includes the
@@ -827,7 +839,9 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
               src={imageUrl}
               widthForProxy={800}
               quality={85}
-              alt={application.farmName || t.widgets.launchpadStatus.unnamedFarm}
+              alt={
+                application.farmName || t.widgets.launchpadStatus.unnamedFarm
+              }
               className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
             />
           ) : (
@@ -852,7 +866,9 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                   isMiner ? "bg-[color:var(--color-miner)]" : "bg-purple-400",
                 )}
               />
-              {isMiner ? t.widgets.launchpadStatus.miner : t.widgets.launchpadStatus.delegation}
+              {isMiner
+                ? t.widgets.launchpadStatus.miner
+                : t.widgets.launchpadStatus.delegation}
             </div>
             {isEarlyAccessReveal ? (
               <div className="flex items-center gap-1 rounded-full border border-white/20 bg-[color:var(--color-miner)]/90 px-2.5 py-1 text-[10px] font-semibold text-white shadow-sm backdrop-blur-xl sm:text-xs">
@@ -887,8 +903,12 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                 }}
                 className="backdrop-blur-xl bg-white/90 dark:bg-black/60 hover:bg-white dark:hover:bg-black/70 border border-border/20 dark:border-white/20 text-foreground dark:text-white rounded-full px-2.5 sm:px-3 h-7 sm:h-8 text-[10px] sm:text-xs font-semibold transition-all shadow-sm"
               >
-                <span className="hidden sm:inline">{t.widgets.launchpadStatus.advancedStats}</span>
-                <span className="sm:hidden">{t.widgets.launchpadStatus.statsShort}</span>
+                <span className="hidden sm:inline">
+                  {t.widgets.launchpadStatus.advancedStats}
+                </span>
+                <span className="sm:hidden">
+                  {t.widgets.launchpadStatus.statsShort}
+                </span>
                 <ArrowUpRight className="ml-1 w-3 h-3" />
               </Button>
             )}
@@ -905,11 +925,15 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
               </h3>
               <div className="flex items-center gap-1.5 mt-1 sm:mt-1.5 text-muted-foreground text-xs sm:text-sm">
                 <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
-                <span className="truncate">{application.zone?.name || t.widgets.launchpadStatus.unknownRegion}</span>
+                <span className="truncate">
+                  {application.zone?.name ||
+                    t.widgets.launchpadStatus.unknownRegion}
+                </span>
               </div>
             </div>
-            {!isMiner && !availability.isSoldOut && (
-              isRowScoreLoading ? (
+            {!isMiner &&
+              !availability.isSoldOut &&
+              (isRowScoreLoading ? (
                 <div className="shrink-0 flex flex-col items-end">
                   <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
                     {t.widgets.launchpadStatus.score}
@@ -937,8 +961,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                     </p>
                   </TooltipContent>
                 </Tooltip>
-              ) : null
-            )}
+              ) : null)}
           </div>
 
           {/* Stats Grid - always 2 cols (price + weekly/sold-in) */}
@@ -1166,7 +1189,6 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                 </span>
               </div>
             )}
-
           </div>
 
           {/* Action Button Row */}
@@ -1187,7 +1209,8 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                   );
                 }}
               >
-                {t.widgets.launchpadStatus.viewAudit} <ArrowUpRight className="ml-1.5 w-4 h-4" />
+                {t.widgets.launchpadStatus.viewAudit}{" "}
+                <ArrowUpRight className="ml-1.5 w-4 h-4" />
               </Button>
             ) : isMiner ? (
               <div className="flex justify-end">
@@ -1202,7 +1225,8 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                     handleCardClick(row);
                   }}
                 >
-                  {t.widgets.launchpadStatus.purchaseMiner} <ArrowUpRight className="w-4 h-4 ml-1.5" />
+                  {t.widgets.launchpadStatus.purchaseMiner}{" "}
+                  <ArrowUpRight className="w-4 h-4 ml-1.5" />
                 </Button>
               </div>
             ) : (
@@ -1285,135 +1309,141 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
 
   return (
     <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-8 space-y-4">
-      {/* Filter Tabs */}
-      <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-        {showAllTab && (
-          <button
-            onClick={() => {
-              trackEvent("dashboard_launchpad_tab_change", {
-                source,
-                wallet_connected: isConnected,
-                wallet_address: walletAddress,
-                tab: "all",
-              });
-              setActiveTab("all");
-            }}
-            className={cn(
-              "px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-colors whitespace-nowrap",
-              activeTab === "all"
-                ? "bg-foreground text-background"
-                : "bg-muted/30 dark:bg-muted/50 text-muted-foreground hover:bg-muted/50 dark:hover:bg-muted/70",
-            )}
-          >
-            {t.widgets.launchpadStatus.tabAll}{" "}
-            <span className="ml-0.5 sm:ml-1 font-mono tabular-nums text-[10px] sm:text-xs opacity-70">
-              {delegationsAvailableCount + minersAvailableCount}
-            </span>
-          </button>
-        )}
-        {showDelegationsTab && (
-          <button
-            onClick={() => {
-              trackEvent("dashboard_launchpad_tab_change", {
-                source,
-                wallet_connected: isConnected,
-                wallet_address: walletAddress,
-                tab: "delegations",
-              });
-              setActiveTab("delegations");
-            }}
-            className={cn(
-              "px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-colors whitespace-nowrap flex items-center gap-1.5 sm:gap-2",
-              activeTab === "delegations"
-                ? "bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/30"
-                : "bg-muted/30 dark:bg-muted/50 text-muted-foreground hover:bg-muted/50 dark:hover:bg-muted/70",
-            )}
-          >
-            <DelegationIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span className="hidden sm:inline">{t.widgets.launchpadStatus.tabDelegations}</span>
-            <span className="sm:hidden">{t.widgets.launchpadStatus.tabDelegationsShort}</span>{" "}
-            <span className="font-mono tabular-nums text-[10px] sm:text-xs opacity-70">
-              {delegationsAvailableCount}
-            </span>
-          </button>
-        )}
-        {showMinersTab && (
-          <button
-            onClick={() => {
-              trackEvent("dashboard_launchpad_tab_change", {
-                source,
-                wallet_connected: isConnected,
-                wallet_address: walletAddress,
-                tab: "miners",
-              });
-              setActiveTab("miners");
-            }}
-            className={cn(
-              "px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-colors whitespace-nowrap flex items-center gap-1.5 sm:gap-2",
-              activeTab === "miners"
-                ? "bg-[color:var(--color-miner)]/20 text-[color:var(--color-miner-contrast)] border border-[color:var(--color-miner)]/30"
-                : "bg-muted/30 dark:bg-muted/50 text-muted-foreground hover:bg-muted/50 dark:hover:bg-muted/70",
-            )}
-          >
-            <CashMinerIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            {t.widgets.launchpadStatus.tabMiners}{" "}
-            <span className="font-mono tabular-nums text-[10px] sm:text-xs opacity-70">
-              {minersAvailableCount}
-            </span>
-          </button>
-        )}
-      </div>
-
-      {showAssetFilter && (
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-          {(
-            [
-              {
-                value: "all",
-                label: t.widgets.launchpadStatus.assetFilterAll,
-                count: assetFilterCounts.all,
-              },
-              {
-                value: "GLW",
-                label: t.widgets.launchpadStatus.assetFilterGlw,
-                count: assetFilterCounts.GLW,
-              },
-              {
-                value: "SGCTL",
-                label: t.widgets.launchpadStatus.assetFilterSgctl,
-                count: assetFilterCounts.SGCTL,
-              },
-            ] as const
-          ).map((option) => (
+      {/* Filter tabs (left) + asset filter dropdown (top right) */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden min-w-0">
+          {showAllTab && (
             <button
-              key={option.value}
-              type="button"
-              aria-pressed={activeAssetFilter === option.value}
               onClick={() => {
-                trackEvent("dashboard_launchpad_asset_filter_change", {
+                trackEvent("dashboard_launchpad_tab_change", {
                   source,
                   wallet_connected: isConnected,
                   wallet_address: walletAddress,
-                  asset_filter: option.value,
-                  tab: activeTab,
+                  tab: "all",
                 });
-                setActiveAssetFilter(option.value);
+                setActiveTab("all");
               }}
               className={cn(
                 "px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-colors whitespace-nowrap",
-                activeAssetFilter === option.value
+                activeTab === "all"
                   ? "bg-foreground text-background"
                   : "bg-muted/30 dark:bg-muted/50 text-muted-foreground hover:bg-muted/50 dark:hover:bg-muted/70",
               )}
             >
-              {option.label}{" "}
+              {t.widgets.launchpadStatus.tabAll}{" "}
               <span className="ml-0.5 sm:ml-1 font-mono tabular-nums text-[10px] sm:text-xs opacity-70">
-                {option.count}
+                {delegationsAvailableCount + minersAvailableCount}
               </span>
             </button>
-          ))}
+          )}
+          {showDelegationsTab && (
+            <button
+              onClick={() => {
+                trackEvent("dashboard_launchpad_tab_change", {
+                  source,
+                  wallet_connected: isConnected,
+                  wallet_address: walletAddress,
+                  tab: "delegations",
+                });
+                setActiveTab("delegations");
+              }}
+              className={cn(
+                "px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-colors whitespace-nowrap flex items-center gap-1.5 sm:gap-2",
+                activeTab === "delegations"
+                  ? "bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/30"
+                  : "bg-muted/30 dark:bg-muted/50 text-muted-foreground hover:bg-muted/50 dark:hover:bg-muted/70",
+              )}
+            >
+              <DelegationIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">
+                {t.widgets.launchpadStatus.tabDelegations}
+              </span>
+              <span className="sm:hidden">
+                {t.widgets.launchpadStatus.tabDelegationsShort}
+              </span>{" "}
+              <span className="font-mono tabular-nums text-[10px] sm:text-xs opacity-70">
+                {delegationsAvailableCount}
+              </span>
+            </button>
+          )}
+          {showMinersTab && (
+            <button
+              onClick={() => {
+                trackEvent("dashboard_launchpad_tab_change", {
+                  source,
+                  wallet_connected: isConnected,
+                  wallet_address: walletAddress,
+                  tab: "miners",
+                });
+                setActiveTab("miners");
+              }}
+              className={cn(
+                "px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-colors whitespace-nowrap flex items-center gap-1.5 sm:gap-2",
+                activeTab === "miners"
+                  ? "bg-[color:var(--color-miner)]/20 text-[color:var(--color-miner-contrast)] border border-[color:var(--color-miner)]/30"
+                  : "bg-muted/30 dark:bg-muted/50 text-muted-foreground hover:bg-muted/50 dark:hover:bg-muted/70",
+              )}
+            >
+              <CashMinerIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              {t.widgets.launchpadStatus.tabMiners}{" "}
+              <span className="font-mono tabular-nums text-[10px] sm:text-xs opacity-70">
+                {minersAvailableCount}
+              </span>
+            </button>
+          )}
         </div>
-      )}
+
+        {showAssetFilter && (
+          <Select
+            value={activeAssetFilter}
+            onValueChange={(value) => {
+              trackEvent("dashboard_launchpad_asset_filter_change", {
+                source,
+                wallet_connected: isConnected,
+                wallet_address: walletAddress,
+                asset_filter: value,
+                tab: activeTab,
+              });
+              setActiveAssetFilter(value as AssetFilter);
+            }}
+          >
+            <SelectTrigger
+              aria-label={t.widgets.launchpadStatus.assetFilterAll}
+              className="h-9 w-auto shrink-0 gap-1.5 rounded-full border-border/60 bg-muted/30 px-3.5 text-xs font-medium dark:bg-muted/50 sm:text-sm"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="end">
+              {(
+                [
+                  {
+                    value: "all",
+                    label: t.widgets.launchpadStatus.assetFilterAll,
+                    count: assetFilterCounts.all,
+                  },
+                  {
+                    value: "GLW",
+                    label: t.widgets.launchpadStatus.assetFilterGlw,
+                    count: assetFilterCounts.GLW,
+                  },
+                  {
+                    value: "SGCTL",
+                    label: t.widgets.launchpadStatus.assetFilterSgctl,
+                    count: assetFilterCounts.SGCTL,
+                  },
+                ] as const
+              ).map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                  <span className="ml-1.5 font-mono tabular-nums text-xs opacity-70">
+                    {option.count}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </div>
 
       {/* V2 miner early access: opt-in unlock banner for entitled wallets */}
       {activeMinerEntitlement ? (
@@ -1422,7 +1452,9 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
             <Sparkles className="h-4 w-4 shrink-0 text-[color:var(--color-miner-contrast)]" />
             <span className="text-sm text-foreground">
               {minerEarlyAccess.isUnlocked
-                ? t.widgets.launchpadStatus.earlyAccessActive(earlyAccessMinutes)
+                ? t.widgets.launchpadStatus.earlyAccessActive(
+                    earlyAccessMinutes,
+                  )
                 : t.widgets.launchpadStatus.earlyAccessAvailable(
                     earlyAccessMinutes,
                   )}
@@ -1509,9 +1541,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                   tab: activeTab,
                   page: pageIndex,
                 });
-                setPageIndex((current) =>
-                  Math.min(pageCount - 1, current + 1),
-                );
+                setPageIndex((current) => Math.min(pageCount - 1, current + 1));
               }}
               disabled={pageIndex >= pageCount - 1}
               className="h-10 w-10 rounded-full border border-border/20"
@@ -1578,13 +1608,8 @@ export default function LaunchpadStatusWidget({
   const walletAddress = address?.toLowerCase() ?? null;
   const source = "launchpad_status_widget";
   const queryClient = useQueryClient();
-  const {
-    isLive,
-    nextBatchAtMs,
-    refreshNextBatchAtMs,
-    isLoading,
-    isError,
-  } = useLaunchpadStatus();
+  const { isLive, nextBatchAtMs, refreshNextBatchAtMs, isLoading, isError } =
+    useLaunchpadStatus();
   const { spotPriceUsd } = useGlowSpotPriceSummary();
   const { usdcBalance } = useWalletTokenBalances(address);
   const isMobile = useIsMobile();
@@ -1734,20 +1759,12 @@ export default function LaunchpadStatusWidget({
       invalidateSponsorListings,
       LAUNCHPAD_PUBLISHING_POLL_MS,
     );
-    const expireId = window.setTimeout(
-      refreshNextBatchAtMs,
-      graceEndsAt - now,
-    );
+    const expireId = window.setTimeout(refreshNextBatchAtMs, graceEndsAt - now);
     return () => {
       window.clearInterval(pollId);
       window.clearTimeout(expireId);
     };
-  }, [
-    isLive,
-    nextBatchAtMs,
-    invalidateSponsorListings,
-    refreshNextBatchAtMs,
-  ]);
+  }, [isLive, nextBatchAtMs, invalidateSponsorListings, refreshNextBatchAtMs]);
 
   const priceLabel = React.useMemo(
     () => formatUsdPrice(spotPriceUsd),
@@ -1793,76 +1810,78 @@ export default function LaunchpadStatusWidget({
       )}
     >
       {/* Hide header for full-row live state (tabs are in the grid) */}
-      {!(showLiveListings && isFullRow) && !(effectiveIsApproaching && isFullRow) && !(isCountdownState && isFullRow) && (
-        <CardHeader
-          className={cn("pb-0", isFullRow ? "px-3 pt-3 pb-0" : "pt-4")}
-        >
-          <div
-            className={cn(
-              "flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between",
-              !showLiveListings ? "items-center" : "items-start",
-              isFullRow ? "min-h-0" : null,
-            )}
+      {!(showLiveListings && isFullRow) &&
+        !(effectiveIsApproaching && isFullRow) &&
+        !(isCountdownState && isFullRow) && (
+          <CardHeader
+            className={cn("pb-0", isFullRow ? "px-3 pt-3 pb-0" : "pt-4")}
           >
-            <div className="flex items-center gap-2 min-w-0">
-              <CardTitle
-                className={cn(
-                  "tracking-tight text-foreground",
-                  isFullRow
-                    ? "text-xl font-semibold"
-                    : "text-lg font-semibold tracking-tight text-foreground",
-                )}
-              >
-                {showLiveListings
-                  ? t.widgets.launchpadStatus.launchpadTitle
-                  : effectiveIsApproaching
-                    ? hasSplitBatchSchedule
-                      ? t.widgets.launchpadStatus.newMinersIn
-                      : t.widgets.launchpadStatus.getReady
-                    : hasSplitBatchSchedule
-                      ? t.widgets.launchpadStatus.newMiningCenterListingIn
-                      : t.widgets.launchpadStatus.newSolarFarmListingIn}
-              </CardTitle>
-            </div>
+            <div
+              className={cn(
+                "flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between",
+                !showLiveListings ? "items-center" : "items-start",
+                isFullRow ? "min-h-0" : null,
+              )}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <CardTitle
+                  className={cn(
+                    "tracking-tight text-foreground",
+                    isFullRow
+                      ? "text-xl font-semibold"
+                      : "text-lg font-semibold tracking-tight text-foreground",
+                  )}
+                >
+                  {showLiveListings
+                    ? t.widgets.launchpadStatus.launchpadTitle
+                    : effectiveIsApproaching
+                      ? hasSplitBatchSchedule
+                        ? t.widgets.launchpadStatus.newMinersIn
+                        : t.widgets.launchpadStatus.getReady
+                      : hasSplitBatchSchedule
+                        ? t.widgets.launchpadStatus.newMiningCenterListingIn
+                        : t.widgets.launchpadStatus.newSolarFarmListingIn}
+                </CardTitle>
+              </div>
 
-            {showLiveListings && variant === "full-row" ? (
-              <Link
-                href="/marketplace"
-                className={cn(
-                  "inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors",
-                  "bg-muted/30 dark:bg-muted/50 text-muted-foreground hover:bg-muted/50 dark:hover:bg-muted/70",
-                  "border border-border/20 dark:border-border/40",
-                )}
-              >
-                {t.widgets.launchpadStatus.viewMarketplace}
-                <ArrowUpRight className="w-4 h-4" />
-              </Link>
-            ) : isCountdownState ? null : (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  trackEvent("launchpad_widget_buy_glw_click", {
-                    source,
-                    wallet_connected: isConnected,
-                    wallet_address: walletAddress,
-                  });
-                  setBuyGlowOpen(true);
-                }}
-                className={cn(
-                  "shrink-0 rounded-full border-border ",
-                  "h-9 px-4 text-sm",
-                )}
-              >
-                <ShoppingCart
-                  className={cn("mr-1.5", isFullRow ? "h-3 w-3" : "h-4 w-4")}
-                />
-                {t.widgets.launchpadStatus.buyGlw}
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-      )}
+              {showLiveListings && variant === "full-row" ? (
+                <Link
+                  href="/marketplace"
+                  className={cn(
+                    "inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors",
+                    "bg-muted/30 dark:bg-muted/50 text-muted-foreground hover:bg-muted/50 dark:hover:bg-muted/70",
+                    "border border-border/20 dark:border-border/40",
+                  )}
+                >
+                  {t.widgets.launchpadStatus.viewMarketplace}
+                  <ArrowUpRight className="w-4 h-4" />
+                </Link>
+              ) : isCountdownState ? null : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    trackEvent("launchpad_widget_buy_glw_click", {
+                      source,
+                      wallet_connected: isConnected,
+                      wallet_address: walletAddress,
+                    });
+                    setBuyGlowOpen(true);
+                  }}
+                  className={cn(
+                    "shrink-0 rounded-full border-border ",
+                    "h-9 px-4 text-sm",
+                  )}
+                >
+                  <ShoppingCart
+                    className={cn("mr-1.5", isFullRow ? "h-3 w-3" : "h-4 w-4")}
+                  />
+                  {t.widgets.launchpadStatus.buyGlw}
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+        )}
 
       <CardContent
         className={cn(
@@ -2024,7 +2043,8 @@ export default function LaunchpadStatusWidget({
                         {t.widgets.launchpadStatus.guideToDelegationBody}
                       </div>
                       <div className="mt-3 text-xs font-medium text-muted-foreground group-hover:text-delegation-purple/80 transition-colors flex items-center gap-1">
-                        {t.widgets.launchpadStatus.learnMore} <span aria-hidden="true">→</span>
+                        {t.widgets.launchpadStatus.learnMore}{" "}
+                        <span aria-hidden="true">→</span>
                       </div>
                     </div>
                   </div>
@@ -2057,7 +2077,8 @@ export default function LaunchpadStatusWidget({
                         {t.widgets.launchpadStatus.howMinersWorkBody}
                       </div>
                       <div className="mt-3 text-xs font-medium text-muted-foreground group-hover:text-[color:var(--color-miner-contrast)]/80 transition-colors flex items-center gap-1">
-                        {t.widgets.launchpadStatus.learnMore} <span aria-hidden="true">→</span>
+                        {t.widgets.launchpadStatus.learnMore}{" "}
+                        <span aria-hidden="true">→</span>
                       </div>
                     </div>
                   </div>
@@ -2129,7 +2150,8 @@ export default function LaunchpadStatusWidget({
                         {t.widgets.launchpadStatus.guideToDelegationBody}
                       </div>
                       <div className="mt-3 text-xs font-medium text-muted-foreground group-hover:text-delegation-purple/80 transition-colors flex items-center gap-1">
-                        {t.widgets.launchpadStatus.learnMore} <span aria-hidden="true">→</span>
+                        {t.widgets.launchpadStatus.learnMore}{" "}
+                        <span aria-hidden="true">→</span>
                       </div>
                     </div>
                   </div>
@@ -2162,7 +2184,8 @@ export default function LaunchpadStatusWidget({
                         {t.widgets.launchpadStatus.howMinersWorkBody}
                       </div>
                       <div className="mt-3 text-xs font-medium text-muted-foreground group-hover:text-[color:var(--color-miner-contrast)]/80 transition-colors flex items-center gap-1">
-                        {t.widgets.launchpadStatus.learnMore} <span aria-hidden="true">→</span>
+                        {t.widgets.launchpadStatus.learnMore}{" "}
+                        <span aria-hidden="true">→</span>
                       </div>
                     </div>
                   </div>
