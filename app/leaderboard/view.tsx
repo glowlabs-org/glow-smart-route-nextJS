@@ -9,14 +9,13 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FarmsView } from "./farms-view";
-import { DelegatorsView } from "./delegators-view";
 import { MinersView } from "./miners-view";
-import { ImpactView } from "./impact-view";
-import { CashMinerIcon, ImpactStreakIcon } from "@/components/impact-icons";
+import { WalletLeaderboardView } from "./wallet-leaderboard-view";
+import { CashMinerIcon } from "@/components/impact-icons";
 import { useLang } from "@/lib/i18n";
 
 interface RewardsTabConfig {
-  value: "impact" | "farms" | "delegator" | "miner";
+  value: "wallet" | "farms" | "miner";
   label: string;
   description: string;
   Icon: React.ComponentType<{ className?: string }>;
@@ -66,15 +65,9 @@ export default function RewardsView() {
   const REWARDS_TABS: RewardsTabConfig[] = React.useMemo(
     () => [
       {
-        value: "impact",
-        label: s.tabImpact,
-        description: s.tabImpactDesc,
-        Icon: ImpactStreakIcon,
-      },
-      {
-        value: "delegator",
-        label: s.tabDelegators,
-        description: s.tabDelegatorsDesc,
+        value: "wallet",
+        label: s.tabWallets,
+        description: s.tabWalletsDesc,
         Icon: Users,
       },
       {
@@ -95,16 +88,17 @@ export default function RewardsView() {
 
   const [type, setType] = useQueryState(
     "type",
-    parseAsString.withDefault("impact")
+    parseAsString.withDefault("wallet")
   );
   const [selectedFarmId, setSelectedFarmId] = useQueryState(
     "farmId",
     parseAsString.withDefault("")
   );
 
-  const validType = ["impact", "delegator", "miner", "farms"].includes(type)
-    ? (type as "impact" | "delegator" | "miner" | "farms")
-    : "impact";
+  // Legacy links (?type=impact / ?type=delegator) fold into the merged wallet
+  // leaderboard.
+  const validType: "wallet" | "miner" | "farms" =
+    type === "miner" ? "miner" : type === "farms" ? "farms" : "wallet";
 
   const activeTab =
     REWARDS_TABS.find((tab) => tab.value === validType) ?? REWARDS_TABS[0]!;
@@ -121,21 +115,16 @@ export default function RewardsView() {
             <Tabs
               value={validType}
               onValueChange={(value) => {
-                if (!["impact", "delegator", "miner", "farms"].includes(value))
-                  return;
+                if (!["wallet", "miner", "farms"].includes(value)) return;
 
-                const nextType = value as
-                  | "impact"
-                  | "delegator"
-                  | "miner"
-                  | "farms";
+                const nextType = value as "wallet" | "miner" | "farms";
 
                 setType(nextType);
                 if (nextType !== "farms" && selectedFarmId)
                   setSelectedFarmId("");
               }}
             >
-              <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-2xl border border-border/30 dark:border-border/50 bg-muted/30 dark:bg-muted/40 p-1.5 sm:w-auto sm:grid-cols-4 sm:rounded-full sm:p-2">
+              <TabsList className="grid h-auto w-full grid-cols-3 gap-1 rounded-2xl border border-border/30 dark:border-border/50 bg-muted/30 dark:bg-muted/40 p-1.5 sm:w-auto sm:grid-cols-3 sm:rounded-full sm:p-2">
                 {REWARDS_TABS.map((tab) => (
                   <TabsTrigger
                     key={tab.value}
@@ -150,15 +139,13 @@ export default function RewardsView() {
             </Tabs>
           </div>
 
-          {validType === "impact" ? (
-            <ImpactView />
+          {validType === "wallet" ? (
+            <WalletLeaderboardView />
           ) : validType === "farms" ? (
             <FarmsView
               selectedFarmId={selectedFarmId}
               onSelectFarm={setSelectedFarmId}
             />
-          ) : validType === "delegator" ? (
-            <DelegatorsView />
           ) : (
             <MinersView />
           )}

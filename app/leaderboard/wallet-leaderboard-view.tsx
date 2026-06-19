@@ -1,20 +1,28 @@
 "use client";
 
 /**
- * V2 Impact Leaderboard (Impact tab of /leaderboard).
+ * Unified Wallet Leaderboard (the single board on /leaderboard).
  *
- * Ranks wallets by realized impact: total watts and carbon credits, not
- * by points. Optionally scoped to a single region. Clicking a row opens
- * that wallet's impact detail.
+ * Merges the former Impact and Delegators tabs into one wallet leaderboard
+ * with a 3-metric toggle:
+ *   - vaultedGLW (default): live actively-delegated GLW principal
+ *     (principal − recovered)
+ *   - watts: realized V2 impact watts
+ *   - carbonCredits: realized V2 carbon credits
  *
- * Visual design carried over from the pre-V2 leaderboard: top-3 colored
+ * Backed by `/api/impact/wallet-leaderboard`, which unions delegators with
+ * V2 impact-earning wallets and returns every metric per row already ranked
+ * by the selected sort. We fetch the top 100 for the active metric and
+ * paginate client-side; the podium and "Top X%" follow the active metric.
+ *
+ * Visual design carried over from the V2 impact leaderboard: top-3 colored
  * rank badges, "Top X%" percentile, self-row highlight, ENS over address,
  * desktop table + mobile card layouts.
  */
 import React from "react";
 import { useQueryState, parseAsInteger, parseAsString } from "nuqs";
 import { useAccount, useEnsAddress } from "wagmi";
-import { ArrowDown, ArrowUp, Copy, MapPin, Search } from "lucide-react";
+import { ArrowDown, Copy, Search } from "lucide-react";
 import { isAddress } from "viem";
 import { normalize } from "viem/ens";
 
@@ -31,13 +39,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Pagination,
   PaginationContent,
   PaginationEllipsis,
@@ -51,21 +52,23 @@ import { useLang } from "@/lib/i18n";
 import { formatNumber } from "@/utils/format";
 import { trackEvent } from "@/lib/telemetry";
 import { useEnsNames } from "@/hooks/useEnsNames";
-import { useRegions } from "@/hooks/control-regions";
 import { shortAddress, formatTopPercentile } from "@/utils/impact";
 import { copyTextToClipboard } from "@/utils/clipboard";
+import { formatGLW } from "@/hooks";
 import {
-  useV2ImpactLeaderboard,
-  type V2LeaderboardRow,
-  type V2LeaderboardSort,
-  type V2SortDir,
+  useWalletLeaderboard,
+  type WalletLeaderboardRow,
+  type WalletLeaderboardSort,
 } from "@/hooks/v2-impact";
 import { WalletImpactDialog } from "./wallet-impact-dialog";
 
 const PAGE_SIZE = 50;
+const FETCH_LIMIT = 100;
 
 /** The slice of translated strings this view reads. */
-type LeaderboardStrings = ReturnType<typeof useLang>["t"]["routes"]["impactLeaderboard"];
+type LeaderboardStrings = ReturnType<
+  typeof useLang
+>["t"]["routes"]["impactLeaderboard"];
 
 /** parseFloat is fine here — these strings are only used for display. */
 function fmtMetric(value: string | null | undefined, decimals = 2): string {
@@ -73,6 +76,13 @@ function fmtMetric(value: string | null | undefined, decimals = 2): string {
   const n = Number.parseFloat(value);
   if (Number.isNaN(n)) return "-";
   return formatNumber(n, { maximumFractionDigits: decimals });
+}
+
+/** The displayed value for a row under a given metric. */
+function metricValue(row: WalletLeaderboardRow, key: WalletLeaderboardSort): string {
+  if (key === "vaultedGlw") return formatGLW(row.vaultedGlwWei);
+  if (key === "watts") return fmtMetric(row.totalWatts);
+  return fmtMetric(row.totalCarbonCredits);
 }
 
 /** Rank cell: a colored badge for the top 3, a percentile for the rest. */
@@ -145,17 +155,21 @@ const PODIUM_VARIANTS: Record<
 function PodiumCard({
   row,
   rank,
+  sort,
+  primaryUnit,
+  secondary,
   ens,
   isSelf,
   onClick,
-  t,
 }: {
-  row: V2LeaderboardRow;
+  row: WalletLeaderboardRow;
   rank: PodiumRank;
+  sort: WalletLeaderboardSort;
+  primaryUnit: string;
+  secondary: string;
   ens: string | undefined;
   isSelf: boolean;
   onClick: () => void;
-  t: LeaderboardStrings;
 }) {
   const v = PODIUM_VARIANTS[rank];
   return (
@@ -185,18 +199,20 @@ function PodiumCard({
           {v.label}
         </span>
         <div className="w-full max-w-full truncate px-2 font-mono text-sm font-medium text-foreground">
-          {ens ?? shortAddress(row.wallet)}
+          {ens ?? shortAddress(row.walletAddress)}
         </div>
         <div className="mt-2 flex flex-col items-center gap-0.5">
           <span className="font-mono text-3xl font-bold tabular-nums tracking-tight">
-            {fmtMetric(row.totalWatts)}
+            {metricValue(row, sort)}
           </span>
-          <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-            {t.v2WattsUnit}
-          </span>
+          {primaryUnit ? (
+            <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+              {primaryUnit}
+            </span>
+          ) : null}
         </div>
         <div className="font-mono text-xs tabular-nums text-muted-foreground">
-          {fmtMetric(row.totalCarbonCredits)} {t.v2CarbonLabel.toLowerCase()}
+          {secondary}
         </div>
       </div>
       <Button
@@ -215,45 +231,6 @@ function PodiumCard({
   );
 }
 
-function PodiumTopThree({
-  rows,
-  ensNames,
-  connectedWallet,
-  onRowClick,
-  t,
-}: {
-  rows: V2LeaderboardRow[];
-  ensNames: Record<string, string | null | undefined>;
-  connectedWallet: string | null;
-  onRowClick: (wallet: string) => void;
-  t: LeaderboardStrings;
-}) {
-  if (rows.length < 3) return null;
-  const [r1, r2, r3] = rows;
-
-  const card = (row: V2LeaderboardRow, rank: PodiumRank) => (
-    <PodiumCard
-      row={row}
-      rank={rank}
-      ens={ensNames[row.wallet] ?? undefined}
-      isSelf={connectedWallet === row.wallet.toLowerCase()}
-      onClick={() => onRowClick(row.wallet)}
-      t={t}
-    />
-  );
-
-  return (
-    <div className="px-6 pt-8 pb-2 sm:px-8 md:pt-10">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:items-end md:gap-6">
-        {/* Mobile: 1, 2, 3 top to bottom. Desktop: 2, 1, 3 with #1 elevated. */}
-        <div className="order-2 md:order-1">{card(r2, 2)}</div>
-        <div className="order-1 md:order-2">{card(r1, 1)}</div>
-        <div className="order-3 md:order-3">{card(r3, 3)}</div>
-      </div>
-    </div>
-  );
-}
-
 /** Tailwind classes tinting a row by rank / self-ownership. */
 function rowTint(rank: number, isSelf: boolean): string {
   if (isSelf) {
@@ -268,40 +245,36 @@ function rowTint(rank: number, isSelf: boolean): string {
   return "hover:bg-muted/40 dark:hover:bg-muted/60";
 }
 
-interface SortHeaderProps {
+interface MetricHeaderProps {
   label: string;
-  column: V2LeaderboardSort;
-  activeSort: V2LeaderboardSort;
-  dir: V2SortDir;
-  onSort: (column: V2LeaderboardSort) => void;
+  column: WalletLeaderboardSort;
+  activeSort: WalletLeaderboardSort;
+  onSort: (column: WalletLeaderboardSort) => void;
   className?: string;
 }
 
-function SortHeader({
+/** A sortable metric column header (always ranks descending). */
+function MetricHeader({
   label,
   column,
   activeSort,
-  dir,
   onSort,
   className,
-}: SortHeaderProps) {
+}: MetricHeaderProps) {
   const isActive = activeSort === column;
   return (
     <TableHead className={cn("px-3 text-right", className)}>
       <Button
         type="button"
         variant="ghost"
-        className="ml-auto h-8 px-2 font-mono text-xs uppercase tracking-wider text-muted-foreground"
+        className={cn(
+          "ml-auto h-8 px-2 font-mono text-xs uppercase tracking-wider",
+          isActive ? "text-foreground" : "text-muted-foreground",
+        )}
         onClick={() => onSort(column)}
       >
         {label}
-        {isActive ? (
-          dir === "desc" ? (
-            <ArrowDown className="ml-1 h-3.5 w-3.5" />
-          ) : (
-            <ArrowUp className="ml-1 h-3.5 w-3.5" />
-          )
-        ) : null}
+        {isActive ? <ArrowDown className="ml-1 h-3.5 w-3.5" /> : null}
       </Button>
     </TableHead>
   );
@@ -376,97 +349,80 @@ function WalletCell({
   );
 }
 
-export function ImpactView() {
+function parseSort(value: string | null | undefined): WalletLeaderboardSort {
+  if (value === "watts" || value === "carbonCredits") return value;
+  return "vaultedGlw";
+}
+
+export function WalletLeaderboardView() {
   const { t } = useLang();
   const lb = t.routes.impactLeaderboard;
+  const wl = t.routes.walletsLeaderboard;
   const { address } = useAccount();
   const connectedWallet = address?.toLowerCase() ?? null;
 
-  const sortLabel: Record<V2LeaderboardSort, string> = {
-    totalWatts: lb.v2SortTotalWatts,
-    carbonCredits: lb.v2SortCarbonCredits,
-    policyCredits: lb.v2SortPolicyCredits,
+  const sortMeta: Record<
+    WalletLeaderboardSort,
+    { label: string; unit: string }
+  > = {
+    vaultedGlw: { label: wl.glwActivelyDelegatedLabel, unit: "GLW" },
+    watts: { label: lb.v2ColTotalWatts, unit: lb.v2WattsUnit },
+    carbonCredits: { label: lb.v2ColCarbonCredits, unit: "" },
   };
+  const SORT_OPTIONS: WalletLeaderboardSort[] = [
+    "vaultedGlw",
+    "watts",
+    "carbonCredits",
+  ];
 
   const [sortRaw, setSort] = useQueryState(
     "sort",
-    parseAsString.withDefault("totalWatts"),
+    parseAsString.withDefault("vaultedGlw"),
   );
-  const [dirRaw, setDir] = useQueryState(
-    "dir",
-    parseAsString.withDefault("desc"),
-  );
-  const [regionId, setRegionId] = useQueryState("regionId", parseAsInteger);
   const [page, setPage] = useQueryState("page", parseAsInteger.withDefault(1));
 
-  const { regions } = useRegions();
-
-  const regionScoped = regionId !== null;
-
-  // Only watts and carbon are user-sortable (policy credits == carbon today).
-  const sort: V2LeaderboardSort =
-    sortRaw === "carbonCredits" ? "carbonCredits" : "totalWatts";
-  const dir: V2SortDir = dirRaw === "asc" ? "asc" : "desc";
+  const sort = parseSort(sortRaw);
   const safePage = Math.max(1, page);
 
-  const query = useV2ImpactLeaderboard({
-    sort,
-    dir,
-    regionId,
-    limit: PAGE_SIZE,
-    offset: (safePage - 1) * PAGE_SIZE,
-  });
+  const query = useWalletLeaderboard({ sort, limit: FETCH_LIMIT });
 
-  // Full watts ranking — fixed at sort=totalWatts desc regardless of the user's
-  // table sort, used for two things:
-  //   - the podium (top 3 here are always the global top 3 by watts)
-  //   - the per-row rank/percentile (so "Top X%" reflects the wallet's TRUE
-  //     watts rank, not its position in whatever the user sorted by)
-  // Same region scope as the main query so a region filter still applies.
-  const wattsRankingQuery = useV2ImpactLeaderboard({
-    sort: "totalWatts",
-    dir: "desc",
-    regionId,
-    limit: 500,
-    offset: 0,
-  });
-  const wattsRankingRows = React.useMemo(
-    () => wattsRankingQuery.data?.rows ?? [],
-    [wattsRankingQuery.data],
-  );
+  const rows = React.useMemo(() => query.data?.wallets ?? [], [query.data]);
+  const total = query.data?.totalWalletCount ?? 0;
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const safePageClamped = Math.min(safePage, totalPages);
+
+  // Page-1 podium = the global top 3 for the active metric (rows arrive
+  // already ranked by `sort`). Those wallets are hidden from the table body.
   const podiumRows = React.useMemo(
-    () => wattsRankingRows.slice(0, 3),
-    [wattsRankingRows],
+    () => (safePageClamped === 1 ? rows.slice(0, 3) : []),
+    [rows, safePageClamped],
   );
   const podiumWallets = React.useMemo(
-    () => new Set(podiumRows.map((r) => r.wallet.toLowerCase())),
+    () => new Set(podiumRows.map((r) => r.walletAddress.toLowerCase())),
     [podiumRows],
   );
-  const wattsRankByWallet = React.useMemo(() => {
-    const m = new Map<string, number>();
-    for (const r of wattsRankingRows) m.set(r.wallet.toLowerCase(), r.rank);
-    return m;
-  }, [wattsRankingRows]);
-  const wattsRankTotal = wattsRankingQuery.data?.total ?? 0;
 
-  const rows = React.useMemo(
-    () => query.data?.rows ?? [],
-    [query.data],
-  );
-  const total = query.data?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const startIdx = total === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
-  const endIdx = Math.min(total, safePage * PAGE_SIZE);
+  const bodyRows = React.useMemo(() => {
+    // Slice the fetched top-100 into a fixed per-page window FIRST (consistent
+    // rank indexing across pages), then drop the podium wallets from page 1's
+    // window so they aren't shown twice. Page 1 body = ranks 4..PAGE_SIZE;
+    // later pages are untouched.
+    const start = (safePageClamped - 1) * PAGE_SIZE;
+    const slice = rows.slice(start, start + PAGE_SIZE);
+    if (safePageClamped === 1 && podiumRows.length >= 3) {
+      return slice.filter(
+        (r) => !podiumWallets.has(r.walletAddress.toLowerCase()),
+      );
+    }
+    return slice;
+  }, [rows, podiumRows.length, podiumWallets, safePageClamped]);
+
+  const startIdx = rows.length === 0 ? 0 : (safePageClamped - 1) * PAGE_SIZE + 1;
+  const endIdx = Math.min(rows.length, safePageClamped * PAGE_SIZE);
 
   const { ensNames } = useEnsNames({
-    addresses: React.useMemo(
-      () => [
-        ...rows.map((r) => r.wallet),
-        ...wattsRankingRows.map((r) => r.wallet),
-      ],
-      [rows, wattsRankingRows],
-    ),
-    enabled: rows.length > 0 || wattsRankingRows.length > 0,
+    addresses: React.useMemo(() => rows.map((r) => r.walletAddress), [rows]),
+    enabled: rows.length > 0,
   });
 
   const [detailWallet, setDetailWallet] = React.useState<string | null>(null);
@@ -492,29 +448,16 @@ export function ImpactView() {
   });
 
   const handleSort = React.useCallback(
-    (column: V2LeaderboardSort) => {
-      const nextDir: V2SortDir =
-        column === sort ? (dir === "desc" ? "asc" : "desc") : "desc";
+    (column: WalletLeaderboardSort) => {
       setSort(column);
-      setDir(nextDir);
       setPage(1);
       trackEvent("leaderboard_sort_changed", {
         sort: column,
-        dir: nextDir,
-        region_id: regionId,
-        source: "stats_rewards_impact",
+        dir: "desc",
+        source: "stats_rewards_wallet",
       });
     },
-    [sort, dir, regionId, setSort, setDir, setPage],
-  );
-
-  const handleRegionChange = React.useCallback(
-    (value: string) => {
-      const next = value === "all" ? null : Number(value);
-      setRegionId(next);
-      setPage(1);
-    },
-    [setRegionId, setPage],
+    [setSort, setPage],
   );
 
   const handleRowClick = React.useCallback((wallet: string) => {
@@ -551,7 +494,7 @@ export function ImpactView() {
       setSearchError(null);
       trackEvent("leaderboard_wallet_lookup", {
         query: v,
-        source: "stats_rewards_impact",
+        source: "stats_rewards_wallet",
       });
       setDetailWallet(addr.toLowerCase());
       setDetailOpen(true);
@@ -572,10 +515,27 @@ export function ImpactView() {
     [lb.copied],
   );
 
-  const regionName = (id: number): string =>
-    regions.find((r) => r.id === id)?.name ?? lb.v2RegionFallback(String(id));
-
   const isRefreshing = query.isPlaceholderData;
+
+  // Secondary line on each podium card: the two non-active metrics.
+  const podiumSecondary = React.useCallback(
+    (row: WalletLeaderboardRow): string => {
+      if (sort === "vaultedGlw") {
+        return `${fmtMetric(row.totalWatts)} ${lb.v2WattsUnit} · ${fmtMetric(
+          row.totalCarbonCredits,
+        )} ${lb.v2CarbonLabel.toLowerCase()}`;
+      }
+      if (sort === "watts") {
+        return `${formatGLW(row.vaultedGlwWei)} GLW · ${fmtMetric(
+          row.totalCarbonCredits,
+        )} ${lb.v2CarbonLabel.toLowerCase()}`;
+      }
+      return `${formatGLW(row.vaultedGlwWei)} GLW · ${fmtMetric(
+        row.totalWatts,
+      )} ${lb.v2WattsUnit}`;
+    },
+    [sort, lb],
+  );
 
   return (
     <>
@@ -584,20 +544,19 @@ export function ImpactView() {
         <div className="flex flex-col gap-4 border-b border-border/20 px-6 py-6 dark:border-white/10 sm:flex-row sm:items-end sm:justify-between sm:px-8">
           <div className="space-y-1">
             <h3 className="font-mono text-xs uppercase tracking-widest text-muted-foreground/60">
-              {lb.v2Title}
+              {wl.walletLeaderboard}
             </h3>
             {query.isLoading ? (
               <Skeleton className="h-4 w-72 rounded-md" />
             ) : (
               <p className="font-mono text-sm text-muted-foreground">
-                {lb.v2RankedBy(sortLabel[sort])}
+                {lb.v2RankedBy(sortMeta[sort].label)}
                 <span className="text-muted-foreground/40"> · </span>
                 {lb.v2ShowingCount(
-                  total === 0 ? "0" : `${startIdx}-${endIdx}`,
+                  rows.length === 0 ? "0" : `${startIdx}-${endIdx}`,
                   formatNumber(total),
                   total,
                 )}
-                {regionScoped ? lb.v2InRegion(regionName(regionId!)) : ""}
               </p>
             )}
           </div>
@@ -629,24 +588,23 @@ export function ImpactView() {
                 </span>
               ) : null}
             </form>
-            <div className="flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-muted-foreground" />
-              <Select
-                value={regionId === null ? "all" : String(regionId)}
-                onValueChange={handleRegionChange}
-              >
-                <SelectTrigger className="w-full sm:w-[200px]">
-                  <SelectValue placeholder={lb.v2AllRegions} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{lb.v2AllRegions}</SelectItem>
-                  {regions.map((r) => (
-                    <SelectItem key={r.id} value={String(r.id)}>
-                      {r.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {/* Metric toggle */}
+            <div className="inline-flex w-full rounded-full border border-border/30 bg-muted/30 p-1 dark:border-white/10 sm:w-auto">
+              {SORT_OPTIONS.map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => handleSort(opt)}
+                  className={cn(
+                    "flex-1 whitespace-nowrap rounded-full px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider transition-colors sm:flex-none",
+                    sort === opt
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {sortMeta[opt].label}
+                </button>
+              ))}
             </div>
           </div>
         </div>
@@ -664,21 +622,43 @@ export function ImpactView() {
           </div>
         ) : rows.length === 0 ? (
           <p className="px-6 py-16 text-center text-sm text-muted-foreground">
-            {regionScoped ? lb.v2EmptyRegion : lb.v2EmptyNoWallets}
+            {lb.v2EmptyNoWallets}
           </p>
         ) : (
           <>
-            {/* Podium top-3 (page 1 only). Always the global top 3 by total
-                watts, regardless of the user's table sort. Hides those wallets
-                from the body below to avoid duplication. */}
-            {safePage === 1 && podiumRows.length >= 3 && (
-              <PodiumTopThree
-                rows={podiumRows}
-                ensNames={ensNames}
-                connectedWallet={connectedWallet}
-                onRowClick={handleRowClick}
-                t={lb}
-              />
+            {/* Podium top-3 (page 1 only), for the active metric. */}
+            {podiumRows.length >= 3 && (
+              <div className="px-6 pt-8 pb-2 sm:px-8 md:pt-10">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:items-end md:gap-6">
+                  {([podiumRows[1], podiumRows[0], podiumRows[2]] as const).map(
+                    (row, i) => {
+                      const rank = (i === 1 ? 1 : i === 0 ? 2 : 3) as PodiumRank;
+                      const orderClass =
+                        i === 0
+                          ? "order-2 md:order-1"
+                          : i === 1
+                            ? "order-1 md:order-2"
+                            : "order-3 md:order-3";
+                      return (
+                        <div key={row.walletAddress} className={orderClass}>
+                          <PodiumCard
+                            row={row}
+                            rank={rank}
+                            sort={sort}
+                            primaryUnit={sortMeta[sort].unit}
+                            secondary={podiumSecondary(row)}
+                            ens={ensNames[row.walletAddress] ?? undefined}
+                            isSelf={
+                              connectedWallet === row.walletAddress.toLowerCase()
+                            }
+                            onClick={() => handleRowClick(row.walletAddress)}
+                          />
+                        </div>
+                      );
+                    },
+                  )}
+                </div>
+              </div>
             )}
 
             {/* Mobile cards */}
@@ -688,40 +668,35 @@ export function ImpactView() {
                 isRefreshing && "opacity-60",
               )}
             >
-              {(safePage === 1 && podiumRows.length >= 3
-                ? rows.filter((r) => !podiumWallets.has(r.wallet.toLowerCase()))
-                : rows
-              ).map((row) => {
+              {bodyRows.map((row) => {
                 const isSelf =
-                  connectedWallet === row.wallet.toLowerCase();
-                const trueRank =
-                  wattsRankByWallet.get(row.wallet.toLowerCase()) ?? row.rank;
-                const isTop3 = trueRank <= 3;
+                  connectedWallet === row.walletAddress.toLowerCase();
+                const isTop3 = row.rank <= 3;
                 return (
                   <div
-                    key={row.wallet}
+                    key={row.walletAddress}
                     role="button"
                     tabIndex={0}
-                    onClick={() => handleRowClick(row.wallet)}
+                    onClick={() => handleRowClick(row.walletAddress)}
                     onKeyDown={(e) => {
                       if (e.key !== "Enter" && e.key !== " ") return;
                       e.preventDefault();
-                      handleRowClick(row.wallet);
+                      handleRowClick(row.walletAddress);
                     }}
                     className={cn(
                       "cursor-pointer rounded-xl border p-4 transition-colors",
                       isSelf || isTop3
                         ? "border-transparent"
                         : "border-border/20 bg-muted/30 dark:border-white/10 dark:bg-zinc-800",
-                      rowTint(trueRank, isSelf),
+                      rowTint(row.rank, isSelf),
                     )}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 space-y-2">
-                        <RankCell rank={trueRank} total={wattsRankTotal} t={lb} />
+                        <RankCell rank={row.rank} total={total} t={lb} />
                         <WalletCell
-                          wallet={row.wallet}
-                          ens={ensNames[row.wallet]}
+                          wallet={row.walletAddress}
+                          ens={ensNames[row.walletAddress]}
                           isSelf={isSelf}
                           isTop3={isTop3}
                           onCopy={handleCopy}
@@ -730,17 +705,16 @@ export function ImpactView() {
                       </div>
                     </div>
                     <div className="mt-3 font-mono text-2xl font-bold tabular-nums tracking-tight">
-                      {fmtMetric(row.totalWatts)}
-                      <span className="ml-1.5 text-xs font-normal text-muted-foreground">
-                        {lb.v2WattsUnit}
-                      </span>
+                      {metricValue(row, sort)}
+                      {sortMeta[sort].unit ? (
+                        <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                          {sortMeta[sort].unit}
+                        </span>
+                      ) : null}
                     </div>
                     <div className="mt-1.5 flex items-center gap-3 font-mono text-xs text-muted-foreground">
-                      <span>
-                        {lb.v2CarbonLabel}{" "}
-                        <span className="tabular-nums text-foreground">
-                          {fmtMetric(row.totalCarbonCredits)}
-                        </span>
+                      <span className="tabular-nums">
+                        {podiumSecondary(row)}
                       </span>
                     </div>
                   </div>
@@ -764,74 +738,70 @@ export function ImpactView() {
                     <TableHead className="h-11 min-w-[220px] px-3 font-mono text-xs uppercase tracking-wider text-muted-foreground">
                       {lb.v2ColWallet}
                     </TableHead>
-                    <SortHeader
-                      label={lb.v2ColTotalWatts}
-                      column="totalWatts"
+                    <MetricHeader
+                      label={sortMeta.vaultedGlw.label}
+                      column="vaultedGlw"
                       activeSort={sort}
-                      dir={dir}
                       onSort={handleSort}
-                      className="h-11 w-[180px]"
+                      className="h-11 w-[200px]"
                     />
-                    <SortHeader
-                      label={lb.v2ColCarbonCredits}
+                    <MetricHeader
+                      label={sortMeta.watts.label}
+                      column="watts"
+                      activeSort={sort}
+                      onSort={handleSort}
+                      className="h-11 w-[160px]"
+                    />
+                    <MetricHeader
+                      label={sortMeta.carbonCredits.label}
                       column="carbonCredits"
                       activeSort={sort}
-                      dir={dir}
                       onSort={handleSort}
-                      className="h-11 w-[170px] rounded-tr-xl"
+                      className="h-11 w-[160px] rounded-tr-xl"
                     />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(safePage === 1 && podiumRows.length >= 3
-                    ? rows.filter(
-                        (r) => !podiumWallets.has(r.wallet.toLowerCase()),
-                      )
-                    : rows
-                  ).map((row) => {
+                  {bodyRows.map((row) => {
                     const isSelf =
-                      connectedWallet === row.wallet.toLowerCase();
-                    const trueRank =
-                      wattsRankByWallet.get(row.wallet.toLowerCase()) ??
-                      row.rank;
-                    const isTop3 = trueRank <= 3;
+                      connectedWallet === row.walletAddress.toLowerCase();
+                    const isTop3 = row.rank <= 3;
+                    const cellClass = (key: WalletLeaderboardSort) =>
+                      cn(
+                        "px-3 py-3 text-right font-mono tabular-nums",
+                        sort === key
+                          ? "text-base font-semibold text-foreground"
+                          : "text-sm text-muted-foreground",
+                      );
                     return (
                       <TableRow
-                        key={row.wallet}
-                        onClick={() => handleRowClick(row.wallet)}
+                        key={row.walletAddress}
+                        onClick={() => handleRowClick(row.walletAddress)}
                         className={cn(
                           "cursor-pointer transition-colors",
-                          rowTint(trueRank, isSelf),
+                          rowTint(row.rank, isSelf),
                         )}
                       >
                         <TableCell className="px-4 py-3">
-                          <RankCell
-                            rank={trueRank}
-                            total={wattsRankTotal}
-                            t={lb}
-                          />
+                          <RankCell rank={row.rank} total={total} t={lb} />
                         </TableCell>
                         <TableCell className="px-3 py-3">
                           <WalletCell
-                            wallet={row.wallet}
-                            ens={ensNames[row.wallet]}
+                            wallet={row.walletAddress}
+                            ens={ensNames[row.walletAddress]}
                             isSelf={isSelf}
                             isTop3={isTop3}
                             onCopy={handleCopy}
                             t={lb}
                           />
                         </TableCell>
-                        <TableCell
-                          className={cn(
-                            "px-3 py-3 text-right font-mono text-base font-semibold tabular-nums",
-                            trueRank === 1
-                              ? "text-[color:var(--color-glow-black)] dark:text-[color:var(--color-glow-yellow)]"
-                              : "text-foreground",
-                          )}
-                        >
+                        <TableCell className={cellClass("vaultedGlw")}>
+                          {formatGLW(row.vaultedGlwWei)}
+                        </TableCell>
+                        <TableCell className={cellClass("watts")}>
                           {fmtMetric(row.totalWatts)}
                         </TableCell>
-                        <TableCell className="px-3 py-3 text-right font-mono text-sm tabular-nums text-muted-foreground">
+                        <TableCell className={cellClass("carbonCredits")}>
                           {fmtMetric(row.totalCarbonCredits)}
                         </TableCell>
                       </TableRow>
@@ -845,7 +815,7 @@ export function ImpactView() {
             {totalPages > 1 ? (
               <div className="flex items-center justify-between gap-3 border-t border-border/20 px-6 py-6 dark:border-white/10 sm:px-8">
                 <span className="font-mono text-xs text-muted-foreground">
-                  {lb.pageOf(String(safePage), String(totalPages))}
+                  {lb.pageOf(String(safePageClamped), String(totalPages))}
                 </span>
                 <Pagination className="mx-0 w-auto justify-end">
                   <PaginationContent>
@@ -853,12 +823,13 @@ export function ImpactView() {
                       <PaginationPrevious
                         size="default"
                         className={cn(
-                          safePage <= 1 && "pointer-events-none opacity-40",
+                          safePageClamped <= 1 &&
+                            "pointer-events-none opacity-40",
                         )}
-                        onClick={() => setPage(Math.max(1, safePage - 1))}
+                        onClick={() => setPage(Math.max(1, safePageClamped - 1))}
                       />
                     </PaginationItem>
-                    {buildPageList(safePage, totalPages).map((entry, i) =>
+                    {buildPageList(safePageClamped, totalPages).map((entry, i) =>
                       entry === "ellipsis" ? (
                         <PaginationItem key={`e${i}`}>
                           <PaginationEllipsis />
@@ -867,7 +838,7 @@ export function ImpactView() {
                         <PaginationItem key={entry}>
                           <PaginationLink
                             size="icon"
-                            isActive={safePage === entry}
+                            isActive={safePageClamped === entry}
                             onClick={() => setPage(entry)}
                           >
                             {entry}
@@ -879,11 +850,11 @@ export function ImpactView() {
                       <PaginationNext
                         size="default"
                         className={cn(
-                          safePage >= totalPages &&
+                          safePageClamped >= totalPages &&
                             "pointer-events-none opacity-40",
                         )}
                         onClick={() =>
-                          setPage(Math.min(totalPages, safePage + 1))
+                          setPage(Math.min(totalPages, safePageClamped + 1))
                         }
                       />
                     </PaginationItem>

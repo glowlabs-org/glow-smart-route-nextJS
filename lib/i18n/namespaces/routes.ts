@@ -295,6 +295,8 @@ export interface RoutesStrings {
     gctlMintTooltip: string;
     viewPairOnDefined: string;
     rewardsLeaderboard: string;
+    tabWallets: string;
+    tabWalletsDesc: string;
     tabImpact: string;
     tabImpactDesc: string;
     tabDelegators: string;
@@ -1279,6 +1281,8 @@ const en: RoutesStrings = {
       "Dynamic price to mint new GCTL tokens = ceil(√GLW Price / $0.05) × $0.05. The price is the square root of GLW price, rounded up to the nearest 5 cents.",
     viewPairOnDefined: "View pair on Defined.fi",
     rewardsLeaderboard: "Leaderboard",
+    tabWallets: "Wallets",
+    tabWalletsDesc: "Ranked by vaulted GLW, watts & carbon credits",
     tabImpact: "Impact",
     tabImpactDesc: "Leaderboard ranked by watts & carbon credits",
     tabDelegators: "Delegators",
@@ -2338,6 +2342,8 @@ const ko: RoutesStrings = {
       "새 GCTL 토큰의 동적 민트 가격 = ceil(√GLW 가격 / $0.05) × $0.05. GLW 가격의 제곱근을 5센트 단위로 올림 처리합니다.",
     viewPairOnDefined: "Defined.fi에서 페어 보기",
     rewardsLeaderboard: "리더보드",
+    tabWallets: "지갑",
+    tabWalletsDesc: "활성 위임 GLW, 와트 및 탄소 크레딧 기준 순위",
     tabImpact: "임팩트",
     tabImpactDesc: "와트 및 탄소 크레딧 기준 리더보드",
     tabDelegators: "위임자",
@@ -3390,6 +3396,8 @@ const zh: RoutesStrings = {
       "新 GCTL 代币的动态铸造价格 = ceil(√GLW 价格 / $0.05) × $0.05。该价格为 GLW 价格的平方根,向上取整至最接近的 5 美分。",
     viewPairOnDefined: "在 Defined.fi 查看交易对",
     rewardsLeaderboard: "排行榜",
+    tabWallets: "钱包",
+    tabWalletsDesc: "按活跃委托的 GLW、瓦特和碳信用排名",
     tabImpact: "影响力",
     tabImpactDesc: "按瓦特和碳信用排名的排行榜",
     tabDelegators: "委托人",

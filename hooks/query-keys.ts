@@ -233,5 +233,7 @@ export const QUERY_KEYS = {
       ] as const,
     impactWallet: (wallet?: string | null) =>
       ["v2", "impact-wallet", wallet?.toLowerCase() ?? null] as const,
+    walletLeaderboard: (sort?: string | null, limit?: number | null) =>
+      ["v2", "wallet-leaderboard", sort ?? null, limit ?? null] as const,
   },
 } as const;

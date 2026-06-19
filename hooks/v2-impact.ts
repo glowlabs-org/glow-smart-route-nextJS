@@ -116,6 +116,64 @@ export function useV2ImpactLeaderboard(
   });
 }
 
+/**
+ * Unified wallet leaderboard sort metrics. `vaultedGlw` ranks by live
+ * actively-delegated GLW principal (principal − recovered); `watts` and
+ * `carbonCredits` rank by realized V2 impact.
+ */
+export type WalletLeaderboardSort = "vaultedGlw" | "watts" | "carbonCredits";
+
+export interface WalletLeaderboardRow {
+  rank: number;
+  walletAddress: string;
+  /** Actively-delegated GLW principal, in wei (1e18). "0" for non-delegators. */
+  vaultedGlwWei: string;
+  /** Realized watts, decimal string (scale-12). "0" when no impact. */
+  totalWatts: string;
+  /** Realized carbon credits, decimal string (scale-12). "0" when no impact. */
+  totalCarbonCredits: string;
+  /** Delegator-only context fields (0 / "0.0" for non-delegators). */
+  glwPerWeekWei: string;
+  netRewardsWei: string;
+  sharePercent: string;
+}
+
+export interface WalletLeaderboardResponse {
+  sort: WalletLeaderboardSort;
+  weekRange: { startWeek: number; endWeek: number };
+  limit: number;
+  totalWalletCount: number;
+  wallets: WalletLeaderboardRow[];
+}
+
+export interface UseWalletLeaderboardOptions {
+  sort?: WalletLeaderboardSort;
+  limit?: number;
+}
+
+/**
+ * The unified wallet leaderboard backing the merged `/leaderboard` board.
+ * Returns every metric per row (already ranked by `sort` and sliced to the
+ * top `limit`), so the UI can paginate client-side and re-rank on toggle
+ * with a single fetch per metric.
+ */
+export function useWalletLeaderboard(options: UseWalletLeaderboardOptions = {}) {
+  const sort = options.sort ?? "vaultedGlw";
+  const limit = options.limit ?? 100;
+  return useQuery({
+    queryKey: QUERY_KEYS.v2.walletLeaderboard(sort, limit),
+    queryFn: () => {
+      const params = new URLSearchParams({ sort, limit: String(limit) });
+      return v2ApiGet<WalletLeaderboardResponse>(
+        `/api/impact/wallet-leaderboard?${params.toString()}`,
+      );
+    },
+    staleTime: STALE_TIMES.SLOW,
+    refetchOnWindowFocus: false,
+    placeholderData: keepPreviousData,
+  });
+}
+
 export function useV2ImpactWallet(wallet: string | null | undefined) {
   return useQuery({
     queryKey: QUERY_KEYS.v2.impactWallet(wallet),
