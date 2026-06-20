@@ -206,3 +206,86 @@ export function useDiscordLink({
     isBinding: bindMutation.isPending,
   };
 }
+
+export type FlexMetric = "vault" | "watts" | "carbon";
+
+export interface FlexPreviewStats {
+  /** Whether the wallet belongs to a verified Discord group (vs. just itself). */
+  linked: boolean;
+  /** Number of wallets aggregated (the Discord group size, or 1 if unlinked). */
+  walletCount: number;
+  vaultedGlwWei: string;
+  totalWatts: string;
+  totalCarbonCredits: string;
+  /** Best of the entity's three grouped leaderboard ranks, or null if unranked. */
+  bestRank: { rank: number; metric: FlexMetric } | null;
+}
+
+/**
+ * The exact figures `!flex` shows — vault / power / carbon + best rank —
+ * aggregated across the user's whole Discord group, for the /connect preview.
+ * Hits the keyless GET /discord/flex-preview, which reuses the same grouped
+ * build as the bot's /discord/flex (so the preview matches what Luna prints).
+ */
+export function useFlexPreview({
+  wallet,
+  enabled = true,
+}: {
+  wallet?: string | null;
+  enabled?: boolean;
+}) {
+  return useQuery<FlexPreviewStats>({
+    queryKey: ["discord-flex-preview", wallet?.toLowerCase() ?? null],
+    enabled: Boolean(enabled && wallet),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    queryFn: () =>
+      hubGet<FlexPreviewStats>("/discord/flex-preview", {
+        params: { walletAddress: wallet! },
+      }),
+  });
+}
+
+export interface LeaderboardPreviewRow {
+  rank: number;
+  name: string;
+  nameKind: "discord" | "ens" | "address";
+  vaultedGlwWei: string;
+  totalWatts: string;
+  totalCarbonCredits: string;
+  isYou: boolean;
+}
+
+export interface LeaderboardPreviewResponse {
+  metric: FlexMetric;
+  totalEntities: number;
+  you: { rank: number } | null;
+  rows: LeaderboardPreviewRow[];
+}
+
+/**
+ * Top-10 grouped leaderboard for a metric, with the user's own row flagged —
+ * what `!leaderboard` prints. Keyless GET /discord/leaderboard-preview (same
+ * grouped/ranked data as the bot's x-api-key /discord/leaderboard).
+ */
+export function useLeaderboardPreview({
+  wallet,
+  metric,
+  enabled = true,
+}: {
+  wallet?: string | null;
+  metric: FlexMetric;
+  enabled?: boolean;
+}) {
+  return useQuery<LeaderboardPreviewResponse>({
+    queryKey: ["discord-leaderboard-preview", wallet?.toLowerCase() ?? null, metric],
+    enabled: Boolean(enabled && wallet),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    placeholderData: (prev) => prev,
+    queryFn: () =>
+      hubGet<LeaderboardPreviewResponse>("/discord/leaderboard-preview", {
+        params: { walletAddress: wallet!, metric },
+      }),
+  });
+}

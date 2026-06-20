@@ -15,7 +15,7 @@ export default function ConnectPage() {
     <>
       <Header withIsScrolled={true} />
       <div className="min-h-screen bg-background">
-        <section className="max-w-2xl mx-auto px-4 md:px-6 lg:px-12 pb-16 pt-8">
+        <section className="max-w-md mx-auto px-4 pb-16 pt-12">
           <Suspense
             fallback={
               <div className="h-96 w-full animate-pulse rounded-3xl bg-muted/40" />
