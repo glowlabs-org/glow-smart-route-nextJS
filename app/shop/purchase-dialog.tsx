@@ -204,7 +204,7 @@ function WattsSourceStrip({ item }: { item: V2ShopItem }) {
           ? ` and ${extraCount} more farm${extraCount === 1 ? "" : "s"}`
           : ""}
         . The watts are the main thing; their associated impact comes with
-        them, including Carbon Credits today and the Solar Footprint equivalents
+        them, including Tons of CO₂ today and the Solar Footprint equivalents
         they power.
       </p>
       <div className="grid grid-cols-2 gap-2">
@@ -309,7 +309,7 @@ function GrantSummary({
             <p>
               {formatNumber(Number(g.wattsGranted))} watts added to your impact
               {carbon != null && Number.isFinite(carbon)
-                ? ` with ${formatNumber(carbon)} carbon credits`
+                ? ` with ${formatNumber(carbon)} tons of CO₂`
                 : ""}
               {g.newWalletWatts != null
                 ? `, you now hold ${formatNumber(Number(g.newWalletWatts))} watts.`

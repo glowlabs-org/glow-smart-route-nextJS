@@ -1223,14 +1223,14 @@ const en: WidgetStrings = {
       "Your Solar Footprint is the clean solar capacity attributed to your wallet, measured in watts. It comes from real funded farms and farm-backed impact assets, so it tells the story of the solar capacity your activity helped support.",
     impactPowerLabel: "Attributed impact",
     impactPowerDescription:
-      "Watts are attributed through eligible network participation: delegated GLW, delegated sGCTL, miner activity, referrals, and points-shop watt redemptions. The watt is the primary unit; the associated impact comes with it, including Carbon Credits today and derived equivalents like energy, homes powered, and trees.",
+      "Watts are attributed through eligible network participation: delegated GLW, delegated sGCTL, miner activity, referrals, and points-shop watt redemptions. The watt is the primary unit; the associated impact comes with it, including Tons of CO₂ today and derived equivalents like energy, homes powered, and trees.",
     whatToExpect: "How it works",
     expectItem1Title: "Watts come from real farms",
     expectItem1Body:
       "Each watt is backed by funded solar capacity and tied to farm and region data where available.",
     expectItem2Title: "The impact comes with the watts",
     expectItem2Body:
-      "When watts are attributed to you, Glow also carries the connected impact story: Carbon Credits today, plus estimates like energy produced, homes powered, and adult trees equivalent.",
+      "When watts are attributed to you, Glow also carries the connected impact story: Tons of CO₂ today, plus estimates like energy produced, homes powered, and adult trees equivalent.",
     expectItem3Title: "Your footprint updates over time",
     expectItem3Body:
       "As farms fund, rewards settle, and shop redemptions complete, your attributed watts and impact totals update.",
@@ -1898,14 +1898,14 @@ const ko: WidgetStrings = {
       "솔라 풋프린트는 지갑에 귀속된 청정 태양광 용량이며 와트로 측정됩니다. 실제 펀딩된 발전소와 발전소 기반 임팩트 자산에서 오기 때문에, 내가 지원한 태양광 용량의 이야기를 보여줍니다.",
     impactPowerLabel: "귀속된 임팩트",
     impactPowerDescription:
-      "와트는 자격 있는 네트워크 참여를 통해 귀속됩니다. GLW 위임, 위임된 sGCTL, 마이너 활동, 추천, 포인트 샵 와트 교환이 포함됩니다. 와트가 기본 단위이며, 연결된 임팩트가 함께 따라옵니다. 현재는 탄소 크레딧과 에너지, 전력 공급 가구, 나무 환산 같은 추정치가 포함됩니다.",
+      "와트는 자격 있는 네트워크 참여를 통해 귀속됩니다. GLW 위임, 위임된 sGCTL, 마이너 활동, 추천, 포인트 샵 와트 교환이 포함됩니다. 와트가 기본 단위이며, 연결된 임팩트가 함께 따라옵니다. 현재는 CO₂ 톤과 에너지, 전력 공급 가구, 나무 환산 같은 추정치가 포함됩니다.",
     whatToExpect: "작동 방식",
     expectItem1Title: "와트는 실제 발전소에서 옵니다",
     expectItem1Body:
       "각 와트는 펀딩된 태양광 용량을 기반으로 하며 가능한 경우 발전소와 지역 데이터에 연결됩니다.",
     expectItem2Title: "임팩트는 와트와 함께 옵니다",
     expectItem2Body:
-      "와트가 귀속될 때 Glow는 연결된 임팩트 이야기도 함께 보여줍니다. 현재는 탄소 크레딧과 생산 에너지, 전력 공급 가구, 성목 환산 추정치가 포함됩니다.",
+      "와트가 귀속될 때 Glow는 연결된 임팩트 이야기도 함께 보여줍니다. 현재는 CO₂ 톤과 생산 에너지, 전력 공급 가구, 성목 환산 추정치가 포함됩니다.",
     expectItem3Title: "풋프린트는 계속 업데이트됩니다",
     expectItem3Body:
       "발전소가 펀딩되고 리워드가 정산되며 샵 교환이 완료되면 귀속된 와트와 임팩트 합계가 업데이트됩니다.",
@@ -2563,14 +2563,14 @@ const zh: WidgetStrings = {
       "您的太阳能足迹是归属于您钱包的清洁太阳能容量，以瓦特衡量。它来自真实获得资助的农场和农场支持的影响资产，用来讲述您的活动支持了哪些太阳能容量。",
     impactPowerLabel: "已归属影响",
     impactPowerDescription:
-      "瓦特会通过符合条件的网络参与归属给您：委托 GLW、委托 sGCTL、矿机活动、推荐以及积分商店中的瓦特兑换。瓦特是主要单位；关联影响会随之而来，包括目前的碳信用，以及发电量、可供电家庭数和成年树木等效等估算值。",
+      "瓦特会通过符合条件的网络参与归属给您：委托 GLW、委托 sGCTL、矿机活动、推荐以及积分商店中的瓦特兑换。瓦特是主要单位；关联影响会随之而来，包括目前的 CO₂ 吨，以及发电量、可供电家庭数和成年树木等效等估算值。",
     whatToExpect: "运作方式",
     expectItem1Title: "瓦特来自真实农场",
     expectItem1Body:
       "每一瓦都由已资助的太阳能容量支持，并在可用时关联到农场和区域数据。",
     expectItem2Title: "影响随瓦特一起归属",
     expectItem2Body:
-      "当瓦特归属于您时，Glow 也会呈现与之相连的影响故事：目前包括碳信用，以及发电量、可供电家庭数和成年树木等效等估算值。",
+      "当瓦特归属于您时，Glow 也会呈现与之相连的影响故事：目前包括 CO₂ 吨，以及发电量、可供电家庭数和成年树木等效等估算值。",
     expectItem3Title: "您的足迹会持续更新",
     expectItem3Body:
       "随着农场获得资助、奖励结算和商店兑换完成，您的归属瓦特和影响总量会更新。",
