@@ -174,7 +174,7 @@ export function WattsBreakdownDialog({
             </div>
             <div className="text-[10px] font-mono text-muted-foreground/50 uppercase tracking-wider mt-2">
               {totalCarbon > 0
-                ? `${fmtWatts(totalCarbon)} carbon credits · ${farmCount} ${farmCount === 1 ? "farm" : "farms"} · ${regionCount} ${regionCount === 1 ? "region" : "regions"}`
+                ? `${fmtWatts(totalCarbon)} tons of CO₂ · ${farmCount} ${farmCount === 1 ? "farm" : "farms"} · ${regionCount} ${regionCount === 1 ? "region" : "regions"}`
                 : "Solar impact across all funded farms"}
             </div>
           </div>
@@ -265,7 +265,7 @@ export function WattsBreakdownDialog({
                             </div>
                             <div className="flex flex-col min-w-0">
                               <span className="text-sm font-medium text-foreground truncate">
-                                Carbon credits
+                                Tons of CO₂
                               </span>
                               <span className="text-[10px] text-muted-foreground truncate">
                                 30-year lifetime offset from your share

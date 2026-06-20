@@ -523,12 +523,12 @@ export function WalletLeaderboardView() {
       if (sort === "vaultedGlw") {
         return `${fmtMetric(row.totalWatts)} ${lb.v2WattsUnit} · ${fmtMetric(
           row.totalCarbonCredits,
-        )} ${lb.v2CarbonLabel.toLowerCase()}`;
+        )} ${lb.v2CarbonLabel}`;
       }
       if (sort === "watts") {
         return `${formatGLW(row.vaultedGlwWei)} GLW · ${fmtMetric(
           row.totalCarbonCredits,
-        )} ${lb.v2CarbonLabel.toLowerCase()}`;
+        )} ${lb.v2CarbonLabel}`;
       }
       return `${formatGLW(row.vaultedGlwWei)} GLW · ${fmtMetric(
         row.totalWatts,

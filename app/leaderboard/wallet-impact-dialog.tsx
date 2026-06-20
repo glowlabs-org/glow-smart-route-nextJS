@@ -377,7 +377,7 @@ export function WalletImpactDialog({
       "My real-world solar impact on @GlowFND ☀️",
       "",
       `⚡ ${fmt(data.totalWatts, 0)} watts of clean energy`,
-      `🌱 ${fmt(data.totalCarbonCredits, 0)} carbon credits (≈ ${fmt(
+      `🌱 ${fmt(data.totalCarbonCredits, 0)} tons of CO₂ (≈ ${fmt(
         String(equiv.trees),
         0,
       )} trees)`,

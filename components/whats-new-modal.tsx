@@ -59,7 +59,7 @@ const FEATURES: Feature[] = [
     body: "Every funded solar farm shares its watts with the people who made it happen: delegators, stakers and their referrers. That’s your real, on-the-ground impact.",
     highlights: [
       "Earn watts from funded farms",
-      "Carbon credits, calculated per farm",
+      "Tons of CO₂, calculated per farm",
       "Leaderboard now ranks by impact",
     ],
   },

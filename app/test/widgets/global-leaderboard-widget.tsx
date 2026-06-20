@@ -152,7 +152,7 @@ export default function GlobalLeaderboardWidget({
                         </div>
                         <div className="flex flex-col items-end">
                           <span className="text-[10px] uppercase text-muted-foreground font-mono tracking-wider">
-                            Carbon
+                            Tons of CO₂
                           </span>
                           <span className="text-sm font-medium font-mono text-foreground/80 tabular-nums">
                             {fmtCarbon(row.totalCarbonCredits)}
