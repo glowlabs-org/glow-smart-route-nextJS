@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowUpRight, Users, Zap } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowUpRight, Users, Zap, Link2 } from "lucide-react";
 import { useAccount } from "wagmi";
 
 import { Card, CardContent } from "@/components/ui/card";
@@ -35,6 +36,7 @@ export default function DiscordWidget({
   variant = "default",
 }: DiscordWidgetProps) {
   const { t } = useLang();
+  const router = useRouter();
   const { address, isConnected } = useAccount();
   const walletAddress = address?.toLowerCase() ?? null;
   const source = "discord_widget";
@@ -123,6 +125,28 @@ export default function DiscordWidget({
               >
                 {t.widgets.discord.description}
               </p>
+
+              {/* When a wallet is connected, offer the sign-to-bind link flow.
+                  A <button> is valid inside the card's <a>; stop propagation so
+                  it doesn't also fire the community-invite navigation. */}
+              {isConnected ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    trackEvent("dashboard_discord_link_cta", {
+                      source,
+                      wallet_address: walletAddress,
+                    });
+                    router.push("/connect");
+                  }}
+                  className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/20 px-4 py-2 text-xs font-semibold text-white backdrop-blur-md transition-colors hover:bg-black/30"
+                >
+                  <Link2 className="h-4 w-4" />
+                  Link your Discord to flex your stats
+                </button>
+              ) : null}
 
               {/* Stats / Features Grid to fill empty space */}
               <div className="grid grid-cols-2 gap-4 pt-2">
