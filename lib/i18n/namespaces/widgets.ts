@@ -25,7 +25,6 @@ export interface WidgetStrings {
     quotePre: string;
     quoteHighlight: string;
     quotePost: string;
-    attribution: string;
     buyGlw: string;
   };
 
@@ -649,11 +648,10 @@ export interface WidgetStrings {
 
 const en: WidgetStrings = {
   onboardingHero: {
-    kicker: "New to Glow? Start Here",
-    quotePre: '"If everyone in the world owned',
-    quoteHighlight: "$20 of GLW",
-    quotePost: ', we could eliminate fossil fuels by 2030."',
-    attribution: "David Vorick, CEO",
+    kicker: "Join Glow",
+    quotePre: "To participate on the launchpad, we recommend having",
+    quoteHighlight: "$500 of GLW",
+    quotePost: ".",
     buyGlw: "Buy GLW",
   },
 
@@ -1324,11 +1322,10 @@ const en: WidgetStrings = {
 
 const ko: WidgetStrings = {
   onboardingHero: {
-    kicker: "Glow가 처음이신가요? 여기서 시작하세요",
-    quotePre: '"세상 모든 사람이',
-    quoteHighlight: "$20의 GLW",
-    quotePost: '를 소유한다면, 2030년까지 화석연료를 없앨 수 있습니다."',
-    attribution: "데이비드 보릭, CEO",
+    kicker: "Glow에 참여하기",
+    quotePre: "런치패드에 참여하려면",
+    quoteHighlight: "$500의 GLW",
+    quotePost: "를 보유하는 것을 권장합니다.",
     buyGlw: "GLW 구매",
   },
 
@@ -1999,11 +1996,10 @@ const ko: WidgetStrings = {
 
 const zh: WidgetStrings = {
   onboardingHero: {
-    kicker: "初识 Glow？从这里开始",
-    quotePre: '"如果世界上每个人都拥有',
-    quoteHighlight: "$20 的 GLW",
-    quotePost: '，我们就能在 2030 年前淘汰化石燃料。"',
-    attribution: "David Vorick，CEO",
+    kicker: "加入 Glow",
+    quotePre: "若要参与启动板，我们建议持有",
+    quoteHighlight: "$500 的 GLW",
+    quotePost: "。",
     buyGlw: "购买 GLW",
   },
 

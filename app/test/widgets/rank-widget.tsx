@@ -65,7 +65,7 @@ interface RankWidgetProps {
   readOnly?: boolean;
 }
 
-function RankWidgetSkeleton({
+export function RankWidgetSkeleton({
   variant = "default",
 }: {
   variant?: "default" | "hero";

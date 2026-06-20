@@ -67,13 +67,6 @@ export default function OnboardingHeroWidget({
                 {t.widgets.onboardingHero.quotePost}
               </span>
             </h2>
-
-            <div className="mt-4 flex items-center justify-center md:justify-start gap-3">
-              <div className="h-px w-8 bg-border/40 dark:bg-border/60" />
-              <p className="text-sm font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                {t.widgets.onboardingHero.attribution}
-              </p>
-            </div>
           </div>
         </div>
 

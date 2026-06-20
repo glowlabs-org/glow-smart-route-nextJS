@@ -118,6 +118,8 @@ const FDV_TOTAL_TOKENS_GLW = 180_000_000;
 const MINER_INFLATION_PER_WEEK_GLW = 175_000;
 const VETO_COUNCIL_INFLATION_PER_WEEK_GLW = 5_000;
 const MIN_LIFETIME_REVENUE_LQ = 2_000;
+// Per-region revenue table shows this many rows before the "show more" toggle.
+const REGION_PREVIEW_COUNT = 5;
 const FARM_IMAGE_MODAL_WIDTH = 900;
 const FARM_IMAGE_MODAL_QUALITY = 85;
 const DEFINED_FI_GLOW_URL =
@@ -196,6 +198,8 @@ const POL_COPY = {
     threeMonth: "3 Month",
     farms: "Farms",
     gctlStakedSuffix: "GCTL staked",
+    showMoreRegions: (count: number) => `Show ${count} more ↓`,
+    showLessRegions: "Show less ↑",
     tokenEmissions: "Token Emissions Over Time",
     tokenBreakdown: "Token breakdown",
     glwTotal: "GLW total",
@@ -322,6 +326,8 @@ const POL_COPY = {
     threeMonth: "3개월",
     farms: "발전소",
     gctlStakedSuffix: "GCTL 스테이킹",
+    showMoreRegions: (count: number) => `${count}개 더 보기 ↓`,
+    showLessRegions: "간략히 보기 ↑",
     tokenEmissions: "시간별 토큰 발행",
     tokenBreakdown: "토큰 구성",
     glwTotal: "GLW 총량",
@@ -447,6 +453,8 @@ const POL_COPY = {
     threeMonth: "3 个月",
     farms: "电站",
     gctlStakedSuffix: "已质押 GCTL",
+    showMoreRegions: (count: number) => `显示其余 ${count} 个 ↓`,
+    showLessRegions: "收起 ↑",
     tokenEmissions: "代币发行随时间变化",
     tokenBreakdown: "代币构成",
     glwTotal: "GLW 总量",
@@ -3516,6 +3524,20 @@ const DelegationRegionsAndImpactSection = React.memo(
     setIsNetworkImpactDialogOpen: (open: boolean) => void;
   }) {
     const p = usePolCopy();
+    const [showAllRegions, setShowAllRegions] = React.useState(false);
+    // Rank the table by lifetime revenue so the top-5 preview surfaces the
+    // highest-earning regions; rows without data (null) sink to the bottom.
+    const sortedRegions = React.useMemo(
+      () =>
+        [...regionsRowsForRender].sort(
+          (a, b) => (b.lifetimeLq ?? -Infinity) - (a.lifetimeLq ?? -Infinity),
+        ),
+      [regionsRowsForRender],
+    );
+    const hasMoreRegions = sortedRegions.length > REGION_PREVIEW_COUNT;
+    const visibleRegions = showAllRegions
+      ? sortedRegions
+      : sortedRegions.slice(0, REGION_PREVIEW_COUNT);
 
     return (
       <>
@@ -3560,7 +3582,7 @@ const DelegationRegionsAndImpactSection = React.memo(
                     helper={
                       hasDelegationData ? undefined : p.liveUnavailable
                     }
-                    valueClassName="text-lg sm:text-2xl tracking-tight"
+                    valueClassName="text-2xl sm:text-4xl tracking-tight"
                   />
                   <MiniStat
                     label={p.delegators}
@@ -3570,7 +3592,7 @@ const DelegationRegionsAndImpactSection = React.memo(
                         ? undefined
                         : p.liveUnavailable
                     }
-                    valueClassName="text-lg sm:text-2xl tracking-tight"
+                    valueClassName="text-2xl sm:text-4xl tracking-tight"
                   />
                   <MiniStat
                     label={p.estimatedApy}
@@ -3580,7 +3602,7 @@ const DelegationRegionsAndImpactSection = React.memo(
                         ? undefined
                         : p.liveUnavailable
                     }
-                    valueClassName="text-lg sm:text-2xl tracking-tight"
+                    valueClassName="text-2xl sm:text-4xl tracking-tight"
                   />
                 </div>
 
@@ -3590,7 +3612,7 @@ const DelegationRegionsAndImpactSection = React.memo(
                   </div>
                   <ChartContainer
                     config={delegationTrendChartConfig}
-                    className="h-36 sm:h-40 w-full"
+                    className="h-52 sm:h-64 w-full"
                   >
                     <AreaChart data={delegationTrendLive ?? []}>
                       <CartesianGrid vertical={false} strokeDasharray="3 3" />
@@ -3749,7 +3771,7 @@ const DelegationRegionsAndImpactSection = React.memo(
                       </tr>
                     </thead>
                     <tbody>
-                      {regionsRowsForRender.map((region) => {
+                      {visibleRegions.map((region) => {
                         const lifetimeLiquidity =
                           region.lifetimeLq !== null && displayPrice > 0
                             ? {
@@ -3822,6 +3844,25 @@ const DelegationRegionsAndImpactSection = React.memo(
                     </tbody>
                   </table>
                 </div>
+                {hasMoreRegions ? (
+                  <button
+                    type="button"
+                    // The card itself is a button that opens the notes dialog;
+                    // stop propagation so toggling rows does not also open it.
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowAllRegions((prev) => !prev);
+                    }}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    className="mt-3 w-full rounded-2xl border border-border/20 dark:border-border/40 py-2 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/70 hover:text-foreground hover:bg-muted/40 dark:hover:bg-background/40 transition-colors"
+                  >
+                    {showAllRegions
+                      ? p.showLessRegions
+                      : p.showMoreRegions(
+                          regionsRowsForRender.length - REGION_PREVIEW_COUNT,
+                        )}
+                  </button>
+                ) : null}
               </CardContent>
             </Card>
           </div>

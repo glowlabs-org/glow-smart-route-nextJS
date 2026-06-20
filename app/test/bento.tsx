@@ -8,9 +8,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { formatUnits } from "viem";
 
 import SolarFarmWidget from "./widgets/solar-farm-widget";
-import NetWorthWidget from "./widgets/net-worth";
+import NetWorthWidget, { NetWorthSkeleton } from "./widgets/net-worth";
 import WalletWidget from "./widgets/wallet-widget";
-import RankWidget from "./widgets/rank-widget";
+import RankWidget, { RankWidgetSkeleton } from "./widgets/rank-widget";
 import RewardsWidget from "./widgets/rewards-widget";
 import GlowFaqWidget from "./widgets/glow-faq-widget";
 import CommunityActivityWidget from "./widgets/community-activity-widget";
@@ -659,12 +659,7 @@ export default function GlowSoftDashboard({
                           baseMs: 4_000,
                           spreadMs: 8_000,
                         })}
-                        fallback={
-                          <DeferredAnalyticsCard
-                            title={t.home.deferred.impactScore.title}
-                            description={t.home.deferred.impactScore.description}
-                          />
-                        }
+                        fallback={<RankWidgetSkeleton variant="hero" />}
                       >
                         <WidgetErrorBoundary>
                           <RankWidget
@@ -699,12 +694,7 @@ export default function GlowSoftDashboard({
                           baseMs: 6_000,
                           spreadMs: 10_000,
                         })}
-                        fallback={
-                          <DeferredAnalyticsCard
-                            title={t.home.deferred.glowWorth.title}
-                            description={t.home.deferred.glowWorth.description}
-                          />
-                        }
+                        fallback={<NetWorthSkeleton />}
                       >
                         <WidgetErrorBoundary>
                           <NetWorthWidget

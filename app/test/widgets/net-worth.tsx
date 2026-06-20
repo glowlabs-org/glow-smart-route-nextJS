@@ -139,7 +139,7 @@ function GlowWorthChartTooltip({
   );
 }
 
-function NetWorthSkeleton() {
+export function NetWorthSkeleton() {
   const { t } = useLang();
   return (
     <Card className="h-full overflow-hidden flex flex-col gap-2 bg-muted/20 dark:bg-muted/30 border border-border/10 dark:border-border/20 rounded-2xl pt-6 pb-0 w-full">

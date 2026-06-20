@@ -11,6 +11,7 @@ import {
   Zap,
   Trophy,
   Check,
+  CalendarClock,
 } from "lucide-react";
 import { PointsIcon, PointsShopIcon } from "@/components/impact-icons";
 import {
@@ -60,7 +61,7 @@ const FEATURES: Feature[] = [
     highlights: [
       "Earn watts from funded farms",
       "Tons of CO₂, calculated per farm",
-      "Leaderboard now ranks by impact",
+      "Leaderboard now ranks by delegated GLW",
     ],
   },
   {
@@ -74,6 +75,19 @@ const FEATURES: Feature[] = [
       "Miners, watts & mega prizes",
       "Restocks every week",
       "Early-access perks for miners",
+    ],
+  },
+  {
+    key: "launchpad",
+    Icon: CalendarClock,
+    chip: "bg-blue-500/10 text-blue-600 dark:bg-blue-400/10 dark:text-blue-400",
+    tagline: "Now one weekly window, Tuesdays at 9 AM ET.",
+    heading: "One Launchpad Window",
+    body: "The launchpad has moved to a single weekly window. Every Tuesday at 9 AM ET, delegations and miners go live together, so there’s just one time to mark on your calendar.",
+    highlights: [
+      "Opens every Tuesday at 9 AM ET",
+      "GLW, sGCTL & miners launch together",
+      "One window, no more staggered drops",
     ],
   },
 ];
