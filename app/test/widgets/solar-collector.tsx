@@ -581,9 +581,17 @@ export default function SolarCollectorWidget({
 
   const distributionData = React.useMemo(() => {
     const cgpLabel = t.widgets.solarCollector.chartCleanGridProject;
-    return Object.entries(model.wattsByRegion)
-      .map(([rid, watts]) => {
-        const id = Number(rid);
+    // Prefer the V2 per-region watts so the pie stays consistent with the V2
+    // headline + growth chart; fall back to the legacy model while loading.
+    const v2ByRegion = v2ImpactQuery.data?.wattsByRegion;
+    const entries: Array<[number, number]> = v2ByRegion
+      ? v2ByRegion.map((r) => [r.regionId, Number(r.watts)])
+      : Object.entries(model.wattsByRegion).map(([rid, watts]) => [
+          Number(rid),
+          watts,
+        ]);
+    return entries
+      .map(([id, watts]) => {
         const region = regions?.find((r) => r.id === id);
         const fullName = region
           ? region.code === "*"
@@ -592,14 +600,19 @@ export default function SolarCollectorWidget({
           : `Region ${id}`;
         return {
           regionId: id,
-          name: `region${rid}`,
+          name: `region${id}`,
           fullName,
           value: watts,
           fill: getRegionColor(id),
         };
       })
       .filter((d) => d.value > 0);
-  }, [model.wattsByRegion, regions, t.widgets.solarCollector]);
+  }, [
+    v2ImpactQuery.data?.wattsByRegion,
+    model.wattsByRegion,
+    regions,
+    t.widgets.solarCollector,
+  ]);
 
   const trendRegionIds = React.useMemo(() => {
     const ids = new Set<number>();
@@ -609,14 +622,38 @@ export default function SolarCollectorWidget({
     return Array.from(ids).sort((a, b) => a - b);
   }, [model.weeklyPowerHistory]);
 
+  // Cumulative footprint growth, built from the V2 impact farms so the curve
+  // ends exactly at the V2 total watts shown in the headline. Each funded farm
+  // is a step up in watts at its funding time. Falls back to the legacy
+  // solar-collector weekly model only while the V2 payload is still loading.
   const growthData = React.useMemo(() => {
+    const farms = v2ImpactQuery.data?.farms;
+    if (farms) {
+      const sorted = farms
+        .filter((f) => f.fundedAt && Number(f.wattsTotal) > 0)
+        .slice()
+        .sort(
+          (a, b) =>
+            new Date(a.fundedAt).getTime() - new Date(b.fundedAt).getTime(),
+        );
+      let cumulative = 0;
+      return sorted.map((f) => {
+        cumulative += Number(f.wattsTotal);
+        return {
+          week: 0,
+          date: new Date(f.fundedAt),
+          watts: Math.round(cumulative),
+          panels: (cumulative / WATTS_PER_PANEL).toFixed(1),
+        };
+      });
+    }
     return model.weeklyHistory.map((item) => ({
       week: item.weekNumber,
       date: weekToDate(item.weekNumber),
       watts: item.cumulativeWatts,
       panels: (item.cumulativeWatts / WATTS_PER_PANEL).toFixed(1),
     }));
-  }, [model.weeklyHistory]);
+  }, [v2ImpactQuery.data?.farms, model.weeklyHistory]);
 
   const impactPowerTrendData = React.useMemo(() => {
     const allRids = new Set<number>();
