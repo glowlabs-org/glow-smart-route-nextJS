@@ -1393,7 +1393,7 @@ const ko: WidgetStrings = {
     howMinersWorkBody:
       'USDC로 "솔라 마이너"를 구매하세요. 실제 전력 생산량을 기반으로 발전소의 남은 리워드 일정 동안 GLW 발행분 토큰을 획득합니다.',
     learnMore: "자세히 보기",
-    beReadyTitle: "화요일 런치패드 오픈을 준비하세요.",
+    beReadyTitle: "모든 런치패드 리스팅은 화요일 오전 9시(ET)에 오픈됩니다",
     beReadyBody:
       "런치패드 등록과 마이너는 모두 화요일 오전 9시(동부시간)에 오픈됩니다. GLW와 sGCTL 위임이 동일한 창에서 함께 시작됩니다.",
     earlyAccessBadge: "얼리 액세스",
@@ -2066,7 +2066,7 @@ const zh: WidgetStrings = {
     howMinersWorkTitle: "矿机如何运作",
     howMinersWorkBody: `使用 USDC 购买"太阳能矿机"。它们将根据真实电力产出,在农场剩余的奖励周期内赚取 GLW 增发代币。`,
     learnMore: "了解更多",
-    beReadyTitle: "为周二启动板窗口做好准备。",
+    beReadyTitle: "所有启动板项目均于周二上午9:00（美东时间）开放",
     beReadyBody:
       "启动板列表和矿机均于美东时间周二上午 9:00 开放。GLW 与 sGCTL 委托在同一窗口同时上线。",
     earlyAccessBadge: "抢先体验",
