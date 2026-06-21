@@ -3,11 +3,17 @@
 import React from "react";
 import { useQueryState } from "nuqs";
 import { parseAsString } from "nuqs";
-import { Cpu, Sparkles, Sprout, SunIcon, Users } from "lucide-react";
+import { Check, Cpu, Menu, Sparkles, Sprout, SunIcon, Users } from "lucide-react";
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 import { FarmsView } from "./farms-view";
 import { MinersView } from "./miners-view";
 import { WalletLeaderboardView } from "./wallet-leaderboard-view";
@@ -112,31 +118,50 @@ export default function RewardsView() {
               {s.rewardsLeaderboard}
             </h1>
 
-            <Tabs
-              value={validType}
-              onValueChange={(value) => {
-                if (!["wallet", "miner", "farms"].includes(value)) return;
-
-                const nextType = value as "wallet" | "miner" | "farms";
-
-                setType(nextType);
-                if (nextType !== "farms" && selectedFarmId)
-                  setSelectedFarmId("");
-              }}
-            >
-              <TabsList className="grid h-auto w-full grid-cols-3 gap-1 rounded-2xl border border-border/30 dark:border-border/50 bg-muted/30 dark:bg-muted/40 p-1.5 sm:w-auto sm:grid-cols-3 sm:rounded-full sm:p-2">
-                {REWARDS_TABS.map((tab) => (
-                  <TabsTrigger
-                    key={tab.value}
-                    value={tab.value}
-                    className="h-10 gap-2 justify-center rounded-xl px-4 py-2 text-xs font-mono uppercase tracking-wider text-muted-foreground data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-none sm:rounded-full sm:px-5"
-                  >
-                    <tab.Icon className="h-4 w-4" />
-                    {tab.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
+            {/* Wallets is the default view; Miners + Farms are tucked into a
+                menu so the leaderboard stays focused on wallets for most
+                visitors while power users can still reach the other views. */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 self-start rounded-full border border-border/30 bg-card px-4 py-2.5 text-xs font-mono uppercase tracking-wider text-foreground transition-colors hover:bg-muted/50 dark:border-border/50 dark:bg-muted/40 sm:self-auto"
+                >
+                  <Menu className="h-4 w-4" />
+                  {activeTab.label}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64 bg-card">
+                {REWARDS_TABS.map((tab) => {
+                  const isActive = tab.value === validType;
+                  return (
+                    <DropdownMenuItem
+                      key={tab.value}
+                      onClick={() => {
+                        setType(tab.value);
+                        if (tab.value !== "farms" && selectedFarmId)
+                          setSelectedFarmId("");
+                      }}
+                      className={cn(
+                        "flex cursor-pointer items-start gap-3 py-2.5",
+                        isActive && "bg-accent"
+                      )}
+                    >
+                      <tab.Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                      <div className="flex min-w-0 flex-col gap-0.5">
+                        <span className="text-sm font-medium">{tab.label}</span>
+                        <span className="text-xs leading-snug text-muted-foreground">
+                          {tab.description}
+                        </span>
+                      </div>
+                      {isActive && (
+                        <Check className="ml-auto mt-0.5 h-4 w-4 shrink-0 text-foreground" />
+                      )}
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {validType === "wallet" ? (
