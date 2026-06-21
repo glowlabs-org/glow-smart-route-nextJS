@@ -628,27 +628,13 @@ function BalancePanel({
     <div className="mb-4 overflow-hidden rounded-2xl border border-border/60 bg-card sm:mb-6">
       <div className="flex flex-col divide-y divide-border/50 dark:divide-white/10 sm:flex-row sm:items-stretch sm:divide-x sm:divide-y-0">
         {/* Available points — hero */}
-        <StatCell label="Available points" className="sm:flex-[1.2]">
+        <StatCell label="Available points" className="sm:flex-1">
           {isLoading ? (
-            <Skeleton className="h-11 w-44" />
+            <Skeleton className="h-6 w-28" />
           ) : (
-            <div className="flex flex-col items-start gap-2">
-              <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-semibold leading-none tracking-tight tabular-nums sm:text-5xl">
-                  {formatNumber(availablePoints ?? 0)}
-                </span>
-                <span className="text-sm text-muted-foreground">points</span>
-              </div>
-              {onOpenBreakdown && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 px-3 text-[11px] font-medium border-border/40 bg-transparent"
-                  onClick={onOpenBreakdown}
-                >
-                  Breakdown
-                </Button>
-              )}
+            <div className="flex items-baseline gap-2">
+              <SecondaryValue>{formatNumber(availablePoints ?? 0)}</SecondaryValue>
+              <span className="text-sm text-muted-foreground">points</span>
             </div>
           )}
         </StatCell>
@@ -680,6 +666,18 @@ function BalancePanel({
           </StatCell>
           <RestockCell className="sm:flex-1" />
         </div>
+        {/* Breakdown — its own column at the far right, past Next restock. */}
+        {onOpenBreakdown && (
+          <div className="flex items-center justify-center px-4 py-4 sm:p-6 sm:shrink-0">
+            <Button
+              variant="default"
+              className="font-medium"
+              onClick={onOpenBreakdown}
+            >
+              Breakdown
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -710,13 +708,7 @@ function ShopRestockEmptyState() {
   return (
     <div className="rounded-2xl border border-border/60 bg-card px-6 py-16 text-center dark:border-white/10">
       <div className="mx-auto flex max-w-lg flex-col items-center justify-center gap-5">
-        <h2 className="text-base font-semibold">
-          That&apos;s everything for this week
-        </h2>
-        <p className="max-w-sm text-sm text-muted-foreground">
-          New prizes drop every Tuesday at 9:00 AM ET.
-        </p>
-        <div className="mt-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Next restock in
         </div>
         <div className="font-mono font-bold tracking-tighter tabular-nums text-foreground">
@@ -735,6 +727,9 @@ function ShopRestockEmptyState() {
             />
           </div>
         </div>
+        <p className="max-w-sm text-sm text-muted-foreground">
+          New prizes drop every Tuesday at 9:00 AM ET.
+        </p>
       </div>
     </div>
   );
@@ -900,10 +895,6 @@ export function ShopView() {
         <h1 className="text-3xl font-semibold tracking-tight sm:text-5xl">
           Points Shop
         </h1>
-        <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted-foreground sm:mt-3 sm:text-[15px]">
-          Spend your Glow points on this week's prizes. Fresh inventory drops
-          every Tuesday at 9:00 AM ET.
-        </p>
       </header>
 
       <BalancePanel

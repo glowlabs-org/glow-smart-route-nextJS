@@ -48,7 +48,10 @@ interface ImpactScoreBreakdownDialogProps {
 
 function fmtPts(n: number): string {
   if (!Number.isFinite(n)) return "0";
-  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(n);
+  // Whole points only, rounded down (no decimals).
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(
+    Math.floor(n),
+  );
 }
 
 function SourceRow({
@@ -90,11 +93,12 @@ function SourceRow({
           </span>
         </div>
       </div>
-      <div className="flex items-center gap-4">
-        <div className="text-right">
+      <div className="flex items-center gap-3 shrink-0">
+        {/* Fixed-width, right-aligned value column so every row's number lines up. */}
+        <div className="w-32 text-right">
           <div
             className={cn(
-              "font-mono font-semibold text-sm",
+              "font-mono font-semibold text-sm tabular-nums",
               isSpend
                 ? "text-muted-foreground"
                 : hasValue
@@ -107,16 +111,20 @@ function SourceRow({
           </div>
           <div className="text-[10px] text-muted-foreground">pts</div>
         </div>
-        {ctaLabel && onCta && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 px-3 text-[11px] font-medium border-border/40 bg-transparent shrink-0"
-            onClick={onCta}
-          >
-            {ctaLabel}
-          </Button>
-        )}
+        {/* Fixed-width CTA column, reserved even when empty so buttons align
+            in their own column and the value column's right edge stays put. */}
+        <div className="w-24 shrink-0">
+          {ctaLabel && onCta && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 w-full px-3 text-[11px] font-medium border-border/40 bg-transparent"
+              onClick={onCta}
+            >
+              {ctaLabel}
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
