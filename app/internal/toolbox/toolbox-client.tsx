@@ -305,8 +305,8 @@ export function ToolboxClient() {
                             )}
                           >
                             {value === "sgctl"
-                              ? "Tue 1 AM ET"
-                              : "Tue 1 PM ET"}
+                              ? "Tue 9 AM ET"
+                              : "Tue 9 AM ET"}
                           </span>
                         </button>
                       ))}

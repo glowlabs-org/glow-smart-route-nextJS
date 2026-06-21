@@ -699,7 +699,7 @@ function EmptyState({ title, body }: { title: string; body: string }) {
 /**
  * Shown when the shop has no open week / no items (sold out or being prepared).
  * Mirrors the launchpad-status-widget countdown hero, ticking down to the next
- * Tuesday 1:00 PM ET restock on the same shared launchpad clock.
+ * Tuesday 9:00 AM ET restock on the same shared launchpad clock.
  */
 function ShopRestockEmptyState() {
   const targetAtMs = React.useMemo(
@@ -714,7 +714,7 @@ function ShopRestockEmptyState() {
           That&apos;s everything for this week
         </h2>
         <p className="max-w-sm text-sm text-muted-foreground">
-          New prizes drop every Tuesday at 1:00 PM ET.
+          New prizes drop every Tuesday at 9:00 AM ET.
         </p>
         <div className="mt-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Next restock in
@@ -902,7 +902,7 @@ export function ShopView() {
         </h1>
         <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted-foreground sm:mt-3 sm:text-[15px]">
           Spend your Glow points on this week's prizes. Fresh inventory drops
-          every Tuesday at 1:00 PM ET.
+          every Tuesday at 9:00 AM ET.
         </p>
       </header>
 

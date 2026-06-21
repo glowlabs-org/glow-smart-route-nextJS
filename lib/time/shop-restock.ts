@@ -1,7 +1,7 @@
 /**
  * Points-shop restock timing helpers.
  *
- * The V2 points shop restocks every Tuesday at 1:00 PM America/New_York,
+ * The V2 points shop restocks every Tuesday at 9:00 AM America/New_York,
  * following Eastern Time including daylight saving. These helpers drive
  * the `s-maxage` on `/api/points-shop/current` so the cached inventory
  * revalidates right around the restock boundary, and the countdown
@@ -23,13 +23,13 @@ function easternOffsetHours(at: Date): number {
 }
 
 /**
- * The next Tuesday 1:00 PM America/New_York at or after `from`, as a Date
+ * The next Tuesday 9:00 AM America/New_York at or after `from`, as a Date
  * (UTC instant). If `from` is exactly a restock moment, returns the
  * following week's restock.
  */
 export function nextShopRestock(from: Date = new Date()): Date {
   // Walk up to 8 candidate days; for each, build the UTC instant that
-  // corresponds to 1:00 PM ET on that calendar day and pick the first
+  // corresponds to 9:00 AM ET on that calendar day and pick the first
   // Tuesday strictly after `from`.
   for (let dayOffset = 0; dayOffset <= 8; dayOffset += 1) {
     const candidate = new Date(
@@ -56,7 +56,7 @@ export function nextShopRestock(from: Date = new Date()): Date {
         candidate.getUTCFullYear(),
         candidate.getUTCMonth(),
         candidate.getUTCDate(),
-        13 + offset, // 1 PM ET expressed in UTC
+        9 + offset, // 9 AM ET expressed in UTC
         0,
         0,
         0,

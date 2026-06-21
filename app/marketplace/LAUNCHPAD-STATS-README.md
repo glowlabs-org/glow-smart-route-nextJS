@@ -8,7 +8,7 @@ The Launchpad Stats Dialog (`launchpad-stats-dialog.tsx`) displays detailed anal
 
 - When validating marketplace stats from the dashboard widget, do not inspect miner rewards from a raw `POST /farms/mining-scores-batch` call by itself.
 - The dashboard widget passes launchpad delegations into `useMiningScore(..., extraLiveApplications)` and `useMiningScore` also merges `/applications/live-soon` into `extraLiveFarms`.
-- This means upcoming launchpad farms can dilute miners before the `1:00 PM ET` release window, even while the listing is still hidden from public sponsor-listing routes.
+- This means upcoming launchpad farms can dilute miners before the `9:00 AM ET` release window, even while the listing is still hidden from public sponsor-listing routes.
 - If you skip that merge, miner dialogs can be materially overstated.
 
 ### Concrete failure mode
