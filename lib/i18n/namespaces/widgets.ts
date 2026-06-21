@@ -718,7 +718,7 @@ const en: WidgetStrings = {
     howMinersWorkTitle: "How Miners Work",
     howMinersWorkBody: `Buy "Solar Miners" with USDC. They earn GLW emissions tokens over the farm's remaining reward schedule based on real-world electricity generation.`,
     learnMore: "Learn more",
-    beReadyTitle: "Be ready for Tuesday launchpad windows.",
+    beReadyTitle: "Launchpad listings all open on Tuesday at 9:00 AM ET",
     beReadyBody:
       "Launchpad listings and miners all open at Tuesday 9:00 AM ET. GLW and sGCTL delegations go live together in the same window.",
     earlyAccessBadge: "Early access",

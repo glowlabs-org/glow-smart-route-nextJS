@@ -1889,37 +1889,8 @@ export default function LaunchpadStatusWidget({
           variant === "full-row" ? "p-0" : "p-0",
         )}
       >
-        {showPointsHeader && (
-          <div className="flex items-center justify-between gap-4 border-b border-border/15 px-4 pt-4 pb-4 sm:px-5 dark:border-white/10">
-            <div className="flex min-w-0 flex-col gap-0.5">
-              <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
-                {t.home.topPoints.label}
-              </span>
-              <span className="flex items-baseline gap-1.5">
-                <PointsIcon className="h-5 w-5 shrink-0 self-center text-amber-500" />
-                <span className="font-mono text-2xl font-bold leading-none tabular-nums text-foreground sm:text-3xl">
-                  {pointsHeaderValue}
-                </span>
-                <span className="text-sm font-medium text-muted-foreground">
-                  {t.home.topPoints.unit}
-                </span>
-              </span>
-            </div>
-            <Link
-              href="/shop"
-              onClick={() =>
-                trackEvent("dashboard_points_shop_cta_click", {
-                  source,
-                  wallet_address: walletAddress,
-                })
-              }
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-600 transition-colors hover:bg-amber-500/20 dark:text-amber-400"
-            >
-              <PointsShopIcon className="h-4 w-4" />
-              {t.home.topPoints.shopCta}
-            </Link>
-          </div>
-        )}
+        {/* "Your points" + Points Shop CTA is rendered at the BOTTOM of the
+            card (below the countdown/listings), per design. */}
         {isLoading ? (
           <div
             className={cn(
@@ -2261,12 +2232,9 @@ export default function LaunchpadStatusWidget({
                 </span>
               </a>
 
-              <div className="text-center space-y-1 px-1">
+              <div className="text-center px-1">
                 <p className="text-base font-semibold text-foreground">
                   {t.widgets.launchpadStatus.beReadyTitle}
-                </p>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  {t.widgets.launchpadStatus.beReadyBody}
                 </p>
               </div>
 
@@ -2285,6 +2253,38 @@ export default function LaunchpadStatusWidget({
                 {t.widgets.launchpadStatus.buyGlw}
               </Button>
             </div>
+          </div>
+        )}
+
+        {showPointsHeader && (
+          <div className="mx-3 mt-6 mb-4 flex items-center justify-between gap-4 rounded-2xl border border-border/20 bg-muted/30 px-4 py-3 sm:mx-4 sm:mt-7 sm:px-5 dark:border-white/10 dark:bg-white/5">
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                {t.home.topPoints.label}
+              </span>
+              <span className="flex items-baseline gap-1.5">
+                <PointsIcon className="h-5 w-5 shrink-0 self-center text-amber-500" />
+                <span className="font-mono text-2xl font-bold leading-none tabular-nums text-foreground sm:text-3xl">
+                  {pointsHeaderValue}
+                </span>
+                <span className="text-sm font-medium text-muted-foreground">
+                  {t.home.topPoints.unit}
+                </span>
+              </span>
+            </div>
+            <Link
+              href="/shop"
+              onClick={() =>
+                trackEvent("dashboard_points_shop_cta_click", {
+                  source,
+                  wallet_address: walletAddress,
+                })
+              }
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-600 transition-colors hover:bg-amber-500/20 dark:text-amber-400"
+            >
+              <PointsShopIcon className="h-4 w-4" />
+              {t.home.topPoints.shopCta}
+            </Link>
           </div>
         )}
 
