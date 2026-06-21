@@ -1617,19 +1617,6 @@ export default function LaunchpadStatusWidget({
   const isFlow = variant === "flow";
   const isMinimal = variant === "minimal";
 
-  // Points live with the launchpad (where they're earned), shown inside the
-  // full-row card. Only fetch for full-row; render nothing until the wallet
-  // actually has a positive balance.
-  const { data: pointsBalanceData } = useV2PointsBalance(
-    isFullRow ? walletAddress : null,
-  );
-  const availablePoints = pointsBalanceData?.availablePoints;
-  const pointsHeaderValue =
-    typeof availablePoints === "number" && availablePoints > 0
-      ? availablePoints.toLocaleString("en-US", { maximumFractionDigits: 0 })
-      : null;
-  const showPointsHeader = isFullRow && pointsHeaderValue !== null;
-
   const internalIsApproaching = React.useMemo(() => {
     if (isLive) return false;
     const now = getLaunchpadNowMs();
@@ -2256,38 +2243,6 @@ export default function LaunchpadStatusWidget({
           </div>
         )}
 
-        {showPointsHeader && (
-          <div className="mx-3 mt-6 mb-4 flex items-center justify-between gap-4 rounded-2xl border border-border/20 bg-muted/30 px-4 py-3 sm:mx-4 sm:mt-7 sm:px-5 dark:border-white/10 dark:bg-white/5">
-            <div className="flex min-w-0 flex-col gap-0.5">
-              <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
-                {t.home.topPoints.label}
-              </span>
-              <span className="flex items-baseline gap-1.5">
-                <PointsIcon className="h-5 w-5 shrink-0 self-center text-amber-500" />
-                <span className="font-mono text-2xl font-bold leading-none tabular-nums text-foreground sm:text-3xl">
-                  {pointsHeaderValue}
-                </span>
-                <span className="text-sm font-medium text-muted-foreground">
-                  {t.home.topPoints.unit}
-                </span>
-              </span>
-            </div>
-            <Link
-              href="/shop"
-              onClick={() =>
-                trackEvent("dashboard_points_shop_cta_click", {
-                  source,
-                  wallet_address: walletAddress,
-                })
-              }
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-600 transition-colors hover:bg-amber-500/20 dark:text-amber-400"
-            >
-              <PointsShopIcon className="h-4 w-4" />
-              {t.home.topPoints.shopCta}
-            </Link>
-          </div>
-        )}
-
         <BuyGlowDialog
           open={buyGlowOpen}
           onOpenChange={setBuyGlowOpen}
@@ -2321,5 +2276,66 @@ export default function LaunchpadStatusWidget({
         </Dialog>
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Points callout — rendered *detached*, below the launchpad card and outside
+ * its white surface, so it reads as its own floating thing and doesn't have to
+ * line up with the hero grid. Self-contained: fetches the connected wallet's
+ * V2 points and renders nothing until there's a positive balance.
+ */
+export function LaunchpadPointsCallout({
+  className,
+}: {
+  className?: string;
+}) {
+  const { t } = useLang();
+  const { address } = useAccount();
+  const walletAddress = address?.toLowerCase() ?? null;
+  const { data: pointsBalanceData } = useV2PointsBalance(walletAddress);
+  const availablePoints = pointsBalanceData?.availablePoints;
+  const pointsValue =
+    typeof availablePoints === "number" && availablePoints > 0
+      ? availablePoints.toLocaleString("en-US", { maximumFractionDigits: 0 })
+      : null;
+
+  if (pointsValue === null) return null;
+
+  return (
+    <div
+      className={cn(
+        "flex items-center justify-between gap-4 rounded-3xl border border-border/20 bg-card px-5 py-4 sm:px-6 dark:border-white/10 dark:bg-card",
+        className,
+      )}
+    >
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
+          {t.home.topPoints.label}
+        </span>
+        <span className="flex items-baseline gap-1.5">
+          <PointsIcon className="h-5 w-5 shrink-0 self-center text-amber-500" />
+          <span className="font-mono text-2xl font-bold leading-none tabular-nums text-foreground sm:text-3xl">
+            {pointsValue}
+          </span>
+          <span className="text-sm font-medium text-muted-foreground">
+            {t.home.topPoints.unit}
+          </span>
+        </span>
+      </div>
+      <Link
+        href="/shop"
+        onClick={() =>
+          trackEvent("dashboard_points_shop_cta_click", {
+            source: "launchpad_points_callout",
+            wallet_address: walletAddress,
+          })
+        }
+        className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-600 transition-colors hover:bg-amber-500/20 dark:text-amber-400"
+      >
+        <PointsShopIcon className="h-4 w-4" />
+        {t.home.topPoints.shopCta}
+      </Link>
+    </div>
   );
 }

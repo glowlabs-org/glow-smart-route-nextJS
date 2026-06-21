@@ -16,7 +16,9 @@ import GlowFaqWidget from "./widgets/glow-faq-widget";
 import CommunityActivityWidget from "./widgets/community-activity-widget";
 import BlogFeaturedWidget from "./widgets/blog-featured-widget";
 import OnboardingHeroWidget from "./widgets/onboarding-hero-widget";
-import LaunchpadStatusWidget from "./widgets/launchpad-status-widget";
+import LaunchpadStatusWidget, {
+  LaunchpadPointsCallout,
+} from "./widgets/launchpad-status-widget";
 import GlobalLeaderboardWidget from "./widgets/global-leaderboard-widget";
 import MyFarmsGridSection from "./widgets/my-farms-grid-section";
 import ProtocolMetricsWidget from "./widgets/protocol-metrics-widget";
@@ -615,10 +617,7 @@ export default function GlowSoftDashboard({
                   />
                   <div
                     className={cn(
-                      "rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10",
-                      shouldShowLaunchpadLiveSection
-                        ? "p-4 sm:p-6 lg:p-12"
-                        : "p-3 sm:p-4 lg:p-4",
+                      "flex flex-col gap-3",
                       // No live listings: render the countdown/empty state as a
                       // compact, centered card instead of a full-width banner so
                       // it does not dominate the dashboard.
@@ -626,11 +625,24 @@ export default function GlowSoftDashboard({
                         "lg:max-w-2xl lg:mx-auto",
                     )}
                   >
-                    <LaunchpadStatusWidget
-                      variant="full-row"
-                      onPayDeposit={handlePayDeposit}
-                      isApproaching={isApproachingLaunchpad}
-                    />
+                    <div
+                      className={cn(
+                        "rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10",
+                        shouldShowLaunchpadLiveSection
+                          ? "p-4 sm:p-6 lg:p-12"
+                          : "p-3 sm:p-4 lg:p-4",
+                      )}
+                    >
+                      <LaunchpadStatusWidget
+                        variant="full-row"
+                        onPayDeposit={handlePayDeposit}
+                        isApproaching={isApproachingLaunchpad}
+                      />
+                    </div>
+                    {/* Points sits *outside* the white card so it reads as its
+                        own detached thing and doesn't have to align with the
+                        hero grid. Renders null when the wallet has no points. */}
+                    <LaunchpadPointsCallout />
                   </div>
                 </section>
               )}
@@ -843,12 +855,15 @@ export default function GlowSoftDashboard({
                         : t.home.sections.launchpadLive
                     }
                   />
-                  <div className="rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10 p-4 sm:p-6 lg:p-12">
-                    <LaunchpadStatusWidget
-                      variant="full-row"
-                      onPayDeposit={handlePayDeposit}
-                      isApproaching={isApproachingLaunchpad}
-                    />
+                  <div className="flex flex-col gap-3">
+                    <div className="rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10 p-4 sm:p-6 lg:p-12">
+                      <LaunchpadStatusWidget
+                        variant="full-row"
+                        onPayDeposit={handlePayDeposit}
+                        isApproaching={isApproachingLaunchpad}
+                      />
+                    </div>
+                    <LaunchpadPointsCallout />
                   </div>
                 </section>
               )}
