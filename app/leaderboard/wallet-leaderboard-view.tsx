@@ -115,9 +115,16 @@ function RankCell({
   }
   const pct = total > 0 ? (rank / total) * 100 : NaN;
   return (
-    <span className="font-mono text-xs text-muted-foreground">
-      {t.topPercentile(formatTopPercentile(pct))}
-    </span>
+    <div className="flex flex-col leading-tight">
+      <span className="font-mono text-sm font-medium tabular-nums text-foreground">
+        #{rank}
+      </span>
+      {rank > 100 && Number.isFinite(pct) && (
+        <span className="font-mono text-[10px] text-muted-foreground">
+          {t.topPercentile(formatTopPercentile(pct))}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -630,17 +637,11 @@ export function WalletLeaderboardView() {
             {podiumRows.length >= 3 && (
               <div className="px-6 pt-8 pb-2 sm:px-8 md:pt-10">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:items-end md:gap-6">
-                  {([podiumRows[1], podiumRows[0], podiumRows[2]] as const).map(
+                  {([podiumRows[0], podiumRows[1], podiumRows[2]] as const).map(
                     (row, i) => {
-                      const rank = (i === 1 ? 1 : i === 0 ? 2 : 3) as PodiumRank;
-                      const orderClass =
-                        i === 0
-                          ? "order-2 md:order-1"
-                          : i === 1
-                            ? "order-1 md:order-2"
-                            : "order-3 md:order-3";
+                      const rank = (i + 1) as PodiumRank;
                       return (
-                        <div key={row.walletAddress} className={orderClass}>
+                        <div key={row.walletAddress}>
                           <PodiumCard
                             row={row}
                             rank={rank}
