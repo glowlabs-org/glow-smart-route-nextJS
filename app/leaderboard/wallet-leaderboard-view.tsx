@@ -75,7 +75,12 @@ function fmtMetric(value: string | null | undefined, decimals = 2): string {
   if (value == null) return "-";
   const n = Number.parseFloat(value);
   if (Number.isNaN(n)) return "-";
-  return formatNumber(n, { maximumFractionDigits: decimals });
+  // Always pad to a fixed number of decimals so every value lines up
+  // (e.g. "11,469.60" rather than "11,469.6").
+  return formatNumber(n, {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
 }
 
 /** The displayed value for a row under a given metric. */

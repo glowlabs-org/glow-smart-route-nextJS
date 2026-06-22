@@ -133,7 +133,7 @@ function SectionHeader({
           {title}
         </h3>
         {count != null ? (
-          <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground">
+          <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-muted px-2 py-0.5 text-xs font-semibold tabular-nums text-foreground">
             {count}
           </span>
         ) : null}
