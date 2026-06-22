@@ -843,8 +843,15 @@ export default function SolarCollectorWidget({
     return null;
   }
 
-  // If user has no watts captured yet, show minimal prompt
-  if (model.totalWatts === 0) {
+  // Show the minimal prompt only when the wallet has NO impact at all: no V2
+  // watts, no legacy watts, and no GCTL steering position. Gating on the legacy
+  // `model.totalWatts` alone wrongly hid the footprint for V2-only wallets (e.g.
+  // the foundation/rewards wallets carry millions of V2 watts but zero legacy
+  // watts) and hid the GCTL section for GCTL-only stakers.
+  const v2WattsNum = Number(v2TotalWatts);
+  const hasV2Watts = Number.isFinite(v2WattsNum) && v2WattsNum > 0;
+  const hasGctlPosition = gctl.stakes.length > 0;
+  if (model.totalWatts === 0 && !hasV2Watts && !hasGctlPosition) {
     return (
       <>
         {learnMoreDialog}
