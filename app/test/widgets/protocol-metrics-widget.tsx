@@ -45,10 +45,13 @@ import { useLang } from "@/lib/i18n";
 
 interface ProtocolMetricsWidgetProps {
   className?: string;
+  /** Hide the (tall) trend chart, e.g. in the compact education carousel. */
+  showChart?: boolean;
 }
 
 export default function ProtocolMetricsWidget({
   className,
+  showChart = true,
 }: ProtocolMetricsWidgetProps) {
   const { t } = useLang();
   // 1. Data Fetching
@@ -237,7 +240,7 @@ export default function ProtocolMetricsWidget({
 
   return (
     <div className={`flex flex-col gap-6 ${className}`}>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Metric 1: GLW Spot Price */}
         <a
           href="https://www.defined.fi/eth/0x6fa09ffc45f1ddc95c1bc192956717042f142c5d?quoteToken=token1&cache=1dafc"
@@ -313,23 +316,27 @@ export default function ProtocolMetricsWidget({
           </CardContent>
         </Card>
 
-        {/* Call to Action Card */}
-        <Link href="/stats" className="block h-full group">
-          <Card className="!bg-foreground text-primary-foreground border-transparent h-full hover:bg-primary/90 transition-colors cursor-pointer">
-            <CardContent className="p-6 flex flex-col justify-center h-full">
-              <div className="text-sm font-mono font-bold flex items-center gap-2">
-                {t.widgets.protocolMetrics.viewAllStats}{" "}
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </div>
-              <p className="text-[10px] font-mono uppercase tracking-widest text-primary-foreground/70 mt-2">
-                {t.widgets.protocolMetrics.deepDiveSubtitle}
-              </p>
-            </CardContent>
-          </Card>
-        </Link>
       </div>
 
+      {/* Call to Action — full-width single-line bar under the KPIs */}
+      <Link href="/stats" className="group block">
+        <Card className="!bg-foreground text-primary-foreground border-transparent hover:bg-primary/90 transition-colors cursor-pointer">
+          <CardContent className="flex items-center justify-between gap-3 px-6 py-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="text-sm font-mono font-bold">
+                {t.widgets.protocolMetrics.viewAllStats}
+              </span>
+              <span className="hidden truncate text-[10px] font-mono uppercase tracking-widest text-primary-foreground/70 sm:inline">
+                {t.widgets.protocolMetrics.deepDiveSubtitle}
+              </span>
+            </div>
+            <ArrowRight className="w-4 h-4 shrink-0 transition-transform group-hover:translate-x-1" />
+          </CardContent>
+        </Card>
+      </Link>
+
       {/* Chart Section */}
+      {showChart && (
       <Card className="bg-muted/30 dark:bg-muted/50 border-border/20 dark:border-border/40">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <div>
@@ -475,6 +482,7 @@ export default function ProtocolMetricsWidget({
           )}
         </CardContent>
       </Card>
+      )}
     </div>
   );
 }

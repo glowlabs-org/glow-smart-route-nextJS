@@ -165,7 +165,7 @@ const REGION_FALLBACK_PALETTE = [
 ];
 const REGION_DEFAULT_COLOR = "#94a3b8";
 
-function getRegionColor(regionId: number): string {
+export function getRegionColor(regionId: number): string {
   if (REGION_COLORS[regionId]) return REGION_COLORS[regionId];
   if (regionId > 0) {
     return REGION_FALLBACK_PALETTE[

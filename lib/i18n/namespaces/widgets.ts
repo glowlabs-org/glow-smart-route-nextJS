@@ -644,6 +644,29 @@ export interface WidgetStrings {
     weekDelegated: string;
     weekMiner: string;
   };
+  educationCarousel: {
+    glwPriceLabel: string;
+    glwPriceSubtext: string;
+    priceChart: string;
+    launchpadCta: string;
+    minersCta: string;
+    pointsShopTitle: string;
+    pointsShopDesc: string;
+    pointsShopCta: string;
+    leaderboardTitle: string;
+    leaderboardDesc: string;
+    leaderboardCta: string;
+    previousSlide: string;
+    nextSlide: string;
+    goToSlide: (index: number) => string;
+    slides: {
+      token: { kicker: string; title: string; body: string };
+      delegation: { kicker: string; title: string; body: string };
+      rewards: { kicker: string; title: string; body: string };
+      mining: { kicker: string; title: string; body: string };
+      resources: { kicker: string; title: string; body: string };
+    };
+  };
 }
 
 const en: WidgetStrings = {
@@ -1317,6 +1340,49 @@ const en: WidgetStrings = {
     },
     weekDelegated: "Delegated",
     weekMiner: "Miner",
+  },
+  educationCarousel: {
+    glwPriceLabel: "GLW price",
+    glwPriceSubtext: "Live spot price, sourced on-chain.",
+    priceChart: "Price chart",
+    launchpadCta: "Explore the launchpad",
+    minersCta: "Browse miners",
+    pointsShopTitle: "Points Shop",
+    pointsShopDesc: "Redeem the points you earn for real rewards.",
+    pointsShopCta: "Open shop",
+    leaderboardTitle: "Impact Leaderboard",
+    leaderboardDesc: "See top wallets ranked by watts & tons of CO₂.",
+    leaderboardCta: "View leaderboard",
+    previousSlide: "Previous slide",
+    nextSlide: "Next slide",
+    goToSlide: (index) => `Go to slide ${index}`,
+    slides: {
+      token: {
+        kicker: "The token",
+        title: "Buy GLW, the fuel of the Glow economy.",
+        body: "Glow runs on the GLW token, which is used to advocate for solar farms using a process called delegation.",
+      },
+      delegation: {
+        kicker: "Delegation",
+        title: "Delegate GLW to Solar Farms",
+        body: "Each solar farm produces a variable amount of rewards based on how competitive it is. By delegating GLW to a farm you endorse its participation in Glow, and you earn rewards (or penalties) based on how competitive that farm is.",
+      },
+      rewards: {
+        kicker: "Rewards",
+        title: "Earn Points, and Impact",
+        body: "Delegating GLW earns you points that can be redeemed in the points shop. You also receive impact: the ‘watts’ you earn represent real-world energy production, and ‘tons of CO₂’ represent real emissions eliminated by the farm you powered up.",
+      },
+      mining: {
+        kicker: "Mining",
+        title: "Become a GLW Miner",
+        body: "The fastest way to earn GLW is to buy it on the market, but you can also earn it weekly by purchasing a miner. Each miner is tied to a single real-world solar farm and collects some of the GLW rewards that farm produces.",
+      },
+      resources: {
+        kicker: "Resources",
+        title: "Learn More",
+        body: "Dig into live protocol stats and long-form guides on how the Glow economy works.",
+      },
+    },
   },
 };
 
@@ -1992,6 +2058,49 @@ const ko: WidgetStrings = {
     weekDelegated: "위임됨",
     weekMiner: "마이너",
   },
+  educationCarousel: {
+    glwPriceLabel: "GLW 가격",
+    glwPriceSubtext: "실시간 현물 가격, 온체인 기준.",
+    priceChart: "가격 차트",
+    launchpadCta: "런치패드 둘러보기",
+    minersCta: "마이너 둘러보기",
+    pointsShopTitle: "포인트 샵",
+    pointsShopDesc: "획득한 포인트를 실제 보상으로 교환하세요.",
+    pointsShopCta: "샵 열기",
+    leaderboardTitle: "임팩트 리더보드",
+    leaderboardDesc: "와트와 이산화탄소 톤 기준 상위 지갑을 확인하세요.",
+    leaderboardCta: "리더보드 보기",
+    previousSlide: "이전 슬라이드",
+    nextSlide: "다음 슬라이드",
+    goToSlide: (index) => `슬라이드 ${index}(으)로 이동`,
+    slides: {
+      token: {
+        kicker: "토큰",
+        title: "GLW 구매 — 글로우 경제의 연료",
+        body: "글로우는 GLW 토큰으로 작동하며, GLW는 위임이라는 과정을 통해 태양광 발전소를 지지하는 데 사용됩니다.",
+      },
+      delegation: {
+        kicker: "위임",
+        title: "태양광 발전소에 GLW 위임",
+        body: "각 태양광 발전소는 경쟁력에 따라 가변적인 리워드를 생산합니다. 발전소에 GLW를 위임하면 해당 발전소의 글로우 참여를 지지하게 되며, 그 발전소의 경쟁력에 따라 리워드를 얻거나 페널티를 받습니다.",
+      },
+      rewards: {
+        kicker: "리워드",
+        title: "포인트와 임팩트 획득",
+        body: "GLW를 위임하면 포인트 샵에서 사용할 수 있는 포인트를 획득합니다. 또한 임팩트를 받습니다. 획득한 ‘와트’는 실제 에너지 생산을, ‘이산화탄소 톤’은 지원한 발전소가 제거한 실제 탄소 배출량을 나타냅니다.",
+      },
+      mining: {
+        kicker: "마이닝",
+        title: "GLW 마이너 되기",
+        body: "GLW를 가장 빠르게 얻는 방법은 시장에서 구매하는 것이지만, 마이너를 구매해 매주 GLW를 얻을 수도 있습니다. 각 마이너는 하나의 실제 태양광 발전소와 연결되어 해당 발전소가 생산하는 GLW 리워드의 일부를 수집합니다.",
+      },
+      resources: {
+        kicker: "리소스",
+        title: "더 알아보기",
+        body: "실시간 프로토콜 통계와 글로우 경제의 작동 방식에 대한 심층 가이드를 확인하세요.",
+      },
+    },
+  },
 };
 
 const zh: WidgetStrings = {
@@ -2654,6 +2763,49 @@ const zh: WidgetStrings = {
     },
     weekDelegated: "已委托",
     weekMiner: "矿机",
+  },
+  educationCarousel: {
+    glwPriceLabel: "GLW 价格",
+    glwPriceSubtext: "实时现货价格，来自链上。",
+    priceChart: "价格图表",
+    launchpadCta: "浏览启动板",
+    minersCta: "浏览矿机",
+    pointsShopTitle: "积分商店",
+    pointsShopDesc: "用你赚取的积分兑换真实奖励。",
+    pointsShopCta: "打开商店",
+    leaderboardTitle: "影响力排行榜",
+    leaderboardDesc: "查看按瓦特与二氧化碳吨数排名的顶尖钱包。",
+    leaderboardCta: "查看排行榜",
+    previousSlide: "上一张",
+    nextSlide: "下一张",
+    goToSlide: (index) => `转到第 ${index} 张幻灯片`,
+    slides: {
+      token: {
+        kicker: "代币",
+        title: "购买 GLW —— Glow 经济的燃料",
+        body: "Glow 由 GLW 代币驱动，GLW 通过一种称为委托的过程用于支持太阳能农场。",
+      },
+      delegation: {
+        kicker: "委托",
+        title: "向太阳能农场委托 GLW",
+        body: "每个太阳能农场会根据其竞争力产生不等的奖励。通过向农场委托 GLW，你即认可该农场参与 Glow，并会根据该农场的竞争力获得奖励或承担惩罚。",
+      },
+      rewards: {
+        kicker: "奖励",
+        title: "赚取积分与影响力",
+        body: "委托 GLW 可赚取可在积分商店兑换的积分。你还会获得影响力：你获得的‘瓦特’代表真实的能源产出，‘二氧化碳吨数’代表你所支持的农场消除的真实碳排放。",
+      },
+      mining: {
+        kicker: "挖矿",
+        title: "成为 GLW 矿工",
+        body: "赚取 GLW 最快的方式是在市场上购买，但你也可以通过购买矿机每周赚取 GLW。每台矿机都与一个真实的太阳能农场绑定，并收取该农场产生的部分 GLW 奖励。",
+      },
+      resources: {
+        kicker: "资源",
+        title: "了解更多",
+        body: "深入了解实时协议数据，以及关于 Glow 经济运作方式的长篇指南。",
+      },
+    },
   },
 };
 

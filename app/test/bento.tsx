@@ -12,16 +12,18 @@ import NetWorthWidget, { NetWorthSkeleton } from "./widgets/net-worth";
 import WalletWidget from "./widgets/wallet-widget";
 import RankWidget, { RankWidgetSkeleton } from "./widgets/rank-widget";
 import RewardsWidget from "./widgets/rewards-widget";
-import GlowFaqWidget from "./widgets/glow-faq-widget";
-import CommunityActivityWidget from "./widgets/community-activity-widget";
-import BlogFeaturedWidget from "./widgets/blog-featured-widget";
-import OnboardingHeroWidget from "./widgets/onboarding-hero-widget";
 import LaunchpadStatusWidget, {
   LaunchpadPointsCallout,
 } from "./widgets/launchpad-status-widget";
-import GlobalLeaderboardWidget from "./widgets/global-leaderboard-widget";
+import {
+  GetStartedCarousel,
+  EarnPointsSection,
+  BecomeMinerSection,
+  LearnMoreSection,
+} from "./widgets/onboarding-flow";
+import NetworkSolarFootprint from "./widgets/network-solar-footprint";
+import LiveSolarFarmsCarousel from "./widgets/live-solar-farms-carousel";
 import MyFarmsGridSection from "./widgets/my-farms-grid-section";
-import ProtocolMetricsWidget from "./widgets/protocol-metrics-widget";
 import { MintAndStakeGctlDialog } from "@/components/dialogs/mint-and-stake-gctl-dialog";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useER20Balances } from "@/hooks/useERC20Balances";
@@ -368,8 +370,6 @@ export default function GlowSoftDashboard({
     return timeUntilLive > 0 && timeUntilLive <= THREE_HOURS_MS;
   }, [THREE_HOURS_MS, isLaunchpadLive, launchpadNextBatchAtMs]);
 
-  const shouldShowLaunchpadHeroRow =
-    shouldShowLaunchpadLiveSection || isApproachingLaunchpad;
   const shouldDeferHeavyAnalytics =
     hasWallet && (isLaunchpadLive || isApproachingLaunchpad);
 
@@ -845,112 +845,46 @@ export default function GlowSoftDashboard({
               transition={{ duration: 0.15 }}
               className="flex flex-col gap-16"
             >
-              {/* Launchpad Live/Approaching Section - First Row */}
-              {shouldShowLaunchpadHeroRow && (
-                <section className="flex flex-col gap-8">
-                  <SectionHeader
-                    title={
-                      isApproachingLaunchpad
-                        ? t.home.sections.launchpadOpeningSoon
-                        : t.home.sections.launchpadLive
-                    }
-                  />
-                  <div className="flex flex-col gap-3">
-                    <div className="rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10 p-4 sm:p-6 lg:p-12">
-                      <LaunchpadStatusWidget
-                        variant="full-row"
-                        onPayDeposit={handlePayDeposit}
-                        isApproaching={isApproachingLaunchpad}
-                      />
-                    </div>
-                    <LaunchpadPointsCallout />
-                  </div>
-                </section>
-              )}
-
-              {/* Hero Section */}
+              {/* Get Started Section — 2-slide onboarding carousel. When the
+                  launchpad is live it opens on STEP 2 (Delegate), which carries
+                  the launchpad widget, replacing the old always-on top section.
+                  The user can still slide back to STEP 1 (Buy GLW). */}
               <section className="flex flex-col gap-8">
                 <SectionHeader title={t.home.sections.getStarted} />
                 <div className="rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10 p-4 sm:p-6 lg:p-12">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-0 items-stretch">
-                    <div className="pb-8 lg:pb-0 lg:pr-10 flex min-h-[340px]">
-                      <WidgetErrorBoundary>
-                        <OnboardingHeroWidget
-                          className="w-full h-full"
-                          variant="minimal"
-                          onBuyGlowClick={handleBuyGlowClick}
-                        />
-                      </WidgetErrorBoundary>
-                    </div>
-                    <div className="pt-8 lg:pt-0 lg:pl-10 flex min-h-[340px]">
-                      <WidgetErrorBoundary>
-                        <LaunchpadStatusWidget
-                          key={`launchpad-status-disconnected-${dashboardRefreshNonce}`}
-                          className="w-full h-full"
-                          variant="minimal"
-                          onPayDeposit={handlePayDeposit}
-                          isApproaching={isApproachingLaunchpad}
-                        />
-                      </WidgetErrorBoundary>
-                    </div>
-                  </div>
+                  <GetStartedCarousel
+                    onBuyGlowClick={handleBuyGlowClick}
+                    onPayDeposit={handlePayDeposit}
+                    isApproaching={isApproachingLaunchpad}
+                    startOnDelegate={shouldShowLaunchpadLiveSection}
+                  />
                 </div>
               </section>
 
-              {/* Community & Leaderboard Section */}
+              {/* Step 3 — Earn points */}
+              {/* TODO i18n: new logged-out section headers */}
               <section className="flex flex-col gap-8">
-                <SectionHeader title={t.home.sections.communityAndLeaderboard} />
+                <SectionHeader title="Step 3" />
                 <div className="rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10 p-4 sm:p-6 lg:p-12">
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/20 dark:divide-white/10 items-stretch">
-                    <div className="pb-8 lg:pb-0 lg:pr-10 lg:col-span-8 flex min-h-[400px]">
-                      <WidgetErrorBoundary>
-                        <CommunityActivityWidget
-                          className="w-full h-full"
-                          variant="minimal"
-                        />
-                      </WidgetErrorBoundary>
-                    </div>
-                    <div className="pt-8 lg:pt-0 lg:pl-10 lg:col-span-4 flex min-h-[400px]">
-                      <WidgetErrorBoundary>
-                        <GlobalLeaderboardWidget
-                          className="h-full w-full"
-                          variant="minimal"
-                        />
-                      </WidgetErrorBoundary>
-                    </div>
-                  </div>
+                  <EarnPointsSection />
                 </div>
               </section>
 
-              {/* Protocol Metrics Section */}
+              {/* Step 4 — Become a miner */}
+              {/* TODO i18n: new logged-out section headers */}
               <section className="flex flex-col gap-8">
-                <SectionHeader title={t.home.sections.protocolMetrics} />
+                <SectionHeader title="Step 4" />
                 <div className="rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10 p-4 sm:p-6 lg:p-12">
-                  <WidgetErrorBoundary>
-                    <ProtocolMetricsWidget />
-                  </WidgetErrorBoundary>
+                  <BecomeMinerSection onPayDeposit={handlePayDeposit} />
                 </div>
               </section>
 
-              {/* Education Section */}
+              {/* Learn More */}
+              {/* TODO i18n: new logged-out section headers */}
               <section className="flex flex-col gap-8">
-                <SectionHeader title={t.home.sections.education} />
+                <SectionHeader title="Learn More" />
                 <div className="rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10 p-4 sm:p-6 lg:p-12">
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/20 dark:divide-white/10 items-stretch">
-                    <div className="pb-8 lg:pb-0 lg:pr-10 lg:col-span-7 flex min-h-[400px]">
-                      <WidgetErrorBoundary>
-                        <GlowFaqWidget
-                          className="w-full h-full"
-                          variant="minimal"
-                        />
-                      </WidgetErrorBoundary>
-                    </div>
-                    <div className="pt-8 lg:pt-0 lg:pl-10 lg:col-span-5 flex min-h-[400px]">
-                      <WidgetErrorBoundary>
-                        <BlogFeaturedWidget className="w-full h-full" />
-                      </WidgetErrorBoundary>
-                    </div>
-                  </div>
+                  <LearnMoreSection />
                 </div>
               </section>
 
@@ -976,6 +910,28 @@ export default function GlowSoftDashboard({
                       </WidgetErrorBoundary>
                     </div>
                   </div>
+                </div>
+              </section>
+
+              {/* Network Solar Footprint */}
+              {/* TODO i18n: new logged-out section headers */}
+              <section className="flex flex-col gap-8">
+                <SectionHeader title="Network Solar Footprint" />
+                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10 p-4 sm:p-6 lg:p-12">
+                  <WidgetErrorBoundary>
+                    <NetworkSolarFootprint />
+                  </WidgetErrorBoundary>
+                </div>
+              </section>
+
+              {/* Live Solar Farms */}
+              {/* TODO i18n: new logged-out section headers */}
+              <section className="flex flex-col gap-8">
+                <SectionHeader title="Live Solar Farms" />
+                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10 p-4 sm:p-6 lg:p-12">
+                  <WidgetErrorBoundary>
+                    <LiveSolarFarmsCarousel />
+                  </WidgetErrorBoundary>
                 </div>
               </section>
             </motion.div>

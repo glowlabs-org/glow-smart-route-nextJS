@@ -261,3 +261,38 @@ export function useEstimatedAllocation(
     placeholderData: keepPreviousData,
   });
 }
+
+/**
+ * Protocol-wide impact per farm — every funded farm with its full total watts +
+ * carbon credits (network-wide, not per wallet). Backs the "Live Solar Farms"
+ * section. Numeric fields are decimal STRINGS (scale-12) like the rest of V2.
+ */
+export interface V2ImpactFarm {
+  farmId: string;
+  name: string;
+  region: string;
+  regionFullName: string;
+  regionId: number;
+  zoneId: number;
+  zoneName: string | null;
+  photoUrl: string | null;
+  fundedAt: string | null;
+  totalWatts: string;
+  totalCarbonCredits: string;
+}
+
+export interface V2ImpactFarmsResponse {
+  sort: string;
+  dir: string;
+  total: number;
+  rows: V2ImpactFarm[];
+}
+
+export function useV2ImpactFarms() {
+  return useQuery({
+    queryKey: ["v2", "impact", "farms"] as const,
+    queryFn: () => v2ApiGet<V2ImpactFarmsResponse>("/api/impact/farms"),
+    staleTime: STALE_TIMES.SLOW,
+    refetchOnWindowFocus: false,
+  });
+}
