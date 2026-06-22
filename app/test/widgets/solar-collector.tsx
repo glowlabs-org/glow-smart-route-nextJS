@@ -86,24 +86,6 @@ function weekToDate(week: number) {
   return new Date((GENESIS_TIMESTAMP + (week + 1) * 604800) * 1000);
 }
 
-function formatEnergyValue(kwh: number): string {
-  if (!Number.isFinite(kwh) || kwh === 0) return "0";
-  if (kwh < 1000) return Math.round(kwh).toLocaleString();
-  const mwh = kwh / 1000;
-  if (mwh >= 1000) return `${(mwh / 1000).toFixed(1)}`;
-  if (mwh >= 100) return mwh.toFixed(0);
-  if (mwh >= 10) return mwh.toFixed(1);
-  return mwh.toFixed(2);
-}
-
-function getEnergyUnit(kwh: number): string {
-  if (!Number.isFinite(kwh) || kwh === 0) return "MWh";
-  if (kwh < 1000) return "kWh";
-  const mwh = kwh / 1000;
-  if (mwh >= 1000) return "GWh";
-  return "MWh";
-}
-
 function formatCaptureValue(watts: number): string {
   if (watts < 1000) return Math.round(watts).toLocaleString();
   return (watts / 1000).toFixed(2);
@@ -516,6 +498,9 @@ export default function SolarCollectorWidget({
   // leaderboard uses so the number matches exactly.
   const v2ImpactQuery = useV2ImpactWallet(normalizedWalletAddress);
   const v2TotalWatts = v2ImpactQuery.data?.totalWatts;
+  // Verified lifetime CO₂ displacement attributed to the wallet (scale-12
+  // decimal string), shown as the final KPI in place of estimated energy.
+  const v2CarbonCredits = v2ImpactQuery.data?.totalCarbonCredits;
 
   const { model } = useSolarCollectorQuery({
     walletAddress: normalizedWalletAddress,
@@ -1027,39 +1012,6 @@ export default function SolarCollectorWidget({
               </div>
             </div>
 
-            {/* Energy Generated Per Year */}
-            <div>
-              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1.5 flex items-center gap-1">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        className="text-muted-foreground/60 hover:text-muted-foreground transition-colors"
-                      >
-                        <Info className="h-3 w-3" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent
-                      side="bottom"
-                      className="max-w-xs text-xs leading-relaxed"
-                    >
-                      <p>{t.widgets.solarCollector.energyPerYearTooltip}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                {t.widgets.solarCollector.energyPerYear}
-              </div>
-              <div className="flex items-baseline gap-1">
-                <span className="font-mono text-xl md:text-2xl font-bold tracking-tight text-foreground tabular-nums">
-                  {formatEnergyValue(impact.annualEnergyKwh)}
-                </span>
-                <span className="text-sm font-mono text-muted-foreground">
-                  {getEnergyUnit(impact.annualEnergyKwh)}
-                </span>
-              </div>
-            </div>
-
             {/* Trees Equivalent */}
             <div>
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1.5 flex items-center gap-1">
@@ -1089,6 +1041,44 @@ export default function SolarCollectorWidget({
                 </span>
                 <span className="text-sm font-mono text-muted-foreground">
                   {t.widgets.solarCollector.treesUnit}
+                </span>
+              </div>
+            </div>
+
+            {/* Tons of CO₂ — verified lifetime carbon displacement */}
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1.5 flex items-center gap-1">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className="text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                      >
+                        <Info className="h-3 w-3" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="bottom"
+                      className="max-w-xs text-xs leading-relaxed"
+                    >
+                      <p>{t.widgets.solarCollector.tonsCo2Tooltip}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                {t.widgets.solarCollector.tonsCo2}
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="font-mono text-xl md:text-2xl font-bold tracking-tight text-foreground tabular-nums">
+                  {v2CarbonCredits != null &&
+                  Number.isFinite(Number(v2CarbonCredits))
+                    ? Number(v2CarbonCredits).toLocaleString(undefined, {
+                        maximumFractionDigits: 0,
+                      })
+                    : "—"}
+                </span>
+                <span className="text-sm font-mono text-muted-foreground">
+                  {t.widgets.solarCollector.tonsUnit}
                 </span>
               </div>
             </div>
