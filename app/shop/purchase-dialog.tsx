@@ -3,7 +3,7 @@
 import * as React from "react";
 import Image from "next/image";
 import { useAccount, useChainId, useSignTypedData } from "wagmi";
-import { Loader2, CheckCircle2, XCircle, Ticket } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Ticket, Share2 } from "lucide-react";
 
 import {
   Dialog,
@@ -41,6 +41,25 @@ function formatGlwAmount(value: number): string {
   return value.toLocaleString("en-US", {
     maximumFractionDigits: value > 0 && value < 1 ? 4 : 2,
   });
+}
+
+// Zero-width spaces keep the share text from auto-linking the domain (mirrors
+// the marketplace deposit dialog's share copy).
+const SHOP_SHARE_DOMAIN = "app.\u200Bglow.\u200Borg";
+
+/**
+ * Builds an X (Twitter) intent URL the buyer can post after redeeming a prize,
+ * mirroring the marketplace Miners/Delegations share prompts. Copy is tailored
+ * per item kind so a watts or early-access purchase never claims a miner.
+ */
+function buildShopShareUrl(item: V2ShopItem): string {
+  const headline = isMinerLikeItem(item)
+    ? "I just used my Points to buy a Glow Miner in the Rewards Shop and started earning GLW tokens weekly."
+    : item.kind === "watts"
+      ? "I just used my Points to buy Watts in the Glow Rewards Shop and grew my clean-energy impact."
+      : "I just unlocked early miner access in the Glow Rewards Shop.";
+  const text = [headline, "", SHOP_SHARE_DOMAIN].join("\n");
+  return `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
 }
 
 /** The prize visual shown at the top of the purchase flow. */
@@ -385,6 +404,22 @@ export function PurchaseDialog({
     }
   }, [open, item?.itemId, address]);
 
+  // Post-purchase "Share on X" CTA (mirrors the marketplace Miners/Delegations
+  // share prompts). Declared before the early return so hook order is stable.
+  const shareUrl = React.useMemo(
+    () => (item ? buildShopShareUrl(item) : null),
+    [item],
+  );
+  const handleShareOnX = React.useCallback(() => {
+    if (!item || !shareUrl) return;
+    trackEvent("shop_purchase_share_x_click", {
+      itemId: item.itemId,
+      kind: item.kind,
+      wallet: address,
+    });
+    window.open(shareUrl, "_blank", "noopener,noreferrer");
+  }, [item, shareUrl, address]);
+
   if (!item) return null;
 
   const price = item.pricePoints;
@@ -560,11 +595,21 @@ export function PurchaseDialog({
                   {formatNumber(Number(result.newPointsBalance))}
                 </span>
               </div>
-              <DialogFooter>
-                <Button className="w-full" onClick={() => onOpenChange(false)}>
+              <div className="space-y-2">
+                {shareUrl ? (
+                  <Button className="w-full" onClick={handleShareOnX}>
+                    <Share2 className="mr-2 h-4 w-4" />
+                    Share on X
+                  </Button>
+                ) : null}
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => onOpenChange(false)}
+                >
                   Done
                 </Button>
-              </DialogFooter>
+              </div>
             </div>
           </div>
         ) : phase === "error" ? (
