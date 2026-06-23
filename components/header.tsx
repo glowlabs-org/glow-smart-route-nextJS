@@ -736,6 +736,22 @@ export function Header({
                               >
                                 {t.header.protocolStats.title}                              </Link>
                             </DrawerClose>
+                            <DrawerClose asChild>
+                              <Link
+                                href="/shop"
+                                onClick={() => {
+                                  setTimeout(() => {
+                                    window.scrollTo({
+                                      top: 0,
+                                      behavior: "smooth",
+                                    });
+                                  }, 100);
+                                }}
+                                className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                              >
+                                {t.header.pointsShop.title}
+                              </Link>
+                            </DrawerClose>
                             {showKolLink && (
                               <DrawerClose asChild>
                                 <Link
