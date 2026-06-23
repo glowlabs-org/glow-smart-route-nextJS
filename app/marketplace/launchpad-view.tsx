@@ -3794,15 +3794,13 @@ function LaunchpadMarketplaceDialog({
         application.id
       );
 
-      // The sGCTL tile's displayed score is pinned to (GLW score + 10); the
-      // SGCTL map's own score is not used for the badge (its deposit context
-      // differs and won't differ by exactly 10).
-      const pinnedRewardScore =
-        glwReward?.rewardScore != null
-          ? leg === "SGCTL"
-            ? glwReward.rewardScore + 10
-            : glwReward.rewardScore
-          : null;
+      // Each tile shows its own leg's natural reward score. `reward` is already
+      // the leg-appropriate estimate (the sGCTL +n estimate for the sGCTL tile,
+      // the GLW estimate for the GLW tile), so its absolute score is correct: the
+      // sGCTL leg's score is its own PD recovery + bonus emission, pinned by the
+      // publish-time n-solve to the constant target (e.g. 135) — NOT GLW + 10,
+      // which stacked the bump on the GLW leg's higher PD recovery (e.g. 194/212).
+      const pinnedRewardScore = reward?.rewardScore ?? null;
       const rewardScore =
         application._type === "delegations" && reward
           ? { ...reward, rewardScore: pinnedRewardScore ?? reward.rewardScore }

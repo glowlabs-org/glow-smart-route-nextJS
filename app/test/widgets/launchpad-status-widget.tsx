@@ -423,15 +423,11 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
     return entries.map((entry) => {
       const application = entry.application;
       const leg = entry.leg;
-      // The GLW (no-bonus) estimate is the base for BOTH tiles' score: the sGCTL
-      // tile's reward score is pinned frontend-side to (GLW score + the bump)
-      // below, where the bump is the live, control-derived sgctlScoreBumpOverGlwLeg.
-      // The sGCTL (+n) estimate is used for the sGCTL tile's weekly-reward AMOUNTS
-      // (it reflects the bonus emission) AND carries that derived bump. Pinning
-      // here — rather than trusting the sGCTL call's absolute score — guarantees
-      // the two tiles ALWAYS differ by exactly the configured bump, since the two
-      // estimate calls use different deposit contexts (GLW wei vs GCTL atomic) and
-      // can't otherwise be kept in lockstep.
+      // Each tile uses its own leg's estimate: the GLW tile the GLW (no-bonus)
+      // estimate, the sGCTL tile the sGCTL (+n) estimate. The sGCTL estimate's
+      // absolute reward score IS the leg's natural total (the n-solve pins it to
+      // the constant target), and its weekly-reward amounts reflect the bonus
+      // emission, so both the score and amounts come straight from it.
       const glwReward = getRewardScoreForApplication(
         glwRewardScoreMap,
         application.id,
@@ -467,22 +463,18 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
         application.id,
       );
 
-      // Reward score per tile: GLW tile = GLW score; sGCTL tile = GLW score +
-      // the bump control derived from the persisted split bonus n (publish-time
-      // `sgctlRewardScoreBump`, default 10). Pinning to the GLW tile's score
-      // (rather than trusting the sGCTL estimate's absolute score) keeps the two
-      // tiles in lockstep across their different deposit contexts; sourcing the
-      // bump from the live estimate honors a non-default configured bump. Falls
-      // back to 10 if the field is absent (control pre-deploy / old-era leg).
-      // null when the GLW score isn't loaded yet.
+      // Reward score per tile: each tile shows its OWN leg's natural score.
+      // `reward` is already the leg-appropriate estimate (the sGCTL +n estimate
+      // for the sGCTL tile, the GLW estimate for the GLW tile), so its absolute
+      // score is correct: the sGCTL tile reads the sGCTL leg's score — its own
+      // PD recovery + bonus emission, which the publish-time n-solve pins to the
+      // constant target (e.g. 135). Previously the sGCTL tile was GLW-score +
+      // bump, which stacked the bump on the GLW leg's HIGHER PD recovery and
+      // overstated the score (e.g. 212 instead of 135).
       const delegationRewardScore: number | null =
         application._type !== "delegations"
           ? null
-          : glwReward?.rewardScore != null
-            ? leg === "SGCTL"
-              ? glwReward.rewardScore + (reward?.sgctlScoreBumpOverGlwLeg ?? 10)
-              : glwReward.rewardScore
-            : null;
+          : (reward?.rewardScore ?? null);
 
       const score =
         application._type === "delegations"
