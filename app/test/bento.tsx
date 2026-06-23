@@ -615,16 +615,10 @@ export default function GlowSoftDashboard({
                           : t.home.sections.growYourImpact
                     }
                   />
-                  <div
-                    className={cn(
-                      "flex flex-col gap-3",
-                      // No live listings: render the countdown/empty state as a
-                      // compact, centered card instead of a full-width banner so
-                      // it does not dominate the dashboard.
-                      !shouldShowLaunchpadLiveSection &&
-                        "lg:max-w-2xl lg:mx-auto",
-                    )}
-                  >
+                  {/* Full-width in every state (live listings, opening-soon
+                      countdown, and the empty growYourImpact state) so the
+                      launchpad row matches the Overview section's width. */}
+                  <div className="flex flex-col gap-3">
                     <div
                       className={cn(
                         "rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10",
