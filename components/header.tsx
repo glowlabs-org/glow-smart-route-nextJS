@@ -450,8 +450,8 @@ export function Header({
   return (
     <>
       <header className={headerClassName}>
-        <div className="mx-auto flex h-[72px] w-full max-w-screen-2xl items-center justify-between gap-3 sm:gap-6 px-6">
-          <Link href="/" className="flex items-center space-x-2 group">
+        <div className="mx-auto flex h-[72px] w-full max-w-screen-2xl items-center justify-between gap-3 sm:gap-6 px-4 sm:px-6">
+          <Link href="/" className="flex shrink-0 items-center space-x-2 group">
             <GlowSymbol className="w-10 md:w-12 shrink-0 relative z-10 text-zinc-900 dark:text-zinc-100" />
           </Link>
 
@@ -620,21 +620,21 @@ export function Header({
             <WalletStatus />
           </div>
 
-          <div className="flex items-center gap-2 lg:hidden">
+          <div className="flex min-w-0 items-center gap-1.5 lg:hidden">
             <button
               type="button"
               onClick={() => setIsWhatsNewOpen(true)}
               aria-label="What's new"
-              className="p-2 rounded-xl border border-border/20 dark:border-border/40 bg-background/80 backdrop-blur-sm text-zinc-900 dark:text-zinc-100 hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+              className="shrink-0 p-2 rounded-xl border border-border/20 dark:border-border/40 bg-background/80 backdrop-blur-sm text-zinc-900 dark:text-zinc-100 hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
             >
               <Sparkles className="h-5 w-5" />
             </button>
             <LangToggle />
-            <WalletStatus />
+            <WalletStatus className="min-w-0" />
             <Drawer direction="right" shouldScaleBackground={false}>
               <DrawerTrigger asChild>
                 <motion.button
-                  className="p-2 rounded-xl border border-border/20 dark:border-border/40 bg-background/80 backdrop-blur-sm hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-all duration-300 relative z-50 text-zinc-900 dark:text-zinc-100"
+                  className="shrink-0 p-2 rounded-xl border border-border/20 dark:border-border/40 bg-background/80 backdrop-blur-sm hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-all duration-300 relative z-50 text-zinc-900 dark:text-zinc-100"
                   whileTap={{ scale: 0.95 }}
                   aria-label={t.header.openMenu}
                 >

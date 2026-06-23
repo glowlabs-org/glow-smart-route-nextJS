@@ -50,13 +50,13 @@ export const ConnectButton = ({
   }, [isConnected]);
 
   const buttonSizeClass = clsx(
-    minimal ? "w-auto px-2 min-w-0 aspect-square" : "w-full",
+    minimal ? "w-auto px-2 min-w-0 aspect-square" : "w-full min-w-0",
     size === "small"
       ? "h-8 lg:h-10 text-sm lg:text-base"
       : size === "medium"
       ? "h-10 lg:h-12 text-base lg:text-lg"
       : "h-12 lg:h-16 text-base lg:text-lg",
-    "font-semibold"
+    "truncate font-semibold"
   );
 
   const handleSwitchToTarget = async () => {
@@ -80,7 +80,7 @@ export const ConnectButton = ({
           type="button"
           className={buttonSizeClass}
         >
-          <Wallet className={clsx(minimal ? "mr-0" : "mr-2 h-4 w-4")} />
+          <Wallet className={clsx("shrink-0", minimal ? "mr-0" : "mr-2 h-4 w-4")} />
           {!minimal && t.wallet.connectWallet}
         </Button>
       ) : isWrongNetwork ? (

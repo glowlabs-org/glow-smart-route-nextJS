@@ -151,7 +151,7 @@ export function WalletStatus({
           </span>
           {!minimal && (
             <>
-              <span className="font-mono text-xs sm:text-sm font-medium truncate">
+              <span className="min-w-0 font-mono text-xs sm:text-sm font-medium truncate">
                 {address.slice(0, 6)}...{address.slice(-4)}
               </span>
               <ChevronDown className="w-3.5 h-3.5 opacity-60 shrink-0" />
