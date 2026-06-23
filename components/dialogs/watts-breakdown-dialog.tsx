@@ -71,10 +71,10 @@ function SourceRow({
           <Icon className="w-4 h-4" />
         </div>
         <div className="flex flex-col min-w-0">
-          <span className="text-sm font-medium text-foreground truncate">
+          <span className="text-sm font-medium text-foreground line-clamp-2">
             {label}
           </span>
-          <span className="text-[10px] text-muted-foreground truncate">
+          <span className="text-[10px] text-muted-foreground line-clamp-2">
             {sublabel}
           </span>
         </div>
@@ -264,10 +264,10 @@ export function WattsBreakdownDialog({
                               <Leaf className="w-4 h-4" />
                             </div>
                             <div className="flex flex-col min-w-0">
-                              <span className="text-sm font-medium text-foreground truncate">
+                              <span className="text-sm font-medium text-foreground line-clamp-2">
                                 Tons of CO₂
                               </span>
-                              <span className="text-[10px] text-muted-foreground truncate">
+                              <span className="text-[10px] text-muted-foreground line-clamp-2">
                                 30-year lifetime offset from your share
                               </span>
                             </div>
