@@ -276,6 +276,12 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
   const [statsDialogOpen, setStatsDialogOpen] = React.useState(false);
   const [selectedApplicationForStats, setSelectedApplicationForStats] =
     React.useState<LocalTaggedApplication | null>(null);
+  // Leg currency of the tile the stats dialog was opened from (GLW vs sGCTL).
+  // Without this the dialog defaults to resolveDelegationCurrency() -> "SGCTL"
+  // for dual-leg listings, showing the wrong leg's stats on the GLW tile.
+  const [selectedLegForStats, setSelectedLegForStats] = React.useState<
+    "GLW" | "SGCTL" | undefined
+  >(undefined);
   const [selectedScoreDataForStats, setSelectedScoreDataForStats] =
     React.useState<LaunchpadRewardScore | MiningCenterScore | null>(null);
 
@@ -902,6 +908,11 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                   });
                   setSelectedApplicationForStats(application);
                   setSelectedScoreDataForStats(row.scoreData);
+                  setSelectedLegForStats(
+                    application._type === "miners"
+                      ? undefined
+                      : delegationCurrency,
+                  );
                   setStatsDialogOpen(true);
                 }}
                 className="backdrop-blur-xl bg-white/90 dark:bg-black/60 hover:bg-white dark:hover:bg-black/70 border border-border/20 dark:border-white/20 text-foreground dark:text-white rounded-full px-2.5 sm:px-3 h-7 sm:h-8 text-[10px] sm:text-xs font-semibold transition-all shadow-sm"
@@ -1575,6 +1586,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
           open={statsDialogOpen}
           onOpenChange={setStatsDialogOpen}
           application={selectedApplicationForStats as TaggedAuctionApplication}
+          delegationCurrency={selectedLegForStats}
           rewardScore={
             selectedScoreDataForStats as {
               userWeeklyGlwRewards: string;
