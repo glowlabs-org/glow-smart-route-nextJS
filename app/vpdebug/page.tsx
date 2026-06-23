@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 // Bump this string on every deploy that touches the viewport fix so we can tell,
 // from a single on-device screenshot, whether the wallet WebView is running the
 // latest build or serving a stale cache.
-const BUILD_TAG = "vpdebug-build-4 (dff136d+clamp)";
+const BUILD_TAG = "vpdebug-build-5 (content-overflow-fix)";
 
 export default function VpDebugPage() {
   const [lines, setLines] = useState<string[]>([]);

@@ -18,7 +18,13 @@ function ScrollArea({
     >
       <ScrollAreaPrimitive.Viewport
         data-slot="scroll-area-viewport"
-        className="focus-visible:ring-ring/50 size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:outline-1"
+        // Radix wraps content in a `display:table; min-width:100%` div, which
+        // sizes to max-content — letting children (e.g. a row with a right-
+        // aligned value) lay out wider than the viewport and get clipped by an
+        // ancestor's overflow. Force that wrapper to `block` so content is
+        // constrained to 100% width and wraps/truncates instead of overflowing.
+        // (These scroll areas are vertical-only, so block is safe.)
+        className="focus-visible:ring-ring/50 size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:outline-1 [&>div]:!block"
       >
         {children}
       </ScrollAreaPrimitive.Viewport>

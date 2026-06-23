@@ -75,6 +75,12 @@ function DialogContent({
         style={{
           left: "calc(var(--app-vl, 0px) + var(--app-vw, 100vw) / 2)",
           width: "calc(var(--app-vw, 100vw) - 2rem)",
+          // The content is a single-column grid; an implicit `auto` track sizes
+          // to the children's min-content, which can exceed the fixed box width
+          // (e.g. a big number or a `whitespace-nowrap` button) and overflow,
+          // getting clipped by `overflow-hidden`. `minmax(0,1fr)` caps the track
+          // at the box width so content wraps/truncates instead of overflowing.
+          gridTemplateColumns: "minmax(0, 1fr)",
           ...style,
         }}
         className={cn(
