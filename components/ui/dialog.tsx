@@ -51,6 +51,7 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  style,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
@@ -62,8 +63,19 @@ function DialogContent({
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
+        // Size + center against the *visual* viewport (see VisualViewportVars).
+        // `100%`/`vw`/`left:50%` resolve against the layout viewport, which some
+        // in-app wallet browsers inflate wider than the visible screen, pushing
+        // the dialog off-screen. `--vvw`/`--vvl` mirror the real visible area;
+        // they fall back to `100vw`/`0px` so SSR and unsupported browsers keep
+        // the original centered behavior. max-w-* classes still cap on desktop.
+        style={{
+          left: "calc(var(--vvl, 0px) + var(--vvw, 100vw) / 2)",
+          width: "min(100%, calc(var(--vvw, 100vw) - 2rem))",
+          ...style,
+        }}
         className={cn(
-          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-2xl border p-6 shadow-lg duration-200 sm:max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto",
+          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] z-50 grid max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-2xl border p-6 shadow-lg duration-200 sm:max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto",
           className
         )}
         {...props}
