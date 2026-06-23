@@ -84,6 +84,9 @@ import {
   type LaunchpadCardLeg,
 } from "@/utils/launchpad-card-legs";
 import { useSgctlEligibility } from "@/hooks/use-sgctl-eligibility";
+import { useV2EarlyAccess } from "@/hooks/v2-points-shop";
+import { useMinerEarlyAccessSignature } from "@/hooks/v2-early-access";
+import { publicClient } from "@/web3/web3/clients/publicClient";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { GlowSymbol } from "@/components/glow-symbol";
@@ -140,6 +143,116 @@ function countActiveListings(
 
 const MARKETPLACE_RELEASE_POLL_INTERVAL_MS =
   QUERY_CONFIG.REALTIME.refetchInterval;
+
+/**
+ * Launchpad early-access controller. Wraps the entitlement query + the opt-in
+ * EIP-712 signature so the marketplace can:
+ *   - know whether the connected wallet has an ACTIVE entitlement (launch or
+ *     legacy miner scope),
+ *   - detect whether the wallet is a smart-contract wallet (EOA-only: a
+ *     contract wallet can't prove entitlement via ecrecover, so it must not be
+ *     offered the unlock affordance),
+ *   - expose the base64 header to pass to the listings hooks once unlocked.
+ *
+ * The signature is NEVER requested on mount — `unlock()` runs only when the
+ * entitled EOA user clicks the explicit affordance.
+ */
+function useLaunchpadEarlyAccess(address: string | undefined) {
+  const earlyAccessQuery = useV2EarlyAccess(address);
+  const ea = useMinerEarlyAccessSignature();
+
+  const activeEntitlement = React.useMemo(
+    () =>
+      (earlyAccessQuery.data?.entitlements ?? []).find(
+        // Unified `"launch"` scope + legacy `"miner"` both grant early access.
+        (e) => e.active && (e.scope === "launch" || e.scope === "miner"),
+      ) ?? null,
+    [earlyAccessQuery.data],
+  );
+
+  // EOA-only: a smart-contract wallet cannot prove entitlement via ecrecover.
+  // Default to true (EOA) until proven otherwise so the affordance isn't hidden
+  // on a transient RPC failure; flips to false only on confirmed bytecode.
+  const [isEoa, setIsEoa] = React.useState(true);
+  React.useEffect(() => {
+    let cancelled = false;
+    if (!address) {
+      setIsEoa(true);
+      return;
+    }
+    publicClient
+      .getCode({ address: address as `0x${string}` })
+      .then((code) => {
+        if (cancelled) return;
+        const isContract =
+          typeof code === "string" && code !== "0x" && code.length > 2;
+        setIsEoa(!isContract);
+      })
+      .catch(() => {
+        if (!cancelled) setIsEoa(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [address]);
+
+  const hasActiveEntitlement = Boolean(activeEntitlement);
+  // Show the explicit unlock affordance only for an entitled, not-yet-unlocked
+  // EOA wallet (never auto-sign on mount).
+  const canOfferUnlock = hasActiveEntitlement && !ea.isUnlocked && isEoa;
+
+  return {
+    header: ea.header,
+    hasActiveEntitlement,
+    isUnlocked: ea.isUnlocked,
+    isSigning: ea.isSigning,
+    isEoa,
+    canOfferUnlock,
+    earlyAccessMinutes: activeEntitlement?.earlyAccessMinutes ?? null,
+    unlock: ea.unlock,
+  } as const;
+}
+
+/**
+ * Explicit opt-in affordance for early access. Rendered ONLY when the connected
+ * wallet has an active entitlement, is not yet unlocked, and is an EOA (the
+ * controller already gates on all three via `canOfferUnlock`). Clicking it
+ * prompts the EIP-712 signature; once signed, the listings refetch with the
+ * early-access header. We never auto-sign on mount.
+ */
+function EarlyAccessUnlockBanner({
+  earlyAccess,
+}: {
+  earlyAccess: ReturnType<typeof useLaunchpadEarlyAccess>;
+}) {
+  const { t } = useLang();
+  const l = t.routes.launchpad;
+  if (!earlyAccess.canOfferUnlock) return null;
+  const minutes = earlyAccess.earlyAccessMinutes;
+  return (
+    <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-primary/30 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-foreground">
+          {l.earlyAccessAvailableTitle}
+        </p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {minutes
+            ? l.earlyAccessUnlockBody(minutes)
+            : l.earlyAccessUnlockBodyNoMinutes}
+        </p>
+      </div>
+      <Button
+        className="shrink-0 rounded-full"
+        disabled={earlyAccess.isSigning}
+        onClick={() => {
+          void earlyAccess.unlock();
+        }}
+      >
+        {earlyAccess.isSigning ? l.earlyAccessSigning : l.earlyAccessUnlockCta}
+      </Button>
+    </div>
+  );
+}
 
 // Image component with skeleton loading state for SSR-friendly progressive loading
 function FarmImageWithSkeleton({
@@ -403,6 +516,11 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
   const isMobile = useIsMobile();
   const { address, isConnected } = useAccount();
 
+  // V2 early access: an entitled EOA wallet that opts in (signs) sees launchpad
+  // GLW delegations + miners up to its window before public visibility. Declared
+  // before the listings hooks so the header threads into their fetches.
+  const earlyAccess = useLaunchpadEarlyAccess(address);
+
   const selectedZoneId = zoneParam ? parseInt(zoneParam) : undefined;
   const selectedType = typeParam as "all" | "miners" | "delegations";
   const rewardScoreFallbackCurrency = "GLW" as PaymentCurrency;
@@ -426,6 +544,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
       refetchInterval: MARKETPLACE_RELEASE_POLL_INTERVAL_MS,
       refetchIntervalInBackground: true,
     },
+    earlyAccessHeader: earlyAccess.header,
   });
 
   // Fetch mining center (miners) applications
@@ -446,6 +565,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
       refetchInterval: MARKETPLACE_RELEASE_POLL_INTERVAL_MS,
       refetchIntervalInBackground: true,
     },
+    earlyAccessHeader: earlyAccess.header,
   });
 
   // Fetch all applications for zone extraction (without zone filter)
@@ -457,6 +577,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
       sortBy: selectedSort,
       sortOrder: selectedSortOrder,
     },
+    earlyAccessHeader: earlyAccess.header,
   });
 
   const { applications: allMinersApplications, refetch: refetchAllMiners } =
@@ -466,6 +587,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
         sortOrder: selectedSortOrder,
         paymentCurrency: "USDC",
       },
+      earlyAccessHeader: earlyAccess.header,
     });
 
   // Tag and merge applications
@@ -688,6 +810,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
       ) : null}
 
       <div className={isDialog ? "p-4" : "p-4 md:p-6"}>
+        <EarlyAccessUnlockBanner earlyAccess={earlyAccess} />
         {/* Filters - Desktop inline, Mobile button */}
         {shouldShowFilters ? (
           <div className="hidden md:block bg-muted/30 rounded-2xl border border-border p-6 mb-6">
@@ -1767,6 +1890,7 @@ function LaunchpadMarketplaceWidget({
   const { t } = useLang();
   const l = t.routes.launchpad;
   const { address } = useAccount();
+  const earlyAccess = useLaunchpadEarlyAccess(address);
   const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
   const { ethPrice } = useEthPrice();
   const isMobile = useIsMobile();
@@ -1796,6 +1920,7 @@ function LaunchpadMarketplaceWidget({
     error: errorLaunchpad,
   } = useGlowLaunchpad({
     filters: { includeFilled: true },
+    earlyAccessHeader: earlyAccess.header,
   });
 
   // sGCTL eligibility (spec §1.4): provided to leaf cards via context below.
@@ -1811,6 +1936,7 @@ function LaunchpadMarketplaceWidget({
     error: errorMiners,
   } = useMiningCenter({
     filters: { paymentCurrency: "USDC", includeFilled: true },
+    earlyAccessHeader: earlyAccess.header,
   });
 
   const taggedDelegations = React.useMemo<TaggedAuctionApplication[]>(
@@ -2574,6 +2700,7 @@ function LaunchpadMarketplaceWidget({
 
   return (
     <div className="w-full">
+      <EarlyAccessUnlockBanner earlyAccess={earlyAccess} />
       {selectedApplicationForStats?._type === "miners" ? (
         <MiningStatsDialog
           open={statsDialogOpen}
@@ -3576,6 +3703,7 @@ function LaunchpadMarketplaceDialog({
   const { t } = useLang();
   const l = t.routes.launchpad;
   const { address } = useAccount();
+  const earlyAccess = useLaunchpadEarlyAccess(address);
   const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
   type DialogTab = "all" | "delegations" | "miners" | "activity";
   const [tab, setTab] = React.useState<DialogTab>("all");
@@ -3606,6 +3734,7 @@ function LaunchpadMarketplaceDialog({
     error: errorLaunchpad,
   } = useGlowLaunchpad({
     filters: {},
+    earlyAccessHeader: earlyAccess.header,
   });
 
   // sGCTL eligibility (spec §1.4): used by the dialog rows and provided to the
@@ -3622,6 +3751,7 @@ function LaunchpadMarketplaceDialog({
     error: errorMiners,
   } = useMiningCenter({
     filters: { paymentCurrency: "USDC" },
+    earlyAccessHeader: earlyAccess.header,
   });
 
   const isLive = React.useMemo(() => {
@@ -3940,6 +4070,9 @@ function LaunchpadMarketplaceDialog({
         yieldPer1000Usd,
         amountRaised,
         totalAmountNeeded,
+        // sGCTL early-access gate: this sGCTL tile is shown early (before its
+        // public visibleAt) and must render disabled, not buyable.
+        legNotYetOpen: entry.legNotYetOpen,
       };
     });
 
@@ -4070,6 +4203,7 @@ function LaunchpadMarketplaceDialog({
 
   return (
     <div className="p-4 md:p-6">
+      <EarlyAccessUnlockBanner earlyAccess={earlyAccess} />
       {selectedApplicationForStats?._type === "miners" ? (
         <MiningStatsDialog
           open={statsDialogOpen}
@@ -4458,6 +4592,7 @@ function LaunchpadAssetCard({
     yieldUsdPerWeek: number;
     amountRaised: number;
     totalAmountNeeded: number;
+    legNotYetOpen?: boolean;
   };
   isScoresLoading: boolean;
   glwSpotPrice: number;
@@ -4490,6 +4625,9 @@ function LaunchpadAssetCard({
     ? row.delegationCurrency ?? "GLW"
     : "GLW";
   const isSoldOut = availability.isSoldOut;
+  // sGCTL early-access gate: an sGCTL tile shown before its public visibleAt is
+  // not buyable yet (only miners + GLW open early). Disable its CTA.
+  const legNotYetOpen = Boolean(row.legNotYetOpen);
   const remainingPct = React.useMemo(() => {
     const total = availability.total || 0;
     const remaining = availability.remaining || 0;
@@ -4720,17 +4858,21 @@ function LaunchpadAssetCard({
 
         <div className="flex min-w-0 flex-col sm:flex-row gap-3">
           <Button
-            variant={isSoldOut ? "ghost" : "default"}
+            variant={isSoldOut || legNotYetOpen ? "ghost" : "default"}
             className="h-11 w-full sm:flex-1 rounded-full"
-            disabled={isSoldOut || isScoresLoading || !scoreData}
+            disabled={
+              isSoldOut || legNotYetOpen || isScoresLoading || !scoreData
+            }
             onClick={() => {
-              if (isSoldOut || !scoreData) return;
+              if (isSoldOut || legNotYetOpen || !scoreData) return;
               // Pass the resolved leg currency so a "Delegate sGCTL" CTA opens
               // the sGCTL flow instead of falling back to GLW in the dialog.
               onPayDeposit(application, scoreData, delegationCurrency ?? undefined);
             }}
           >
-            {isSoldOut
+            {legNotYetOpen
+              ? l.sgctlOpensAtPublicLaunch
+              : isSoldOut
               ? l.waitlist
               : isDelegation
               ? delegationCurrency === "SGCTL"
@@ -4739,7 +4881,7 @@ function LaunchpadAssetCard({
               : l.buyMiners}
           </Button>
 
-          {!isSoldOut && (
+          {!isSoldOut && !legNotYetOpen && (
             <Button
               variant="outline"
               className="h-11 w-full sm:flex-1 rounded-full"

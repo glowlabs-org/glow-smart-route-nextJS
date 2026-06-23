@@ -142,9 +142,11 @@ export function shopItemMeta(item: V2ShopItem): ShopItemMeta {
       return {
         image: null,
         eyebrow: "Early access",
-        headline: `${minutes}-min head start`,
-        tagline: "Skip the line on new miner windows",
-        blurb: `Enter miner windows ${minutes} minutes ahead of everyone else. Valid for ${weeks} weeks, miners only. A head start does not guarantee inventory.`,
+        headline: "Early Access Pass",
+        tagline: `Up to ${minutes}-min head start on the weekly drop`,
+        // Convenience framing only — never promise a guaranteed fixed-minute
+        // window. sGCTL stays gated until the public launch; EOA-only.
+        blurb: `See and buy new miners and GLW delegations up to ${minutes} minutes early. Valid ${weeks} weeks. sGCTL opens at the public launch (Tue 9 AM ET). Requires an EOA wallet.`,
         stats: [],
         isFeatured: false,
         isTicket: true,

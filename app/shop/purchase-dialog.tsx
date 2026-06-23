@@ -44,6 +44,7 @@ import {
   INITIAL_POSITION_USD_GRACE,
   MIN_INITIAL_POSITION_USD,
 } from "@/lib/initial-position-guard";
+import { publicClient } from "@/web3/web3/clients/publicClient";
 
 function formatGlwAmount(value: number): string {
   return value.toLocaleString("en-US", {
@@ -65,7 +66,7 @@ function buildShopShareUrl(item: V2ShopItem): string {
     ? "I just used my Points to buy a Glow Miner in the Rewards Shop and started earning GLW tokens weekly."
     : item.kind === "watts"
       ? "I just used my Points to buy Watts in the Glow Rewards Shop and grew my clean-energy impact."
-      : "I just unlocked early miner access in the Glow Rewards Shop.";
+      : "I just unlocked the Early Access Pass in the Glow Rewards Shop — early on new miners and GLW delegations.";
   const text = [headline, "", SHOP_SHARE_DOMAIN].join("\n");
   return `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
 }
@@ -307,6 +308,10 @@ function errorMessageForCode(code: string | undefined, fallback: string): string
       return "This miner prize is only available after your wallet already has miner or delegated rewards.";
     case "REWARD_SPLIT_OWNERSHIP_UNVERIFIED":
       return "We couldn't verify your existing reward splits. Please try again before redeeming this miner.";
+    case "INVALID_EARLY_ACCESS_QUANTITY":
+      return "The Early Access Pass can only be bought one at a time.";
+    case "EARLY_ACCESS_RATE_MISCONFIGURED":
+      return "Early access is temporarily unavailable. Please try again later.";
     default:
       return fallback;
   }
@@ -364,8 +369,10 @@ function GrantSummary({
     case "early_access":
       return (
         <p className="text-sm text-muted-foreground">
-          Early access active: {g.earlyAccessMinutes} minutes early on miner
-          windows, valid until {new Date(g.expiresAt).toLocaleDateString()}.
+          Early Access Pass active: up to {g.earlyAccessMinutes} min early on the
+          weekly drop (miners + GLW delegations; sGCTL opens at the public
+          launch, Tue 9 AM ET). Requires an EOA wallet. Valid until{" "}
+          {new Date(g.expiresAt).toLocaleDateString()}.
         </p>
       );
     default:
@@ -514,6 +521,35 @@ export function PurchaseDialog({
         wallet: address,
       });
       return;
+    }
+    // EOA-only gate for the Early Access Pass: entitlement reveal is proven via
+    // an EIP-712 ecrecover signature, which a smart-contract (Safe/AA/7702)
+    // wallet cannot satisfy, so such a wallet would spend points and get
+    // nothing. Block it at purchase time. Non-empty bytecode = contract wallet.
+    if (item.kind === "early_access") {
+      setPhase("pending");
+      try {
+        const code = await publicClient.getCode({
+          address: address as `0x${string}`,
+        });
+        const isContractWallet =
+          typeof code === "string" && code !== "0x" && code.length > 2;
+        if (isContractWallet) {
+          setErrorMsg(
+            "Early access requires an EOA wallet. This wallet is a smart-contract wallet (Safe/AA), which can't prove early-access entitlement, so the pass would do nothing.",
+          );
+          setPhase("error");
+          trackEvent("shop_purchase_blocked_smart_wallet", {
+            itemId: item.itemId,
+            kind: item.kind,
+            wallet: address,
+          });
+          return;
+        }
+      } catch {
+        // RPC failure on the code check shouldn't hard-block a legit EOA buyer;
+        // the backend's EIP-712 reveal still enforces EOA-only at use time.
+      }
     }
     setPhase("pending");
     setErrorMsg("");

@@ -41,11 +41,13 @@ import { useGlowSpotPriceSummary } from "@/hooks/useGlowSpotPriceSummary";
 import { useEthPrice } from "@/hooks/useEthPrice";
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import {
+  earlyAccessQueryDiscriminator,
   fetchSponsorListings,
   useRewardsBreakdown,
   useSponsorApplication,
   type AuctionApplication,
 } from "@/hooks";
+import { useMinerEarlyAccessSignature } from "@/hooks/v2-early-access";
 import {
   useWalletRegionAvailableStake,
   useWallets,
@@ -119,6 +121,7 @@ import {
   resolveSgctlRemainingUnits,
 } from "@/hooks/hub-listings";
 import { resolveLaunchpadDelegationUnitCount } from "@/utils/launchpad-rewards";
+import { isBeforePublicVisibleAt } from "@/utils/launchpad-card-legs";
 import { normalizeMinerWeeksRemainingDisplay } from "@/lib/mining-score";
 import { useLang } from "@/lib/i18n";
 
@@ -216,6 +219,11 @@ export function DepositDialog({
   const { t } = useLang();
   const dd = t.routes.depositDialog;
   const { isConnected, address, connector } = useAccount();
+  // V2 early access: reuse the module-scoped signature unlocked in the
+  // marketplace view (never prompts here). When present, the pre-buy refetch
+  // resolves the wallet's EARLY listing (correct inventory/pricing/asset) so an
+  // entitled holder doesn't fall back to the public-bucket listing.
+  const { header: earlyAccessHeader } = useMinerEarlyAccessSignature();
   const isMobile = useIsMobile();
   const chainId = useChainId();
   const { signer, isLoading: isSignerLoading } = useEthersSigner();
@@ -505,13 +513,19 @@ export function DepositDialog({
         : ({ includeFilled: true } as const);
 
     const listings = await queryClient.fetchQuery({
-      queryKey: QUERY_KEYS.listings.sponsor(filters),
+      // Match the `useSponsorListings` early-access discriminator EXACTLY so the
+      // entitled refetch shares the early bucket (not the public one).
+      queryKey: [
+        ...QUERY_KEYS.listings.sponsor(filters),
+        earlyAccessQueryDiscriminator(earlyAccessHeader),
+      ],
       staleTime: 0,
-      queryFn: async () => await fetchSponsorListings(filters),
+      queryFn: async () =>
+        await fetchSponsorListings(filters, earlyAccessHeader),
     });
 
     return listings.find((item) => item.id === application.id) ?? application;
-  }, [application, queryClient, selectedCurrency]);
+  }, [application, queryClient, selectedCurrency, earlyAccessHeader]);
 
   const costInGLW = React.useCallback(
     (qty: number) =>
@@ -1284,6 +1298,15 @@ export function DepositDialog({
     runtimeSelectedCurrency === "SGCTL"
       ? resolveSgctlRemainingUnits(effectiveApplication?.activeFraction)
       : resolveGlwRemainingSteps(effectiveApplication?.activeFraction);
+
+  // sGCTL early-access gate (defense-in-depth): early access covers miners +
+  // the GLW leg only. If an entitled wallet reached the sGCTL path before the
+  // listing's PUBLIC visibleAt, block the buy — Control would reject it as "not
+  // live yet" until the public 9 AM ET window. The card already disables the
+  // sGCTL CTA early; this guards the dialog if it's opened another way.
+  const sgctlNotYetOpen =
+    runtimeSelectedCurrency === "SGCTL" &&
+    isBeforePublicVisibleAt(effectiveApplication?.activeFraction);
 
   // The largest number of units the wallet can afford in the selected payment
   // method, capped by the listing's remaining steps. Drives the Max button.
@@ -2603,6 +2626,11 @@ export function DepositDialog({
               </div>
             ) : (
               <div className="space-y-2">
+                {sgctlNotYetOpen ? (
+                  <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-relaxed text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+                    {t.routes.launchpad.sgctlOpensAtPublicLaunch}
+                  </p>
+                ) : null}
                 <Button
                   className="w-full h-12"
                   onClick={handleConfirm}
@@ -2611,13 +2639,16 @@ export function DepositDialog({
                     isPreparingWalletAuthorization ||
                     isCheckingInitialPositionEligibility ||
                     initialPositionValueGuard.isBlocked ||
+                    sgctlNotYetOpen ||
                     !affordability.canSubmit
                   }
                 >
                   {isSubmitting && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   )}
-                  {ctaLabel}
+                  {sgctlNotYetOpen
+                    ? t.routes.launchpad.sgctlOpensAtPublicLaunch
+                    : ctaLabel}
                 </Button>
                 {(() => {
                   if (selectedPaymentMethod !== "USDC") return null;

@@ -379,7 +379,24 @@ export function usePostSuccessSync({
     const sponsorResults = new Map<string, AuctionApplication[]>();
 
     for (const query of sponsorQueryCache) {
-      const [, rawFilters] = query.queryKey as [string, Record<string, any>?];
+      const [, rawFilters, discriminator] = query.queryKey as [
+        string,
+        Record<string, any>?,
+        string?,
+      ];
+      // Early-access buckets (queryKey[2] === "early-access:<hash>") are
+      // wallet/header-specific. Overwriting them with a public (header-less)
+      // response would revert an early-revealed launchpad listing to its public
+      // (hidden) state right after a holder's buy. Invalidate instead, so the
+      // bucket refetches through useSponsorListings with its own
+      // x-glow-early-access header.
+      if (
+        typeof discriminator === "string" &&
+        discriminator.startsWith("early-access")
+      ) {
+        queryClient.invalidateQueries({ queryKey: query.queryKey });
+        continue;
+      }
       const filters = rawFilters ?? {};
       const cacheKey = JSON.stringify(filters);
       let fresh = sponsorResults.get(cacheKey);

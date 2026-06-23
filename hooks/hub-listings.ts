@@ -396,6 +396,28 @@ function buildSponsorListingsProxyUrl(
     : SPONSOR_LISTINGS_PROXY_PATH;
 }
 
+/**
+ * Stable, SHORT discriminator for the React Query cache bucket of an
+ * early-access read. The backend cache varies by the wallet AND the numeric
+ * entitlement-minutes offset, and each early-access response is wallet-specific,
+ * so a coarse constant ("early-access") risks transiently serving one wallet's
+ * early window to another after a wallet/duration switch. We derive a short
+ * djb2 hash of the base64 header (which encodes the wallet + signature) rather
+ * than embedding the raw signature in the key. Returns `"public"` when there is
+ * no header.
+ */
+export function earlyAccessQueryDiscriminator(
+  earlyAccessHeader?: string | null,
+): string {
+  if (!earlyAccessHeader) return "public";
+  let hash = 5381;
+  for (let i = 0; i < earlyAccessHeader.length; i++) {
+    hash = ((hash << 5) + hash + earlyAccessHeader.charCodeAt(i)) | 0;
+  }
+  // Unsigned hex keeps it short and collision-resistant enough for a cache key.
+  return `early-access:${(hash >>> 0).toString(16)}`;
+}
+
 export async function fetchSponsorListings(
   filters: SponsorListingsFilters = {},
   earlyAccessHeader?: string | null,
@@ -428,7 +450,7 @@ export function useSponsorListings(params: UseSponsorListingsParams = {}) {
   const query = useQuery({
     queryKey: [
       ...QUERY_KEYS.listings.sponsor(filters),
-      earlyAccessHeader ? "early-access" : "public",
+      earlyAccessQueryDiscriminator(earlyAccessHeader),
     ],
     enabled,
     staleTime: 0,
@@ -462,15 +484,22 @@ export interface UseGlowLaunchpadParams {
   filters?: GlowLaunchpadFilters;
   enabled?: boolean;
   query?: UseSponsorListingsParams["query"];
+  /**
+   * Base64 EIP-712 payload (V2 early access). When present, the backend may
+   * reveal launchpad GLW delegation listings before public visibility (mirrors
+   * `useMiningCenter`). The sGCTL leg stays gated until the public window.
+   */
+  earlyAccessHeader?: string | null;
 }
 
 // launchpad listings are returned when `type` is omitted
 export function useGlowLaunchpad(params: UseGlowLaunchpadParams = {}) {
-  const { filters = {}, enabled = true, query } = params;
+  const { filters = {}, enabled = true, query, earlyAccessHeader } = params;
   return useSponsorListings({
     filters: { ...filters },
     enabled,
     query,
+    earlyAccessHeader,
   });
 }
 

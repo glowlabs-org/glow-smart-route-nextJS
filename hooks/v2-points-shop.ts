@@ -165,7 +165,14 @@ export interface V2ShopPurchasesResponse {
 
 export interface V2EarlyAccessEntitlement {
   entitlementId: string;
-  scope: "miner";
+  /**
+   * `"launch"` is the unified early-access scope (covers miners + GLW launchpad
+   * delegations); `"miner"` is the legacy scope for already-sold passes, which
+   * the backend matches alongside `"launch"` and still unlocks the launchpad
+   * early reveal (free upgrade, no backfill). Treat both as "active early
+   * access" everywhere the FE checks scope.
+   */
+  scope: "miner" | "launch";
   startsAt: string;
   expiresAt: string;
   earlyAccessMinutes: number;

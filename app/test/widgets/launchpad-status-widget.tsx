@@ -300,7 +300,11 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
   const activeMinerEntitlement = React.useMemo(
     () =>
       (earlyAccessQuery.data?.entitlements ?? []).find(
-        (e) => e.active && e.scope === "miner",
+        // Match the unified `"launch"` scope AND legacy `"miner"` rows: new
+        // passes are written as `"launch"`, old ones stay `"miner"` and both
+        // grant early access. Gating on `"miner"` alone would silently stop
+        // recognizing new passes.
+        (e) => e.active && (e.scope === "launch" || e.scope === "miner"),
       ) ?? null,
     [earlyAccessQuery.data],
   );
