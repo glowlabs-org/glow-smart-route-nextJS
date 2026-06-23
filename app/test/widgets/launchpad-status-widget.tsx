@@ -768,6 +768,13 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
   const showMinersTab = minerApplications.length > 0;
   const showAllTab = showDelegationsTab || showMinersTab;
 
+  // If the active tab's button is no longer rendered (its listing type vanished),
+  // fall back to "all" so the user is never stranded on a hidden filter.
+  React.useEffect(() => {
+    if (activeTab === "delegations" && !showDelegationsTab) setActiveTab("all");
+    else if (activeTab === "miners" && !showMinersTab) setActiveTab("all");
+  }, [activeTab, showDelegationsTab, showMinersTab]);
+
   // Handle card click
   const handleCardClick = React.useCallback(
     (row: ListingRow) => {
@@ -1312,8 +1319,11 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
     );
   }
 
-  // No listings state
-  if (filteredRows.length === 0) {
+  // Bare empty state (no tabs) only when there are NO listings of any kind.
+  // If listings exist but the *current* filter is empty (e.g. "Deleg." with 0
+  // remaining while miners are available), fall through to the card below so the
+  // filter tabs stay visible and the user can switch back to another filter.
+  if (!showAllTab) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <GlowSymbol className="h-12 w-12 mb-4 opacity-50" />
@@ -1506,6 +1516,17 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
           page, drop to two columns so they span the full width instead of
           leaving an empty third slot. */}
       <div className="space-y-4">
+        {/* Current filter has no listings (other filters may still have some):
+            show the empty message but keep the tabs above so the user can switch
+            back. The empty grid below collapses to nothing. */}
+        {filteredRows.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <GlowSymbol className="h-12 w-12 mb-4 opacity-50" />
+            <div className="text-sm text-muted-foreground">
+              {t.widgets.launchpadStatus.noListings}
+            </div>
+          </div>
+        )}
         <div
           className={cn(
             "grid grid-cols-1 md:grid-cols-2 gap-4",
