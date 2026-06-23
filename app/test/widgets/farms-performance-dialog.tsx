@@ -2359,13 +2359,17 @@ export function FarmsPerformanceDialogContent({
       } else if (farmData?.userWeeklyRewards) {
         // Use source-specific breakdown if available (prevents double-counting for farms with both delegation + miner)
         const isMiningCenter = item.fractionType === "mining-center";
-        const hasMultipleLaunchpadCurrencies =
-          (launchpadCurrenciesByFarmId.get(item.farmId)?.size ?? 0) > 1;
         const pdAsset = formatProtocolDepositAsset(
           farmData.userWeeklyRewards.protocolDepositAsset
         );
+        // Only fold a non-GLW (SGCTL) PD line in when it matches the wallet's OWN
+        // delegation leg on this farm. The backend reports the wallet's per-leg
+        // protocolDepositAsset, so a GLW-leg delegator gets pdAsset === "GLW"
+        // (folded into the GLW total below) and an SGCTL-leg delegator gets
+        // pdAsset === item.launchpadCurrency. The old !hasMultipleLaunchpadCurrencies
+        // short-circuit (the wallet's own currency set) let a GLW-only delegator
+        // (size 1) bypass the asset check and inherit the farm's SGCTL PD line.
         const canUsePdForLaunchpadEstimate =
-          !hasMultipleLaunchpadCurrencies ||
           item.fractionType !== "launchpad" ||
           pdAsset === "GLW" ||
           pdAsset === item.launchpadCurrency;
