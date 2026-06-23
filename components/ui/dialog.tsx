@@ -63,15 +63,18 @@ function DialogContent({
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
-        // Size + center against the *visual* viewport (see VisualViewportVars).
+        // Size + center against the clamped *visible* viewport (ViewportClampVars).
         // `100%`/`vw`/`left:50%` resolve against the layout viewport, which some
-        // in-app wallet browsers inflate wider than the visible screen, pushing
-        // the dialog off-screen. `--vvw`/`--vvl` mirror the real visible area;
-        // they fall back to `100vw`/`0px` so SSR and unsupported browsers keep
-        // the original centered behavior. max-w-* classes still cap on desktop.
+        // in-app wallet browsers (Base/Coinbase, Rabby) inflate wider than the
+        // visible screen — pushing the dialog off-screen and clipping its right
+        // edge. `--app-vw`/`--app-vl` are clamped to the smallest of every width
+        // signal (incl. screen.width), so they track the true visible area; they
+        // fall back to `100vw`/`0px` for SSR / unsupported browsers. Both width
+        // and centering use the SAME variable so they can't disagree. max-w-*
+        // classes still cap on desktop.
         style={{
-          left: "calc(var(--vvl, 0px) + var(--vvw, 100vw) / 2)",
-          width: "min(100%, calc(var(--vvw, 100vw) - 2rem))",
+          left: "calc(var(--app-vl, 0px) + var(--app-vw, 100vw) / 2)",
+          width: "calc(var(--app-vw, 100vw) - 2rem)",
           ...style,
         }}
         className={cn(

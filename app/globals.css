@@ -440,12 +440,14 @@
   }
   html {
     @apply scroll-smooth;
-    /* Guard against any element forcing horizontal page scroll. In wallet
-       in-app browsers (e.g. Rabby) a horizontally-overflowing page inflates
-       the layout viewport, which pushes fixed/centered modals (the deposit
-       dialog) off-screen and clips their right edge. Applied on the root so
-       it propagates to the viewport without breaking sticky positioning. */
-    overflow-x: hidden;
+  }
+  /* Guard against any element forcing horizontal page scroll. `clip` is honored
+     in WebViews that drop root `overflow: hidden`, and (unlike hidden) it does
+     not create a scroll container, so sticky positioning keeps working. Applied
+     to both html and body since some in-app wallet browsers only honor one. */
+  html,
+  body {
+    overflow-x: clip;
   }
   body {
     @apply bg-background text-foreground font-sans;
