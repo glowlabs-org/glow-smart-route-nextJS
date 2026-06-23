@@ -174,9 +174,11 @@ export function parseDelegationAmountFromBaseUnits(
 }
 
 export function getDelegationStepAtomic(
-  application?: DelegationApplicationLike | null
+  application?: DelegationApplicationLike | null,
+  currencyOverride?: DelegationCurrency
 ): bigint | null {
-  const delegationCurrency = resolveDelegationCurrency(application);
+  const delegationCurrency =
+    currencyOverride ?? resolveDelegationCurrency(application);
   if (delegationCurrency === "SGCTL") {
     const lockedSgctlStepAtomic = (() => {
       try {
@@ -241,7 +243,8 @@ export function getDelegationStepAtomic(
 }
 
 export function resolveLaunchpadDelegationShareCount(
-  application?: DelegationApplicationLike | null
+  application?: DelegationApplicationLike | null,
+  currencyOverride?: DelegationCurrency
 ): number {
   const baseTotalSteps = Math.max(
     0,
@@ -249,7 +252,7 @@ export function resolveLaunchpadDelegationShareCount(
   );
   if (!application?.activeFraction) return 0;
 
-  if (resolveDelegationCurrency(application) !== "SGCTL") {
+  if ((currencyOverride ?? resolveDelegationCurrency(application)) !== "SGCTL") {
     return baseTotalSteps;
   }
 
@@ -286,13 +289,15 @@ export function resolveLaunchpadDelegationShareCount(
  * matches the share-count helper (finalProtocolFee ÷ currentStepUsd6).
  */
 export function resolveLaunchpadDelegationUnitCount(
-  application?: DelegationApplicationLike | null
+  application?: DelegationApplicationLike | null,
+  currencyOverride?: DelegationCurrency
 ): number {
   if (!application?.activeFraction) return 0;
 
+  const currency = currencyOverride ?? resolveDelegationCurrency(application);
   // sGCTL already derives the unit count as finalProtocolFee ÷ stepUsd6.
-  if (resolveDelegationCurrency(application) === "SGCTL") {
-    return resolveLaunchpadDelegationShareCount(application);
+  if (currency === "SGCTL") {
+    return resolveLaunchpadDelegationShareCount(application, currency);
   }
 
   // GLW: deposit ÷ per-step price. perStepUsd6 = (stepWei / 1e18) * glwPriceUsd6.
@@ -324,14 +329,16 @@ export function resolveLaunchpadDelegationUnitCount(
   }
 
   // Fallback to the (total_steps-based) share count when pricing is unavailable.
-  return resolveLaunchpadDelegationShareCount(application);
+  return resolveLaunchpadDelegationShareCount(application, currency);
 }
 
 export function parseDelegationStepAmount(
-  application?: DelegationApplicationLike | null
+  application?: DelegationApplicationLike | null,
+  currencyOverride?: DelegationCurrency
 ): number {
-  const delegationCurrency = resolveDelegationCurrency(application);
-  const stepAtomic = getDelegationStepAtomic(application);
+  const delegationCurrency =
+    currencyOverride ?? resolveDelegationCurrency(application);
+  const stepAtomic = getDelegationStepAtomic(application, delegationCurrency);
   if (!stepAtomic) return 0;
   return parseTokenAmountFromBaseUnits(
     stepAtomic,

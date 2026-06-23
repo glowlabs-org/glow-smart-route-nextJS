@@ -511,7 +511,10 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
               ),
             );
           }
-          return parseDelegationStepAmount(application);
+          return parseDelegationStepAmount(
+            application,
+            delegationCurrency ?? undefined,
+          );
         } catch {
           return 0;
         }
@@ -528,7 +531,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
               ),
             );
           }
-          const totalShares = resolveLaunchpadDelegationUnitCount(application);
+          const totalShares = resolveLaunchpadDelegationUnitCount(application, delegationCurrency ?? undefined);
           if (!reward || !totalShares) return 0;
           return calculateLaunchpadPerShareRewards({
             reward,
@@ -543,7 +546,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
       const weeklyPdYield = (() => {
         try {
           if (application._type === "miners") return 0;
-          const totalShares = resolveLaunchpadDelegationUnitCount(application);
+          const totalShares = resolveLaunchpadDelegationUnitCount(application, delegationCurrency ?? undefined);
           if (!reward || !totalShares) return 0;
           const pdRewards = parseFloat(
             formatUnits(
@@ -560,7 +563,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
       const totalAmountNeeded = (() => {
         if (!application.activeFraction) return 0;
         if (application._type === "delegations") {
-          const totalSteps = resolveLaunchpadDelegationUnitCount(application);
+          const totalSteps = resolveLaunchpadDelegationUnitCount(application, delegationCurrency ?? undefined);
           if (!Number.isFinite(cost) || cost <= 0 || totalSteps <= 0) return 0;
           return cost * totalSteps;
         }
@@ -578,7 +581,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
         if (application._type === "miners") {
           return weeklyYield * (glwSpotPrice || 0);
         }
-        const totalShares = resolveLaunchpadDelegationUnitCount(application);
+        const totalShares = resolveLaunchpadDelegationUnitCount(application, delegationCurrency ?? undefined);
         if (!reward || totalShares <= 0) {
           return weeklyYield * (glwSpotPrice || 0);
         }
@@ -1114,7 +1117,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                       resolveLaunchpadDelegationShareCount(application) > 0
                         ? (() => {
                             const totalShares =
-                              resolveLaunchpadDelegationUnitCount(application);
+                              resolveLaunchpadDelegationUnitCount(application, delegationCurrency ?? undefined);
                             const glwRewards = parseFloat(
                               formatUnits(
                                 BigInt(
