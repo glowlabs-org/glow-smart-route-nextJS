@@ -875,8 +875,8 @@ export default function SolarCollectorWidget({
       <Card className="overflow-hidden w-full py-0 bg-card dark:bg-card border-border/20 mb-6">
         <CardContent className="p-4 md:p-5">
           {/* Header */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+            <div className="flex items-center gap-2 min-w-0">
               <div className="text-[11px] font-mono font-bold uppercase tracking-widest text-muted-foreground">
                 {t.widgets.solarCollector.sectionTitle}
               </div>

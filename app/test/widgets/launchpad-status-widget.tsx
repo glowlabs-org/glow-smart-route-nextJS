@@ -2158,7 +2158,7 @@ export default function LaunchpadStatusWidget({
               "flex flex-col gap-4",
               variant === "full-row"
                 ? "px-0 pb-0 lg:grid lg:grid-cols-3 lg:items-center lg:gap-4"
-                : "px-5 pb-5",
+                : "px-4 pb-5 sm:px-8",
             )}
           >
             {/* Big Countdown Hero */}
@@ -2179,7 +2179,7 @@ export default function LaunchpadStatusWidget({
                 <div className="sm:hidden">
                   <AnimatedCountdownDhms
                     remainingMs={remainingMs}
-                    size="lg"
+                    size="md"
                     showLabels
                   />
                 </div>
