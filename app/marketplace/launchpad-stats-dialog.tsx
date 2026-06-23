@@ -30,6 +30,7 @@ import { RegionRouter } from "@glowlabs-org/utils/browser";
 import { cn } from "@/lib/utils";
 import {
   calculateLaunchpadPerShareRewards,
+  type DelegationCurrency,
   parseDelegationStepAmount,
   parseUsd6Amount,
   resolveDelegationCurrency,
@@ -45,6 +46,13 @@ interface LaunchpadStatsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   application: AuctionApplication | null;
+  /**
+   * Leg currency chosen by the opening tile (GLW vs sGCTL). When omitted the
+   * dialog falls back to resolveDelegationCurrency(application) (legacy single-
+   * leg behavior). Required so the GLW tile's stats show GLW, not the listing's
+   * activeFraction.delegationAsset === "SGCTL" default.
+   */
+  delegationCurrency?: DelegationCurrency;
   rewardScore?: {
     userWeeklyGlwRewards: string;
     userWeeklyPdRewards: string;
@@ -67,6 +75,7 @@ export function LaunchpadStatsDialog({
   open,
   onOpenChange,
   application,
+  delegationCurrency: delegationCurrencyProp,
   rewardScore,
 }: LaunchpadStatsDialogProps) {
   const { t } = useLang();
@@ -97,10 +106,14 @@ export function LaunchpadStatsDialog({
   const yearsForCCs = 30;
   const weeksPerYear = 52;
   const totalWeeksForCCs = yearsForCCs * weeksPerYear;
-  const delegationCurrency = resolveDelegationCurrency(application);
+  const delegationCurrency =
+    delegationCurrencyProp ?? resolveDelegationCurrency(application);
 
   // Total delegation amount per fraction (GLW during GLW phase, SGCTL during SGCTL phase)
-  const totalDelegationPerFraction = parseDelegationStepAmount(application);
+  const totalDelegationPerFraction = parseDelegationStepAmount(
+    application,
+    delegationCurrency,
+  );
 
   // Weekly CCs from application
   const weeklyCC = application?.auditFields?.netCarbonCreditEarningWeekly ?? 0;
@@ -127,7 +140,10 @@ export function LaunchpadStatsDialog({
     }
   }, [application?.finalProtocolFee, weeklyCC]);
 
-  const totalFractionSteps = resolveLaunchpadDelegationUnitCount(application);
+  const totalFractionSteps = resolveLaunchpadDelegationUnitCount(
+    application,
+    delegationCurrency,
+  );
   const stepsForMath = totalFractionSteps > 0 ? totalFractionSteps : 1;
   const perShareRewards = calculateLaunchpadPerShareRewards({
     reward: rewardScore,

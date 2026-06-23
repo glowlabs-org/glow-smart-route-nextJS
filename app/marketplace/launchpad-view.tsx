@@ -68,6 +68,7 @@ import { useEthPrice } from "@/hooks/useEthPrice";
 import { resolveRewardScorePaymentCurrency } from "@/lib/reward-score";
 import {
   calculateLaunchpadPerShareRewards,
+  type DelegationCurrency,
   getDelegationCurrencyDecimals,
   parseDelegationStepAmount,
   resolveEffectiveDelegationCurrency,
@@ -381,6 +382,8 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
   });
   const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
   const [statsDialogOpen, setStatsDialogOpen] = React.useState(false);
+  const [selectedLegForStats, setSelectedLegForStats] =
+    React.useState<DelegationCurrency | undefined>(undefined);
   const [selectedApplicationForStats, setSelectedApplicationForStats] =
     React.useState<TaggedAuctionApplication | null>(null);
   const [selectedRewardScoreForStats, setSelectedRewardScoreForStats] =
@@ -638,6 +641,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
           open={statsDialogOpen}
           onOpenChange={setStatsDialogOpen}
           application={selectedApplicationForStats}
+          delegationCurrency={selectedLegForStats}
           rewardScore={
             selectedRewardScoreForStats as {
               userWeeklyGlwRewards: string;
@@ -1632,6 +1636,14 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                 }
                               );
                               setSelectedApplicationForStats(application);
+                              setSelectedLegForStats(
+                                application._type === "miners"
+                                  ? undefined
+                                  : resolveEffectiveDelegationCurrency(
+                                      application,
+                                      isSgctlEligible(application.id)
+                                    )
+                              );
                               setSelectedRewardScoreForStats(
                                 application._type === "miners"
                                   ? miningScore || null
@@ -1759,6 +1771,8 @@ function LaunchpadMarketplaceWidget({
   const { ethPrice } = useEthPrice();
   const isMobile = useIsMobile();
   const [statsDialogOpen, setStatsDialogOpen] = React.useState(false);
+  const [selectedLegForStats, setSelectedLegForStats] =
+    React.useState<DelegationCurrency | undefined>(undefined);
   const [selectedApplicationForStats, setSelectedApplicationForStats] =
     React.useState<TaggedAuctionApplication | null>(null);
   const [selectedScoreDataForStats, setSelectedScoreDataForStats] =
@@ -2574,6 +2588,7 @@ function LaunchpadMarketplaceWidget({
           open={statsDialogOpen}
           onOpenChange={setStatsDialogOpen}
           application={selectedApplicationForStats}
+          delegationCurrency={selectedLegForStats}
           rewardScore={
             selectedScoreDataForStats as {
               userWeeklyGlwRewards: string;
@@ -2724,9 +2739,10 @@ function LaunchpadMarketplaceWidget({
                         glwSpotPrice={glwSpotPrice}
                         ethPrice={ethPrice}
                         onPayDeposit={onPayDeposit}
-                        onOpenStats={(application, scoreData) => {
+                        onOpenStats={(application, scoreData, leg) => {
                           setSelectedApplicationForStats(application);
                           setSelectedScoreDataForStats(scoreData ?? null);
+                          setSelectedLegForStats(leg ?? undefined);
                           setStatsDialogOpen(true);
                         }}
                       />
@@ -2801,7 +2817,8 @@ function LaunchpadWidgetAssetCard({
           weeklyGlwRewards?: string;
           weeklyGlwRewardsUsd?: string;
         }
-      | null
+      | null,
+    leg?: DelegationCurrency
   ) => void;
 }) {
   const { t } = useLang();
@@ -3018,7 +3035,13 @@ function LaunchpadWidgetAssetCard({
                 <Button
                   variant="outline"
                   className="h-10 rounded-full px-4 text-sm whitespace-nowrap"
-                  onClick={() => onOpenStats(application, scoreData)}
+                  onClick={() =>
+                    onOpenStats(
+                      application,
+                      scoreData,
+                      delegationCurrency ?? undefined,
+                    )
+                  }
                 >
                   {l.advancedStats}
                 </Button>
@@ -3234,7 +3257,8 @@ function LaunchpadWidgetHeroCarouselCard({
           weeklyGlwRewards?: string;
           weeklyGlwRewardsUsd?: string;
         }
-      | null
+      | null,
+    leg?: DelegationCurrency
   ) => void;
 }) {
   const { t } = useLang();
@@ -3425,7 +3449,11 @@ function LaunchpadWidgetHeroCarouselCard({
               onClick={(e) => {
                 if (isSoldOut) return;
                 e.stopPropagation();
-                onOpenStats(application, scoreData);
+                onOpenStats(
+                  application,
+                  scoreData,
+                  delegationCurrency ?? undefined,
+                );
               }}
             >
               <div
@@ -3522,7 +3550,11 @@ function LaunchpadWidgetHeroCarouselCard({
           className="absolute top-4 right-4 h-8 rounded-full bg-white/30 px-4 text-xs font-medium text-foreground/90 hover:bg-white/40 backdrop-blur-3xl border border-white/40 transition-colors shadow-lg dark:bg-black/30 dark:text-white/90 dark:hover:bg-black/40 dark:border-white/10"
           onClick={(e) => {
             e.stopPropagation();
-            onOpenStats(application, scoreData);
+            onOpenStats(
+              application,
+              scoreData,
+              delegationCurrency ?? undefined,
+            );
           }}
         >
           <span>{l.advancedStats}</span>
@@ -3547,6 +3579,8 @@ function LaunchpadMarketplaceDialog({
     "featured" | "newest" | "rewardScore" | "yieldPer1000"
   >("featured");
   const [statsDialogOpen, setStatsDialogOpen] = React.useState(false);
+  const [selectedLegForStats, setSelectedLegForStats] =
+    React.useState<DelegationCurrency | undefined>(undefined);
   const [selectedApplicationForStats, setSelectedApplicationForStats] =
     React.useState<TaggedAuctionApplication | null>(null);
   const [selectedScoreDataForStats, setSelectedScoreDataForStats] =
@@ -4047,6 +4081,7 @@ function LaunchpadMarketplaceDialog({
           open={statsDialogOpen}
           onOpenChange={setStatsDialogOpen}
           application={selectedApplicationForStats}
+          delegationCurrency={selectedLegForStats}
           rewardScore={
             selectedScoreDataForStats as {
               userWeeklyGlwRewards: string;
@@ -4078,9 +4113,10 @@ function LaunchpadMarketplaceDialog({
           globalStats={globalStats}
           glwSpotPrice={glwSpotPrice}
           onPayDeposit={onPayDeposit}
-          onOpenStats={(application, scoreData) => {
+          onOpenStats={(application, scoreData, leg) => {
             setSelectedApplicationForStats(application);
             setSelectedScoreDataForStats(scoreData ?? null);
+            setSelectedLegForStats(leg ?? undefined);
             setStatsDialogOpen(true);
           }}
         />
@@ -4187,7 +4223,8 @@ function LaunchpadMarketplaceDialogContent({
           weeklyGlwRewardsUsd?: string;
           weeksOfMinerLifeRemaining?: number;
         }
-      | null
+      | null,
+    leg?: DelegationCurrency
   ) => void;
 }) {
   const { t } = useLang();
@@ -4427,7 +4464,8 @@ function LaunchpadAssetCard({
           weeklyGlwRewards?: string;
           weeklyGlwRewardsUsd?: string;
         }
-      | null
+      | null,
+    leg?: DelegationCurrency
   ) => void;
 }) {
   const { t } = useLang();
@@ -4698,7 +4736,13 @@ function LaunchpadAssetCard({
             <Button
               variant="outline"
               className="h-11 w-full sm:flex-1 rounded-full"
-              onClick={() => onOpenStats(application, scoreData)}
+              onClick={() =>
+                onOpenStats(
+                  application,
+                  scoreData,
+                  delegationCurrency ?? undefined,
+                )
+              }
             >
               {l.advancedStats}
             </Button>

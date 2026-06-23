@@ -1209,9 +1209,22 @@ export function DepositDialog({
   const launchpadTotalShares = React.useMemo(
     () =>
       effectiveApplication
-        ? resolveLaunchpadDelegationUnitCount(effectiveApplication)
+        ? resolveLaunchpadDelegationUnitCount(
+            effectiveApplication,
+            // Use the explicit delegation leg (this dialog already knows the
+            // currency) so the per-unit reward divisor matches the GLW leg's
+            // unit count, not the sGCTL leg's. resolveDelegationCurrency()
+            // returns "SGCTL" for dual-leg consolidated listings, which would
+            // divide by the sGCTL unit count (~125) instead of the GLW count
+            // (~22) and understate EST. WEEKLY REWARDS (5.0 -> 27 GLW).
+            // "USDC" (mining-center) is not a delegation leg -> pass undefined
+            // (the override is DelegationCurrency = "GLW" | "SGCTL").
+            runtimeSelectedCurrency === "USDC"
+              ? undefined
+              : runtimeSelectedCurrency,
+          )
         : 0,
-    [effectiveApplication],
+    [effectiveApplication, runtimeSelectedCurrency],
   );
   const estimatedRewardsBreakdown = React.useMemo(
     () =>
