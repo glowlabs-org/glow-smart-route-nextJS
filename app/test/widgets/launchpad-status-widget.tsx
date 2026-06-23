@@ -1079,8 +1079,9 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                     ) : (
                       // sGCTL tile: mirror the GLW tile's layout exactly (one big
                       // value row + one sub-line) so both tiles are the SAME
-                      // height. The GLW emission is the headline; the SGCTL PD
-                      // recovery rides on the sub-line.
+                      // height (2 lines). Both reward tokens (GLW emission + SGCTL
+                      // PD recovery) ride the headline; the USD value is dropped so
+                      // it fits on 2 lines and the sub-line is just "for 100 weeks".
                       <>
                         <div className="flex items-baseline gap-1 flex-wrap">
                           <span className="text-xl lg:text-base xl:text-lg font-bold text-foreground font-mono tabular-nums leading-tight">
@@ -1088,13 +1089,11 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                           </span>
                           <span className="text-xs text-muted-foreground font-medium">
                             GLW
-                            {weeklyYieldUsd > 0 &&
-                              ` · $${formatNumber(weeklyYieldUsd, 2)}`}
+                            {weeklyPdYield > 0 &&
+                              ` +${formatRewardAmount(weeklyPdYield)} SGCTL`}
                           </span>
                         </div>
                         <span className="text-xs text-muted-foreground font-medium">
-                          {weeklyPdYield > 0 &&
-                            `+${formatRewardAmount(weeklyPdYield)} SGCTL · `}
                           {t.widgets.launchpadStatus.for100Weeks}
                         </span>
                       </>
