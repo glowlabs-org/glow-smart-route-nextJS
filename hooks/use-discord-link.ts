@@ -215,6 +215,8 @@ export interface FlexPreviewStats {
   /** Number of wallets aggregated (the Discord group size, or 1 if unlinked). */
   walletCount: number;
   vaultedGlwWei: string;
+  /** GLW delegated to launchpad fractions still filling (not yet vaulted). */
+  pendingGlwWei: string;
   totalWatts: string;
   totalCarbonCredits: string;
   /** Best of the entity's three grouped leaderboard ranks, or null if unranked. */
