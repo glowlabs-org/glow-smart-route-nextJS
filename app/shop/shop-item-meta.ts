@@ -127,7 +127,7 @@ export function shopItemMeta(item: V2ShopItem): ShopItemMeta {
             value: watts ? `${formatNumber(watts)} W` : item.label,
           },
           {
-            label: "Carbon attributed",
+            label: "Tons of CO₂",
             value: sources.length > 0 ? formatNumber(carbon) : "-",
           },
         ],

@@ -63,18 +63,7 @@ function DialogContent({
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
-        // Size + center against the clamped *visible* viewport (ViewportClampVars).
-        // `100%`/`vw`/`left:50%` resolve against the layout viewport, which some
-        // in-app wallet browsers (Base/Coinbase, Rabby) inflate wider than the
-        // visible screen — pushing the dialog off-screen and clipping its right
-        // edge. `--app-vw`/`--app-vl` are clamped to the smallest of every width
-        // signal (incl. screen.width), so they track the true visible area; they
-        // fall back to `100vw`/`0px` for SSR / unsupported browsers. Both width
-        // and centering use the SAME variable so they can't disagree. max-w-*
-        // classes still cap on desktop.
         style={{
-          left: "calc(var(--app-vl, 0px) + var(--app-vw, 100vw) / 2)",
-          width: "calc(var(--app-vw, 100vw) - 2rem)",
           // The content is a single-column grid; an implicit `auto` track sizes
           // to the children's min-content, which can exceed the fixed box width
           // (e.g. a big number or a `whitespace-nowrap` button) and overflow,
@@ -84,7 +73,7 @@ function DialogContent({
           ...style,
         }}
         className={cn(
-          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] z-50 grid max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-2xl border p-6 shadow-lg duration-200 sm:max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto",
+          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-2xl border p-6 shadow-lg duration-200 sm:max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto",
           className
         )}
         {...props}

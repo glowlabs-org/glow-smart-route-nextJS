@@ -4,8 +4,6 @@ import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { WagmiWrapper } from "./providers/wagmiWrapper";
 import { ThemeProvider } from "./providers/theme-provider";
 import { LangProvider } from "@/lib/i18n";
-import { ViewportClampVars } from "@/components/viewport-clamp-vars";
-import { ViewportDebugOverlay } from "@/components/viewport-debug-overlay";
 import { Analytics } from "@vercel/analytics/next";
 import Script from "next/script";
 import { Metadata } from "next";
@@ -214,8 +212,6 @@ export default async function RootLayout({
         )}
       </head>
       <body className={`antialiased`}>
-        <ViewportClampVars />
-        <ViewportDebugOverlay />
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <LangProvider>
             <WagmiWrapper>
