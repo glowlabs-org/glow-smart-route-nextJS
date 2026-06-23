@@ -3,7 +3,15 @@
 import * as React from "react";
 import Image from "next/image";
 import { useAccount, useChainId, useSignTypedData } from "wagmi";
-import { Loader2, CheckCircle2, XCircle, Ticket, Share2 } from "lucide-react";
+import {
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  Ticket,
+  Share2,
+  Minus,
+  Plus,
+} from "lucide-react";
 
 import {
   Dialog,
@@ -197,18 +205,28 @@ function MinerEstimateStrip({
   );
 }
 
-function WattsSourceStrip({ item }: { item: V2ShopItem }) {
+function WattsSourceStrip({
+  item,
+  quantity = 1,
+}: {
+  item: V2ShopItem;
+  /** Buyer-selected quantity; the previewed watts/carbon are per-unit, so they
+   * scale by this for the total a bulk purchase would attribute. */
+  quantity?: number;
+}) {
   if (item.kind !== "watts") return null;
   const sources = item.impactSourcePreview?.sources ?? [];
   if (sources.length === 0) return null;
-  const totalWatts = sources.reduce(
+  const perUnitWatts = sources.reduce(
     (acc, source) => acc + (Number(source.watts) || 0),
     0,
   );
-  const totalCarbon = sources.reduce(
+  const perUnitCarbon = sources.reduce(
     (acc, source) => acc + (Number(source.carbonCredits) || 0),
     0,
   );
+  const totalWatts = perUnitWatts * quantity;
+  const totalCarbon = perUnitCarbon * quantity;
   const first = sources[0];
   const farmName = first.farmName ?? "Foundation solar farm";
   const region = first.regionName ?? `Region ${first.regionId}`;
@@ -373,6 +391,8 @@ export function PurchaseDialog({
   const [phase, setPhase] = React.useState<Phase>("confirm");
   const [result, setResult] = React.useState<V2ShopPurchaseResult | null>(null);
   const [errorMsg, setErrorMsg] = React.useState<string>("");
+  // Buyer-selected quantity (watts prizes only; see allowsQuantity below).
+  const [quantity, setQuantity] = React.useState(1);
 
   // One idempotency key per (wallet, item), PERSISTED across reopen and rotated
   // only after a confirmed success (see handleConfirm). This is what makes an
@@ -391,6 +411,7 @@ export function PurchaseDialog({
       setPhase("confirm");
       setResult(null);
       setErrorMsg("");
+      setQuantity(1);
       const currentFor = `${address?.toLowerCase() ?? ""}:${item?.itemId ?? ""}`;
       if (idempotencyKeyRef.current.for !== currentFor) {
         idempotencyKeyRef.current = {
@@ -422,12 +443,36 @@ export function PurchaseDialog({
 
   if (!item) return null;
 
-  const price = item.pricePoints;
+  const unitPrice = item.pricePoints;
+  // Only watts prizes can be bought in bulk: the backend pins miners to qty 1
+  // (INVALID_MINER_QUANTITY) and early access is a single entitlement.
+  const allowsQuantity = item.kind === "watts";
+  // Hard ceiling mirrors the EIP-712 schema bound (quantity is a uint, max 100),
+  // further capped by this item's remaining inventory.
+  const QTY_HARD_MAX = 100;
+  const inventoryCap =
+    item.inventoryRemaining == null ? QTY_HARD_MAX : item.inventoryRemaining;
+  const maxQuantity = allowsQuantity
+    ? Math.max(1, Math.min(QTY_HARD_MAX, inventoryCap))
+    : 1;
+  // Clamp the live selection so inventory shrinking under us (a refetch after
+  // someone else buys) can never let the signed quantity exceed availability.
+  const effectiveQuantity = Math.min(Math.max(1, quantity), maxQuantity);
+  const perUnitWatts =
+    item.kind === "watts" ? Number(item.details?.wattsQuantity ?? 0) : 0;
+  const totalPrice = unitPrice * effectiveQuantity;
   const fulfillmentPending =
     result != null && minerFulfillmentPending(result.grant);
   const balance = availablePoints ?? 0;
-  const canAfford = balance >= price;
-  const balanceAfter = Math.max(0, balance - price);
+  const canAfford = balance >= totalPrice;
+  const balanceAfter = Math.max(0, balance - totalPrice);
+  // The "+" stepper stops at inventory/hard-max AND at what the wallet can still
+  // afford, so a bulk selection can never be built past the balance.
+  const canIncrement =
+    allowsQuantity &&
+    effectiveQuantity < maxQuantity &&
+    balance >= unitPrice * (effectiveQuantity + 1);
+  const canDecrement = effectiveQuantity > 1;
   const showMinerEstimate =
     isMinerLikeItem(item) && Boolean(minerFarm?.resolved);
   const minerValueUsd = getShopMinerValueUsd(item);
@@ -475,7 +520,8 @@ export function PurchaseDialog({
     trackEvent("shop_purchase_attempted", {
       itemId: item.itemId,
       kind: item.kind,
-      price_points: price,
+      price_points: totalPrice,
+      quantity: effectiveQuantity,
       wallet: address,
     });
 
@@ -484,13 +530,13 @@ export function PurchaseDialog({
       // strictly-increasing per-wallet nonces). Millisecond clock works.
       const nonce = BigInt(Date.now());
       const idempotencyKey = idempotencyKeyRef.current.key;
-      // scaled6 micros: authorize exactly the displayed total (price * qty,
-      // qty = 1). The backend rejects PRICE_CHANGED if the live price is higher.
-      const maxPointsCost = BigInt(Math.round(price * 1_000_000));
+      // scaled6 micros: authorize exactly the displayed total (unitPrice * qty).
+      // The backend rejects PRICE_CHANGED if the live price is higher.
+      const maxPointsCost = BigInt(Math.round(totalPrice * 1_000_000));
       const message = {
         wallet: address as `0x${string}`,
         itemId: item.itemId,
-        quantity: 1n,
+        quantity: BigInt(effectiveQuantity),
         maxPointsCost,
         idempotencyKey,
         nonce,
@@ -515,7 +561,7 @@ export function PurchaseDialog({
       const purchaseResult = await purchaseMutation.mutateAsync({
         wallet: address,
         itemId: item.itemId,
-        quantity: 1,
+        quantity: effectiveQuantity,
         maxPointsCost: maxPointsCost.toString(),
         idempotencyKey,
         nonce: nonce.toString(),
@@ -533,6 +579,7 @@ export function PurchaseDialog({
         itemId: item.itemId,
         kind: item.kind,
         purchase_id: purchaseResult.purchaseId,
+        quantity: effectiveQuantity,
         wallet: address,
       });
     } catch (err) {
@@ -651,7 +698,51 @@ export function PurchaseDialog({
                 />
               ) : null}
 
-              <WattsSourceStrip item={item} />
+              <WattsSourceStrip item={item} quantity={effectiveQuantity} />
+
+              {allowsQuantity ? (
+                <div className="flex items-center justify-between rounded-2xl border border-border/60 bg-muted/30 px-4 py-3 dark:border-white/10 dark:bg-zinc-900">
+                  <div>
+                    <p className="text-sm font-medium">Quantity</p>
+                    {perUnitWatts > 0 ? (
+                      <p className="text-xs text-muted-foreground">
+                        {formatNumber(perUnitWatts)} W each
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-9 w-9 rounded-full"
+                      onClick={() =>
+                        setQuantity(Math.max(1, effectiveQuantity - 1))
+                      }
+                      disabled={!canDecrement || phase === "pending"}
+                      aria-label="Decrease quantity"
+                    >
+                      <Minus className="h-4 w-4" />
+                    </Button>
+                    <span className="w-8 text-center text-lg font-semibold tabular-nums">
+                      {effectiveQuantity}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-9 w-9 rounded-full"
+                      onClick={() =>
+                        setQuantity(Math.min(maxQuantity, effectiveQuantity + 1))
+                      }
+                      disabled={!canIncrement || phase === "pending"}
+                      aria-label="Increase quantity"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
 
               {rewardSplitGuardMessage ? (
                 <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-relaxed text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
@@ -666,12 +757,18 @@ export function PurchaseDialog({
                     Cost
                   </span>
                   <span className="text-2xl font-semibold tabular-nums leading-none">
-                    {formatNumber(price)}{" "}
+                    {formatNumber(totalPrice)}{" "}
                     <span className="text-sm font-normal text-muted-foreground">
                       points
                     </span>
                   </span>
                 </div>
+                {effectiveQuantity > 1 ? (
+                  <p className="mt-1 text-right text-xs text-muted-foreground tabular-nums">
+                    {formatNumber(effectiveQuantity)} × {formatNumber(unitPrice)}{" "}
+                    points
+                  </p>
+                ) : null}
                 <div className="my-3 border-t border-border/50 dark:border-white/10" />
                 <div className="space-y-1.5 text-sm">
                   <div className="flex justify-between">
