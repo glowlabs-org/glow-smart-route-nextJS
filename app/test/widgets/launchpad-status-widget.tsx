@@ -316,10 +316,17 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
   // Tag applications with their type
   const taggedDelegations = React.useMemo<LocalTaggedApplication[]>(
     () =>
-      filterPublicLaunchpadApplications(delegationApplications).map((app) => ({
-        ...app,
-        _type: "delegations" as const,
-      })),
+      filterPublicLaunchpadApplications(delegationApplications)
+        // Guard: the launchpad branch (includeFilled) can return completed farms
+        // that are also live miners; their activeFraction serializes as a
+        // mining-center fraction. Those are NOT delegation legs, so drop them
+        // here, else a miner renders as a phantom "0 GLW" GLW-delegation tile
+        // (the USDC step read as GLW wei rounds to 0).
+        .filter((app) => app.activeFraction?.type !== "mining-center")
+        .map((app) => ({
+          ...app,
+          _type: "delegations" as const,
+        })),
     [delegationApplications],
   );
 
@@ -365,9 +372,14 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
   // Two-tile model: fetch a FORCED-GLW score map (the GLW tile's score, no
   // bonus) and a FORCED-SGCTL score map (the sGCTL tile's score, with the
   // solved n). The sGCTL map only covers farms with a buyable sGCTL leg.
+  // Derive from the FULL tagged set, NOT activeDelegationsForScores: that set is
+  // filtered by the GLW-centric sold-out check, which drops a farm once its GLW
+  // leg sells out even when its sGCTL leg is still live (e.g. Serene Chasm: GLW
+  // 20/20 sold, sGCTL 12 units left). Excluding it there left the sGCTL tile with
+  // no reward estimate -> "EST. WEEKLY unavailable".
   const sgctlLegDelegationsForScores = React.useMemo(
-    () => activeDelegationsForScores.filter(hasBuyableSgctlLeg),
-    [activeDelegationsForScores],
+    () => taggedDelegations.filter(hasBuyableSgctlLeg),
+    [taggedDelegations],
   );
 
   // Fetch scores

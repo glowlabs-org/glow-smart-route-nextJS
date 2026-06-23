@@ -1815,10 +1815,15 @@ function LaunchpadMarketplaceWidget({
 
   const taggedDelegations = React.useMemo<TaggedAuctionApplication[]>(
     () =>
-      launchpadApplications.map((app) => ({
-        ...app,
-        _type: "delegations" as const,
-      })),
+      launchpadApplications
+        // includeFilled can return completed farms that are also live miners;
+        // their activeFraction is a mining-center fraction, not a delegation leg.
+        // Drop them so a miner never renders as a phantom "0 GLW" delegation.
+        .filter((app) => app.activeFraction?.type !== "mining-center")
+        .map((app) => ({
+          ...app,
+          _type: "delegations" as const,
+        })),
     [launchpadApplications]
   );
 
@@ -3694,9 +3699,13 @@ function LaunchpadMarketplaceDialog({
     walletAddress: address || null,
   });
 
+  // Derive from the FULL tagged set, NOT activeDelegationsForScores: the latter
+  // drops a farm once its GLW leg sells out (GLW-centric sold-out check), even
+  // when its sGCTL leg is still live, leaving the sGCTL tile with no reward
+  // estimate ("EST. WEEKLY unavailable").
   const sgctlLegDelegationsForScores = React.useMemo(
-    () => activeDelegationsForScores.filter(hasBuyableSgctlLeg),
-    [activeDelegationsForScores]
+    () => taggedDelegations.filter(hasBuyableSgctlLeg),
+    [taggedDelegations]
   );
 
   const {
