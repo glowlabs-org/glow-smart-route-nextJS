@@ -2362,4 +2362,3 @@ export function BuyGlowDialog({
     </Dialog>
   );
 }
-
