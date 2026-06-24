@@ -233,6 +233,14 @@ export function BuyGlowDialog({
   const { t } = useLang();
   const queryClient = useQueryClient();
   const [phase, setPhase] = React.useState<Phase>("input");
+  // Drives whether the "Buy GLW from a miner" column shows. Shares the React
+  // Query cache with BuyFromMinerColumn (same key), so this is not a 2nd fetch.
+  const { applications: evergreenMiners } = useEvergreenMiners({
+    filters: { paymentCurrency: "USDC" },
+  });
+  // Only show the right "buy from a miner" column when there is at least one
+  // evergreen listing AND we're on the input step. No listings -> single column.
+  const hasEvergreenMiners = evergreenMiners.length > 0;
   const [payToken, setPayToken] = React.useState<PayToken>("USDC");
   const [inputAmount, setInputAmount] = React.useState<string>("");
   const [smartAmounts, setSmartAmounts] =
@@ -1844,9 +1852,11 @@ export function BuyGlowDialog({
       <DialogContent
         className={cn(
           "p-0 gap-0 bg-card border border-border/40 text-foreground overflow-hidden rounded-[24px] flex flex-col max-h-[85vh]",
-          // Widen to two columns only while choosing how to buy; the
-          // processing/success/error cards stay narrow and centered.
-          phase === "input" ? "md:max-w-3xl" : "md:max-w-md",
+          // Widen for the miner sidebar only when there's at least one listing
+          // to show; otherwise (and for processing/success/error) stay narrow.
+          phase === "input" && hasEvergreenMiners
+            ? "md:max-w-2xl"
+            : "md:max-w-md",
         )}
         onInteractOutside={(e) => e.preventDefault()}
       >
@@ -1872,10 +1882,10 @@ export function BuyGlowDialog({
           {/* Right: buy GLW from a miner (private evergreen listings). Only the
               input phase offers the second option; the result cards are single
               column. */}
-          {phase === "input" && (
+          {phase === "input" && hasEvergreenMiners && (
             <>
               <div className="hidden md:block w-px shrink-0 bg-border/40" />
-              <div className="flex max-h-[45vh] min-w-0 flex-col border-t border-border/40 md:max-h-none md:flex-1 md:border-t-0">
+              <div className="flex max-h-[45vh] min-w-0 flex-col border-t border-border/40 md:max-h-none md:w-[280px] md:flex-none md:border-t-0">
                 <BuyFromMinerColumn />
               </div>
             </>
@@ -1899,7 +1909,7 @@ export function BuyGlowDialog({
  * with evergreen=true so its pre-buy refetch hits the evergreen surface).
  */
 function BuyFromMinerColumn() {
-  const { applications, isLoading, isError, refetch } = useEvergreenMiners({
+  const { applications, refetch } = useEvergreenMiners({
     filters: { paymentCurrency: "USDC" },
   });
   const [selected, setSelected] = React.useState<AuctionApplication | null>(
@@ -1907,72 +1917,67 @@ function BuyFromMinerColumn() {
   );
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
 
+  const formatUsd = (atomic: string) =>
+    `$${Number(formatUnits(BigInt(atomic), 6)).toLocaleString(undefined, {
+      maximumFractionDigits: 2,
+    })}`;
+
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="px-5 pt-5 pb-3">
+    <div className="flex h-full min-h-0 flex-col bg-muted/20">
+      <div className="px-4 pt-5 pb-3">
         <h3 className="text-sm font-semibold text-foreground">
           Buy GLW from a miner
         </h3>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          Pay USDC, earn GLW rewards weekly. Always available.
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+          Pay USDC up front, earn GLW rewards weekly. Always available.
         </p>
       </div>
 
-      <div className="flex-1 space-y-2 overflow-y-auto px-5 pb-5">
-        {isLoading ? (
-          <p className="text-xs text-muted-foreground">Loading listings…</p>
-        ) : isError ? (
-          <p className="text-xs text-red-500">Failed to load listings.</p>
-        ) : applications.length === 0 ? (
-          <p className="text-xs text-muted-foreground">
-            No miner listings available right now.
-          </p>
-        ) : (
-          applications.map((app) => {
-            const fraction = app.activeFraction;
-            const pricePerStepUsd =
-              fraction?.stepPrice != null
-                ? formatUnits(BigInt(fraction.stepPrice), 6)
-                : null;
-            const remaining =
-              fraction?.remainingSteps != null
-                ? fraction.remainingSteps
-                : fraction
-                  ? Math.max(0, fraction.totalSteps - fraction.splitsSold)
-                  : 0;
-            const buyable = Boolean(fraction) && remaining > 0;
+      <div className="flex-1 space-y-2 overflow-y-auto px-4 pb-4">
+        {applications.map((app) => {
+          const fraction = app.activeFraction;
+          const remaining =
+            fraction?.remainingSteps != null
+              ? fraction.remainingSteps
+              : fraction
+                ? Math.max(0, fraction.totalSteps - fraction.splitsSold)
+                : 0;
+          const buyable = Boolean(fraction) && remaining > 0;
 
-            return (
-              <div
-                key={app.id}
-                className="flex items-center justify-between gap-3 rounded-xl border border-border/40 bg-muted/30 p-3"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-foreground">
-                    {app.farmName ?? "Unnamed farm"}
-                  </p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {pricePerStepUsd != null ? `$${pricePerStepUsd}/unit` : "—"}
-                    {" · "}
-                    {remaining} left
-                    {" · "}
-                    {app.sponsorSplitPercent}% split
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  disabled={!buyable}
-                  onClick={() => {
-                    setSelected(app);
-                    setIsDialogOpen(true);
-                  }}
-                >
-                  {buyable ? "Buy" : "Sold out"}
-                </Button>
+          return (
+            <button
+              key={app.id}
+              type="button"
+              disabled={!buyable}
+              onClick={() => {
+                setSelected(app);
+                setIsDialogOpen(true);
+              }}
+              className="group w-full rounded-xl border border-border/50 bg-card p-3 text-left transition-colors hover:border-border hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-card"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <p className="truncate text-sm font-medium text-foreground">
+                  {app.farmName ?? "Unnamed farm"}
+                </p>
+                {fraction?.stepPrice != null && (
+                  <span className="shrink-0 text-sm font-semibold text-foreground">
+                    {formatUsd(fraction.stepPrice)}
+                  </span>
+                )}
               </div>
-            );
-          })
-        )}
+              <div className="mt-1.5 flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">
+                  {buyable ? `${remaining} available` : "Sold out"}
+                </span>
+                {buyable && (
+                  <span className="text-xs font-medium text-[#4ADE80] opacity-0 transition-opacity group-hover:opacity-100">
+                    Buy &rarr;
+                  </span>
+                )}
+              </div>
+            </button>
+          );
+        })}
       </div>
 
       <DepositDialog
