@@ -36,7 +36,7 @@ import { useSwapUSDCToUSDG } from "@/hooks/useSwapUSDCToUSDG";
 import { useSwap } from "@/hooks/useSwap";
 import { useEarlyLiquidityPrice } from "@/hooks/useEarlyLiquidityPrice";
 import { addresses } from "@/web3/constants/addresses";
-import { formatUnits, parseUnits } from "viem";
+import { formatUnits, parseUnits, walletActions, type WalletClient } from "viem";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice } from "@/utils/formatPrice";
@@ -434,8 +434,20 @@ export function BuyGlowDialog({
   const selectedMinerImageSrc =
     selectedMiner?.afterInstallPictures?.[0]?.url ||
     "/images/sections/residential.jpg";
+  // wagmi's useWalletClient() can stay undefined under Privy even while the
+  // wallet is connected; useConnectorClient() is populated in that gap. Derive a
+  // viem WalletClient from the connector (extend with walletActions) as a
+  // fallback so the miner buy never hits "Signer not available".
+  const fallbackWalletClient = React.useMemo<WalletClient | undefined>(() => {
+    if (!connectorClient) return undefined;
+    try {
+      return connectorClient.extend(walletActions) as unknown as WalletClient;
+    } catch {
+      return undefined;
+    }
+  }, [connectorClient]);
   const minerFractionsHook = usePatchedOffchainFractions(
-    walletClient ?? undefined,
+    walletClient ?? fallbackWalletClient,
     publicClient,
     chainId,
   );
@@ -2246,20 +2258,13 @@ export function BuyGlowDialog({
               className="w-full h-12 rounded-xl text-base font-medium"
               onClick={handleBuyMiner}
               disabled={
-                minerBusy ||
-                !selectedMinerFraction ||
-                minerRemaining < 1 ||
-                !walletClient
+                minerBusy || !selectedMinerFraction || minerRemaining < 1
               }
             >
-              {(minerBusy || !walletClient) && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              {!walletClient
-                ? "Preparing wallet…"
-                : `Buy ${minerClampedQty} miner${
-                    minerClampedQty > 1 ? "s" : ""
-                  } · ${formatUsdAmount(minerTotalUsd)}`}
+              {minerBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {`Buy ${minerClampedQty} miner${
+                minerClampedQty > 1 ? "s" : ""
+              } · ${formatUsdAmount(minerTotalUsd)}`}
             </Button>
           ) : (
             <div className="space-y-2">
