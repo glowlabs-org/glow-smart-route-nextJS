@@ -437,6 +437,10 @@ export function BuyGlowDialog({
     publicClient,
     chainId,
   );
+  // Declared here (above handleBuyMiner) so the miner ETH->USDC swap can use it;
+  // the GLW flow further below reuses the same instance.
+  const { estimateEthToUsdc, estimateGasForSwapEthToUsdc, swapEthToUsdc } =
+    useSwapETHToUSDC();
 
   const handleBuyMiner = React.useCallback(async () => {
     if (!isConnected || !address) {
@@ -449,10 +453,53 @@ export function BuyGlowDialog({
     if (qty < 1) return;
 
     setMinerBusy(true);
+    const payingWithEth = payToken === "ETH";
     const toastId = toast.loading(
-      `Buying ${qty} miner${qty > 1 ? "s" : ""}…`,
+      payingWithEth
+        ? "Swapping ETH → USDC…"
+        : `Buying ${qty} miner${qty > 1 ? "s" : ""}…`,
     );
     try {
+      // Miners are priced in USDC. When paying with ETH, swap enough ETH to
+      // cover the USDC cost first (mirrors the deposit-dialog flow), then buy
+      // with the received USDC.
+      if (payingWithEth) {
+        const requiredUsdc = BigInt(fraction.stepPrice) * BigInt(qty);
+        if (requiredUsdc <= 0n) throw new Error("Invalid miner price.");
+
+        const probeWei = parseUnits("0.1", 18);
+        const probeRes = await estimateEthToUsdc({
+          amountInWei: probeWei,
+          slippageBps: BigInt(100),
+        });
+        if (!probeRes.ok || probeRes.val.amountOutUsdc <= 0n) {
+          throw new Error("Failed to quote ETH to USDC.");
+        }
+
+        // Scale the probe to the required USDC, add a 2% buffer, then refine so
+        // the guaranteed minimum out still covers the purchase.
+        let amountInWei =
+          (probeWei * requiredUsdc) / probeRes.val.amountOutUsdc;
+        amountInWei = (amountInWei * 102n) / 100n;
+        for (let i = 0; i < 3; i++) {
+          const res = await estimateEthToUsdc({
+            amountInWei,
+            slippageBps: BigInt(100),
+          });
+          if (res.ok && res.val.amountOutMinUsdc >= requiredUsdc) break;
+          amountInWei = (amountInWei * 105n) / 100n;
+        }
+
+        const swapRes = await swapEthToUsdc({
+          amountInWei,
+          slippageBps: BigInt(100),
+        });
+        if (!swapRes.ok) throw new Error(String(swapRes.val));
+        toast.loading(`Buying ${qty} miner${qty > 1 ? "s" : ""}…`, {
+          id: toastId,
+        });
+      }
+
       const hash = await minerFractionsHook.buyFractions({
         creator: fraction.owner as `0x${string}`,
         id: fraction.id as `0x${string}`,
@@ -465,6 +512,7 @@ export function BuyGlowDialog({
       trackEvent("buy_miner_success", {
         application_id: selectedMiner.id,
         quantity: qty,
+        pay_token: payToken,
         source,
       });
       toast.success(
@@ -492,7 +540,18 @@ export function BuyGlowDialog({
     openConnectModal,
     refetchEvergreen,
     source,
+    payToken,
+    estimateEthToUsdc,
+    swapEthToUsdc,
   ]);
+
+  // USDG only buys GLW; if it's selected when switching to the miner option,
+  // fall back to USDC (miners accept USDC, or ETH swapped to USDC).
+  React.useEffect(() => {
+    if (mode === "miner" && payToken === "USDG") {
+      setPayToken("USDC");
+    }
+  }, [mode, payToken]);
 
   const { authenticated: isPrivyAuthenticated } = usePrivy();
   const expectedChainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID) || 1;
@@ -646,9 +705,6 @@ export function BuyGlowDialog({
     lastTxHashRef: usdcToUsdgLastTxHashRef,
     resetLastTxHash: resetUsdcToUsdgLastTxHash,
   } = useSwapUSDCToUSDG();
-  const { estimateEthToUsdc, estimateGasForSwapEthToUsdc, swapEthToUsdc } =
-    useSwapETHToUSDC();
-
   const {
     swap: swapUsdGToGlow,
     resetUniswapPurchaseState,
@@ -2091,52 +2147,45 @@ export function BuyGlowDialog({
                     : t.buyGlow.connectWalletBalance
                 }
                 icon={<TokenIcon symbol="USDC" />}
-                selected={mode === "miner" ? true : payToken === "USDC"}
-                onSelect={() => {
-                  if (mode === "glw") handlePayTokenChange("USDC");
-                }}
+                selected={payToken === "USDC"}
+                onSelect={() => handlePayTokenChange("USDC")}
                 isLoading={isConnected && isBalancesLoading}
               />
+              {/* USDG only buys GLW directly; not offered for miners. */}
               {mode === "glw" && (
-                <>
-                  <PaymentOption
-                    label={t.buyGlow.usdgLabel}
-                    balance={
-                      isConnected
-                        ? `${formatLocaleAmount(usdgBalanceFormatted, 2)} USDG`
-                        : t.buyGlow.connectWalletBalance
-                    }
-                    icon={<TokenIcon symbol="USDG" />}
-                    selected={payToken === "USDG"}
-                    onSelect={() => handlePayTokenChange("USDG")}
-                    isLoading={isConnected && isBalancesLoading}
-                    disabled={!showUsdgOption}
-                  />
-                  {isEthPayEnabled && (
-                    <PaymentOption
-                      label={t.buyGlow.ethLabel}
-                      balance={
-                        isConnected
-                          ? `${toFixedTruncate(
-                              Number(ethBalanceFormatted || "0"),
-                              4,
-                            )} ETH`
-                          : t.buyGlow.connectWalletBalance
-                      }
-                      icon={<TokenIcon symbol="ETH" />}
-                      selected={payToken === "ETH"}
-                      onSelect={() => handlePayTokenChange("ETH")}
-                      isLoading={isConnected && ethBalanceQuery.isLoading}
-                    />
-                  )}
-                </>
+                <PaymentOption
+                  label={t.buyGlow.usdgLabel}
+                  balance={
+                    isConnected
+                      ? `${formatLocaleAmount(usdgBalanceFormatted, 2)} USDG`
+                      : t.buyGlow.connectWalletBalance
+                  }
+                  icon={<TokenIcon symbol="USDG" />}
+                  selected={payToken === "USDG"}
+                  onSelect={() => handlePayTokenChange("USDG")}
+                  isLoading={isConnected && isBalancesLoading}
+                  disabled={!showUsdgOption}
+                />
+              )}
+              {/* ETH works for both: GLW (swap path) and miners (ETH -> USDC). */}
+              {isEthPayEnabled && (
+                <PaymentOption
+                  label={t.buyGlow.ethLabel}
+                  balance={
+                    isConnected
+                      ? `${toFixedTruncate(
+                          Number(ethBalanceFormatted || "0"),
+                          4,
+                        )} ETH`
+                      : t.buyGlow.connectWalletBalance
+                  }
+                  icon={<TokenIcon symbol="ETH" />}
+                  selected={payToken === "ETH"}
+                  onSelect={() => handlePayTokenChange("ETH")}
+                  isLoading={isConnected && ethBalanceQuery.isLoading}
+                />
               )}
             </div>
-            {mode === "miner" && (
-              <p className="mt-2 text-[11px] text-muted-foreground">
-                Miners are purchased with USDC.
-              </p>
-            )}
           </div>
 
           {/* Order total — sits after the payment options (miner checkout). */}
