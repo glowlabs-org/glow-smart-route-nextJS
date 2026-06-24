@@ -58,6 +58,8 @@ import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
 import { useEthPrice } from "@/hooks/useEthPrice";
 import { useImpactWalletStats } from "@/hooks/hub-impact";
+import { useEvergreenMiners, type AuctionApplication } from "@/hooks";
+import { DepositDialog } from "@/app/marketplace/deposit-dialog";
 import {
   TransactionStepper,
   type TransactionStep,
@@ -1840,7 +1842,12 @@ export function BuyGlowDialog({
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent
-        className="md:max-w-md p-0 gap-0 bg-card border border-border/40 text-foreground overflow-hidden rounded-[24px] flex flex-col max-h-[85vh]"
+        className={cn(
+          "p-0 gap-0 bg-card border border-border/40 text-foreground overflow-hidden rounded-[24px] flex flex-col max-h-[85vh]",
+          // Widen to two columns only while choosing how to buy; the
+          // processing/success/error cards stay narrow and centered.
+          phase === "input" ? "md:max-w-3xl" : "md:max-w-md",
+        )}
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader className="sr-only">
@@ -1855,8 +1862,25 @@ export function BuyGlowDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto">{renderContent()}</div>
-        {renderFooter()}
+        <div className="flex flex-1 min-h-0 flex-col md:flex-row">
+          {/* Left: buy GLW directly (existing flow). */}
+          <div className="flex flex-1 min-w-0 flex-col">
+            <div className="flex-1 overflow-y-auto">{renderContent()}</div>
+            {renderFooter()}
+          </div>
+
+          {/* Right: buy GLW from a miner (private evergreen listings). Only the
+              input phase offers the second option; the result cards are single
+              column. */}
+          {phase === "input" && (
+            <>
+              <div className="hidden md:block w-px shrink-0 bg-border/40" />
+              <div className="flex max-h-[45vh] min-w-0 flex-col border-t border-border/40 md:max-h-none md:flex-1 md:border-t-0">
+                <BuyFromMinerColumn />
+              </div>
+            </>
+          )}
+        </div>
       </DialogContent>
 
       <SmartAccountWarningDialog
@@ -1865,5 +1889,102 @@ export function BuyGlowDialog({
         triggerCheck={false}
       />
     </Dialog>
+  );
+}
+
+/**
+ * Right-hand column of the Buy GLW dialog: buy GLW *from a miner* via the
+ * private, always-on evergreen mining-center listings. Pays USDC and earns GLW
+ * rewards weekly. Reuses the standard mining-center purchase flow (DepositDialog
+ * with evergreen=true so its pre-buy refetch hits the evergreen surface).
+ */
+function BuyFromMinerColumn() {
+  const { applications, isLoading, isError, refetch } = useEvergreenMiners({
+    filters: { paymentCurrency: "USDC" },
+  });
+  const [selected, setSelected] = React.useState<AuctionApplication | null>(
+    null,
+  );
+  const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="px-5 pt-5 pb-3">
+        <h3 className="text-sm font-semibold text-foreground">
+          Buy GLW from a miner
+        </h3>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Pay USDC, earn GLW rewards weekly. Always available.
+        </p>
+      </div>
+
+      <div className="flex-1 space-y-2 overflow-y-auto px-5 pb-5">
+        {isLoading ? (
+          <p className="text-xs text-muted-foreground">Loading listings…</p>
+        ) : isError ? (
+          <p className="text-xs text-red-500">Failed to load listings.</p>
+        ) : applications.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            No miner listings available right now.
+          </p>
+        ) : (
+          applications.map((app) => {
+            const fraction = app.activeFraction;
+            const pricePerStepUsd =
+              fraction?.stepPrice != null
+                ? formatUnits(BigInt(fraction.stepPrice), 6)
+                : null;
+            const remaining =
+              fraction?.remainingSteps != null
+                ? fraction.remainingSteps
+                : fraction
+                  ? Math.max(0, fraction.totalSteps - fraction.splitsSold)
+                  : 0;
+            const buyable = Boolean(fraction) && remaining > 0;
+
+            return (
+              <div
+                key={app.id}
+                className="flex items-center justify-between gap-3 rounded-xl border border-border/40 bg-muted/30 p-3"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-foreground">
+                    {app.farmName ?? "Unnamed farm"}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {pricePerStepUsd != null ? `$${pricePerStepUsd}/unit` : "—"}
+                    {" · "}
+                    {remaining} left
+                    {" · "}
+                    {app.sponsorSplitPercent}% split
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  disabled={!buyable}
+                  onClick={() => {
+                    setSelected(app);
+                    setIsDialogOpen(true);
+                  }}
+                >
+                  {buyable ? "Buy" : "Sold out"}
+                </Button>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      <DepositDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        application={selected}
+        selectedCurrency="USDC"
+        evergreen
+        onSuccess={() => {
+          void refetch();
+        }}
+      />
+    </div>
   );
 }

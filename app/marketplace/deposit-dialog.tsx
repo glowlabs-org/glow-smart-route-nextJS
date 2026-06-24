@@ -148,6 +148,7 @@ type DepositDialogProps =
       selectedCurrency: "GLW" | "SGCTL";
       rewardScore?: LaunchpadRewardScore | null;
       onSuccess?: () => void;
+      evergreen?: never;
     }
   | {
       open: boolean;
@@ -156,6 +157,12 @@ type DepositDialogProps =
       selectedCurrency: "USDC";
       rewardScore?: MiningCenterScore | null;
       onSuccess?: () => void;
+      /**
+       * When buying a PRIVATE evergreen listing, the pre-buy refetch must query
+       * the evergreen surface (the public miner feed excludes evergreen rows),
+       * else it would miss the listing and fall back to stale data.
+       */
+      evergreen?: boolean;
     };
 
 // Icon Helpers (module scope so the component identity is stable across renders)
@@ -215,6 +222,7 @@ export function DepositDialog({
   selectedCurrency,
   rewardScore,
   onSuccess,
+  evergreen,
 }: DepositDialogProps) {
   const { t } = useLang();
   const dd = t.routes.depositDialog;
@@ -509,7 +517,13 @@ export function DepositDialog({
 
     const filters =
       selectedCurrency === "USDC"
-        ? ({ includeFilled: true, type: "mining-center" } as const)
+        ? evergreen
+          ? ({
+              includeFilled: true,
+              type: "mining-center",
+              evergreen: true,
+            } as const)
+          : ({ includeFilled: true, type: "mining-center" } as const)
         : ({ includeFilled: true } as const);
 
     const listings = await queryClient.fetchQuery({
@@ -525,7 +539,7 @@ export function DepositDialog({
     });
 
     return listings.find((item) => item.id === application.id) ?? application;
-  }, [application, queryClient, selectedCurrency, earlyAccessHeader]);
+  }, [application, queryClient, selectedCurrency, earlyAccessHeader, evergreen]);
 
   const costInGLW = React.useCallback(
     (qty: number) =>

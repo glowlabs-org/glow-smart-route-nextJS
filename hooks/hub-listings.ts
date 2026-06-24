@@ -345,6 +345,13 @@ export interface SponsorListingsFilters {
   sortOrder?: SortOrder;
   paymentCurrency?: PaymentCurrency;
   includeFilled?: boolean;
+  /**
+   * Private "evergreen" mining-center listings: always-on, hidden from the
+   * public launchpad + miner feeds, and never-expiring. When true the backend
+   * returns ONLY evergreen listings (forced to mining-center) and bypasses the
+   * Tuesday-9 AM visibility window. Default/omitted = public listings only.
+   */
+  evergreen?: boolean;
 }
 
 export interface UseSponsorListingsParams {
@@ -388,6 +395,12 @@ function buildSponsorListingsProxyUrl(
   }
   if (filters.includeFilled) {
     searchParams.set("includeFilled", String(filters.includeFilled));
+  }
+  if (filters.evergreen) {
+    // Evergreen listings are mining-center only; force the type so an
+    // evergreen launchpad request can never leak through.
+    searchParams.set("type", "mining-center");
+    searchParams.set("evergreen", "true");
   }
 
   const query = searchParams.toString();
@@ -509,6 +522,8 @@ export interface MiningCenterFilters {
   sortOrder?: SortOrder;
   paymentCurrency?: PaymentCurrency;
   includeFilled?: boolean;
+  /** Private always-on, never-expiring listings only. See SponsorListingsFilters. */
+  evergreen?: boolean;
 }
 
 export interface UseMiningCenterParams {
@@ -524,6 +539,19 @@ export function useMiningCenter(params: UseMiningCenterParams = {}) {
   const { paymentCurrency: _paymentCurrency, ...restFilters } = filters;
   return useSponsorListings({
     filters: { ...restFilters, type: "mining-center" },
+    enabled,
+    query,
+    earlyAccessHeader,
+  });
+}
+
+// Private evergreen miners: always-on, hidden, never-expiring mining-center
+// listings. Reachable only via this hook (which sets evergreen=true); they never
+// appear in useMiningCenter / useGlowLaunchpad / the public marketplace feeds.
+export function useEvergreenMiners(params: UseMiningCenterParams = {}) {
+  const { filters = {}, enabled = true, query, earlyAccessHeader } = params;
+  return useMiningCenter({
+    filters: { ...filters, evergreen: true },
     enabled,
     query,
     earlyAccessHeader,

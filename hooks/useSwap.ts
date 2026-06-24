@@ -509,7 +509,38 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     });
     const signerAddress = await signer.getAddress();
 
-    const balanceTokenA = await tokenA.balanceOf(signerAddress);
+    // Read the tokenA balance, tolerating read-after-write RPC lag. In the
+    // combined USDC->GLW flow the USDC->USDG wrap was just confirmed, but the
+    // multi-RPC receipt poll upstream resolves on the FIRST node to show the
+    // wrap receipt while this balanceOf read may be served by another node in
+    // the same provider cluster that hasn't indexed the wrap block yet. That
+    // returns a stale (pre-wrap) USDG balance and trips the guard below with a
+    // spurious "Insufficient balance" -- which is why a manual retry/refresh
+    // (by then every node has caught up) succeeds. When we know a prerequisite
+    // tx just landed, re-poll the balance until it reflects the expected funds
+    // before giving up. Standalone swaps (no prerequisite tx) still fail fast.
+    let balanceTokenA = await tokenA.balanceOf(signerAddress);
+    const hasPrerequisiteTx = Boolean(
+      prerequisiteTxHashes?.some((hash) => Boolean(hash))
+    );
+    if (balanceTokenA < amountBigInt && hasPrerequisiteTx) {
+      const BALANCE_RECHECK_ATTEMPTS = 8;
+      const BALANCE_RECHECK_DELAY_MS = 1000;
+      for (
+        let attempt = 0;
+        attempt < BALANCE_RECHECK_ATTEMPTS && balanceTokenA < amountBigInt;
+        attempt++
+      ) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, BALANCE_RECHECK_DELAY_MS)
+        );
+        try {
+          balanceTokenA = await tokenA.balanceOf(signerAddress);
+        } catch {
+          // Transient RPC error -- keep polling until the attempt budget is spent.
+        }
+      }
+    }
     if (balanceTokenA < amountBigInt)
       return new Err(SwapError.INSUFFICIENT_TOKEN_A_BALANCE);
     const allowanceTokenA = await tokenA.allowance(
