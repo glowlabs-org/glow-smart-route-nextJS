@@ -530,9 +530,16 @@ export function BuyGlowDialog({
       });
     }
     steps.push({
+      id: "APPROVE_USDC",
+      title: "Approve USDC",
+      description: "Allow the contract to spend your USDC",
+      tokenFrom: "USDC",
+      status: "idle",
+    });
+    steps.push({
       id: "BUY_MINER",
       title: `Purchase ${qty} miner${qty > 1 ? "s" : ""}`,
-      description: "Approve USDC and confirm your miner purchase",
+      description: "Confirm your miner purchase",
       tokenFrom: "USDC",
       status: "idle",
     });
@@ -579,8 +586,6 @@ export function BuyGlowDialog({
         updateStepStatus("SWAP_ETH_TO_USDC", "completed");
       }
 
-      updateStepStatus("BUY_MINER", "waiting_signature");
-      updateStepStatus("BUY_MINER", "confirming");
       const hash = await minerFractionsHook.buyFractions(
         {
           creator: fraction.owner as `0x${string}`,
@@ -591,8 +596,23 @@ export function BuyGlowDialog({
           creditTo: address,
           useCounterfactualAddressForRefund: false,
         },
-        // Miners are a fixed $399/step — approve the exact cost, no buffer.
-        { approvalBufferAtomic: 0n },
+        {
+          // Miners are a fixed $399/step — approve the exact cost, no buffer.
+          approvalBufferAtomic: 0n,
+          // Drive the Approve + Purchase steps. "approving"/"approved" only fire
+          // when an approval is actually needed; "purchasing" always fires (and
+          // marks Approve done if it was skipped because allowance sufficed).
+          onPhase: (phase) => {
+            if (phase === "approving") {
+              updateStepStatus("APPROVE_USDC", "waiting_signature");
+            } else if (phase === "approved") {
+              updateStepStatus("APPROVE_USDC", "completed");
+            } else if (phase === "purchasing") {
+              updateStepStatus("APPROVE_USDC", "completed");
+              updateStepStatus("BUY_MINER", "waiting_signature");
+            }
+          },
+        },
       );
       updateStepStatus("BUY_MINER", "completed", { txHash: hash });
 

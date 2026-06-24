@@ -84,12 +84,19 @@ export function usePatchedOffchainFractions(
 
   async function buyFractions(
     params: BuyFractionsParams,
-    // Extra USDC (atomic) added to the ERC-20 approval as a safety margin for
-    // callers with price variance. Mining-center listings have a FIXED step
-    // price (no variance), so the miner buy passes 0 to approve the exact cost.
-    options?: { approvalBufferAtomic?: bigint },
+    // approvalBufferAtomic: extra USDC (atomic) added to the ERC-20 approval as a
+    // safety margin for callers with price variance. Mining-center listings have
+    // a FIXED step price, so the miner buy passes 0 to approve the exact cost.
+    // onPhase: lets callers render the approve + buy as distinct steps. Emits
+    // "approving"/"approved" only when an approval is actually needed, then
+    // "purchasing" before the buyFractions tx.
+    options?: {
+      approvalBufferAtomic?: bigint;
+      onPhase?: (phase: "approving" | "approved" | "purchasing") => void;
+    },
   ): Promise<string> {
     const approvalBufferAtomic = options?.approvalBufferAtomic ?? 10_000_000n;
+    const onPhase = options?.onPhase;
     const activeWalletClient = walletClient ?? walletClientRef.current;
     if (!activeWalletClient) {
       throw new Error(OffchainFractionsError.SIGNER_NOT_AVAILABLE);
@@ -135,6 +142,7 @@ export function usePatchedOffchainFractions(
 
       let allowance = await sdk.checkTokenAllowance(owner, fractionData.token);
       if (allowance < requiredAmount) {
+        onPhase?.("approving");
         const approvalAmount = requiredAmount + approvalBufferAtomic;
         const approveHash = await activeWalletClient.writeContract({
           address: fractionData.token as Address,
@@ -163,8 +171,10 @@ export function usePatchedOffchainFractions(
         if (allowance < requiredAmount) {
           throw new Error(ALLOWANCE_NOT_VISIBLE_ERROR);
         }
+        onPhase?.("approved");
       }
 
+      onPhase?.("purchasing");
       // Reuse the simulated request so the wallet does not re-estimate against stale allowance state.
       const { request } = await publicClient.simulateContract({
         address: sdk.addresses.OFFCHAIN_FRACTIONS as Address,
