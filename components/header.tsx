@@ -29,6 +29,10 @@ import { useLang } from "@/lib/i18n";
 
 import { GlowLockup } from "./glow-lockup";
 import { SwapDialog } from "./dialogs/swap-dialog";
+import { BuyGlowDialog } from "./dialogs/buy-glow-dialog";
+import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
+import { useER20Balances } from "@/hooks/useERC20Balances";
+import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { TosDialog } from "./tos-dialog";
 import { WhatsNewModal } from "./whats-new-modal";
 import { useReferral } from "@/hooks/use-referral";
@@ -415,6 +419,10 @@ export function Header({
   const { address } = useAccount();
   const showKolLink = isKolWallet(address);
   const [isSwapDialogOpen, setIsSwapDialogOpen] = React.useState(false);
+  const [isBuyGlowDialogOpen, setIsBuyGlowDialogOpen] = React.useState(false);
+  const { signer } = useEthersSigner();
+  const { usdcBalance, refreshBalances } = useER20Balances({ signer });
+  const { spotPrice: glowSpotPrice } = useGlowSpotPrice();
 
   // What's New modal: auto-shows once until the wallet has gone through every
   // slide (reuses the feature-launch "seen" flag), and is always re-openable
@@ -466,6 +474,11 @@ export function Header({
                     <ul className="grid gap-3 p-6 md:w-[300px]">
                       <ListItem href="/" title={t.header.home.title}>
                         {t.header.home.description}                      </ListItem>
+                      <ActionListItem
+                        title={t.header.buyGlw.title}
+                        description={t.header.buyGlw.description}
+                        onClick={() => setIsBuyGlowDialogOpen(true)}
+                      />
                       <ActionListItem
                         title={t.header.swap.title}
                         description={t.header.swap.description}
@@ -693,6 +706,18 @@ export function Header({
                                 className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                               >
                                 {t.header.home.title}                              </Link>
+                            </DrawerClose>
+                            <DrawerClose asChild>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setTimeout(() => {
+                                    setIsBuyGlowDialogOpen(true);
+                                  }, 0);
+                                }}
+                                className="block w-full px-4 py-3 text-left text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                              >
+                                {t.header.buyGlw.title}                              </button>
                             </DrawerClose>
                             <DrawerClose asChild>
                               <button
@@ -975,6 +1000,19 @@ export function Header({
       <SwapDialog
         open={isSwapDialogOpen}
         onOpenChange={setIsSwapDialogOpen}
+      />
+      <BuyGlowDialog
+        open={isBuyGlowDialogOpen}
+        onOpenChange={(open) => {
+          setIsBuyGlowDialogOpen(open);
+          if (!open) {
+            refreshBalances();
+          }
+        }}
+        usdcBalance={usdcBalance}
+        glowSpotPrice={glowSpotPrice || 0}
+        source="navbar"
+        onSuccess={refreshBalances}
       />
       <TosDialog />
       <WhatsNewModal

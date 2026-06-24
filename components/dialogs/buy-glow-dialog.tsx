@@ -69,6 +69,8 @@ import {
   type AuctionApplication,
 } from "@/hooks";
 import { usePatchedOffchainFractions } from "@/hooks/usePatchedOffchainFractions";
+import { useV2PointsRates } from "@/hooks/v2-points";
+import { PointsIcon } from "@/components/impact-icons";
 import { FallbackImage } from "@/components/ui/fallback-image";
 import { normalizeMinerWeeksRemainingDisplay } from "@/lib/mining-score";
 import {
@@ -354,6 +356,7 @@ export function BuyGlowDialog({
     totalSteps: number;
     filledBeforeSteps: number;
     weeklyGlwPerMiner: number | null;
+    pointsAwarded: number | null;
     farmName: string | null;
   } | null>(null);
   const hasPrefilledForOpenRef = React.useRef(false);
@@ -426,6 +429,15 @@ export function BuyGlowDialog({
     : 0;
   const minerClampedQty = Math.max(1, Math.min(minerQty, minerRemaining || 1));
   const minerTotalUsd = minerUnitPriceUsd * minerClampedQty;
+  // V2 points: miners earn spendable points (8 / $1 by default) that buying GLW
+  // from the pool does NOT. Surface the per-miner award on the card to drive
+  // miner sales, and the granted total on the success screen (see deposit-dialog).
+  const { data: pointsRatesData } = useV2PointsRates();
+  const minerPointsPerUsd =
+    pointsRatesData?.rates?.minerPurchasePointsPerUsd ?? 8;
+  const minerPointsPerUnit =
+    minerUnitPriceUsd > 0 ? minerUnitPriceUsd * minerPointsPerUsd : 0;
+  const minerPointsTotal = minerPointsPerUnit * minerClampedQty;
   // Est. rewards + weeks-of-earning for the evergreen miner card.
   const selectedMinerMiningScore = selectedMiner
     ? getMiningScoreForApplication(miningScoreMap, selectedMiner.id)
@@ -623,11 +635,15 @@ export function BuyGlowDialog({
         source,
       });
       setTxHash(hash);
+      // Miner points are deterministic at purchase: USDC paid × rate (8/$1),
+      // which is exactly what the backend credits as a `miner_purchase` award.
+      const unitUsd = Number(formatUnits(BigInt(fraction.stepPrice), 6));
       setMinerSuccess({
         qty,
         totalSteps: totalStepsForRing,
         filledBeforeSteps,
         weeklyGlwPerMiner: minerWeeklyGlwRewards,
+        pointsAwarded: unitUsd > 0 ? unitUsd * qty * minerPointsPerUsd : null,
         farmName: selectedMiner.farmName ?? null,
       });
       setMinerQty(1);
@@ -662,6 +678,7 @@ export function BuyGlowDialog({
     swapEthToUsdc,
     updateStepStatus,
     minerWeeklyGlwRewards,
+    minerPointsPerUsd,
     onSuccess,
     t,
   ]);
@@ -1727,26 +1744,56 @@ export function BuyGlowDialog({
               </div>
             </div>
 
-            {weeklyGlwTotal != null && (
-              <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 px-5 py-4 text-left">
-                <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest mb-2">
-                  Est. weekly rewards
-                </div>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-2xl font-mono font-semibold text-foreground leading-none">
-                    {weeklyGlwTotal.toLocaleString(undefined, {
-                      maximumFractionDigits: 2,
-                    })}
-                  </span>
-                  <span className="text-sm font-mono text-muted-foreground">
-                    GLW
-                    {weeklyUsdTotal != null
-                      ? ` ≈ $${weeklyUsdTotal.toLocaleString(undefined, {
+            {/* Est. weekly rewards + Points earned share a row (each flex-1, so
+                they're 50/50 when both present, full-width if one is missing).
+                Points = spendable Points Shop currency, mirroring deposit-dialog. */}
+            {(weeklyGlwTotal != null ||
+              (minerSuccess.pointsAwarded != null &&
+                minerSuccess.pointsAwarded > 0)) && (
+              <div className="flex gap-3">
+                {weeklyGlwTotal != null && (
+                  <div className="flex-1 rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 px-4 py-4 text-left">
+                    <div className="text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest mb-2">
+                      Est. weekly rewards
+                    </div>
+                    <div className="text-xl font-mono font-semibold text-foreground leading-none">
+                      {weeklyGlwTotal.toLocaleString(undefined, {
+                        maximumFractionDigits: 2,
+                      })}{" "}
+                      <span className="text-sm text-muted-foreground">GLW</span>
+                    </div>
+                    {weeklyUsdTotal != null && (
+                      <div className="mt-1 text-xs font-mono text-muted-foreground">
+                        ≈ $
+                        {weeklyUsdTotal.toLocaleString(undefined, {
                           maximumFractionDigits: 2,
-                        })}/wk`
-                      : ""}
-                  </span>
-                </div>
+                        })}
+                        /wk
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {minerSuccess.pointsAwarded != null &&
+                  minerSuccess.pointsAwarded > 0 && (
+                    <div className="flex-1 rounded-xl border border-green-500/20 bg-green-500/5 px-4 py-4 text-left dark:border-[#D1FF4D]/20 dark:bg-[#D1FF4D]/5">
+                      <div className="mb-2 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+                        Points earned
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <PointsIcon className="h-4 w-4 shrink-0 text-green-600 dark:text-[#D1FF4D]" />
+                        <span className="text-xl font-mono font-bold leading-none text-green-600 dark:text-[#D1FF4D]">
+                          +
+                          {minerSuccess.pointsAwarded.toLocaleString("en-US", {
+                            maximumFractionDigits: 0,
+                          })}
+                        </span>
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Spend in the Points Shop
+                      </div>
+                    </div>
+                  )}
               </div>
             )}
 
@@ -2414,13 +2461,27 @@ export function BuyGlowDialog({
             </div>
           </div>
 
-          {/* Order total — sits after the payment options (miner checkout). */}
+          {/* Order total — sits after the payment options (miner checkout).
+              The Points Shop award rides in this row (under "Total") so the
+              points indicator doesn't cost an extra row, while still flagging
+              the reason to pick a miner over buying GLW from the pool. */}
           {mode === "miner" && (
-            <div className="flex items-baseline justify-between rounded-2xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 px-4 py-3">
-              <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                Total
-              </span>
-              <span className="text-2xl font-bold text-foreground tabular-nums">
+            <div className="flex items-center justify-between gap-3 rounded-2xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 px-4 py-3">
+              <div className="flex min-w-0 flex-col gap-1">
+                <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+                  Total
+                </span>
+                {minerPointsTotal > 0 && (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-green-700 dark:text-[#D1FF4D]">
+                    <PointsIcon className="h-3.5 w-3.5 shrink-0" />+
+                    {minerPointsTotal.toLocaleString("en-US", {
+                      maximumFractionDigits: 0,
+                    })}{" "}
+                    points to spend in the Points Shop
+                  </span>
+                )}
+              </div>
+              <span className="shrink-0 text-2xl font-bold text-foreground tabular-nums">
                 {formatUsdAmount(minerTotalUsd)}
               </span>
             </div>
