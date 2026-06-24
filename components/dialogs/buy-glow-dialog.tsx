@@ -2138,7 +2138,7 @@ export function BuyGlowDialog({
             <label className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
               {t.buyGlow.paymentMethod}
             </label>
-            <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2">
               <PaymentOption
                 label={t.buyGlow.usdcLabel}
                 balance={
