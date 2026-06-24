@@ -316,9 +316,11 @@ export function BuyGlowDialog({
   const { t } = useLang();
   const queryClient = useQueryClient();
   const [phase, setPhase] = React.useState<Phase>("input");
-  // Evergreen miner listings power the right "From a miner" option.
+  // Evergreen miner listings power the right "From a miner" option. Gated by
+  // `enabled: open` so the private (?evergreen=true) surface is only queried
+  // when the dialog is actually open, not on every page that mounts it.
   const { applications: evergreenMiners, refetch: refetchEvergreen } =
-    useEvergreenMiners({ filters: { paymentCurrency: "USDC" } });
+    useEvergreenMiners({ filters: { paymentCurrency: "USDC" }, enabled: open });
   // Mining score (est. weekly rewards + weeks of miner life) for the single
   // evergreen miner card. Called unconditionally; gated by `enabled: open` and
   // self-disables when there are no applications.
