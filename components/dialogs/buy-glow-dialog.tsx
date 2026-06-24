@@ -1943,7 +1943,9 @@ export function BuyGlowDialog({
                     : "border-border/50 hover:border-border/70",
                 )}
               >
-                {/* Photo banner */}
+                {/* Photo banner — eyebrow + farm name + availability overlaid
+                    on the image to save vertical space (keeps the card height
+                    close to the GLW card). */}
                 <div className="relative h-32 overflow-hidden border-b border-border/40 bg-muted">
                   <FallbackImage
                     src={selectedMinerImageSrc}
@@ -1955,31 +1957,30 @@ export function BuyGlowDialog({
                     decoding="async"
                     draggable={false}
                   />
-                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
-                  <div className="absolute left-3 top-3 rounded-full bg-black/75 px-2.5 py-1 text-xs font-medium text-white backdrop-blur-sm">
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-black/5" />
+                  <div className="absolute left-3 top-3 rounded-full bg-black/65 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur-sm">
                     {selectedMiner.zone.name}
                   </div>
                   {mode === "miner" && (
                     <span className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-[#4ADE80] ring-4 ring-black/20" />
                   )}
+                  <div className="absolute inset-x-3 bottom-3 flex items-end justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-semibold uppercase tracking-wider text-white/75">
+                        From a miner
+                      </div>
+                      <h3 className="mt-0.5 truncate text-base font-semibold leading-tight text-white drop-shadow">
+                        {selectedMiner.farmName ?? "Evergreen miner"}
+                      </h3>
+                    </div>
+                    <div className="shrink-0 rounded-full bg-black/65 px-2.5 py-1 text-[11px] tabular-nums text-white backdrop-blur-sm">
+                      {minerRemaining.toLocaleString()} available
+                    </div>
+                  </div>
                 </div>
 
                 {/* Body */}
                 <div className="space-y-3 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        From a miner
-                      </div>
-                      <h3 className="mt-1 line-clamp-2 text-base font-semibold leading-snug text-foreground text-balance">
-                        {selectedMiner.farmName ?? "Evergreen miner"}
-                      </h3>
-                    </div>
-                    <div className="shrink-0 rounded-full border border-border/50 bg-muted/30 px-2.5 py-1 text-xs tabular-nums text-muted-foreground">
-                      {minerRemaining.toLocaleString()} available
-                    </div>
-                  </div>
-
                   {/* Est. rewards + weeks left + price (mirrors the launchpad card) */}
                   <div className="grid grid-cols-2 gap-2">
                     <CheckoutStat
@@ -2032,7 +2033,7 @@ export function BuyGlowDialog({
                     />
                   </div>
 
-                  {/* Quantity + total */}
+                  {/* Quantity (the order Total now lives below the payment options) */}
                   <div className="rounded-xl border border-border/50 bg-muted/25 p-3">
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -2071,15 +2072,6 @@ export function BuyGlowDialog({
                           <Plus className="h-4 w-4" />
                         </button>
                       </div>
-                    </div>
-
-                    <div className="mt-3 flex items-baseline justify-between border-t border-border/30 pt-3">
-                      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Total
-                      </span>
-                      <span className="text-lg font-bold text-foreground tabular-nums">
-                        {formatUsdAmount(minerTotalUsd)}
-                      </span>
                     </div>
                   </div>
                 </div>
@@ -2148,6 +2140,18 @@ export function BuyGlowDialog({
               </p>
             )}
           </div>
+
+          {/* Order total — sits after the payment options (miner checkout). */}
+          {mode === "miner" && (
+            <div className="flex items-baseline justify-between rounded-2xl border border-border/50 bg-muted/30 px-4 py-3">
+              <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+                Total
+              </span>
+              <span className="text-2xl font-bold text-foreground tabular-nums">
+                {formatUsdAmount(minerTotalUsd)}
+              </span>
+            </div>
+          )}
         </div>
       </>
     );
