@@ -1698,9 +1698,6 @@ export function BuyGlowDialog({
               <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
                 {t.buyGlow.title}
               </DialogTitle>
-              <div className="mt-2 text-sm text-muted-foreground">
-                {t.buyGlow.subtitle}
-              </div>
             </div>
             <NetworkRequirementBanner
               expectedNetworkLabel={expectedNetworkLabel}
