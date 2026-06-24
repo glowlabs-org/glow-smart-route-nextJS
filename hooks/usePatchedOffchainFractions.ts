@@ -82,7 +82,14 @@ export function usePatchedOffchainFractions(
     if (walletClient) walletClientRef.current = walletClient;
   }, [walletClient]);
 
-  async function buyFractions(params: BuyFractionsParams): Promise<string> {
+  async function buyFractions(
+    params: BuyFractionsParams,
+    // Extra USDC (atomic) added to the ERC-20 approval as a safety margin for
+    // callers with price variance. Mining-center listings have a FIXED step
+    // price (no variance), so the miner buy passes 0 to approve the exact cost.
+    options?: { approvalBufferAtomic?: bigint },
+  ): Promise<string> {
+    const approvalBufferAtomic = options?.approvalBufferAtomic ?? 10_000_000n;
     const activeWalletClient = walletClient ?? walletClientRef.current;
     if (!activeWalletClient) {
       throw new Error(OffchainFractionsError.SIGNER_NOT_AVAILABLE);
@@ -128,7 +135,7 @@ export function usePatchedOffchainFractions(
 
       let allowance = await sdk.checkTokenAllowance(owner, fractionData.token);
       if (allowance < requiredAmount) {
-        const approvalAmount = requiredAmount + 10_000_000n;
+        const approvalAmount = requiredAmount + approvalBufferAtomic;
         const approveHash = await activeWalletClient.writeContract({
           address: fractionData.token as Address,
           abi: ERC20_APPROVAL_ABI,

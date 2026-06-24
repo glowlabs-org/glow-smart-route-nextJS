@@ -514,15 +514,19 @@ export function BuyGlowDialog({
         });
       }
 
-      const hash = await minerFractionsHook.buyFractions({
-        creator: fraction.owner as `0x${string}`,
-        id: fraction.id as `0x${string}`,
-        stepsToBuy: BigInt(qty),
-        minStepsToBuy: BigInt(qty),
-        refundTo: address,
-        creditTo: address,
-        useCounterfactualAddressForRefund: false,
-      });
+      const hash = await minerFractionsHook.buyFractions(
+        {
+          creator: fraction.owner as `0x${string}`,
+          id: fraction.id as `0x${string}`,
+          stepsToBuy: BigInt(qty),
+          minStepsToBuy: BigInt(qty),
+          refundTo: address,
+          creditTo: address,
+          useCounterfactualAddressForRefund: false,
+        },
+        // Miners are a fixed $399/step — approve the exact cost, no buffer.
+        { approvalBufferAtomic: 0n },
+      );
       trackEvent("buy_miner_success", {
         application_id: selectedMiner.id,
         quantity: qty,
