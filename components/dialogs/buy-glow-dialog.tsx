@@ -1981,10 +1981,9 @@ export function BuyGlowDialog({
 
                 {/* Body */}
                 <div className="space-y-3 p-4">
-                  {/* Est. rewards + weeks left + price (mirrors the launchpad card) */}
+                  {/* Row 1: est. rewards + weeks left (paired to save height) */}
                   <div className="grid grid-cols-2 gap-2">
                     <CheckoutStat
-                      className="col-span-2"
                       isLoading={
                         isMiningScoresLoading && !selectedMinerMiningScore
                       }
@@ -2026,20 +2025,20 @@ export function BuyGlowDialog({
                       label="Weeks left"
                       value={minerWeeksRemainingLabel}
                     />
+                  </div>
+
+                  {/* Row 2: price-per-unit paired with the quantity stepper */}
+                  <div className="grid grid-cols-2 gap-2">
                     <CheckoutStat
                       label="Price"
                       value={formatUsdAmount(minerUnitPriceUsd)}
                       subvalue="/ miner"
                     />
-                  </div>
-
-                  {/* Quantity (the order Total now lives below the payment options) */}
-                  <div className="rounded-xl border border-border/20 dark:border-border/40 bg-card p-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <div className="rounded-xl border border-border/20 dark:border-border/40 bg-card p-3">
+                      <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                         Quantity
-                      </span>
-                      <div className="flex items-center gap-2">
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
                         <button
                           type="button"
                           onClick={(event) => {
@@ -2049,11 +2048,11 @@ export function BuyGlowDialog({
                           }}
                           disabled={minerClampedQty <= 1}
                           aria-label="Decrease miner quantity"
-                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/20 dark:border-border/40 text-foreground transition-colors hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-40"
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/20 dark:border-border/40 text-foreground transition-colors hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           <Minus className="h-4 w-4" />
                         </button>
-                        <span className="w-8 text-center text-sm font-semibold tabular-nums">
+                        <span className="text-base font-semibold tabular-nums">
                           {minerClampedQty}
                         </span>
                         <button
@@ -2067,7 +2066,7 @@ export function BuyGlowDialog({
                           }}
                           disabled={minerClampedQty >= minerRemaining}
                           aria-label="Increase miner quantity"
-                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/20 dark:border-border/40 text-foreground transition-colors hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-40"
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/20 dark:border-border/40 text-foreground transition-colors hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           <Plus className="h-4 w-4" />
                         </button>
