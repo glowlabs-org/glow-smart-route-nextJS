@@ -43,6 +43,7 @@ import { formatPrice } from "@/utils/formatPrice";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { GlowSymbol } from "../glow-symbol";
+import { SegmentedCircleProgress } from "@/components/ui/circle-progress";
 import { trackEvent } from "@/lib/telemetry";
 import { bucketUsd } from "@/lib/telemetry-buckets";
 import { getStoredReferralAttribution } from "@/lib/referral-attribution";
@@ -346,6 +347,15 @@ export function BuyGlowDialog({
   const stepsRef = React.useRef<TransactionStep[]>([]);
   const [txHash, setTxHash] = React.useState<string | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  // Set when a miner purchase succeeds → drives the miner-specific success screen
+  // (segmented ring + projected rewards) instead of the GLW success screen.
+  const [minerSuccess, setMinerSuccess] = React.useState<{
+    qty: number;
+    totalSteps: number;
+    filledBeforeSteps: number;
+    weeklyGlwPerMiner: number | null;
+    farmName: string | null;
+  } | null>(null);
   const hasPrefilledForOpenRef = React.useRef(false);
   const wasOpenRef = React.useRef(false);
   const { address, isConnected } = useAccount();
@@ -456,6 +466,37 @@ export function BuyGlowDialog({
   const { estimateEthToUsdc, estimateGasForSwapEthToUsdc, swapEthToUsdc } =
     useSwapETHToUSDC();
 
+  // Defined above handleBuyMiner (and reused by handleBuyGlow) so both can drive
+  // the shared TransactionStepper processing screen.
+  const updateStepStatus = React.useCallback(
+    (
+      stepId: string,
+      status: StepStatus,
+      extras?: { txHash?: string; errorMessage?: string },
+    ) => {
+      setTransactionSteps((prev) => {
+        const updated = prev.map((s) => {
+          if (s.id === stepId) {
+            return {
+              ...s,
+              status,
+              startedAt:
+                status === "waiting_signature" || status === "confirming"
+                  ? (s.startedAt ?? Date.now())
+                  : s.startedAt,
+              txHash: extras?.txHash ?? s.txHash,
+              errorMessage: extras?.errorMessage ?? s.errorMessage,
+            };
+          }
+          return s;
+        });
+        stepsRef.current = updated;
+        return updated;
+      });
+    },
+    [],
+  );
+
   const handleBuyMiner = React.useCallback(async () => {
     if (!isConnected || !address) {
       openConnectModal();
@@ -466,18 +507,47 @@ export function BuyGlowDialog({
     const qty = minerClampedQty;
     if (qty < 1) return;
 
-    setMinerBusy(true);
     const payingWithEth = payToken === "ETH";
-    const toastId = toast.loading(
-      payingWithEth
-        ? "Swapping ETH → USDC…"
-        : `Buying ${qty} miner${qty > 1 ? "s" : ""}…`,
+    // Listing fill BEFORE the buy, for the success ring.
+    const totalStepsForRing = fraction.totalSteps;
+    const filledBeforeSteps = Math.max(
+      0,
+      fraction.splitsSold != null
+        ? fraction.splitsSold
+        : totalStepsForRing - (minerRemaining || 0),
     );
+
+    // Build the processing-screen steps (mirrors the deposit-dialog stepper).
+    const steps: TransactionStep[] = [];
+    if (payingWithEth) {
+      steps.push({
+        id: "SWAP_ETH_TO_USDC",
+        title: t.buyGlow.stepSwapEthToUsdcTitle,
+        description: t.buyGlow.stepSwapEthToUsdcDescription,
+        tokenFrom: "ETH",
+        tokenTo: "USDC",
+        status: "idle",
+      });
+    }
+    steps.push({
+      id: "BUY_MINER",
+      title: `Purchase ${qty} miner${qty > 1 ? "s" : ""}`,
+      description: "Approve USDC and confirm your miner purchase",
+      tokenFrom: "USDC",
+      status: "idle",
+    });
+
+    setMinerBusy(true);
+    setMinerSuccess(null);
+    setErrorMessage(null);
+    stepsRef.current = steps;
+    setTransactionSteps(steps);
+    setPhase("processing");
+
     try {
-      // Miners are priced in USDC. When paying with ETH, swap enough ETH to
-      // cover the USDC cost first (mirrors the deposit-dialog flow), then buy
-      // with the received USDC.
+      // When paying with ETH, swap enough ETH to cover the USDC cost first.
       if (payingWithEth) {
+        updateStepStatus("SWAP_ETH_TO_USDC", "waiting_signature");
         const requiredUsdc = BigInt(fraction.stepPrice) * BigInt(qty);
         if (requiredUsdc <= 0n) throw new Error("Invalid miner price.");
 
@@ -489,9 +559,6 @@ export function BuyGlowDialog({
         if (!probeRes.ok || probeRes.val.amountOutUsdc <= 0n) {
           throw new Error("Failed to quote ETH to USDC.");
         }
-
-        // Scale the probe to the required USDC, add a 2% buffer, then refine so
-        // the guaranteed minimum out still covers the purchase.
         let amountInWei =
           (probeWei * requiredUsdc) / probeRes.val.amountOutUsdc;
         amountInWei = (amountInWei * 102n) / 100n;
@@ -503,17 +570,17 @@ export function BuyGlowDialog({
           if (res.ok && res.val.amountOutMinUsdc >= requiredUsdc) break;
           amountInWei = (amountInWei * 105n) / 100n;
         }
-
+        updateStepStatus("SWAP_ETH_TO_USDC", "confirming");
         const swapRes = await swapEthToUsdc({
           amountInWei,
           slippageBps: BigInt(100),
         });
         if (!swapRes.ok) throw new Error(String(swapRes.val));
-        toast.loading(`Buying ${qty} miner${qty > 1 ? "s" : ""}…`, {
-          id: toastId,
-        });
+        updateStepStatus("SWAP_ETH_TO_USDC", "completed");
       }
 
+      updateStepStatus("BUY_MINER", "waiting_signature");
+      updateStepStatus("BUY_MINER", "confirming");
       const hash = await minerFractionsHook.buyFractions(
         {
           creator: fraction.owner as `0x${string}`,
@@ -527,25 +594,36 @@ export function BuyGlowDialog({
         // Miners are a fixed $399/step — approve the exact cost, no buffer.
         { approvalBufferAtomic: 0n },
       );
+      updateStepStatus("BUY_MINER", "completed", { txHash: hash });
+
       trackEvent("buy_miner_success", {
         application_id: selectedMiner.id,
         quantity: qty,
         pay_token: payToken,
         source,
       });
-      toast.success(
-        `Bought ${qty} miner${qty > 1 ? "s" : ""} on ${
-          selectedMiner.farmName ?? "farm"
-        }.`,
-        { id: toastId },
-      );
       setTxHash(hash);
+      setMinerSuccess({
+        qty,
+        totalSteps: totalStepsForRing,
+        filledBeforeSteps,
+        weeklyGlwPerMiner: minerWeeklyGlwRewards,
+        farmName: selectedMiner.farmName ?? null,
+      });
       setMinerQty(1);
+      setPhase("success");
       await refetchEvergreen?.();
+      onSuccess?.();
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Miner purchase failed.";
-      toast.error(message, { id: toastId });
+      const active = stepsRef.current.find(
+        (s) => s.status === "waiting_signature" || s.status === "confirming",
+      );
+      if (active) updateStepStatus(active.id, "error", { errorMessage: message });
+      setErrorMessage(message);
+      setPhase("error");
+      toast.error(message);
     } finally {
       setMinerBusy(false);
     }
@@ -554,6 +632,7 @@ export function BuyGlowDialog({
     address,
     selectedMiner,
     minerClampedQty,
+    minerRemaining,
     minerFractionsHook,
     openConnectModal,
     refetchEvergreen,
@@ -561,6 +640,10 @@ export function BuyGlowDialog({
     payToken,
     estimateEthToUsdc,
     swapEthToUsdc,
+    updateStepStatus,
+    minerWeeklyGlwRewards,
+    onSuccess,
+    t,
   ]);
 
   // USDG only buys GLW; if it's selected when switching to the miner option,
@@ -1045,35 +1128,6 @@ export function BuyGlowDialog({
     return Number(inputAmount) / Number(estimatedGlw);
   }, [inputAmount, estimatedGlw, payToken]);
 
-  const updateStepStatus = React.useCallback(
-    (
-      stepId: string,
-      status: StepStatus,
-      extras?: { txHash?: string; errorMessage?: string },
-    ) => {
-      setTransactionSteps((prev) => {
-        const updated = prev.map((s) => {
-          if (s.id === stepId) {
-            return {
-              ...s,
-              status,
-              startedAt:
-                status === "waiting_signature" || status === "confirming"
-                  ? (s.startedAt ?? Date.now())
-                  : s.startedAt,
-              txHash: extras?.txHash ?? s.txHash,
-              errorMessage: extras?.errorMessage ?? s.errorMessage,
-            };
-          }
-          return s;
-        });
-        stepsRef.current = updated;
-        return updated;
-      });
-    },
-    [],
-  );
-
   const handleBuyGlow = React.useCallback(async () => {
     if (!inputAmount || Number(inputAmount) <= 0 || !smartAmounts) {
       toast.error(t.buyGlow.toastEnterAmount);
@@ -1531,6 +1585,10 @@ export function BuyGlowDialog({
     // setTimeout for dialog close animation
     setTimeout(() => {
       setPhase("input");
+      setMode("glw");
+      setMinerQty(1);
+      setMinerBusy(false);
+      setMinerSuccess(null);
       setPayToken("USDC");
       setInputAmount("");
       setEstimatedGlw("");
@@ -1577,6 +1635,136 @@ export function BuyGlowDialog({
   const renderContent = () => {
     // SUCCESS PHASE
     if (phase === "success") {
+      // Miner purchase success: segmented ring + projected rewards (mirrors
+      // the deposit-dialog mining-center success).
+      if (minerSuccess) {
+        const filledAfter = Math.min(
+          minerSuccess.totalSteps,
+          minerSuccess.filledBeforeSteps + minerSuccess.qty,
+        );
+        const left = Math.max(0, minerSuccess.totalSteps - filledAfter);
+        const weeklyGlwTotal =
+          minerSuccess.weeklyGlwPerMiner != null
+            ? minerSuccess.weeklyGlwPerMiner * minerSuccess.qty
+            : null;
+        const weeklyUsdTotal =
+          weeklyGlwTotal != null && glowSpotPrice > 0
+            ? weeklyGlwTotal * glowSpotPrice
+            : null;
+        const explorerBase =
+          chainId === 11155111
+            ? "https://sepolia.etherscan.io"
+            : "https://etherscan.io";
+        return (
+          <div className="px-6 py-8 text-center space-y-6">
+            <div className="space-y-1">
+              <div className="text-2xl font-bold text-foreground">
+                Purchase complete
+              </div>
+              <div className="text-sm text-muted-foreground">
+                You bought {minerSuccess.qty} miner
+                {minerSuccess.qty > 1 ? "s" : ""}
+                {minerSuccess.farmName ? ` on ${minerSuccess.farmName}` : ""}.
+              </div>
+            </div>
+
+            <div className="flex flex-col items-center">
+              <SegmentedCircleProgress
+                totalSteps={minerSuccess.totalSteps}
+                filledBeforeSteps={minerSuccess.filledBeforeSteps}
+                userSteps={minerSuccess.qty}
+                size={180}
+                strokeWidth={12}
+                otherColor="rgba(32, 129, 226, 0.75)"
+                userColor="var(--color-miner)"
+                label={
+                  <span className="text-3xl font-bold tracking-tight font-mono">
+                    {filledAfter}/{minerSuccess.totalSteps}
+                  </span>
+                }
+                sublabel={
+                  <span className="text-xs text-muted-foreground">
+                    {left} left
+                  </span>
+                }
+                className="my-2"
+              />
+              <div className="mt-3 flex items-center justify-center gap-4 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: "rgba(32, 129, 226, 0.75)" }}
+                  />
+                  <span>Already sold</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: "var(--color-miner)" }}
+                  />
+                  <span>Yours</span>
+                </div>
+              </div>
+            </div>
+
+            {weeklyGlwTotal != null && (
+              <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 px-5 py-4 text-left">
+                <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest mb-2">
+                  Est. weekly rewards
+                </div>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-2xl font-mono font-semibold text-foreground leading-none">
+                    {weeklyGlwTotal.toLocaleString(undefined, {
+                      maximumFractionDigits: 2,
+                    })}
+                  </span>
+                  <span className="text-sm font-mono text-muted-foreground">
+                    GLW
+                    {weeklyUsdTotal != null
+                      ? ` ≈ $${weeklyUsdTotal.toLocaleString(undefined, {
+                          maximumFractionDigits: 2,
+                        })}/wk`
+                      : ""}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {txHash && (
+              <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4 text-left">
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground text-sm">
+                    {t.buyGlow.transactionLabel}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-foreground text-sm font-mono">
+                      {`${txHash.slice(0, 6)}...${txHash.slice(-4)}`}
+                    </span>
+                    <button
+                      onClick={copyTxHash}
+                      className="p-1 hover:bg-muted/50 rounded transition-colors"
+                    >
+                      <Copy className="w-3 h-3 text-muted-foreground hover:text-foreground" />
+                    </button>
+                    <a
+                      href={`${explorerBase}/tx/${txHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1 hover:bg-muted/50 rounded transition-colors"
+                    >
+                      <ExternalLink className="w-3 h-3 text-muted-foreground hover:text-foreground" />
+                    </a>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <Button variant="outline" onClick={handleClose} className="w-full">
+              {t.buyGlow.close}
+            </Button>
+          </div>
+        );
+      }
       return (
         <div className="px-6 py-8 text-center space-y-6">
           {/* Success Icon */}
