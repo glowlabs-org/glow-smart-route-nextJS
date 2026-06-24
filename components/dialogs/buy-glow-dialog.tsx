@@ -178,7 +178,7 @@ function CheckoutStat({
   return (
     <div
       className={cn(
-        "rounded-xl border border-border/50 bg-muted/30 p-3",
+        "rounded-xl border border-border/20 dark:border-border/40 bg-card p-3",
         className,
       )}
     >
@@ -1728,15 +1728,15 @@ export function BuyGlowDialog({
             <div
               onClick={() => setMode("glw")}
               className={cn(
-                "overflow-hidden rounded-2xl border bg-background/80 transition-colors",
+                "overflow-hidden rounded-2xl border bg-muted/30 dark:bg-muted/50 transition-colors",
                 hasEvergreenMiners && "cursor-pointer",
                 mode === "glw"
                   ? "border-foreground/30 ring-1 ring-foreground/15"
-                  : "border-border/50 hover:border-border/70",
+                  : "border-border/20 dark:border-border/40 hover:border-border/40 dark:hover:border-border/60",
               )}
             >
               {/* Header band (mirrors the miner photo banner height) */}
-              <div className="relative flex h-32 flex-col justify-center gap-1 border-b border-border/40 bg-gradient-to-br from-[#4ADE80]/15 via-muted/30 to-muted/40 p-4">
+              <div className="relative flex h-32 flex-col justify-center gap-1 border-b border-border/20 dark:border-border/40 p-4">
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#4ADE80]/25 bg-[#4ADE80]/10">
                   <GlowSymbol className="h-6 w-6" />
                 </div>
@@ -1745,7 +1745,7 @@ export function BuyGlowDialog({
                     Buy GLW
                   </h3>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    Stablecoins or ETH → GLW
+                    Buy directly from Uniswap pool
                   </p>
                 </div>
                 {hasEvergreenMiners && mode === "glw" && (
@@ -1755,7 +1755,7 @@ export function BuyGlowDialog({
 
               {/* Body */}
               <div className="space-y-3 p-4">
-                <div className="rounded-xl border border-border/50 bg-muted/25 p-3">
+                <div className="rounded-xl border border-border/20 dark:border-border/40 bg-card p-3">
                   <div className="mb-2 flex items-center justify-between gap-3">
                     <Label
                       htmlFor="buy-amount"
@@ -1866,7 +1866,7 @@ export function BuyGlowDialog({
                           : "text-foreground",
                       )}
                     />
-                    <div className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border/50 bg-background/70 px-2.5 py-1.5">
+                    <div className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border/20 dark:border-border/40 bg-muted/40 dark:bg-muted/60 px-2.5 py-1.5">
                       <TokenIcon symbol={payToken} />
                       <span className="text-sm font-semibold text-foreground">
                         {payToken}
@@ -1895,7 +1895,7 @@ export function BuyGlowDialog({
                   )}
                 </div>
 
-                <div className="rounded-xl border border-border/50 bg-muted/25 p-3">
+                <div className="rounded-xl border border-border/20 dark:border-border/40 bg-card p-3">
                   <div className="mb-2 flex items-center justify-between gap-3">
                     <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                       {t.buyGlow.youReceive}
@@ -1937,16 +1937,16 @@ export function BuyGlowDialog({
               <div
                 onClick={() => setMode("miner")}
                 className={cn(
-                  "cursor-pointer overflow-hidden rounded-2xl border bg-background/80 transition-colors",
+                  "cursor-pointer overflow-hidden rounded-2xl border bg-muted/30 dark:bg-muted/50 transition-colors",
                   mode === "miner"
                     ? "border-foreground/30 ring-1 ring-foreground/15"
-                    : "border-border/50 hover:border-border/70",
+                    : "border-border/20 dark:border-border/40 hover:border-border/40 dark:hover:border-border/60",
                 )}
               >
                 {/* Photo banner — eyebrow + farm name + availability overlaid
                     on the image to save vertical space (keeps the card height
                     close to the GLW card). */}
-                <div className="relative h-32 overflow-hidden border-b border-border/40 bg-muted">
+                <div className="relative h-32 overflow-hidden border-b border-border/20 dark:border-border/40 bg-muted">
                   <FallbackImage
                     src={selectedMinerImageSrc}
                     widthForProxy={600}
@@ -2034,7 +2034,7 @@ export function BuyGlowDialog({
                   </div>
 
                   {/* Quantity (the order Total now lives below the payment options) */}
-                  <div className="rounded-xl border border-border/50 bg-muted/25 p-3">
+                  <div className="rounded-xl border border-border/20 dark:border-border/40 bg-card p-3">
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                         Quantity
@@ -2049,7 +2049,7 @@ export function BuyGlowDialog({
                           }}
                           disabled={minerClampedQty <= 1}
                           aria-label="Decrease miner quantity"
-                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/50 text-foreground transition-colors hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-40"
+                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/20 dark:border-border/40 text-foreground transition-colors hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           <Minus className="h-4 w-4" />
                         </button>
@@ -2067,7 +2067,7 @@ export function BuyGlowDialog({
                           }}
                           disabled={minerClampedQty >= minerRemaining}
                           aria-label="Increase miner quantity"
-                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/50 text-foreground transition-colors hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-40"
+                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/20 dark:border-border/40 text-foreground transition-colors hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           <Plus className="h-4 w-4" />
                         </button>
@@ -2079,12 +2079,14 @@ export function BuyGlowDialog({
             )}
           </div>
 
-          {/* SHARED Payment Method (used by both options) */}
-          <div className="rounded-2xl border border-border/50 bg-background/80 p-4">
+          {/* SHARED Payment Method — a labelled section directly on the dialog
+              surface so the muted option rows read with clear contrast (no
+              muted-on-muted, per DIALOG-DESIGN-GUIDELINES contrast layering). */}
+          <div className="flex flex-col gap-2">
             <label className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
               {t.buyGlow.paymentMethod}
             </label>
-            <div className="mt-3 space-y-2">
+            <div className="space-y-2">
               <PaymentOption
                 label={t.buyGlow.usdcLabel}
                 balance={
@@ -2143,7 +2145,7 @@ export function BuyGlowDialog({
 
           {/* Order total — sits after the payment options (miner checkout). */}
           {mode === "miner" && (
-            <div className="flex items-baseline justify-between rounded-2xl border border-border/50 bg-muted/30 px-4 py-3">
+            <div className="flex items-baseline justify-between rounded-2xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 px-4 py-3">
               <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
                 Total
               </span>
