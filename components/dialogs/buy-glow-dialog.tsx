@@ -2246,13 +2246,20 @@ export function BuyGlowDialog({
               className="w-full h-12 rounded-xl text-base font-medium"
               onClick={handleBuyMiner}
               disabled={
-                minerBusy || !selectedMinerFraction || minerRemaining < 1
+                minerBusy ||
+                !selectedMinerFraction ||
+                minerRemaining < 1 ||
+                !walletClient
               }
             >
-              {minerBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {`Buy ${minerClampedQty} miner${
-                minerClampedQty > 1 ? "s" : ""
-              } · ${formatUsdAmount(minerTotalUsd)}`}
+              {(minerBusy || !walletClient) && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              {!walletClient
+                ? "Preparing wallet…"
+                : `Buy ${minerClampedQty} miner${
+                    minerClampedQty > 1 ? "s" : ""
+                  } · ${formatUsdAmount(minerTotalUsd)}`}
             </Button>
           ) : (
             <div className="space-y-2">

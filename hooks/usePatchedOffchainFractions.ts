@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import {
   OFFCHAIN_FRACTIONS_ABI,
   OffchainFractionsError,
@@ -72,11 +73,21 @@ export function usePatchedOffchainFractions(
 ) {
   const sdk = useSdkOffchainFractions(walletClient, publicClient, chainId);
 
+  // wagmi's useWalletClient() can be transiently undefined right after connect
+  // (esp. with Privy) even though the wallet is connected. Keep the last
+  // non-undefined walletClient so a buy clicked during that gap doesn't fail
+  // with "Signer not available" (mirrors useContracts' walletClientRef).
+  const walletClientRef = useRef<WalletClient | undefined>(walletClient);
+  useEffect(() => {
+    if (walletClient) walletClientRef.current = walletClient;
+  }, [walletClient]);
+
   async function buyFractions(params: BuyFractionsParams): Promise<string> {
-    if (!walletClient) {
+    const activeWalletClient = walletClient ?? walletClientRef.current;
+    if (!activeWalletClient) {
       throw new Error(OffchainFractionsError.SIGNER_NOT_AVAILABLE);
     }
-    if (!walletClient.account) {
+    if (!activeWalletClient.account) {
       throw new Error("Wallet client must have an account");
     }
     if (!publicClient) {
@@ -108,7 +119,7 @@ export function usePatchedOffchainFractions(
 
       const fractionData = await sdk.getFraction(creator, id);
       const requiredAmount = stepsToBuy * fractionData.step;
-      const owner = walletClient.account.address;
+      const owner = activeWalletClient.account.address;
 
       const balance = await sdk.checkTokenBalance(owner, fractionData.token);
       if (balance < requiredAmount) {
@@ -118,13 +129,13 @@ export function usePatchedOffchainFractions(
       let allowance = await sdk.checkTokenAllowance(owner, fractionData.token);
       if (allowance < requiredAmount) {
         const approvalAmount = requiredAmount + 10_000_000n;
-        const approveHash = await walletClient.writeContract({
+        const approveHash = await activeWalletClient.writeContract({
           address: fractionData.token as Address,
           abi: ERC20_APPROVAL_ABI,
           functionName: "approve",
           args: [sdk.addresses.OFFCHAIN_FRACTIONS as Address, approvalAmount],
-          chain: walletClient.chain,
-          account: walletClient.account,
+          chain: activeWalletClient.chain,
+          account: activeWalletClient.account,
         });
 
         await waitForTransactionReceipt(approveHash);
@@ -161,10 +172,10 @@ export function usePatchedOffchainFractions(
           creditTo as Address,
           useCounterfactualAddressForRefund,
         ],
-        account: walletClient.account,
+        account: activeWalletClient.account,
       });
 
-      const hash = await walletClient.writeContract(request);
+      const hash = await activeWalletClient.writeContract(request);
 
       try {
         await waitForTransactionReceipt(hash);
