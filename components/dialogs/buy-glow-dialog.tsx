@@ -16,7 +16,10 @@ import {
   Copy,
   CreditCard,
   ExternalLink,
+  HelpCircle,
   Loader2,
+  Minus,
+  Plus,
   X,
   Wallet,
   TrendingUp,
@@ -58,8 +61,15 @@ import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
 import { useEthPrice } from "@/hooks/useEthPrice";
 import { useImpactWalletStats } from "@/hooks/hub-impact";
-import { useEvergreenMiners, type AuctionApplication } from "@/hooks";
+import {
+  useEvergreenMiners,
+  useMiningScore,
+  getMiningScoreForApplication,
+  type AuctionApplication,
+} from "@/hooks";
 import { usePatchedOffchainFractions } from "@/hooks/usePatchedOffchainFractions";
+import { FallbackImage } from "@/components/ui/fallback-image";
+import { normalizeMinerWeeksRemainingDisplay } from "@/lib/mining-score";
 import {
   TransactionStepper,
   type TransactionStep,
@@ -116,6 +126,79 @@ function getWeeksInRange(weekRange: { startWeek: number; endWeek: number }) {
   const raw = weekRange.endWeek - weekRange.startWeek + 1;
   if (!Number.isFinite(raw)) return 1;
   return Math.max(1, raw);
+}
+
+function formatUsdAmount(
+  value: number,
+  {
+    minimumFractionDigits = 0,
+    maximumFractionDigits = 2,
+  }: { minimumFractionDigits?: number; maximumFractionDigits?: number } = {},
+) {
+  if (!Number.isFinite(value)) return "$0";
+  return `$${value.toLocaleString("en-US", {
+    minimumFractionDigits,
+    maximumFractionDigits,
+  })}`;
+}
+
+// ApplicationMiningScore.weeklyGlwRewards is GLW wei (18-dec) as a string.
+function parseWeeklyGlwRewards(weeklyGlwRewards?: string | null) {
+  if (!weeklyGlwRewards) return null;
+  try {
+    const value = Number(
+      formatUnits(BigInt(weeklyGlwRewards), DECIMALS_BY_TOKEN["GLW"]),
+    );
+    return Number.isFinite(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function formatMinerWeeksRemainingLabel(weeks?: number | null) {
+  const resolvedWeeks = normalizeMinerWeeksRemainingDisplay(weeks) ?? 99;
+  return `${resolvedWeeks} week${resolvedWeeks === 1 ? "" : "s"}`;
+}
+
+// Compact stat cell used inside the "From a miner" card (mirrors the
+// launchpad / mining-center card's reward + price tiles).
+function CheckoutStat({
+  label,
+  value,
+  subvalue,
+  isLoading,
+  className,
+}: {
+  label: React.ReactNode;
+  value: React.ReactNode;
+  subvalue?: React.ReactNode;
+  isLoading?: boolean;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-xl border border-border/50 bg-muted/30 p-3",
+        className,
+      )}
+    >
+      <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </div>
+      {isLoading ? (
+        <Skeleton className="h-6 w-24" />
+      ) : (
+        <div className="text-base font-semibold leading-none text-foreground tabular-nums">
+          {value}
+        </div>
+      )}
+      {subvalue && !isLoading && (
+        <div className="mt-1 text-xs text-muted-foreground tabular-nums">
+          {subvalue}
+        </div>
+      )}
+    </div>
+  );
 }
 
 interface BuyGlowDialogProps {
@@ -236,12 +319,16 @@ export function BuyGlowDialog({
   // Evergreen miner listings power the right "From a miner" option.
   const { applications: evergreenMiners, refetch: refetchEvergreen } =
     useEvergreenMiners({ filters: { paymentCurrency: "USDC" } });
+  // Mining score (est. weekly rewards + weeks of miner life) for the single
+  // evergreen miner card. Called unconditionally; gated by `enabled: open` and
+  // self-disables when there are no applications.
+  const { miningScoreMap, isLoading: isMiningScoresLoading } = useMiningScore({
+    applications: evergreenMiners,
+    enabled: open,
+  });
   const hasEvergreenMiners = evergreenMiners.length > 0;
   // Which of the two options is active (drives the shared payment + button).
   const [mode, setMode] = React.useState<"glw" | "miner">("glw");
-  const [selectedMinerId, setSelectedMinerId] = React.useState<string | null>(
-    null,
-  );
   const [minerQty, setMinerQty] = React.useState<number>(1);
   const [minerBusy, setMinerBusy] = React.useState(false);
   const [payToken, setPayToken] = React.useState<PayToken>("USDC");
@@ -308,13 +395,10 @@ export function BuyGlowDialog({
     connectWallet();
   }, [connectWallet]);
 
-  // ----- "From a miner" option (inline evergreen miner purchase) -----
+  // ----- "From a miner" option (single private evergreen listing) -----
   const selectedMiner = React.useMemo<AuctionApplication | null>(
-    () =>
-      evergreenMiners.find((a) => a.id === selectedMinerId) ??
-      evergreenMiners[0] ??
-      null,
-    [evergreenMiners, selectedMinerId],
+    () => evergreenMiners[0] ?? null,
+    [evergreenMiners],
   );
   const selectedMinerFraction = selectedMiner?.activeFraction ?? null;
   const minerUnitPriceUsd = selectedMinerFraction?.stepPrice
@@ -330,6 +414,24 @@ export function BuyGlowDialog({
     : 0;
   const minerClampedQty = Math.max(1, Math.min(minerQty, minerRemaining || 1));
   const minerTotalUsd = minerUnitPriceUsd * minerClampedQty;
+  // Est. rewards + weeks-of-earning for the evergreen miner card.
+  const selectedMinerMiningScore = selectedMiner
+    ? getMiningScoreForApplication(miningScoreMap, selectedMiner.id)
+    : null;
+  const minerWeeklyGlwRewards = React.useMemo(
+    () => parseWeeklyGlwRewards(selectedMinerMiningScore?.weeklyGlwRewards),
+    [selectedMinerMiningScore?.weeklyGlwRewards],
+  );
+  const minerWeeklyRewardsUsd =
+    minerWeeklyGlwRewards != null && glowSpotPrice > 0
+      ? minerWeeklyGlwRewards * glowSpotPrice
+      : null;
+  const minerWeeksRemainingLabel = formatMinerWeeksRemainingLabel(
+    selectedMinerMiningScore?.weeksOfMinerLifeRemaining,
+  );
+  const selectedMinerImageSrc =
+    selectedMiner?.afterInstallPictures?.[0]?.url ||
+    "/images/sections/residential.jpg";
   const minerFractionsHook = usePatchedOffchainFractions(
     walletClient ?? undefined,
     publicClient,
@@ -1613,10 +1715,12 @@ export function BuyGlowDialog({
         </div>
 
         <div className="px-5 py-5 space-y-4">
-          {/* Two options side by side: Buy GLW directly, or buy from a miner. */}
+          {/* Two options side by side: Buy GLW directly, or buy from a miner.
+              Both are peer "cards": a header region (branded band / photo
+              banner) over a body, so the two read as the same component. */}
           <div
             className={cn(
-              "grid gap-3",
+              "grid gap-4",
               hasEvergreenMiners ? "md:grid-cols-2" : "grid-cols-1",
             )}
           >
@@ -1624,162 +1728,195 @@ export function BuyGlowDialog({
             <div
               onClick={() => setMode("glw")}
               className={cn(
-                "rounded-xl border p-4 transition-colors",
+                "overflow-hidden rounded-2xl border bg-background/80 transition-colors",
                 hasEvergreenMiners && "cursor-pointer",
                 mode === "glw"
-                  ? "border-foreground/30 bg-muted/40 ring-1 ring-foreground/15"
-                  : "border-border/40 bg-muted/20 hover:bg-muted/30",
+                  ? "border-foreground/30 ring-1 ring-foreground/15"
+                  : "border-border/50 hover:border-border/70",
               )}
             >
-              <div className="mb-3 flex items-center justify-between">
-                <span className="text-sm font-semibold text-foreground">
-                  Buy GLW
-                </span>
+              {/* Header band (mirrors the miner photo banner height) */}
+              <div className="relative flex h-32 flex-col justify-center gap-1 border-b border-border/40 bg-gradient-to-br from-[#4ADE80]/15 via-muted/30 to-muted/40 p-4">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#4ADE80]/25 bg-[#4ADE80]/10">
+                  <GlowSymbol className="h-6 w-6" />
+                </div>
+                <div className="mt-1 min-w-0">
+                  <h3 className="truncate text-base font-semibold text-foreground">
+                    Buy GLW
+                  </h3>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Stablecoins or ETH → GLW
+                  </p>
+                </div>
                 {hasEvergreenMiners && mode === "glw" && (
-                  <span className="h-2 w-2 rounded-full bg-[#4ADE80]" />
+                  <span className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-[#4ADE80]" />
                 )}
               </div>
 
-              <div className="mb-1.5 flex items-center justify-between">
-                <Label
-                  htmlFor="buy-amount"
-                  className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider"
-                >
-                  {t.buyGlow.youPay}
-                </Label>
-                <div className="flex items-center gap-2">
-                  {isConnected && (
-                    <span className="text-[11px] text-muted-foreground font-mono">
-                      {payToken === "ETH"
-                        ? toFixedTruncate(Number(ethBalanceFormatted || "0"), 4)
-                        : formatLocaleAmount(availablePayBalanceFormatted, 2)}{" "}
-                      {payToken}
-                    </span>
-                  )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={async () => {
-                      setMode("glw");
-                      if (!isConnected) {
-                        trackEvent("buy_glw_connect_wallet_click", {
-                          location: "dialog_max",
-                          source,
-                        });
-                        openConnectModal();
-                        return;
-                      }
+              {/* Body */}
+              <div className="space-y-3 p-4">
+                <div className="rounded-xl border border-border/50 bg-muted/25 p-3">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <Label
+                      htmlFor="buy-amount"
+                      className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+                    >
+                      {t.buyGlow.youPay}
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      {isConnected && (
+                        <span className="text-[11px] font-mono tabular-nums text-muted-foreground">
+                          {payToken === "ETH"
+                            ? toFixedTruncate(
+                                Number(ethBalanceFormatted || "0"),
+                                4,
+                              )
+                            : formatLocaleAmount(
+                                availablePayBalanceFormatted,
+                                2,
+                              )}{" "}
+                          {payToken}
+                        </span>
+                      )}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={async (event) => {
+                          event.stopPropagation();
+                          setMode("glw");
+                          if (!isConnected) {
+                            trackEvent("buy_glw_connect_wallet_click", {
+                              location: "dialog_max",
+                              source,
+                            });
+                            openConnectModal();
+                            return;
+                          }
 
-                      trackEvent("buy_glw_max_click", {
-                        pay_token: payToken,
-                        pay_balance: availablePayBalanceFormatted,
-                        source,
-                      });
-
-                      if (payToken === "ETH") {
-                        if (!ethBalanceWei) return;
-                        try {
-                          const probeWei =
-                            ethBalanceWei > parseUnits("0.05", 18)
-                              ? parseUnits("0.05", 18)
-                              : ethBalanceWei;
-                          const gasRes = await estimateGasForSwapEthToUsdc({
-                            amountInWei: probeWei,
-                            slippageBps: BigInt(100),
+                          trackEvent("buy_glw_max_click", {
+                            pay_token: payToken,
+                            pay_balance: availablePayBalanceFormatted,
+                            source,
                           });
-                          const feeWei = gasRes.ok
-                            ? gasRes.val.estimatedFeeWei
-                            : BigInt(0);
-                          const bufferedFeeWei =
-                            (feeWei * BigInt(12)) / BigInt(10);
-                          const maxSpendWei =
-                            ethBalanceWei > bufferedFeeWei
-                              ? ethBalanceWei - bufferedFeeWei
-                              : BigInt(0);
-                          handleInputChange(formatEthMaxFromWei(maxSpendWei));
-                        } catch (e: any) {
-                          toast.error(
-                            e?.message || t.buyGlow.toastFailedComputeMaxEth,
-                          );
-                        }
-                        return;
-                      }
 
-                      handleInputChange(availablePayBalanceFormatted);
-                    }}
-                    className="h-6 px-2.5 text-xs font-semibold rounded-full"
-                  >
-                    {t.buyGlow.max}
-                  </Button>
-                </div>
-              </div>
+                          if (payToken === "ETH") {
+                            if (!ethBalanceWei) return;
+                            try {
+                              const probeWei =
+                                ethBalanceWei > parseUnits("0.05", 18)
+                                  ? parseUnits("0.05", 18)
+                                  : ethBalanceWei;
+                              const gasRes = await estimateGasForSwapEthToUsdc({
+                                amountInWei: probeWei,
+                                slippageBps: BigInt(100),
+                              });
+                              const feeWei = gasRes.ok
+                                ? gasRes.val.estimatedFeeWei
+                                : BigInt(0);
+                              const bufferedFeeWei =
+                                (feeWei * BigInt(12)) / BigInt(10);
+                              const maxSpendWei =
+                                ethBalanceWei > bufferedFeeWei
+                                  ? ethBalanceWei - bufferedFeeWei
+                                  : BigInt(0);
+                              handleInputChange(
+                                formatEthMaxFromWei(maxSpendWei),
+                              );
+                            } catch (error) {
+                              toast.error(
+                                error instanceof Error
+                                  ? error.message
+                                  : t.buyGlow.toastFailedComputeMaxEth,
+                              );
+                            }
+                            return;
+                          }
 
-              <div className="flex items-center gap-2">
-                <Input
-                  id="buy-amount"
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="0"
-                  value={inputAmount}
-                  onFocus={() => setMode("glw")}
-                  onChange={(e) => {
-                    setMode("glw");
-                    const value = e.target.value.replace(",", ".");
-                    if (value === "" || /^\d*\.?\d*$/.test(value)) {
-                      handleInputChange(value);
-                    }
-                  }}
-                  className={cn(
-                    "text-2xl font-bold border-0 bg-transparent p-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0 flex-1 min-w-0 tabular-nums placeholder:text-muted-foreground/30",
-                    isConnected &&
-                      Number(inputAmount) > Number(availablePayBalanceFormatted)
-                      ? "text-destructive"
-                      : "text-foreground",
-                  )}
-                />
-                <div className="flex items-center gap-1.5 shrink-0 bg-background/50 rounded-lg px-2.5 py-1.5 border border-border/50">
-                  <TokenIcon symbol={payToken} />
-                  <span className="text-sm font-semibold text-foreground">
-                    {payToken}
-                  </span>
-                </div>
-              </div>
-
-              {payToken === "ETH" &&
-                inputAmount &&
-                Number(inputAmount) > 0 &&
-                ethPrice > 0 && (
-                  <div className="mt-1.5 text-xs text-muted-foreground">
-                    {t.buyGlow.approximateUsd(
-                      (Number(inputAmount) * ethPrice).toLocaleString("en-US", {
-                        maximumFractionDigits: 2,
-                      }),
-                    )}
+                          handleInputChange(availablePayBalanceFormatted);
+                        }}
+                        className="h-7 rounded-full px-2.5 text-xs font-semibold"
+                      >
+                        {t.buyGlow.max}
+                      </Button>
+                    </div>
                   </div>
-                )}
 
-              {isBalanceInsufficient && (
-                <div className="mt-1.5 text-xs text-destructive font-medium">
-                  {t.buyGlow.insufficientBalance}
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="buy-amount"
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="0"
+                      value={inputAmount}
+                      onFocus={() => setMode("glw")}
+                      onChange={(e) => {
+                        setMode("glw");
+                        const value = e.target.value.replace(",", ".");
+                        if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                          handleInputChange(value);
+                        }
+                      }}
+                      className={cn(
+                        "min-w-0 flex-1 border-0 bg-transparent p-0 text-xl font-bold tabular-nums placeholder:text-muted-foreground/30 focus-visible:ring-0 focus-visible:ring-offset-0",
+                        isConnected &&
+                          Number(inputAmount) >
+                            Number(availablePayBalanceFormatted)
+                          ? "text-destructive"
+                          : "text-foreground",
+                      )}
+                    />
+                    <div className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border/50 bg-background/70 px-2.5 py-1.5">
+                      <TokenIcon symbol={payToken} />
+                      <span className="text-sm font-semibold text-foreground">
+                        {payToken}
+                      </span>
+                    </div>
+                  </div>
+
+                  {payToken === "ETH" &&
+                    inputAmount &&
+                    Number(inputAmount) > 0 &&
+                    ethPrice > 0 && (
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        {t.buyGlow.approximateUsd(
+                          (Number(inputAmount) * ethPrice).toLocaleString(
+                            "en-US",
+                            { maximumFractionDigits: 2 },
+                          ),
+                        )}
+                      </div>
+                    )}
+
+                  {isBalanceInsufficient && (
+                    <div className="mt-2 text-xs font-medium text-destructive">
+                      {t.buyGlow.insufficientBalance}
+                    </div>
+                  )}
                 </div>
-              )}
 
-              <div className="mt-3 flex items-baseline justify-between border-t border-border/30 pt-3">
-                <div>
-                  <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-0.5">
-                    {t.buyGlow.youReceive}
+                <div className="rounded-xl border border-border/50 bg-muted/25 p-3">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      {t.buyGlow.youReceive}
+                    </div>
+                    {pricePerGlw && (
+                      <span className="text-[11px] font-mono tabular-nums text-muted-foreground">
+                        {t.buyGlow.pricePerGlw(pricePerGlw.toFixed(4))}
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-baseline gap-1.5">
                     <AnimatePresence mode="popLayout">
                       {isEstimating ? (
-                        <Skeleton className="h-6 w-24" />
+                        <Skeleton key="estimating" className="h-7 w-28" />
                       ) : (
                         <motion.span
-                          key={estimatedGlw}
-                          initial={{ opacity: 0, y: 10 }}
+                          key={estimatedGlw || "0"}
+                          initial={{ opacity: 0, y: 8 }}
                           animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -10 }}
-                          className="text-lg font-bold font-mono text-emerald-700 dark:text-[color:var(--color-glow-green)]"
+                          exit={{ opacity: 0, y: -8 }}
+                          className="text-xl font-bold font-mono tabular-nums text-emerald-700 dark:text-[color:var(--color-glow-green)]"
                         >
                           {estimatedGlw && Number(estimatedGlw) > 0
                             ? formatPrice(estimatedGlw, 2)
@@ -1787,126 +1924,175 @@ export function BuyGlowDialog({
                         </motion.span>
                       )}
                     </AnimatePresence>
-                    <span className="text-xs text-emerald-700/70 dark:text-[color:var(--color-glow-green)]/70 font-medium">
+                    <span className="text-sm font-medium text-emerald-700/70 dark:text-[color:var(--color-glow-green)]/70">
                       GLW
                     </span>
                   </div>
                 </div>
-                {pricePerGlw && (
-                  <div className="text-right text-[11px] text-muted-foreground font-mono">
-                    {t.buyGlow.pricePerGlw(pricePerGlw.toFixed(4))}
-                  </div>
-                )}
               </div>
             </div>
 
-            {/* OPTION 2 — Buy GLW from a miner (private evergreen listings) */}
-            {hasEvergreenMiners && (
+            {/* OPTION 2 — Buy GLW from a miner (single private evergreen listing) */}
+            {hasEvergreenMiners && selectedMiner && (
               <div
                 onClick={() => setMode("miner")}
                 className={cn(
-                  "cursor-pointer rounded-xl border p-4 transition-colors",
+                  "cursor-pointer overflow-hidden rounded-2xl border bg-background/80 transition-colors",
                   mode === "miner"
-                    ? "border-foreground/30 bg-muted/40 ring-1 ring-foreground/15"
-                    : "border-border/40 bg-muted/20 hover:bg-muted/30",
+                    ? "border-foreground/30 ring-1 ring-foreground/15"
+                    : "border-border/50 hover:border-border/70",
                 )}
               >
-                <div className="mb-3 flex items-center justify-between">
-                  <span className="text-sm font-semibold text-foreground">
-                    From a miner
-                  </span>
+                {/* Photo banner */}
+                <div className="relative h-32 overflow-hidden border-b border-border/40 bg-muted">
+                  <FallbackImage
+                    src={selectedMinerImageSrc}
+                    widthForProxy={600}
+                    quality={70}
+                    alt={selectedMiner.farmName ?? selectedMiner.zone.name}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                    decoding="async"
+                    draggable={false}
+                  />
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+                  <div className="absolute left-3 top-3 rounded-full bg-black/75 px-2.5 py-1 text-xs font-medium text-white backdrop-blur-sm">
+                    {selectedMiner.zone.name}
+                  </div>
                   {mode === "miner" && (
-                    <span className="h-2 w-2 rounded-full bg-[#4ADE80]" />
+                    <span className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-[#4ADE80] ring-4 ring-black/20" />
                   )}
                 </div>
 
-                <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                  Farm
-                </label>
-                <select
-                  value={selectedMiner?.id ?? ""}
-                  onFocus={() => setMode("miner")}
-                  onChange={(e) => {
-                    setMode("miner");
-                    setSelectedMinerId(e.target.value);
-                    setMinerQty(1);
-                  }}
-                  className="mt-1 w-full rounded-lg border border-border/50 bg-background/50 px-3 py-2 text-sm font-medium text-foreground outline-none focus:ring-1 focus:ring-foreground/20"
-                >
-                  {evergreenMiners.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.farmName ?? "Unnamed farm"}
-                    </option>
-                  ))}
-                </select>
-
-                <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-                  <span>
-                    $
-                    {minerUnitPriceUsd.toLocaleString(undefined, {
-                      maximumFractionDigits: 2,
-                    })}{" "}
-                    / miner
-                  </span>
-                  <span>{minerRemaining} available</span>
-                </div>
-
-                <div className="mt-3 flex items-center justify-between">
-                  <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                    Quantity
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMode("miner");
-                        setMinerQty((q) => Math.max(1, q - 1));
-                      }}
-                      disabled={minerClampedQty <= 1}
-                      className="h-7 w-7 rounded-md border border-border/50 text-foreground hover:bg-muted/40 disabled:opacity-40"
-                    >
-                      &minus;
-                    </button>
-                    <span className="w-8 text-center text-sm font-semibold tabular-nums">
-                      {minerClampedQty}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMode("miner");
-                        setMinerQty((q) =>
-                          Math.min(minerRemaining || 1, q + 1),
-                        );
-                      }}
-                      disabled={minerClampedQty >= minerRemaining}
-                      className="h-7 w-7 rounded-md border border-border/50 text-foreground hover:bg-muted/40 disabled:opacity-40"
-                    >
-                      +
-                    </button>
+                {/* Body */}
+                <div className="space-y-3 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        From a miner
+                      </div>
+                      <h3 className="mt-1 line-clamp-2 text-base font-semibold leading-snug text-foreground text-balance">
+                        {selectedMiner.farmName ?? "Evergreen miner"}
+                      </h3>
+                    </div>
+                    <div className="shrink-0 rounded-full border border-border/50 bg-muted/30 px-2.5 py-1 text-xs tabular-nums text-muted-foreground">
+                      {minerRemaining.toLocaleString()} available
+                    </div>
                   </div>
-                </div>
 
-                <div className="mt-3 flex items-baseline justify-between border-t border-border/30 pt-3">
-                  <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                    Total
-                  </span>
-                  <span className="text-lg font-bold text-foreground tabular-nums">
-                    $
-                    {minerTotalUsd.toLocaleString(undefined, {
-                      maximumFractionDigits: 2,
-                    })}
-                  </span>
+                  {/* Est. rewards + weeks left + price (mirrors the launchpad card) */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <CheckoutStat
+                      className="col-span-2"
+                      isLoading={
+                        isMiningScoresLoading && !selectedMinerMiningScore
+                      }
+                      label={
+                        <span className="inline-flex items-center gap-1.5">
+                          Est. rewards
+                          <span className="group/help relative inline-flex">
+                            <HelpCircle className="h-3.5 w-3.5 cursor-help text-muted-foreground" />
+                            <span className="absolute bottom-full left-1/2 z-50 mb-2 hidden w-60 -translate-x-1/2 group-hover/help:block">
+                              <span className="block rounded-lg border border-border bg-popover px-3 py-2 text-xs font-normal normal-case tracking-normal text-popover-foreground shadow-lg">
+                                Current weekly rate per miner. May decrease as
+                                new regional farms dilute emissions.
+                              </span>
+                            </span>
+                          </span>
+                        </span>
+                      }
+                      value={
+                        minerWeeklyGlwRewards != null
+                          ? `${minerWeeklyGlwRewards.toLocaleString("en-US", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })} GLW`
+                          : "0.00 GLW"
+                      }
+                      subvalue={
+                        minerWeeklyRewardsUsd != null
+                          ? `≈ ${formatUsdAmount(minerWeeklyRewardsUsd, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })} / week`
+                          : "≈ $0.00 / week"
+                      }
+                    />
+                    <CheckoutStat
+                      isLoading={
+                        isMiningScoresLoading && !selectedMinerMiningScore
+                      }
+                      label="Weeks left"
+                      value={minerWeeksRemainingLabel}
+                    />
+                    <CheckoutStat
+                      label="Price"
+                      value={formatUsdAmount(minerUnitPriceUsd)}
+                      subvalue="/ miner"
+                    />
+                  </div>
+
+                  {/* Quantity + total */}
+                  <div className="rounded-xl border border-border/50 bg-muted/25 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Quantity
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setMode("miner");
+                            setMinerQty((q) => Math.max(1, q - 1));
+                          }}
+                          disabled={minerClampedQty <= 1}
+                          aria-label="Decrease miner quantity"
+                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/50 text-foreground transition-colors hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <Minus className="h-4 w-4" />
+                        </button>
+                        <span className="w-8 text-center text-sm font-semibold tabular-nums">
+                          {minerClampedQty}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setMode("miner");
+                            setMinerQty((q) =>
+                              Math.min(minerRemaining || 1, q + 1),
+                            );
+                          }}
+                          disabled={minerClampedQty >= minerRemaining}
+                          aria-label="Increase miner quantity"
+                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/50 text-foreground transition-colors hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 flex items-baseline justify-between border-t border-border/30 pt-3">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Total
+                      </span>
+                      <span className="text-lg font-bold text-foreground tabular-nums">
+                        {formatUsdAmount(minerTotalUsd)}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
           </div>
 
           {/* SHARED Payment Method (used by both options) */}
-          <div className="flex flex-col gap-2">
+          <div className="rounded-2xl border border-border/50 bg-background/80 p-4">
             <label className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
               {t.buyGlow.paymentMethod}
             </label>
-            <div className="space-y-2">
+            <div className="mt-3 space-y-2">
               <PaymentOption
                 label={t.buyGlow.usdcLabel}
                 balance={
@@ -1957,7 +2143,7 @@ export function BuyGlowDialog({
               )}
             </div>
             {mode === "miner" && (
-              <p className="text-[11px] text-muted-foreground">
+              <p className="mt-2 text-[11px] text-muted-foreground">
                 Miners are purchased with USDC.
               </p>
             )}
@@ -2013,14 +2199,12 @@ export function BuyGlowDialog({
               {minerBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {`Buy ${minerClampedQty} miner${
                 minerClampedQty > 1 ? "s" : ""
-              } · $${minerTotalUsd.toLocaleString(undefined, {
-                maximumFractionDigits: 2,
-              })}`}
+              } · ${formatUsdAmount(minerTotalUsd)}`}
             </Button>
           ) : (
             <div className="space-y-2">
               <Button
-                className="w-full"
+                className="w-full h-12 rounded-xl text-base font-medium"
                 onClick={handleBuyGlow}
                 disabled={
                   !inputAmount ||
@@ -2089,12 +2273,17 @@ export function BuyGlowDialog({
       <DialogContent
         className={cn(
           "p-0 gap-0 bg-card border border-border/40 text-foreground overflow-hidden rounded-[24px] flex flex-col max-h-[85vh]",
-          // Two-option checkout (Buy GLW + From a miner side-by-side) needs a
-          // wider canvas, but stays modest. Result cards (and the GLW-only case)
-          // stay narrow.
+          // Width fix: the base DialogContent ships an UNPREFIXED arbitrary
+          // `max-w-[calc(100%-2rem)]` (≈ full viewport) that out-cascades any
+          // responsive `md:max-w-*` override (twMerge keeps both; the unprefixed
+          // arbitrary utility wins). A single unprefixed arbitrary `min()` value
+          // is the only reliable fix: twMerge REPLACES the full-width base
+          // utility, and the value itself encodes the responsive cap
+          // (viewport-2rem on mobile, fixed ceiling on desktop). The two-option
+          // checkout caps wider; the GLW-only case stays narrow.
           phase === "input" && hasEvergreenMiners
-            ? "md:max-w-2xl"
-            : "md:max-w-md",
+            ? "max-w-[min(calc(100vw-2rem),44rem)]"
+            : "max-w-[min(calc(100vw-2rem),28rem)]",
         )}
         onInteractOutside={(e) => e.preventDefault()}
       >
