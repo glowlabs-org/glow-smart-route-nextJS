@@ -17,6 +17,8 @@ export interface HomeStrings {
     protocolMetrics: string;
     education: string;
     stayConnected: string;
+    networkSolarFootprint: string;
+    liveSolarFarms: string;
   };
 
   // Deferred analytics placeholders (shown briefly during launchpad traffic)
@@ -69,6 +71,8 @@ const en: HomeStrings = {
     protocolMetrics: "Protocol Metrics",
     education: "Education",
     stayConnected: "Stay Connected",
+    networkSolarFootprint: "Network Solar Footprint",
+    liveSolarFarms: "Live Solar Farms",
   },
 
   deferred: {
@@ -139,6 +143,8 @@ const ko: HomeStrings = {
     protocolMetrics: "프로토콜 지표",
     education: "학습 자료",
     stayConnected: "함께하기",
+    networkSolarFootprint: "네트워크 태양광 발자국",
+    liveSolarFarms: "가동 중인 태양광 발전소",
   },
 
   deferred: {
@@ -208,6 +214,8 @@ const zh: HomeStrings = {
     protocolMetrics: "协议数据",
     education: "学习中心",
     stayConnected: "保持联系",
+    networkSolarFootprint: "全网太阳能足迹",
+    liveSolarFarms: "运行中的太阳能电站",
   },
 
   deferred: {

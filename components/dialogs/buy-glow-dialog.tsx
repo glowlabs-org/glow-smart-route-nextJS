@@ -2069,8 +2069,10 @@ export function BuyGlowDialog({
     return (
       <>
         <div className="px-6 pt-8 pb-4 border-b border-border/40">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
+          {/* Stack on mobile so the title gets full width (it was squished into
+              a narrow column next to the network pill); side-by-side on sm+. */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 pr-8 sm:pr-0">
               <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
                 {t.buyGlow.title}
               </DialogTitle>

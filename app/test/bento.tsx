@@ -15,14 +15,9 @@ import RewardsWidget from "./widgets/rewards-widget";
 import LaunchpadStatusWidget, {
   LaunchpadPointsCallout,
 } from "./widgets/launchpad-status-widget";
-import {
-  GetStartedCarousel,
-  EarnPointsSection,
-  BecomeMinerSection,
-  LearnMoreSection,
-} from "./widgets/onboarding-flow";
+import { GetStartedCarousel } from "./widgets/onboarding-flow";
 import NetworkSolarFootprint from "./widgets/network-solar-footprint";
-import LiveSolarFarmsCarousel from "./widgets/live-solar-farms-carousel";
+import LiveSolarFarmsGrid from "./widgets/live-solar-farms-grid";
 import MyFarmsGridSection from "./widgets/my-farms-grid-section";
 import { MintAndStakeGctlDialog } from "@/components/dialogs/mint-and-stake-gctl-dialog";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
@@ -280,6 +275,12 @@ export default function GlowSoftDashboard({
   const [selectedDepositCurrency, setSelectedDepositCurrency] = React.useState<
     "GLW" | "SGCTL" | "USDC" | null
   >(null);
+  // Whether the selected miner is a private evergreen listing. The DepositDialog
+  // pre-buy refetch must query the evergreen surface for these (the public miner
+  // feed excludes evergreen rows), else it misses the row and falls back to
+  // stale data. Tagged onto the application via `_evergreen` at the click site.
+  const [selectedDepositIsEvergreen, setSelectedDepositIsEvergreen] =
+    React.useState(false);
   const [dashboardRefreshNonce, setDashboardRefreshNonce] = React.useState(0);
   const refundToastIdRef = React.useRef<string | number | null>(null);
   const migrationToastIdRef = React.useRef<string | number | null>(null);
@@ -513,6 +514,9 @@ export default function GlowSoftDashboard({
       setSelectedApplicationForDeposit(application);
       setSelectedRewardScore(scoreData ?? null);
       setSelectedDepositCurrency(selectedCurrency ?? null);
+      setSelectedDepositIsEvergreen(
+        Boolean((application as { _evergreen?: boolean })._evergreen),
+      );
       setIsDepositDialogOpen(true);
     },
     [isConnected, normalizedWalletAddress],
@@ -524,6 +528,7 @@ export default function GlowSoftDashboard({
     setSelectedApplicationForDeposit(null);
     setSelectedRewardScore(null);
     setSelectedDepositCurrency(null);
+    setSelectedDepositIsEvergreen(false);
   }, []);
 
   // "Earn points" deep-link (?earn=1) from the What's New modal: open the
@@ -839,10 +844,10 @@ export default function GlowSoftDashboard({
               transition={{ duration: 0.15 }}
               className="flex flex-col gap-16"
             >
-              {/* Get Started Section — 2-slide onboarding carousel. When the
-                  launchpad is live it opens on STEP 2 (Delegate), which carries
-                  the launchpad widget, replacing the old always-on top section.
-                  The user can still slide back to STEP 1 (Buy GLW). */}
+              {/* Get Started — the five onboarding steps rolled into a single
+                  connected carousel (Buy → Delegate → Earn → Mine → Learn).
+                  When the launchpad is live it opens on STEP 02 (Delegate); the
+                  user can still slide back to STEP 01 (Buy GLW). */}
               <section className="flex flex-col gap-8">
                 <SectionHeader title={t.home.sections.getStarted} />
                 <div className="rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10 p-4 sm:p-6 lg:p-12">
@@ -852,33 +857,6 @@ export default function GlowSoftDashboard({
                     isApproaching={isApproachingLaunchpad}
                     startOnDelegate={shouldShowLaunchpadLiveSection}
                   />
-                </div>
-              </section>
-
-              {/* Step 3 — Earn points */}
-              {/* TODO i18n: new logged-out section headers */}
-              <section className="flex flex-col gap-8">
-                <SectionHeader title="Step 3" />
-                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10 p-4 sm:p-6 lg:p-12">
-                  <EarnPointsSection />
-                </div>
-              </section>
-
-              {/* Step 4 — Become a miner */}
-              {/* TODO i18n: new logged-out section headers */}
-              <section className="flex flex-col gap-8">
-                <SectionHeader title="Step 4" />
-                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10 p-4 sm:p-6 lg:p-12">
-                  <BecomeMinerSection onPayDeposit={handlePayDeposit} />
-                </div>
-              </section>
-
-              {/* Learn More */}
-              {/* TODO i18n: new logged-out section headers */}
-              <section className="flex flex-col gap-8">
-                <SectionHeader title="Learn More" />
-                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10 p-4 sm:p-6 lg:p-12">
-                  <LearnMoreSection />
                 </div>
               </section>
 
@@ -908,9 +886,8 @@ export default function GlowSoftDashboard({
               </section>
 
               {/* Network Solar Footprint */}
-              {/* TODO i18n: new logged-out section headers */}
               <section className="flex flex-col gap-8">
-                <SectionHeader title="Network Solar Footprint" />
+                <SectionHeader title={t.home.sections.networkSolarFootprint} />
                 <div className="rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10 p-4 sm:p-6 lg:p-12">
                   <WidgetErrorBoundary>
                     <NetworkSolarFootprint />
@@ -918,13 +895,13 @@ export default function GlowSoftDashboard({
                 </div>
               </section>
 
-              {/* Live Solar Farms */}
-              {/* TODO i18n: new logged-out section headers */}
+              {/* Live Solar Farms — a long, page-scrollable grid of every farm
+                  that has gone live (replaces the old carousel). */}
               <section className="flex flex-col gap-8">
-                <SectionHeader title="Live Solar Farms" />
+                <SectionHeader title={t.home.sections.liveSolarFarms} />
                 <div className="rounded-3xl bg-card dark:bg-card border border-border/20 dark:border-white/10 p-4 sm:p-6 lg:p-12">
                   <WidgetErrorBoundary>
-                    <LiveSolarFarmsCarousel />
+                    <LiveSolarFarmsGrid />
                   </WidgetErrorBoundary>
                 </div>
               </section>
@@ -991,6 +968,7 @@ export default function GlowSoftDashboard({
               onOpenChange={handleDepositOpenChange}
               application={selectedApplicationForDeposit}
               selectedCurrency="USDC"
+              evergreen={selectedDepositIsEvergreen}
               rewardScore={selectedRewardScore as MiningCenterScore | null}
               onSuccess={refreshDashboardWidgets}
             />

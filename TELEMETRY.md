@@ -86,7 +86,14 @@ Local dev note: geo headers won't exist locally, so geo fields may be `null` / a
   - `lib/wallet-session-logger.ts`: `wallet_connected` event + `identifyWallet(address)` on every connect/address_change
 - **Home / Dashboard (Bento)**
   - `app/page.tsx`: dashboard entrypoint on `/`
-  - `app/test/bento.tsx`: dashboard composition + dialogs
+  - `app/test/bento.tsx`: dashboard composition + dialogs (the connected
+    dashboard **and** the logged-out onboarding flow)
+  - `app/test/widgets/onboarding-flow.tsx`: logged-out 5-step "get started"
+    carousel (Buy → Delegate → Earn → Mine → Learn). Its primary CTAs reuse the
+    bento-level handlers, so "Buy GLW" fires `dashboard_buy_glw_click` and
+    "Buy miner" / "Delegate" fire `dashboard_launchpad_deposit_open_click`, both
+    with `source: "bento"`.
+  - `app/test/widgets/live-solar-farms-grid.tsx`: logged-out live-farms grid
   - `app/test/widgets/*`: dashboard widgets
   - `app/wallet/claims-panel.tsx`: claims funnel (re-used inside dashboard widgets)
 - **API routes**
@@ -215,8 +222,16 @@ All events below follow `snake_case` and use `dashboard_*` (dashboard surface ar
 - **Buy GLW entry points (with source tracking)**
 
   - `dashboard_buy_glw_click`: user clicked "Buy GLW" button
-    - props: `source` (e.g. `onboarding_hero_widget`, `launchpad_status_widget`, `rank_widget`), `wallet_connected`, `wallet_address`
-    - emitted by: `app/test/widgets/onboarding-hero-widget.tsx`, `app/test/widgets/launchpad-status-widget.tsx`, `app/test/widgets/rank-widget.tsx`
+    - props: `source` (e.g. `bento`, `launchpad_status_widget`, `rank_widget`), `wallet_connected`, `wallet_address`
+    - emitted by: `app/test/bento.tsx` (logged-out onboarding carousel Buy-GLW CTAs, `source: bento`), `app/test/widgets/launchpad-status-widget.tsx`, `app/test/widgets/rank-widget.tsx`
+
+- **Onboarding carousel (logged-out)**
+
+  - `dashboard_onboarding_step_view`: a step in the get-started carousel was reached (carousel funnel)
+    - props: `source` (`bento`), `step` (`buy|delegate|earn|mine|learn`), `step_index`
+  - `dashboard_onboarding_link_click`: clicked a destination link inside the carousel (opens in a new tab)
+    - props: `source` (`bento`), `destination` (`shop|leaderboard|stats`)
+    - emitted by: `app/test/widgets/onboarding-flow.tsx`
 
 - **GCTL entry points (with source tracking)**
 

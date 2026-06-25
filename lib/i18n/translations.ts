@@ -18,6 +18,10 @@ import {
   type ReferralLandingStrings,
 } from "./namespaces/referral-landing";
 import { homeTranslations, type HomeStrings } from "./namespaces/home";
+import {
+  onboardingTranslations,
+  type OnboardingStrings,
+} from "./namespaces/onboarding";
 import { routesTranslations, type RoutesStrings } from "./namespaces/routes";
 import { swapTranslations, type SwapStrings } from "./namespaces/swap";
 import {
@@ -43,6 +47,7 @@ export interface Strings {
   header: HeaderStrings;
   referralLanding: ReferralLandingStrings;
   home: HomeStrings;
+  onboarding: OnboardingStrings;
   routes: RoutesStrings;
   swap: SwapStrings;
   transactionDialog: TransactionDialogStrings;
@@ -68,6 +73,7 @@ export const TRANSLATIONS: Record<Lang, Strings> = SUPPORTED_LANGS.reduce(
       header: headerTranslations[lang],
       referralLanding: referralLandingTranslations[lang],
       home: homeTranslations[lang],
+      onboarding: onboardingTranslations[lang],
       routes: routesTranslations[lang],
       swap: swapTranslations[lang],
       transactionDialog: transactionDialogTranslations[lang],

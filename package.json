@@ -64,6 +64,7 @@
     "decimal.js": "10.6.0",
     "dotenv": "16.6.1",
     "drizzle-orm": "0.29.5",
+    "embla-carousel-auto-height": "^8.6.0",
     "embla-carousel-react": "8.6.0",
     "eslint": "8.37.0",
     "eslint-config-next": "15.4.5",
