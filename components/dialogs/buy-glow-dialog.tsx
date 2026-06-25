@@ -322,8 +322,11 @@ export function BuyGlowDialog({
   // Evergreen miner listings power the right "From a miner" option. Gated by
   // `enabled: open` so the private (?evergreen=true) surface is only queried
   // when the dialog is actually open, not on every page that mounts it.
-  const { applications: evergreenMiners, refetch: refetchEvergreen } =
-    useEvergreenMiners({ filters: { paymentCurrency: "USDC" }, enabled: open });
+  const {
+    applications: evergreenMiners,
+    refetch: refetchEvergreen,
+    isLoading: isEvergreenLoading,
+  } = useEvergreenMiners({ filters: { paymentCurrency: "USDC" }, enabled: open });
   // Mining score (est. weekly rewards + weeks of miner life) for the single
   // evergreen miner card. Called unconditionally; gated by `enabled: open` and
   // self-disables when there are no applications.
@@ -334,6 +337,18 @@ export function BuyGlowDialog({
   const hasEvergreenMiners = evergreenMiners.length > 0;
   // Which of the two options is active (drives the shared payment + button).
   const [mode, setMode] = React.useState<"glw" | "miner">("glw");
+  // The miner is the default-selected option whenever one is listed (set by the
+  // effect below, once listings load — never a blind initial state, which would
+  // fire before `hasEvergreenMiners` resolves). `userChoseModeRef` makes that
+  // default back off the instant the user picks an option, so the auto-default
+  // never overrides an explicit choice.
+  const userChoseModeRef = React.useRef(false);
+  // Whether we've applied the open-time default once for this open session.
+  const defaultModeAppliedRef = React.useRef(false);
+  const chooseMode = React.useCallback((next: "glw" | "miner") => {
+    userChoseModeRef.current = true;
+    setMode(next);
+  }, []);
   const [minerQty, setMinerQty] = React.useState<number>(1);
   const [minerBusy, setMinerBusy] = React.useState(false);
   const [payToken, setPayToken] = React.useState<PayToken>("USDC");
@@ -429,6 +444,38 @@ export function BuyGlowDialog({
     : 0;
   const minerClampedQty = Math.max(1, Math.min(minerQty, minerRemaining || 1));
   const minerTotalUsd = minerUnitPriceUsd * minerClampedQty;
+  // Default to the miner option when one is available + has inventory. Applied
+  // exactly ONCE per open, and only AFTER the evergreen query resolves — so it
+  // can't be beaten by the loading→loaded race (the old version sometimes
+  // settled on GLW because the default ran while the miner was still loading).
+  // Honest "smart default": the spot buy stays one click away, and chooseMode()
+  // flips userChoseModeRef so this never overrides a manual pick. The dialog
+  // audience always pays USDC/ETH (a new-capital entrant), the group for whom
+  // mining is a valid route — so we never nudge a GLW holder.
+  React.useEffect(() => {
+    if (!open) {
+      userChoseModeRef.current = false;
+      defaultModeAppliedRef.current = false;
+      return;
+    }
+    if (phase !== "input") return;
+    if (userChoseModeRef.current) return;
+    if (defaultModeAppliedRef.current) return;
+    if (isEvergreenLoading) return; // wait for the listing to resolve
+    defaultModeAppliedRef.current = true;
+    setMode(
+      hasEvergreenMiners && selectedMiner && minerRemaining > 0
+        ? "miner"
+        : "glw",
+    );
+  }, [
+    open,
+    phase,
+    isEvergreenLoading,
+    hasEvergreenMiners,
+    selectedMiner,
+    minerRemaining,
+  ]);
   // V2 points: miners earn spendable points (8 / $1 by default) that buying GLW
   // from the pool does NOT. Surface the per-miner award on the card to drive
   // miner sales, and the granted total on the success screen (see deposit-dialog).
@@ -2027,6 +2074,11 @@ export function BuyGlowDialog({
               <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
                 {t.buyGlow.title}
               </DialogTitle>
+              {(hasEvergreenMiners || isEvergreenLoading) && (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Two ways to get GLW — instantly, or from a solar farm.
+                </p>
+              )}
             </div>
             <NetworkRequirementBanner
               expectedNetworkLabel={expectedNetworkLabel}
@@ -2047,14 +2099,16 @@ export function BuyGlowDialog({
           <div
             className={cn(
               "grid gap-4",
-              hasEvergreenMiners ? "md:grid-cols-2" : "grid-cols-1",
+              hasEvergreenMiners || isEvergreenLoading
+                ? "md:grid-cols-2"
+                : "grid-cols-1",
             )}
           >
             {/* OPTION 1 — Buy GLW directly */}
             <div
-              onClick={() => setMode("glw")}
+              onClick={() => chooseMode("glw")}
               className={cn(
-                "overflow-hidden rounded-2xl border bg-muted/30 dark:bg-muted/50 transition-colors",
+                "order-2 overflow-hidden rounded-2xl border bg-muted/30 dark:bg-muted/50 transition-colors",
                 hasEvergreenMiners && "cursor-pointer",
                 mode === "glw"
                   ? "border-foreground/30 ring-1 ring-foreground/15"
@@ -2110,7 +2164,7 @@ export function BuyGlowDialog({
                         size="sm"
                         onClick={async (event) => {
                           event.stopPropagation();
-                          setMode("glw");
+                          chooseMode("glw");
                           if (!isConnected) {
                             trackEvent("buy_glw_connect_wallet_click", {
                               location: "dialog_max",
@@ -2175,9 +2229,9 @@ export function BuyGlowDialog({
                       inputMode="decimal"
                       placeholder="0"
                       value={inputAmount}
-                      onFocus={() => setMode("glw")}
+                      onFocus={() => chooseMode("glw")}
                       onChange={(e) => {
-                        setMode("glw");
+                        chooseMode("glw");
                         const value = e.target.value.replace(",", ".");
                         if (value === "" || /^\d*\.?\d*$/.test(value)) {
                           handleInputChange(value);
@@ -2255,15 +2309,23 @@ export function BuyGlowDialog({
                     </span>
                   </div>
                 </div>
+                {/* Honest contrast with the miner option: a spot pool buy earns
+                    no Points-Shop points. Factual, non-financial. */}
+                <div className="flex items-center gap-2 px-1 text-[11px] text-muted-foreground">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
+                  Earns 0 Points Shop points
+                </div>
               </div>
             </div>
 
-            {/* OPTION 2 — Buy GLW from a miner (single private evergreen listing) */}
-            {hasEvergreenMiners && selectedMiner && (
+            {/* OPTION 2 — Buy GLW from a miner (single private evergreen listing).
+                While the listing loads, a skeleton holds this slot so the dialog
+                opens as two columns (no full-width GLW card that then pops). */}
+            {hasEvergreenMiners && selectedMiner ? (
               <div
-                onClick={() => setMode("miner")}
+                onClick={() => chooseMode("miner")}
                 className={cn(
-                  "cursor-pointer overflow-hidden rounded-2xl border bg-muted/30 dark:bg-muted/50 transition-colors",
+                  "order-1 cursor-pointer overflow-hidden rounded-2xl border bg-muted/30 dark:bg-muted/50 transition-colors",
                   mode === "miner"
                     ? "border-foreground/30 ring-1 ring-foreground/15"
                     : "border-border/20 dark:border-border/40 hover:border-border/40 dark:hover:border-border/60",
@@ -2293,7 +2355,7 @@ export function BuyGlowDialog({
                   <div className="absolute inset-x-3 bottom-3 flex items-end justify-between gap-3">
                     <div className="min-w-0">
                       <div className="text-[10px] font-semibold uppercase tracking-wider text-white/75">
-                        From a miner
+                        Get GLW from a solar farm
                       </div>
                       <h3 className="mt-0.5 truncate text-base font-semibold leading-tight text-white drop-shadow">
                         {selectedMiner.farmName ?? "Evergreen miner"}
@@ -2320,8 +2382,9 @@ export function BuyGlowDialog({
                             <HelpCircle className="h-3.5 w-3.5 cursor-help text-muted-foreground" />
                             <span className="absolute bottom-full left-1/2 z-50 mb-2 hidden w-60 -translate-x-1/2 group-hover/help:block">
                               <span className="block rounded-lg border border-border bg-popover px-3 py-2 text-xs font-normal normal-case tracking-normal text-popover-foreground shadow-lg">
-                                Current weekly rate per miner. May decrease as
-                                new regional farms dilute emissions.
+                                Estimate only, not a guarantee. The current
+                                weekly rate per miner; it can decrease as new
+                                regional farms dilute emissions.
                               </span>
                             </span>
                           </span>
@@ -2369,7 +2432,7 @@ export function BuyGlowDialog({
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
-                            setMode("miner");
+                            chooseMode("miner");
                             setMinerQty((q) => Math.max(1, q - 1));
                           }}
                           disabled={minerClampedQty <= 1}
@@ -2385,7 +2448,7 @@ export function BuyGlowDialog({
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
-                            setMode("miner");
+                            chooseMode("miner");
                             setMinerQty((q) =>
                               Math.min(minerRemaining || 1, q + 1),
                             );
@@ -2401,7 +2464,21 @@ export function BuyGlowDialog({
                   </div>
                 </div>
               </div>
-            )}
+            ) : isEvergreenLoading ? (
+              <div className="order-1 overflow-hidden rounded-2xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50">
+                <Skeleton className="h-32 w-full rounded-none" />
+                <div className="space-y-3 p-4">
+                  <div className="grid grid-cols-2 gap-2">
+                    <Skeleton className="h-[4.5rem] rounded-xl" />
+                    <Skeleton className="h-[4.5rem] rounded-xl" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Skeleton className="h-[4.5rem] rounded-xl" />
+                    <Skeleton className="h-[4.5rem] rounded-xl" />
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
 
           {/* SHARED Payment Method — a labelled section directly on the dialog
@@ -2619,11 +2696,15 @@ export function BuyGlowDialog({
           // utility, and the value itself encodes the responsive cap
           // (viewport-2rem on mobile, fixed ceiling on desktop). The two-option
           // checkout caps wider; the GLW-only case stays narrow.
-          phase === "input" && hasEvergreenMiners
+          phase === "input" && (hasEvergreenMiners || isEvergreenLoading)
             ? "max-w-[min(calc(100vw-2rem),44rem)]"
             : "max-w-[min(calc(100vw-2rem),28rem)]",
         )}
         onInteractOutside={(e) => e.preventDefault()}
+        // Don't let Radix auto-focus the GLW amount field on open: its onFocus
+        // forced mode="glw" and fought the post-load miner default. Nothing
+        // grabs focus on open; user clicks/tabs still select normally.
+        onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <DialogHeader className="sr-only">
           <DialogTitle>
