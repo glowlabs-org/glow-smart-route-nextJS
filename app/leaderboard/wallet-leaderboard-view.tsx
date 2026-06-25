@@ -47,6 +47,13 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/lib/i18n";
 import { formatNumber } from "@/utils/format";
@@ -75,7 +82,12 @@ function fmtMetric(value: string | null | undefined, decimals = 2): string {
   if (value == null) return "-";
   const n = Number.parseFloat(value);
   if (Number.isNaN(n)) return "-";
-  return formatNumber(n, { maximumFractionDigits: decimals });
+  // Always pad to a fixed number of decimals so every value lines up
+  // (e.g. "11,469.60" rather than "11,469.6").
+  return formatNumber(n, {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
 }
 
 /** The displayed value for a row under a given metric. */
@@ -595,15 +607,38 @@ export function WalletLeaderboardView() {
                 </span>
               ) : null}
             </form>
-            {/* Metric toggle */}
-            <div className="inline-flex w-full rounded-full border border-border/30 bg-muted/30 p-1 dark:border-white/10 sm:w-auto">
+            {/* Metric toggle. Mobile: dropdown (the 3 pills overflow on
+                narrow screens); sm+: segmented pill toggle. */}
+            <Select
+              value={sort}
+              onValueChange={(value) => handleSort(parseSort(value))}
+            >
+              <SelectTrigger
+                aria-label={lb.v2RankedBy(sortMeta[sort].label)}
+                className="w-full rounded-full font-mono text-[11px] uppercase tracking-wider sm:hidden"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SORT_OPTIONS.map((opt) => (
+                  <SelectItem
+                    key={opt}
+                    value={opt}
+                    className="font-mono text-[11px] uppercase tracking-wider"
+                  >
+                    {sortMeta[opt].label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="hidden rounded-full border border-border/30 bg-muted/30 p-1 dark:border-white/10 sm:inline-flex">
               {SORT_OPTIONS.map((opt) => (
                 <button
                   key={opt}
                   type="button"
                   onClick={() => handleSort(opt)}
                   className={cn(
-                    "flex-1 whitespace-nowrap rounded-full px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider transition-colors sm:flex-none",
+                    "whitespace-nowrap rounded-full px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider transition-colors",
                     sort === opt
                       ? "bg-card text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground",

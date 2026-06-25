@@ -70,6 +70,15 @@ function fmtGlw(wei: string | undefined): string {
   }
 }
 
+// True when the wallet has GLW in launchpad fractions still filling (pending).
+function hasPendingGlw(wei: string | undefined): boolean {
+  try {
+    return BigInt(wei || "0") > 0n;
+  } catch {
+    return false;
+  }
+}
+
 // The metric that produced the best rank, labeled as Luna prints it.
 function metricLabel(metric: FlexMetric): string {
   if (metric === "watts") return "Power";
@@ -207,6 +216,12 @@ function FlexEmbedBody({
         ) : (
           <>
             <StatRow label="Vault:" value={`${fmtGlw(stats?.vaultedGlwWei)} GLW`} />
+            {hasPendingGlw(stats?.pendingGlwWei) ? (
+              <StatRow
+                label="Pending:"
+                value={`${fmtGlw(stats?.pendingGlwWei)} GLW`}
+              />
+            ) : null}
             <StatRow
               label="Total Power:"
               value={`${fmtNum(stats?.totalWatts)} watts`}

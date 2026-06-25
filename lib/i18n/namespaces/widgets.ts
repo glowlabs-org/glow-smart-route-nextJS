@@ -574,6 +574,9 @@ export interface WidgetStrings {
     treesEquivalent: string;
     treesEquivalentTooltip: string;
     treesUnit: string;
+    tonsCo2: string;
+    tonsCo2Tooltip: string;
+    tonsUnit: string;
     panelLabel: (n: number) => string;
     panelsCompleted: (n: number) => string;
     emptyFootprintTitle: string;
@@ -1277,6 +1280,10 @@ const en: WidgetStrings = {
     treesEquivalentTooltip:
       "The number of mature trees required to sequester the same amount of CO₂ offset by your clean energy production (based on 1,000 lb CO₂/MWh and 0.022 tonnes/year per tree).",
     treesUnit: "trees",
+    tonsCo2: "Tons of CO₂",
+    tonsCo2Tooltip:
+      "Verified lifetime CO₂ displacement attributed to your wallet, based on the carbon credits earned by the solar farms your watts are connected to.",
+    tonsUnit: "t",
     panelLabel: (n) => `Capacity block #${n}`,
     panelsCompleted: (n) =>
       `${n} capacity block${n !== 1 ? "s" : ""} attributed`,
@@ -1991,6 +1998,10 @@ const ko: WidgetStrings = {
     energyPerYear: "연간 에너지",
     energyPerYearTooltip:
       "귀속된 태양광 용량과 평균 설비 이용률 18%를 기반으로 추정한 연간 청정 에너지 생산량입니다.",
+    tonsCo2: "CO₂ 톤",
+    tonsCo2Tooltip:
+      "지갑에 귀속된 검증된 누적 CO₂ 감축량으로, 보유 와트가 연결된 태양광 발전소가 획득한 탄소 크레딧을 기반으로 합니다.",
+    tonsUnit: "t",
     treesEquivalent: "나무 환산",
     treesEquivalentTooltip:
       "본인의 청정 에너지 생산으로 상쇄된 CO₂ 양만큼을 흡수하는 데 필요한 다 자란 나무 수입니다 (MWh당 1,000파운드 CO₂, 나무 1그루당 연간 0.022톤 기준).",
@@ -2698,6 +2709,10 @@ const zh: WidgetStrings = {
     energyPerYear: "每年能源",
     energyPerYearTooltip:
       "基于归属于您的太阳能容量和估算的 18% 平均容量系数得出的年度清洁能源产量估算。",
+    tonsCo2: "二氧化碳吨数",
+    tonsCo2Tooltip:
+      "归属于您钱包的已验证终身二氧化碳减排量，基于您的瓦特所连接的太阳能农场所获得的碳信用额。",
+    tonsUnit: "t",
     treesEquivalent: "等效树木",
     treesEquivalentTooltip:
       "为吸收您的清洁能源生产所抵消的同等 CO₂ 量所需的成熟树木数(基于每 MWh 1,000 磅 CO₂ 与每棵树每年 0.022 吨)。",

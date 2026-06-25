@@ -29,6 +29,10 @@ import { useLang } from "@/lib/i18n";
 
 import { GlowLockup } from "./glow-lockup";
 import { SwapDialog } from "./dialogs/swap-dialog";
+import { BuyGlowDialog } from "./dialogs/buy-glow-dialog";
+import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
+import { useER20Balances } from "@/hooks/useERC20Balances";
+import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { TosDialog } from "./tos-dialog";
 import { WhatsNewModal } from "./whats-new-modal";
 import { useReferral } from "@/hooks/use-referral";
@@ -415,6 +419,10 @@ export function Header({
   const { address } = useAccount();
   const showKolLink = isKolWallet(address);
   const [isSwapDialogOpen, setIsSwapDialogOpen] = React.useState(false);
+  const [isBuyGlowDialogOpen, setIsBuyGlowDialogOpen] = React.useState(false);
+  const { signer } = useEthersSigner();
+  const { usdcBalance, refreshBalances } = useER20Balances({ signer });
+  const { spotPrice: glowSpotPrice } = useGlowSpotPrice();
 
   // What's New modal: auto-shows once until the wallet has gone through every
   // slide (reuses the feature-launch "seen" flag), and is always re-openable
@@ -450,8 +458,8 @@ export function Header({
   return (
     <>
       <header className={headerClassName}>
-        <div className="mx-auto flex h-[72px] w-full max-w-screen-2xl items-center justify-between gap-3 sm:gap-6 px-6">
-          <Link href="/" className="flex items-center space-x-2 group">
+        <div className="mx-auto flex h-[72px] w-full max-w-screen-2xl items-center justify-between gap-3 sm:gap-6 px-4 sm:px-6">
+          <Link href="/" className="flex shrink-0 items-center space-x-2 group">
             <GlowSymbol className="w-10 md:w-12 shrink-0 relative z-10 text-zinc-900 dark:text-zinc-100" />
           </Link>
 
@@ -466,6 +474,11 @@ export function Header({
                     <ul className="grid gap-3 p-6 md:w-[300px]">
                       <ListItem href="/" title={t.header.home.title}>
                         {t.header.home.description}                      </ListItem>
+                      <ActionListItem
+                        title={t.header.buyGlw.title}
+                        description={t.header.buyGlw.description}
+                        onClick={() => setIsBuyGlowDialogOpen(true)}
+                      />
                       <ActionListItem
                         title={t.header.swap.title}
                         description={t.header.swap.description}
@@ -620,21 +633,21 @@ export function Header({
             <WalletStatus />
           </div>
 
-          <div className="flex items-center gap-2 lg:hidden">
+          <div className="flex min-w-0 items-center gap-1.5 lg:hidden">
             <button
               type="button"
               onClick={() => setIsWhatsNewOpen(true)}
               aria-label="What's new"
-              className="p-2 rounded-xl border border-border/20 dark:border-border/40 bg-background/80 backdrop-blur-sm text-zinc-900 dark:text-zinc-100 hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+              className="shrink-0 p-2 rounded-xl border border-border/20 dark:border-border/40 bg-background/80 backdrop-blur-sm text-zinc-900 dark:text-zinc-100 hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
             >
               <Sparkles className="h-5 w-5" />
             </button>
             <LangToggle />
-            <WalletStatus />
+            <WalletStatus className="min-w-0" />
             <Drawer direction="right" shouldScaleBackground={false}>
               <DrawerTrigger asChild>
                 <motion.button
-                  className="p-2 rounded-xl border border-border/20 dark:border-border/40 bg-background/80 backdrop-blur-sm hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-all duration-300 relative z-50 text-zinc-900 dark:text-zinc-100"
+                  className="shrink-0 p-2 rounded-xl border border-border/20 dark:border-border/40 bg-background/80 backdrop-blur-sm hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-all duration-300 relative z-50 text-zinc-900 dark:text-zinc-100"
                   whileTap={{ scale: 0.95 }}
                   aria-label={t.header.openMenu}
                 >
@@ -699,6 +712,18 @@ export function Header({
                                 type="button"
                                 onClick={() => {
                                   setTimeout(() => {
+                                    setIsBuyGlowDialogOpen(true);
+                                  }, 0);
+                                }}
+                                className="block w-full px-4 py-3 text-left text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                              >
+                                {t.header.buyGlw.title}                              </button>
+                            </DrawerClose>
+                            <DrawerClose asChild>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setTimeout(() => {
                                     setIsSwapDialogOpen(true);
                                   }, 0);
                                 }}
@@ -735,6 +760,22 @@ export function Header({
                                 className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                               >
                                 {t.header.protocolStats.title}                              </Link>
+                            </DrawerClose>
+                            <DrawerClose asChild>
+                              <Link
+                                href="/shop"
+                                onClick={() => {
+                                  setTimeout(() => {
+                                    window.scrollTo({
+                                      top: 0,
+                                      behavior: "smooth",
+                                    });
+                                  }, 100);
+                                }}
+                                className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                              >
+                                {t.header.pointsShop.title}
+                              </Link>
                             </DrawerClose>
                             {showKolLink && (
                               <DrawerClose asChild>
@@ -959,6 +1000,19 @@ export function Header({
       <SwapDialog
         open={isSwapDialogOpen}
         onOpenChange={setIsSwapDialogOpen}
+      />
+      <BuyGlowDialog
+        open={isBuyGlowDialogOpen}
+        onOpenChange={(open) => {
+          setIsBuyGlowDialogOpen(open);
+          if (!open) {
+            refreshBalances();
+          }
+        }}
+        usdcBalance={usdcBalance}
+        glowSpotPrice={glowSpotPrice || 0}
+        source="navbar"
+        onSuccess={refreshBalances}
       />
       <TosDialog />
       <WhatsNewModal

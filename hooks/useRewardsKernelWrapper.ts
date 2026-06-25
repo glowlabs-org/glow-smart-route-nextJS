@@ -9,7 +9,10 @@ import { toast } from "sonner";
 import { getContract, createWalletClient, custom } from "viem";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  useRewardsKernel,
+  // Not a React hook despite the name — a plain factory that binds claim
+  // closures to the wallet client passed in. Aliased so we can build a fresh
+  // kernel on demand at click time without tripping rules-of-hooks.
+  useRewardsKernel as createRewardsKernel,
   type ClaimPayoutParams,
   type TokenAndAmount,
   RewardsKernelError,
@@ -182,6 +185,50 @@ function isUserRejectedMessage(message?: string | null): boolean {
   );
 }
 
+// Claim writes go straight to the wallet's EIP-1193 provider. In some mobile
+// in-app browsers (notably MetaMask iOS) an eth_sendTransaction can be lost
+// with no popup and no rejection, hanging until the provider's internal ~120s
+// timeout. Bound every send so the hang becomes a fast, visible, retryable
+// error instead of a dialog stuck in "processing".
+const SEND_TIMEOUT_MS = 45_000;
+
+class WalletSendTimeoutError extends Error {
+  constructor() {
+    super("Wallet did not respond. Please tap Confirm again.");
+    this.name = "WalletSendTimeoutError";
+  }
+}
+
+// Thrown when the active wallet's own provider cannot be resolved at click
+// time. We surface this rather than silently sending through a not-ready
+// client.
+class WalletNotReadyError extends Error {
+  constructor() {
+    super("Wallet not ready. Reconnect and tap Confirm again.");
+    this.name = "WalletNotReadyError";
+  }
+}
+
+function isTransientWalletError(error: unknown): boolean {
+  return (
+    error instanceof WalletSendTimeoutError ||
+    error instanceof WalletNotReadyError
+  );
+}
+
+function withSendTimeout<T>(promise: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new WalletSendTimeoutError()),
+      SEND_TIMEOUT_MS,
+    );
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer) clearTimeout(timer);
+  }) as Promise<T>;
+}
+
 export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
@@ -189,57 +236,46 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
   const [isClaimingWeek, setIsClaimingWeek] = useState<number | null>(null);
   const [isClaimingAll, setIsClaimingAll] = useState(false);
 
-  // @privy-io/wagmi wraps the injected connector (MetaMask) in a viem
-  // "Custom Provider" transport that passes eth_call (simulate) but silently
-  // swallows eth_sendTransaction — the write never reaches the wallet (no
-  // popup, no tx, ~96s hang) and the UI then misreports success. Build a
-  // dedicated wallet client straight from the active wallet's OWN EIP-1193
-  // provider and route claim writes through it; fall back to the wagmi client
-  // so behavior is never worse than before when the dedicated client is
-  // unavailable.
+  // Claim writes are routed through the active wallet's OWN EIP-1193 provider,
+  // resolved fresh at click time (NOT cached in an effect). Privy's
+  // useWallets() array churns its identity on every chain/connection change,
+  // so an effect-built client is repeatedly torn down mid-flight on mobile
+  // in-app browsers, leaving the send to fall back to a transient/stale
+  // client. Resolving on demand removes that race, and (per Privy's own
+  // guidance) re-requesting the provider AFTER switchChain ensures it is bound
+  // to the active chain. If the active wallet cannot be resolved we throw
+  // rather than silently send through a not-ready client.
   const { wallets: privyWallets } = usePrivyWallets();
-  const [writeWalletClient, setWriteWalletClient] =
-    useState<typeof walletClient>(undefined);
 
-  React.useEffect(() => {
+  const resolveSendWalletClient = useCallback(async (): Promise<
+    NonNullable<typeof walletClient>
+  > => {
     const account = walletClient?.account?.address;
     if (!account) {
-      setWriteWalletClient(undefined);
-      return;
+      throw new WalletNotReadyError();
     }
     const active = privyWallets.find(
       (w) => w.address.toLowerCase() === account.toLowerCase(),
     );
     if (!active) {
-      setWriteWalletClient(undefined);
-      return;
+      throw new WalletNotReadyError();
     }
-    let cancelled = false;
-    void (async () => {
-      try {
-        // getEthereumProvider() does not track chain switches on its own, so
-        // pin the wallet to the active chain before building the client.
-        await active.switchChain(CHAIN_ID).catch(() => {});
-        const provider = await active.getEthereumProvider();
-        if (cancelled) return;
-        setWriteWalletClient(
-          createWalletClient({
-            account: account as `0x${string}`,
-            chain: ACTIVE_CHAIN,
-            transport: custom(provider),
-          }) as typeof walletClient,
-        );
-      } catch {
-        if (!cancelled) setWriteWalletClient(undefined);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    // switchChain does not update an already-created provider instance, so
+    // switch first and then request a fresh provider pinned to the chain.
+    await active.switchChain(CHAIN_ID).catch(() => {});
+    const provider = await active.getEthereumProvider();
+    return createWalletClient({
+      account: account as `0x${string}`,
+      chain: ACTIVE_CHAIN,
+      transport: custom(provider),
+    }) as NonNullable<typeof walletClient>;
   }, [walletClient?.account?.address, privyWallets]);
 
-  const rewardsKernel = useRewardsKernel(
-    writeWalletClient || walletClient || undefined,
+  // Read-only kernel. Reads resolve through the public client; every WRITE is
+  // built on demand from resolveSendWalletClient and never falls back to this
+  // client.
+  const rewardsKernel = createRewardsKernel(
+    walletClient || undefined,
     publicClient || undefined,
     CHAIN_ID,
   );
@@ -254,18 +290,20 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
     });
   }, [publicClient]);
 
-  // MinerPoolAndGCA contract (write-enabled; requires connected wallet)
+  // MinerPoolAndGCA contract used for the pre-write reads + simulate. The
+  // actual emission write is sent through an on-demand client built from
+  // resolveSendWalletClient (see claimGlwInflation), not this instance.
   const minerPoolWriteContract = React.useMemo(() => {
     if (!publicClient || !walletClient) return null;
     return getContract({
       address: addresses.gcaAndMinerPoolContract as `0x${string}`,
       abi: MinerPoolAndGCAABI,
       client: {
-        wallet: writeWalletClient || walletClient,
+        wallet: walletClient,
         public: publicClient,
       },
     });
-  }, [publicClient, walletClient, writeWalletClient]);
+  }, [publicClient, walletClient]);
 
   // `useRewardsKernel` returns a new object per render; keep refs in sync so
   // checker callbacks remain referentially stable for row-level effects.
@@ -494,9 +532,17 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           }
         }
 
+        // Send through the active wallet's own provider, resolved fresh at
+        // click time, and bound by a timeout so a lost mobile send fails fast.
+        const sendClient = await resolveSendWalletClient();
+        const sendContract = getContract({
+          address: addresses.gcaAndMinerPoolContract as `0x${string}`,
+          abi: MinerPoolAndGCAABI,
+          client: sendClient,
+        });
         // Execute claim (bucketId, glwWeight, usdcWeight, proof, index, user, claimFromInflation, signature)
-        const txHash = await minerPoolWriteContract.write.claimRewardFromBucket(
-          [
+        const txHash = await withSendTimeout(
+          sendContract.write.claimRewardFromBucket([
             bucketId,
             BigInt(glwWeight),
             BigInt(0), // usdcWeight is always 0 for v2
@@ -505,7 +551,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
             userAddress,
             true, // claimFromInflation
             "0x", // no delegation signature
-          ],
+          ]),
         );
 
         return {
@@ -520,6 +566,13 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           error?.shortMessage ||
           error?.cause?.shortMessage ||
           "Unknown error";
+
+        // Wallet-not-ready / send-timeout are transient, not code bugs: show a
+        // retry toast and skip Sentry so the dialog resets cleanly.
+        if (isTransientWalletError(error)) {
+          toast.error(error.message);
+          return { status: "error", message: error.message };
+        }
 
         if (errorMessage.includes("UserAlreadyClaimed")) {
           return {
@@ -577,7 +630,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         };
       }
     },
-    [minerPoolWriteContract],
+    [minerPoolWriteContract, resolveSendWalletClient],
   );
 
   // Claim protocol deposit rewards from RewardsKernel contract
@@ -630,8 +683,18 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           toAddress,
         );
 
-        // Execute claim
-        const txHash = await rewardsKernel.claimPayout(claimParams);
+        // Execute claim through the active wallet's own provider (resolved
+        // fresh at click time), bound by a timeout so a lost mobile send
+        // fails fast instead of hanging the dialog.
+        const sendClient = await resolveSendWalletClient();
+        const sendKernel = createRewardsKernel(
+          sendClient,
+          publicClient || undefined,
+          CHAIN_ID,
+        );
+        const txHash = await withSendTimeout(
+          sendKernel.claimPayout(claimParams),
+        );
         return {
           status: "success",
           txHash,
@@ -645,6 +708,11 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           error?.cause?.shortMessage ||
           error?.cause?.message ||
           "Unknown error";
+
+        if (isTransientWalletError(error)) {
+          toast.error(error.message);
+          return { status: "error", message: error.message };
+        }
 
         if (errorMessage.includes(RewardsKernelError.ALREADY_CLAIMED)) {
           return {
@@ -698,7 +766,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         };
       }
     },
-    [rewardsKernel, buildClaimParams],
+    [rewardsKernel, buildClaimParams, resolveSendWalletClient, publicClient],
   );
 
   // Claim rewards for a specific week (handles both GLW inflation and protocol deposits)
@@ -1110,7 +1178,17 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           return { txHash: null, alreadyClaimedWeeks };
         }
 
-        const txHash = await rewardsKernel.claimPayoutsMulticall({ claims });
+        // Send through the active wallet's own provider (resolved fresh at
+        // click time), bound by a timeout so a lost mobile send fails fast.
+        const sendClient = await resolveSendWalletClient();
+        const sendKernel = createRewardsKernel(
+          sendClient,
+          publicClient || undefined,
+          CHAIN_ID,
+        );
+        const txHash = await withSendTimeout(
+          sendKernel.claimPayoutsMulticall({ claims }),
+        );
 
         try {
           await publicClient?.waitForTransactionReceipt({
@@ -1145,7 +1223,9 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           error?.cause?.message ||
           "Unknown error";
 
-        if (errorMessage.includes("User rejected")) {
+        if (isTransientWalletError(error)) {
+          toast.error(error.message);
+        } else if (errorMessage.includes("User rejected")) {
           toast.info("Transaction cancelled");
         } else if (isInsufficientGasError(error)) {
           toast.error(INSUFFICIENT_GAS_ERROR_MESSAGE);
@@ -1162,7 +1242,13 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         setIsClaimingAll(false);
       }
     },
-    [walletClient, rewardsKernel, buildClaimParams, publicClient],
+    [
+      walletClient,
+      rewardsKernel,
+      buildClaimParams,
+      publicClient,
+      resolveSendWalletClient,
+    ],
   );
 
   // Check if rewards have been claimed

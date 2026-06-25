@@ -18,6 +18,7 @@ export interface HeaderStrings {
 
   // App section
   home: { title: string; description: string };
+  buyGlw: { title: string; description: string };
   swap: { title: string; description: string };
   leaderboard: { title: string; description: string };
   protocolStats: { title: string; description: string };
@@ -59,6 +60,10 @@ const en: HeaderStrings = {
     "Main navigation menu with links to different sections of the website.",
 
   home: { title: "Home", description: "Back to the dashboard" },
+  buyGlw: {
+    title: "Buy GLW",
+    description: "Buy GLW with stablecoins or ETH",
+  },
   swap: {
     title: "Swap",
     description: "Buy or swap tokens without leaving the app",
@@ -132,6 +137,10 @@ const ko: HeaderStrings = {
     "웹사이트의 각 섹션으로 이동할 수 있는 메인 내비게이션 메뉴입니다.",
 
   home: { title: "홈", description: "대시보드로 돌아가기" },
+  buyGlw: {
+    title: "GLW 구매",
+    description: "스테이블코인 또는 ETH로 GLW 구매",
+  },
   swap: {
     title: "스왑",
     description: "앱을 떠나지 않고 토큰을 구매하거나 교환하세요",
@@ -204,6 +213,10 @@ const zh: HeaderStrings = {
   navigationMenuDescription: "主导航菜单,可访问网站的各个板块。",
 
   home: { title: "首页", description: "返回仪表板" },
+  buyGlw: {
+    title: "购买 GLW",
+    description: "使用稳定币或 ETH 购买 GLW",
+  },
   swap: {
     title: "兑换",
     description: "无需离开应用即可购买或兑换代币",

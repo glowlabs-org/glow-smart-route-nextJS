@@ -1039,7 +1039,24 @@ export default function SolarFarmWidget({
     if (data) {
       for (const farm of data.farmDetails) {
         for (const week of farm.weeklyBreakdown) {
-          addAmount("GLW", week.weekNumber, parseGlwFromWei(week.totalRewards));
+          // Split each week per asset so SGCTL-only / mixed farms populate their
+          // OWN history series instead of lumping everything into GLW (which left
+          // the SGCTL chart empty -> estimate-only). GLW inflation -> GLW; each
+          // PD leg -> its own asset. Mirrors the otherFarmsWithRewards loop below.
+          addAmount(
+            "GLW",
+            week.weekNumber,
+            parseGlwFromWei(week.inflationRewards)
+          );
+          const pdByAsset = week.protocolDepositRewardsByAsset ?? {};
+          for (const [pdAssetRaw, pdRaw] of Object.entries(pdByAsset)) {
+            const pdAsset = normalizeDashboardAsset(pdAssetRaw);
+            addAmount(
+              pdAsset,
+              week.weekNumber,
+              parseProtocolDepositTokenAmount(pdRaw, pdAsset)
+            );
+          }
         }
       }
 

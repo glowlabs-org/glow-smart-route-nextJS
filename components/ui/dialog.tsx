@@ -51,6 +51,7 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  style,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
@@ -62,6 +63,15 @@ function DialogContent({
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
+        style={{
+          // The content is a single-column grid; an implicit `auto` track sizes
+          // to the children's min-content, which can exceed the fixed box width
+          // (e.g. a big number or a `whitespace-nowrap` button) and overflow,
+          // getting clipped by `overflow-hidden`. `minmax(0,1fr)` caps the track
+          // at the box width so content wraps/truncates instead of overflowing.
+          gridTemplateColumns: "minmax(0, 1fr)",
+          ...style,
+        }}
         className={cn(
           "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-2xl border p-6 shadow-lg duration-200 sm:max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto",
           className

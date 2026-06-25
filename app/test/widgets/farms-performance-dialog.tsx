@@ -363,13 +363,22 @@ function computeDerivedMetrics(data: PerformanceRowData) {
     data.type === "miner" || (data.type === "other" && !hasCostBasis);
   const denom = hasCostBasis ? Math.max(data.initialCost, 1) : 1;
   const timePercent = Math.min((data.weeksActive / data.totalWeeks) * 100, 100);
+  // Non-GLW (SGCTL) delegation: protocol-deposit recovery + principal are SGCTL
+  // but inflation is GLW, so they can't be summed into one ratio (it inflated
+  // the bar past 100%). Use deposit-recovery only; GLW inflation shows under
+  // EARNED. GLW delegations keep the total-value (recovery + inflation) ratio.
+  const isNonGlwDelegation =
+    data.type === "delegation" &&
+    data.protocolDepositAsset != null &&
+    formatProtocolDepositAsset(data.protocolDepositAsset) !== "GLW";
+  const valueNumerator = isNonGlwDelegation ? data.recovered : totalEarned;
   const valuePercent = useTimeAsValue
     ? timePercent
-    : (totalEarned / denom) * 100;
+    : (valueNumerator / denom) * 100;
   const deltaPercent =
     data.initialCost === 0
       ? 0
-      : ((totalEarned - data.initialCost) / data.initialCost) * 100;
+      : ((valueNumerator - data.initialCost) / data.initialCost) * 100;
 
   return {
     totalEarned,
@@ -2359,13 +2368,17 @@ export function FarmsPerformanceDialogContent({
       } else if (farmData?.userWeeklyRewards) {
         // Use source-specific breakdown if available (prevents double-counting for farms with both delegation + miner)
         const isMiningCenter = item.fractionType === "mining-center";
-        const hasMultipleLaunchpadCurrencies =
-          (launchpadCurrenciesByFarmId.get(item.farmId)?.size ?? 0) > 1;
         const pdAsset = formatProtocolDepositAsset(
           farmData.userWeeklyRewards.protocolDepositAsset
         );
+        // Only fold a non-GLW (SGCTL) PD line in when it matches the wallet's OWN
+        // delegation leg on this farm. The backend reports the wallet's per-leg
+        // protocolDepositAsset, so a GLW-leg delegator gets pdAsset === "GLW"
+        // (folded into the GLW total below) and an SGCTL-leg delegator gets
+        // pdAsset === item.launchpadCurrency. The old !hasMultipleLaunchpadCurrencies
+        // short-circuit (the wallet's own currency set) let a GLW-only delegator
+        // (size 1) bypass the asset check and inherit the farm's SGCTL PD line.
         const canUsePdForLaunchpadEstimate =
-          !hasMultipleLaunchpadCurrencies ||
           item.fractionType !== "launchpad" ||
           pdAsset === "GLW" ||
           pdAsset === item.launchpadCurrency;

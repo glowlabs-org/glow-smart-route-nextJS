@@ -68,6 +68,7 @@ import { useEthPrice } from "@/hooks/useEthPrice";
 import { resolveRewardScorePaymentCurrency } from "@/lib/reward-score";
 import {
   calculateLaunchpadPerShareRewards,
+  type DelegationCurrency,
   getDelegationCurrencyDecimals,
   parseDelegationStepAmount,
   resolveEffectiveDelegationCurrency,
@@ -83,6 +84,9 @@ import {
   type LaunchpadCardLeg,
 } from "@/utils/launchpad-card-legs";
 import { useSgctlEligibility } from "@/hooks/use-sgctl-eligibility";
+import { useV2EarlyAccess } from "@/hooks/v2-points-shop";
+import { useMinerEarlyAccessSignature } from "@/hooks/v2-early-access";
+import { publicClient } from "@/web3/web3/clients/publicClient";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { GlowSymbol } from "@/components/glow-symbol";
@@ -139,6 +143,116 @@ function countActiveListings(
 
 const MARKETPLACE_RELEASE_POLL_INTERVAL_MS =
   QUERY_CONFIG.REALTIME.refetchInterval;
+
+/**
+ * Launchpad early-access controller. Wraps the entitlement query + the opt-in
+ * EIP-712 signature so the marketplace can:
+ *   - know whether the connected wallet has an ACTIVE entitlement (launch or
+ *     legacy miner scope),
+ *   - detect whether the wallet is a smart-contract wallet (EOA-only: a
+ *     contract wallet can't prove entitlement via ecrecover, so it must not be
+ *     offered the unlock affordance),
+ *   - expose the base64 header to pass to the listings hooks once unlocked.
+ *
+ * The signature is NEVER requested on mount — `unlock()` runs only when the
+ * entitled EOA user clicks the explicit affordance.
+ */
+function useLaunchpadEarlyAccess(address: string | undefined) {
+  const earlyAccessQuery = useV2EarlyAccess(address);
+  const ea = useMinerEarlyAccessSignature();
+
+  const activeEntitlement = React.useMemo(
+    () =>
+      (earlyAccessQuery.data?.entitlements ?? []).find(
+        // Unified `"launch"` scope + legacy `"miner"` both grant early access.
+        (e) => e.active && (e.scope === "launch" || e.scope === "miner"),
+      ) ?? null,
+    [earlyAccessQuery.data],
+  );
+
+  // EOA-only: a smart-contract wallet cannot prove entitlement via ecrecover.
+  // Default to true (EOA) until proven otherwise so the affordance isn't hidden
+  // on a transient RPC failure; flips to false only on confirmed bytecode.
+  const [isEoa, setIsEoa] = React.useState(true);
+  React.useEffect(() => {
+    let cancelled = false;
+    if (!address) {
+      setIsEoa(true);
+      return;
+    }
+    publicClient
+      .getCode({ address: address as `0x${string}` })
+      .then((code) => {
+        if (cancelled) return;
+        const isContract =
+          typeof code === "string" && code !== "0x" && code.length > 2;
+        setIsEoa(!isContract);
+      })
+      .catch(() => {
+        if (!cancelled) setIsEoa(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [address]);
+
+  const hasActiveEntitlement = Boolean(activeEntitlement);
+  // Show the explicit unlock affordance only for an entitled, not-yet-unlocked
+  // EOA wallet (never auto-sign on mount).
+  const canOfferUnlock = hasActiveEntitlement && !ea.isUnlocked && isEoa;
+
+  return {
+    header: ea.header,
+    hasActiveEntitlement,
+    isUnlocked: ea.isUnlocked,
+    isSigning: ea.isSigning,
+    isEoa,
+    canOfferUnlock,
+    earlyAccessMinutes: activeEntitlement?.earlyAccessMinutes ?? null,
+    unlock: ea.unlock,
+  } as const;
+}
+
+/**
+ * Explicit opt-in affordance for early access. Rendered ONLY when the connected
+ * wallet has an active entitlement, is not yet unlocked, and is an EOA (the
+ * controller already gates on all three via `canOfferUnlock`). Clicking it
+ * prompts the EIP-712 signature; once signed, the listings refetch with the
+ * early-access header. We never auto-sign on mount.
+ */
+function EarlyAccessUnlockBanner({
+  earlyAccess,
+}: {
+  earlyAccess: ReturnType<typeof useLaunchpadEarlyAccess>;
+}) {
+  const { t } = useLang();
+  const l = t.routes.launchpad;
+  if (!earlyAccess.canOfferUnlock) return null;
+  const minutes = earlyAccess.earlyAccessMinutes;
+  return (
+    <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-primary/30 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-foreground">
+          {l.earlyAccessAvailableTitle}
+        </p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {minutes
+            ? l.earlyAccessUnlockBody(minutes)
+            : l.earlyAccessUnlockBodyNoMinutes}
+        </p>
+      </div>
+      <Button
+        className="shrink-0 rounded-full"
+        disabled={earlyAccess.isSigning}
+        onClick={() => {
+          void earlyAccess.unlock();
+        }}
+      >
+        {earlyAccess.isSigning ? l.earlyAccessSigning : l.earlyAccessUnlockCta}
+      </Button>
+    </div>
+  );
+}
 
 // Image component with skeleton loading state for SSR-friendly progressive loading
 function FarmImageWithSkeleton({
@@ -381,6 +495,8 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
   });
   const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
   const [statsDialogOpen, setStatsDialogOpen] = React.useState(false);
+  const [selectedLegForStats, setSelectedLegForStats] =
+    React.useState<DelegationCurrency | undefined>(undefined);
   const [selectedApplicationForStats, setSelectedApplicationForStats] =
     React.useState<TaggedAuctionApplication | null>(null);
   const [selectedRewardScoreForStats, setSelectedRewardScoreForStats] =
@@ -399,6 +515,11 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
 
   const isMobile = useIsMobile();
   const { address, isConnected } = useAccount();
+
+  // V2 early access: an entitled EOA wallet that opts in (signs) sees launchpad
+  // GLW delegations + miners up to its window before public visibility. Declared
+  // before the listings hooks so the header threads into their fetches.
+  const earlyAccess = useLaunchpadEarlyAccess(address);
 
   const selectedZoneId = zoneParam ? parseInt(zoneParam) : undefined;
   const selectedType = typeParam as "all" | "miners" | "delegations";
@@ -423,6 +544,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
       refetchInterval: MARKETPLACE_RELEASE_POLL_INTERVAL_MS,
       refetchIntervalInBackground: true,
     },
+    earlyAccessHeader: earlyAccess.header,
   });
 
   // Fetch mining center (miners) applications
@@ -443,6 +565,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
       refetchInterval: MARKETPLACE_RELEASE_POLL_INTERVAL_MS,
       refetchIntervalInBackground: true,
     },
+    earlyAccessHeader: earlyAccess.header,
   });
 
   // Fetch all applications for zone extraction (without zone filter)
@@ -454,6 +577,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
       sortBy: selectedSort,
       sortOrder: selectedSortOrder,
     },
+    earlyAccessHeader: earlyAccess.header,
   });
 
   const { applications: allMinersApplications, refetch: refetchAllMiners } =
@@ -463,6 +587,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
         sortOrder: selectedSortOrder,
         paymentCurrency: "USDC",
       },
+      earlyAccessHeader: earlyAccess.header,
     });
 
   // Tag and merge applications
@@ -638,6 +763,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
           open={statsDialogOpen}
           onOpenChange={setStatsDialogOpen}
           application={selectedApplicationForStats}
+          delegationCurrency={selectedLegForStats}
           rewardScore={
             selectedRewardScoreForStats as {
               userWeeklyGlwRewards: string;
@@ -684,6 +810,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
       ) : null}
 
       <div className={isDialog ? "p-4" : "p-4 md:p-6"}>
+        <EarlyAccessUnlockBanner earlyAccess={earlyAccess} />
         {/* Filters - Desktop inline, Mobile button */}
         {shouldShowFilters ? (
           <div className="hidden md:block bg-muted/30 rounded-2xl border border-border p-6 mb-6">
@@ -1632,6 +1759,14 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                 }
                               );
                               setSelectedApplicationForStats(application);
+                              setSelectedLegForStats(
+                                application._type === "miners"
+                                  ? undefined
+                                  : resolveEffectiveDelegationCurrency(
+                                      application,
+                                      isSgctlEligible(application.id)
+                                    )
+                              );
                               setSelectedRewardScoreForStats(
                                 application._type === "miners"
                                   ? miningScore || null
@@ -1755,10 +1890,13 @@ function LaunchpadMarketplaceWidget({
   const { t } = useLang();
   const l = t.routes.launchpad;
   const { address } = useAccount();
+  const earlyAccess = useLaunchpadEarlyAccess(address);
   const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
   const { ethPrice } = useEthPrice();
   const isMobile = useIsMobile();
   const [statsDialogOpen, setStatsDialogOpen] = React.useState(false);
+  const [selectedLegForStats, setSelectedLegForStats] =
+    React.useState<DelegationCurrency | undefined>(undefined);
   const [selectedApplicationForStats, setSelectedApplicationForStats] =
     React.useState<TaggedAuctionApplication | null>(null);
   const [selectedScoreDataForStats, setSelectedScoreDataForStats] =
@@ -1782,6 +1920,7 @@ function LaunchpadMarketplaceWidget({
     error: errorLaunchpad,
   } = useGlowLaunchpad({
     filters: { includeFilled: true },
+    earlyAccessHeader: earlyAccess.header,
   });
 
   // sGCTL eligibility (spec §1.4): provided to leaf cards via context below.
@@ -1797,14 +1936,20 @@ function LaunchpadMarketplaceWidget({
     error: errorMiners,
   } = useMiningCenter({
     filters: { paymentCurrency: "USDC", includeFilled: true },
+    earlyAccessHeader: earlyAccess.header,
   });
 
   const taggedDelegations = React.useMemo<TaggedAuctionApplication[]>(
     () =>
-      launchpadApplications.map((app) => ({
-        ...app,
-        _type: "delegations" as const,
-      })),
+      launchpadApplications
+        // includeFilled can return completed farms that are also live miners;
+        // their activeFraction is a mining-center fraction, not a delegation leg.
+        // Drop them so a miner never renders as a phantom "0 GLW" delegation.
+        .filter((app) => app.activeFraction?.type !== "mining-center")
+        .map((app) => ({
+          ...app,
+          _type: "delegations" as const,
+        })),
     [launchpadApplications]
   );
 
@@ -1895,7 +2040,7 @@ function LaunchpadMarketplaceWidget({
           : null;
       const totalShares =
         application._type === "delegations"
-          ? resolveLaunchpadDelegationUnitCount(application)
+          ? resolveLaunchpadDelegationUnitCount(application, delegationCurrency ?? undefined)
           : application.activeFraction?.totalSteps || 0;
       const delegationPerShareRewards =
         application._type === "delegations"
@@ -1918,7 +2063,10 @@ function LaunchpadMarketplaceWidget({
               )
             );
           }
-          return parseDelegationStepAmount(application);
+          return parseDelegationStepAmount(
+            application,
+            delegationCurrency ?? undefined
+          );
         } catch {
           return 0;
         }
@@ -2251,7 +2399,7 @@ function LaunchpadMarketplaceWidget({
       if (isMiner) return null;
       if (!scoreData || !("userWeeklyGlwRewards" in scoreData)) return null;
       try {
-        const totalShares = resolveLaunchpadDelegationUnitCount(application);
+        const totalShares = resolveLaunchpadDelegationUnitCount(application, delegationCurrency ?? undefined);
         if (!totalShares) return null;
         const perShareRewards = calculateLaunchpadPerShareRewards({
           reward: scoreData,
@@ -2552,6 +2700,7 @@ function LaunchpadMarketplaceWidget({
 
   return (
     <div className="w-full">
+      <EarlyAccessUnlockBanner earlyAccess={earlyAccess} />
       {selectedApplicationForStats?._type === "miners" ? (
         <MiningStatsDialog
           open={statsDialogOpen}
@@ -2571,6 +2720,7 @@ function LaunchpadMarketplaceWidget({
           open={statsDialogOpen}
           onOpenChange={setStatsDialogOpen}
           application={selectedApplicationForStats}
+          delegationCurrency={selectedLegForStats}
           rewardScore={
             selectedScoreDataForStats as {
               userWeeklyGlwRewards: string;
@@ -2721,9 +2871,10 @@ function LaunchpadMarketplaceWidget({
                         glwSpotPrice={glwSpotPrice}
                         ethPrice={ethPrice}
                         onPayDeposit={onPayDeposit}
-                        onOpenStats={(application, scoreData) => {
+                        onOpenStats={(application, scoreData, leg) => {
                           setSelectedApplicationForStats(application);
                           setSelectedScoreDataForStats(scoreData ?? null);
+                          setSelectedLegForStats(leg ?? undefined);
                           setStatsDialogOpen(true);
                         }}
                       />
@@ -2798,7 +2949,8 @@ function LaunchpadWidgetAssetCard({
           weeklyGlwRewards?: string;
           weeklyGlwRewardsUsd?: string;
         }
-      | null
+      | null,
+    leg?: DelegationCurrency
   ) => void;
 }) {
   const { t } = useLang();
@@ -2871,7 +3023,7 @@ function LaunchpadWidgetAssetCard({
     if (!("userWeeklyPdRewards" in scoreData)) return null;
 
     try {
-      const totalShares = resolveLaunchpadDelegationUnitCount(application);
+      const totalShares = resolveLaunchpadDelegationUnitCount(application, delegationCurrency ?? undefined);
       if (!totalShares) return null;
       const perShareRewards = calculateLaunchpadPerShareRewards({
         reward: scoreData,
@@ -3015,7 +3167,13 @@ function LaunchpadWidgetAssetCard({
                 <Button
                   variant="outline"
                   className="h-10 rounded-full px-4 text-sm whitespace-nowrap"
-                  onClick={() => onOpenStats(application, scoreData)}
+                  onClick={() =>
+                    onOpenStats(
+                      application,
+                      scoreData,
+                      delegationCurrency ?? undefined,
+                    )
+                  }
                 >
                   {l.advancedStats}
                 </Button>
@@ -3231,7 +3389,8 @@ function LaunchpadWidgetHeroCarouselCard({
           weeklyGlwRewards?: string;
           weeklyGlwRewardsUsd?: string;
         }
-      | null
+      | null,
+    leg?: DelegationCurrency
   ) => void;
 }) {
   const { t } = useLang();
@@ -3295,7 +3454,7 @@ function LaunchpadWidgetHeroCarouselCard({
     if (!isDelegation) return null;
     if (!scoreData || !("userWeeklyGlwRewards" in scoreData)) return null;
     try {
-      const totalShares = resolveLaunchpadDelegationUnitCount(application);
+      const totalShares = resolveLaunchpadDelegationUnitCount(application, delegationCurrency ?? undefined);
       if (!totalShares) return null;
       const perShareRewards = calculateLaunchpadPerShareRewards({
         reward: scoreData,
@@ -3422,7 +3581,11 @@ function LaunchpadWidgetHeroCarouselCard({
               onClick={(e) => {
                 if (isSoldOut) return;
                 e.stopPropagation();
-                onOpenStats(application, scoreData);
+                onOpenStats(
+                  application,
+                  scoreData,
+                  delegationCurrency ?? undefined,
+                );
               }}
             >
               <div
@@ -3519,7 +3682,11 @@ function LaunchpadWidgetHeroCarouselCard({
           className="absolute top-4 right-4 h-8 rounded-full bg-white/30 px-4 text-xs font-medium text-foreground/90 hover:bg-white/40 backdrop-blur-3xl border border-white/40 transition-colors shadow-lg dark:bg-black/30 dark:text-white/90 dark:hover:bg-black/40 dark:border-white/10"
           onClick={(e) => {
             e.stopPropagation();
-            onOpenStats(application, scoreData);
+            onOpenStats(
+              application,
+              scoreData,
+              delegationCurrency ?? undefined,
+            );
           }}
         >
           <span>{l.advancedStats}</span>
@@ -3536,6 +3703,7 @@ function LaunchpadMarketplaceDialog({
   const { t } = useLang();
   const l = t.routes.launchpad;
   const { address } = useAccount();
+  const earlyAccess = useLaunchpadEarlyAccess(address);
   const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
   type DialogTab = "all" | "delegations" | "miners" | "activity";
   const [tab, setTab] = React.useState<DialogTab>("all");
@@ -3544,6 +3712,8 @@ function LaunchpadMarketplaceDialog({
     "featured" | "newest" | "rewardScore" | "yieldPer1000"
   >("featured");
   const [statsDialogOpen, setStatsDialogOpen] = React.useState(false);
+  const [selectedLegForStats, setSelectedLegForStats] =
+    React.useState<DelegationCurrency | undefined>(undefined);
   const [selectedApplicationForStats, setSelectedApplicationForStats] =
     React.useState<TaggedAuctionApplication | null>(null);
   const [selectedScoreDataForStats, setSelectedScoreDataForStats] =
@@ -3564,6 +3734,7 @@ function LaunchpadMarketplaceDialog({
     error: errorLaunchpad,
   } = useGlowLaunchpad({
     filters: {},
+    earlyAccessHeader: earlyAccess.header,
   });
 
   // sGCTL eligibility (spec §1.4): used by the dialog rows and provided to the
@@ -3580,6 +3751,7 @@ function LaunchpadMarketplaceDialog({
     error: errorMiners,
   } = useMiningCenter({
     filters: { paymentCurrency: "USDC" },
+    earlyAccessHeader: earlyAccess.header,
   });
 
   const isLive = React.useMemo(() => {
@@ -3657,9 +3829,13 @@ function LaunchpadMarketplaceDialog({
     walletAddress: address || null,
   });
 
+  // Derive from the FULL tagged set, NOT activeDelegationsForScores: the latter
+  // drops a farm once its GLW leg sells out (GLW-centric sold-out check), even
+  // when its sGCTL leg is still live, leaving the sGCTL tile with no reward
+  // estimate ("EST. WEEKLY unavailable").
   const sgctlLegDelegationsForScores = React.useMemo(
-    () => activeDelegationsForScores.filter(hasBuyableSgctlLeg),
-    [activeDelegationsForScores]
+    () => taggedDelegations.filter(hasBuyableSgctlLeg),
+    [taggedDelegations]
   );
 
   const {
@@ -3757,15 +3933,13 @@ function LaunchpadMarketplaceDialog({
         application.id
       );
 
-      // The sGCTL tile's displayed score is pinned to (GLW score + 10); the
-      // SGCTL map's own score is not used for the badge (its deposit context
-      // differs and won't differ by exactly 10).
-      const pinnedRewardScore =
-        glwReward?.rewardScore != null
-          ? leg === "SGCTL"
-            ? glwReward.rewardScore + 10
-            : glwReward.rewardScore
-          : null;
+      // Each tile shows its own leg's natural reward score. `reward` is already
+      // the leg-appropriate estimate (the sGCTL +n estimate for the sGCTL tile,
+      // the GLW estimate for the GLW tile), so its absolute score is correct: the
+      // sGCTL leg's score is its own PD recovery + bonus emission, pinned by the
+      // publish-time n-solve to the constant target (e.g. 135) — NOT GLW + 10,
+      // which stacked the bump on the GLW leg's higher PD recovery (e.g. 194/212).
+      const pinnedRewardScore = reward?.rewardScore ?? null;
       const rewardScore =
         application._type === "delegations" && reward
           ? { ...reward, rewardScore: pinnedRewardScore ?? reward.rewardScore }
@@ -3797,7 +3971,7 @@ function LaunchpadMarketplaceDialog({
         application._type === "delegations" ? leg : null;
       const totalShares =
         application._type === "delegations"
-          ? resolveLaunchpadDelegationUnitCount(application)
+          ? resolveLaunchpadDelegationUnitCount(application, delegationCurrency ?? undefined)
           : application.activeFraction?.totalSteps || 0;
       const delegationPerShareRewards =
         application._type === "delegations"
@@ -3820,7 +3994,10 @@ function LaunchpadMarketplaceDialog({
               )
             );
           }
-          return parseDelegationStepAmount(application);
+          return parseDelegationStepAmount(
+            application,
+            delegationCurrency ?? undefined
+          );
         } catch {
           return 0;
         }
@@ -3893,6 +4070,9 @@ function LaunchpadMarketplaceDialog({
         yieldPer1000Usd,
         amountRaised,
         totalAmountNeeded,
+        // sGCTL early-access gate: this sGCTL tile is shown early (before its
+        // public visibleAt) and must render disabled, not buyable.
+        legNotYetOpen: entry.legNotYetOpen,
       };
     });
 
@@ -4023,6 +4203,7 @@ function LaunchpadMarketplaceDialog({
 
   return (
     <div className="p-4 md:p-6">
+      <EarlyAccessUnlockBanner earlyAccess={earlyAccess} />
       {selectedApplicationForStats?._type === "miners" ? (
         <MiningStatsDialog
           open={statsDialogOpen}
@@ -4041,6 +4222,7 @@ function LaunchpadMarketplaceDialog({
           open={statsDialogOpen}
           onOpenChange={setStatsDialogOpen}
           application={selectedApplicationForStats}
+          delegationCurrency={selectedLegForStats}
           rewardScore={
             selectedScoreDataForStats as {
               userWeeklyGlwRewards: string;
@@ -4072,9 +4254,10 @@ function LaunchpadMarketplaceDialog({
           globalStats={globalStats}
           glwSpotPrice={glwSpotPrice}
           onPayDeposit={onPayDeposit}
-          onOpenStats={(application, scoreData) => {
+          onOpenStats={(application, scoreData, leg) => {
             setSelectedApplicationForStats(application);
             setSelectedScoreDataForStats(scoreData ?? null);
+            setSelectedLegForStats(leg ?? undefined);
             setStatsDialogOpen(true);
           }}
         />
@@ -4181,7 +4364,8 @@ function LaunchpadMarketplaceDialogContent({
           weeklyGlwRewardsUsd?: string;
           weeksOfMinerLifeRemaining?: number;
         }
-      | null
+      | null,
+    leg?: DelegationCurrency
   ) => void;
 }) {
   const { t } = useLang();
@@ -4408,6 +4592,7 @@ function LaunchpadAssetCard({
     yieldUsdPerWeek: number;
     amountRaised: number;
     totalAmountNeeded: number;
+    legNotYetOpen?: boolean;
   };
   isScoresLoading: boolean;
   glwSpotPrice: number;
@@ -4421,7 +4606,8 @@ function LaunchpadAssetCard({
           weeklyGlwRewards?: string;
           weeklyGlwRewardsUsd?: string;
         }
-      | null
+      | null,
+    leg?: DelegationCurrency
   ) => void;
 }) {
   const { t } = useLang();
@@ -4439,6 +4625,9 @@ function LaunchpadAssetCard({
     ? row.delegationCurrency ?? "GLW"
     : "GLW";
   const isSoldOut = availability.isSoldOut;
+  // sGCTL early-access gate: an sGCTL tile shown before its public visibleAt is
+  // not buyable yet (only miners + GLW open early). Disable its CTA.
+  const legNotYetOpen = Boolean(row.legNotYetOpen);
   const remainingPct = React.useMemo(() => {
     const total = availability.total || 0;
     const remaining = availability.remaining || 0;
@@ -4669,17 +4858,21 @@ function LaunchpadAssetCard({
 
         <div className="flex min-w-0 flex-col sm:flex-row gap-3">
           <Button
-            variant={isSoldOut ? "ghost" : "default"}
+            variant={isSoldOut || legNotYetOpen ? "ghost" : "default"}
             className="h-11 w-full sm:flex-1 rounded-full"
-            disabled={isSoldOut || isScoresLoading || !scoreData}
+            disabled={
+              isSoldOut || legNotYetOpen || isScoresLoading || !scoreData
+            }
             onClick={() => {
-              if (isSoldOut || !scoreData) return;
+              if (isSoldOut || legNotYetOpen || !scoreData) return;
               // Pass the resolved leg currency so a "Delegate sGCTL" CTA opens
               // the sGCTL flow instead of falling back to GLW in the dialog.
               onPayDeposit(application, scoreData, delegationCurrency ?? undefined);
             }}
           >
-            {isSoldOut
+            {legNotYetOpen
+              ? l.sgctlOpensAtPublicLaunch
+              : isSoldOut
               ? l.waitlist
               : isDelegation
               ? delegationCurrency === "SGCTL"
@@ -4688,11 +4881,17 @@ function LaunchpadAssetCard({
               : l.buyMiners}
           </Button>
 
-          {!isSoldOut && (
+          {!isSoldOut && !legNotYetOpen && (
             <Button
               variant="outline"
               className="h-11 w-full sm:flex-1 rounded-full"
-              onClick={() => onOpenStats(application, scoreData)}
+              onClick={() =>
+                onOpenStats(
+                  application,
+                  scoreData,
+                  delegationCurrency ?? undefined,
+                )
+              }
             >
               {l.advancedStats}
             </Button>

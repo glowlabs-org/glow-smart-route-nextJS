@@ -1,9 +1,10 @@
-import type { AuctionApplication } from "@/hooks/hub-listings";
+import type { ActiveFraction, AuctionApplication } from "@/hooks/hub-listings";
 import {
   isSgctlOrganicLegFrozen,
   resolveGlwRemainingSteps,
   resolveSgctlRemainingUnits,
 } from "@/hooks/hub-listings";
+import { getLaunchpadNowMs } from "@/utils/launchpad-now";
 
 /**
  * Consolidated launch window — two-distinct-tiles model (product decision
@@ -34,6 +35,40 @@ export interface LaunchpadCardEntry<
    * miner availability itself).
    */
   legSoldOut: boolean;
+  /**
+   * sGCTL early-access FE gate: true for an sGCTL tile that is being shown
+   * early (an entitled wallet sees the listing before its PUBLIC `visibleAt`).
+   * Early access covers miners + the GLW leg only; the sGCTL leg opens at the
+   * public launch (Tue 9 AM ET), so the surface renders this tile DISABLED with
+   * an "opens at public launch" affordance instead of a buyable CTA. Always
+   * false for GLW and miner entries, and false once `now >= public visibleAt`.
+   * This is belt-and-suspenders against the backend forcing `delegationAsset`
+   * to GLW in the early bucket (so an early sGCTL leg should not exist at all).
+   */
+  legNotYetOpen: boolean;
+}
+
+/**
+ * True when the listing has a PUBLIC `visibleAt` still in the future — i.e. an
+ * entitled wallet is seeing it early. The early window covers the GLW leg only;
+ * the sGCTL leg stays gated until this passes. Reads the public `visibleAt`
+ * (the backend never shifts it for cache safety) and falls back to the legacy
+ * `marketplaceVisibleAt`. Returns false when no visible-at is known (never
+ * gate on a missing boundary).
+ */
+export function isBeforePublicVisibleAt(
+  fraction:
+    | Pick<ActiveFraction, "visibleAt" | "marketplaceVisibleAt">
+    | null
+    | undefined,
+  nowMs?: number,
+): boolean {
+  if (!fraction) return false;
+  const visibleAt = fraction.visibleAt ?? fraction.marketplaceVisibleAt;
+  if (!visibleAt) return false;
+  const visibleAtMs = Date.parse(visibleAt);
+  if (!Number.isFinite(visibleAtMs)) return false;
+  return getLaunchpadNowMs(nowMs) < visibleAtMs;
 }
 
 /**
@@ -79,6 +114,7 @@ export function expandLaunchpadCardEntries<T extends AuctionApplication>(params:
         leg: null,
         key: `${application.id}:MINER`,
         legSoldOut: false,
+        legNotYetOpen: false,
       });
       continue;
     }
@@ -90,6 +126,7 @@ export function expandLaunchpadCardEntries<T extends AuctionApplication>(params:
       leg: "GLW",
       key: `${application.id}:GLW`,
       legSoldOut: resolveGlwRemainingSteps(fraction) <= 0,
+      legNotYetOpen: false,
     });
 
     if (
@@ -97,11 +134,16 @@ export function expandLaunchpadCardEntries<T extends AuctionApplication>(params:
       isSgctlEligible(application.id) &&
       !isSgctlOrganicLegFrozen(fraction, nowMs)
     ) {
+      // sGCTL early-access gate: if this listing is being revealed early (its
+      // PUBLIC visibleAt is still future), the sGCTL leg is NOT buyable yet —
+      // only miners + the GLW leg open early. Surface it DISABLED with an
+      // "opens at public launch" affordance rather than a buyable CTA.
       entries.push({
         application,
         leg: "SGCTL",
         key: `${application.id}:SGCTL`,
         legSoldOut: resolveSgctlRemainingUnits(fraction) <= 0,
+        legNotYetOpen: isBeforePublicVisibleAt(fraction, nowMs),
       });
     }
   }

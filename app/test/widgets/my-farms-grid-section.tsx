@@ -974,14 +974,27 @@ function FarmCard({
     isPendingStart && pendingTimeline?.isClaimReady,
   );
 
-  const totalValue = farm.recovered + farm.inflation;
+  // For a non-GLW (SGCTL) delegation the inflation reward is denominated in GLW
+  // while the protocol-deposit recovery (and the delegated principal) are SGCTL.
+  // Summing them mixes units and pushed the progress bar past 100%, so here the
+  // progress is the deposit-recovery ratio only (recovered SGCTL / delegated
+  // SGCTL). GLW inflation is a separate stream surfaced under EARNED. GLW
+  // delegations keep the total-value (recovery + inflation) ratio since both
+  // legs are GLW.
+  const isNonGlwDelegation =
+    isDelegation &&
+    farm.protocolDepositAsset != null &&
+    farm.protocolDepositAsset !== "GLW";
+  const progressValue = isNonGlwDelegation
+    ? farm.recovered
+    : farm.recovered + farm.inflation;
   const timeBasedProgress =
     (farm.weeksActive / Math.max(farm.totalWeeks, 1)) * 100;
   const roiPercent =
     isMiner || isOther
       ? timeBasedProgress
       : farm.initialCost > 0
-        ? (totalValue / farm.initialCost) * 100
+        ? (progressValue / farm.initialCost) * 100
         : 0;
   const isProfitable = roiPercent >= 100;
   const lastWeekLabel = getFarmLastWeekLabel(farm);
@@ -1275,7 +1288,7 @@ function FarmCard({
                   </div>
                 </div>
               )}
-              <div className="text-right">
+              <div className="text-right min-w-0">
                 <div
                   className={cn(
                     "uppercase tracking-wider text-muted-foreground font-semibold mb-1",
@@ -1294,7 +1307,9 @@ function FarmCard({
                   className={cn(
                     "font-mono font-bold",
                     isCompact ? "text-xs" : "text-sm",
-                    !isCompact && "whitespace-nowrap",
+                    // Two-asset earned values (e.g. "37,155 GLW + 2,410.78
+                    // SGCTL") must wrap within the grid cell, not overflow the
+                    // card edge. Let it wrap like the LAST WEEK column does.
                     isPendingStart
                       ? "text-muted-foreground"
                       : isMiner
@@ -2626,13 +2641,18 @@ export default function MyFarmsGridSection({
       } else if (farmMetadata?.userWeeklyRewards) {
         // Use source-specific breakdown if available (prevents double-counting for farms with both delegation + miner)
         const isMiningCenter = item.fractionType === "mining-center";
-        const hasMultipleLaunchpadCurrencies =
-          (launchpadCurrenciesByFarmId.get(item.farmId)?.size ?? 0) > 1;
         const pdAsset = formatProtocolDepositAsset(
           farmMetadata.userWeeklyRewards.protocolDepositAsset
         );
+        // Only fold a non-GLW (SGCTL) PD line in when it matches the wallet's OWN
+        // delegation leg on this farm. The backend now reports the wallet's
+        // per-leg protocolDepositAsset, so a GLW-leg delegator gets pdAsset ===
+        // "GLW" (folded into the GLW total via pdGlw below) and an SGCTL-leg
+        // delegator gets pdAsset === item.launchpadCurrency. The old
+        // !hasMultipleLaunchpadCurrencies short-circuit derived from the WALLET's
+        // own currency set, so a GLW-only delegator (size 1) bypassed the asset
+        // check and inherited the farm's SGCTL PD line; that disjunct is removed.
         const canUsePdForLaunchpadEstimate =
-          !hasMultipleLaunchpadCurrencies ||
           item.fractionType !== "launchpad" ||
           pdAsset === "GLW" ||
           pdAsset === item.launchpadCurrency;

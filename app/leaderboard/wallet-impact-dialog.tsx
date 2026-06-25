@@ -133,7 +133,7 @@ function SectionHeader({
           {title}
         </h3>
         {count != null ? (
-          <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground">
+          <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-muted px-2 py-0.5 text-xs font-semibold tabular-nums text-foreground">
             {count}
           </span>
         ) : null}
@@ -157,19 +157,19 @@ function CardStats({
 }) {
   return (
     <div className="grid grid-cols-2 divide-x divide-border/40 border-t border-border/40">
-      <div className="px-3 py-2">
+      <div className="px-2.5 py-2">
         <p className="text-[9px] uppercase tracking-wide text-muted-foreground/70">
           {wattsLabel}
         </p>
-        <p className="mt-0.5 truncate text-[13px] font-semibold tabular-nums">
+        <p className="mt-0.5 truncate text-xs font-semibold tabular-nums">
           {wattsValue}
         </p>
       </div>
-      <div className="px-3 py-2">
+      <div className="px-2.5 py-2">
         <p className="text-[9px] uppercase tracking-wide text-muted-foreground/70">
           {carbonLabel}
         </p>
-        <p className="mt-0.5 truncate text-[13px] font-semibold tabular-nums">
+        <p className="mt-0.5 truncate text-xs font-semibold tabular-nums">
           {carbonValue}
         </p>
       </div>
@@ -413,7 +413,7 @@ export function WalletImpactDialog({
         </div>
         <CardStats
           wattsLabel={lb.v2WalletColWatts}
-          wattsValue={`${fmt(r.watts)} ${lb.v2WalletWattsUnit}`}
+          wattsValue={fmt(r.watts)}
           carbonLabel={lb.v2WalletCarbonCredits}
           carbonValue={fmt(r.carbon)}
         />
@@ -511,7 +511,7 @@ export function WalletImpactDialog({
                       {regionRows.map((r) => (
                         <CarouselItem
                           key={`region-${r.regionId}`}
-                          className="basis-1/2 border-0 bg-transparent pl-3 sm:basis-1/4"
+                          className="basis-full border-0 bg-transparent pl-3 sm:basis-1/2 lg:basis-1/4"
                         >
                           {renderRegionCard(r)}
                         </CarouselItem>
@@ -519,7 +519,7 @@ export function WalletImpactDialog({
                     </RegionCarousel>
                   ) : (
                     <div
-                      className="grid grid-cols-3 gap-2.5 sm:grid-cols-[repeat(var(--region-cols),minmax(0,1fr))]"
+                      className="grid grid-cols-1 gap-2.5 sm:grid-cols-[repeat(var(--region-cols),minmax(0,1fr))]"
                       style={
                         {
                           "--region-cols": regionRows.length,
@@ -559,7 +559,7 @@ export function WalletImpactDialog({
                     </Select>
                   ) : null}
                 </SectionHeader>
-                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-[repeat(auto-fill,minmax(210px,1fr))]">
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-[repeat(auto-fill,minmax(210px,1fr))]">
                   {visibleFarms.map((f) => {
                     const meta = farmMeta(f.farmId);
                     const name =
@@ -591,7 +591,7 @@ export function WalletImpactDialog({
                         </div>
                         <CardStats
                           wattsLabel={lb.v2WalletColWatts}
-                          wattsValue={`${fmt(f.wattsTotal)} ${lb.v2WalletWattsUnit}`}
+                          wattsValue={fmt(f.wattsTotal)}
                           carbonLabel={lb.v2WalletCarbonCredits}
                           carbonValue={fmt(f.carbonCredits)}
                         />

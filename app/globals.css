@@ -441,6 +441,14 @@
   html {
     @apply scroll-smooth;
   }
+  /* Guard against any element forcing horizontal page scroll. `clip` is honored
+     in WebViews that drop root `overflow: hidden`, and (unlike hidden) it does
+     not create a scroll container, so sticky positioning keeps working. Applied
+     to both html and body since some in-app wallet browsers only honor one. */
+  html,
+  body {
+    overflow-x: clip;
+  }
   body {
     @apply bg-background text-foreground font-sans;
   }

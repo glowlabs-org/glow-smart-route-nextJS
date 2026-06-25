@@ -16,7 +16,10 @@ import {
   Copy,
   CreditCard,
   ExternalLink,
+  HelpCircle,
   Loader2,
+  Minus,
+  Plus,
   X,
   Wallet,
   TrendingUp,
@@ -33,13 +36,14 @@ import { useSwapUSDCToUSDG } from "@/hooks/useSwapUSDCToUSDG";
 import { useSwap } from "@/hooks/useSwap";
 import { useEarlyLiquidityPrice } from "@/hooks/useEarlyLiquidityPrice";
 import { addresses } from "@/web3/constants/addresses";
-import { formatUnits, parseUnits } from "viem";
+import { formatUnits, parseUnits, walletActions, type WalletClient } from "viem";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice } from "@/utils/formatPrice";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { GlowSymbol } from "../glow-symbol";
+import { SegmentedCircleProgress } from "@/components/ui/circle-progress";
 import { trackEvent } from "@/lib/telemetry";
 import { bucketUsd } from "@/lib/telemetry-buckets";
 import { getStoredReferralAttribution } from "@/lib/referral-attribution";
@@ -58,6 +62,17 @@ import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
 import { useEthPrice } from "@/hooks/useEthPrice";
 import { useImpactWalletStats } from "@/hooks/hub-impact";
+import {
+  useEvergreenMiners,
+  useMiningScore,
+  getMiningScoreForApplication,
+  type AuctionApplication,
+} from "@/hooks";
+import { usePatchedOffchainFractions } from "@/hooks/usePatchedOffchainFractions";
+import { useV2PointsRates } from "@/hooks/v2-points";
+import { PointsIcon } from "@/components/impact-icons";
+import { FallbackImage } from "@/components/ui/fallback-image";
+import { normalizeMinerWeeksRemainingDisplay } from "@/lib/mining-score";
 import {
   TransactionStepper,
   type TransactionStep,
@@ -114,6 +129,79 @@ function getWeeksInRange(weekRange: { startWeek: number; endWeek: number }) {
   const raw = weekRange.endWeek - weekRange.startWeek + 1;
   if (!Number.isFinite(raw)) return 1;
   return Math.max(1, raw);
+}
+
+function formatUsdAmount(
+  value: number,
+  {
+    minimumFractionDigits = 0,
+    maximumFractionDigits = 2,
+  }: { minimumFractionDigits?: number; maximumFractionDigits?: number } = {},
+) {
+  if (!Number.isFinite(value)) return "$0";
+  return `$${value.toLocaleString("en-US", {
+    minimumFractionDigits,
+    maximumFractionDigits,
+  })}`;
+}
+
+// ApplicationMiningScore.weeklyGlwRewards is GLW wei (18-dec) as a string.
+function parseWeeklyGlwRewards(weeklyGlwRewards?: string | null) {
+  if (!weeklyGlwRewards) return null;
+  try {
+    const value = Number(
+      formatUnits(BigInt(weeklyGlwRewards), DECIMALS_BY_TOKEN["GLW"]),
+    );
+    return Number.isFinite(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function formatMinerWeeksRemainingLabel(weeks?: number | null) {
+  const resolvedWeeks = normalizeMinerWeeksRemainingDisplay(weeks) ?? 99;
+  return `${resolvedWeeks} week${resolvedWeeks === 1 ? "" : "s"}`;
+}
+
+// Compact stat cell used inside the "From a miner" card (mirrors the
+// launchpad / mining-center card's reward + price tiles).
+function CheckoutStat({
+  label,
+  value,
+  subvalue,
+  isLoading,
+  className,
+}: {
+  label: React.ReactNode;
+  value: React.ReactNode;
+  subvalue?: React.ReactNode;
+  isLoading?: boolean;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-xl border border-border/20 dark:border-border/40 bg-card p-3",
+        className,
+      )}
+    >
+      <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </div>
+      {isLoading ? (
+        <Skeleton className="h-6 w-24" />
+      ) : (
+        <div className="text-base font-semibold leading-none text-foreground tabular-nums">
+          {value}
+        </div>
+      )}
+      {subvalue && !isLoading && (
+        <div className="mt-1 text-xs text-muted-foreground tabular-nums">
+          {subvalue}
+        </div>
+      )}
+    </div>
+  );
 }
 
 interface BuyGlowDialogProps {
@@ -231,6 +319,38 @@ export function BuyGlowDialog({
   const { t } = useLang();
   const queryClient = useQueryClient();
   const [phase, setPhase] = React.useState<Phase>("input");
+  // Evergreen miner listings power the right "From a miner" option. Gated by
+  // `enabled: open` so the private (?evergreen=true) surface is only queried
+  // when the dialog is actually open, not on every page that mounts it.
+  const {
+    applications: evergreenMiners,
+    refetch: refetchEvergreen,
+    isLoading: isEvergreenLoading,
+  } = useEvergreenMiners({ filters: { paymentCurrency: "USDC" }, enabled: open });
+  // Mining score (est. weekly rewards + weeks of miner life) for the single
+  // evergreen miner card. Called unconditionally; gated by `enabled: open` and
+  // self-disables when there are no applications.
+  const { miningScoreMap, isLoading: isMiningScoresLoading } = useMiningScore({
+    applications: evergreenMiners,
+    enabled: open,
+  });
+  const hasEvergreenMiners = evergreenMiners.length > 0;
+  // Which of the two options is active (drives the shared payment + button).
+  const [mode, setMode] = React.useState<"glw" | "miner">("glw");
+  // The miner is the default-selected option whenever one is listed (set by the
+  // effect below, once listings load — never a blind initial state, which would
+  // fire before `hasEvergreenMiners` resolves). `userChoseModeRef` makes that
+  // default back off the instant the user picks an option, so the auto-default
+  // never overrides an explicit choice.
+  const userChoseModeRef = React.useRef(false);
+  // Whether we've applied the open-time default once for this open session.
+  const defaultModeAppliedRef = React.useRef(false);
+  const chooseMode = React.useCallback((next: "glw" | "miner") => {
+    userChoseModeRef.current = true;
+    setMode(next);
+  }, []);
+  const [minerQty, setMinerQty] = React.useState<number>(1);
+  const [minerBusy, setMinerBusy] = React.useState(false);
   const [payToken, setPayToken] = React.useState<PayToken>("USDC");
   const [inputAmount, setInputAmount] = React.useState<string>("");
   const [smartAmounts, setSmartAmounts] =
@@ -244,6 +364,16 @@ export function BuyGlowDialog({
   const stepsRef = React.useRef<TransactionStep[]>([]);
   const [txHash, setTxHash] = React.useState<string | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  // Set when a miner purchase succeeds → drives the miner-specific success screen
+  // (segmented ring + projected rewards) instead of the GLW success screen.
+  const [minerSuccess, setMinerSuccess] = React.useState<{
+    qty: number;
+    totalSteps: number;
+    filledBeforeSteps: number;
+    weeklyGlwPerMiner: number | null;
+    pointsAwarded: number | null;
+    farmName: string | null;
+  } | null>(null);
   const hasPrefilledForOpenRef = React.useRef(false);
   const wasOpenRef = React.useRef(false);
   const { address, isConnected } = useAccount();
@@ -294,6 +424,319 @@ export function BuyGlowDialog({
   const openConnectModal = React.useCallback(() => {
     connectWallet();
   }, [connectWallet]);
+
+  // ----- "From a miner" option (single private evergreen listing) -----
+  const selectedMiner = React.useMemo<AuctionApplication | null>(
+    () => evergreenMiners[0] ?? null,
+    [evergreenMiners],
+  );
+  const selectedMinerFraction = selectedMiner?.activeFraction ?? null;
+  const minerUnitPriceUsd = selectedMinerFraction?.stepPrice
+    ? Number(formatUnits(BigInt(selectedMinerFraction.stepPrice), 6))
+    : 0;
+  const minerRemaining = selectedMinerFraction
+    ? selectedMinerFraction.remainingSteps != null
+      ? selectedMinerFraction.remainingSteps
+      : Math.max(
+          0,
+          selectedMinerFraction.totalSteps - selectedMinerFraction.splitsSold,
+        )
+    : 0;
+  const minerClampedQty = Math.max(1, Math.min(minerQty, minerRemaining || 1));
+  const minerTotalUsd = minerUnitPriceUsd * minerClampedQty;
+  // Default to the miner option when one is available + has inventory. Applied
+  // exactly ONCE per open, and only AFTER the evergreen query resolves — so it
+  // can't be beaten by the loading→loaded race (the old version sometimes
+  // settled on GLW because the default ran while the miner was still loading).
+  // Honest "smart default": the spot buy stays one click away, and chooseMode()
+  // flips userChoseModeRef so this never overrides a manual pick. The dialog
+  // audience always pays USDC/ETH (a new-capital entrant), the group for whom
+  // mining is a valid route — so we never nudge a GLW holder.
+  React.useEffect(() => {
+    if (!open) {
+      userChoseModeRef.current = false;
+      defaultModeAppliedRef.current = false;
+      return;
+    }
+    if (phase !== "input") return;
+    if (userChoseModeRef.current) return;
+    if (defaultModeAppliedRef.current) return;
+    if (isEvergreenLoading) return; // wait for the listing to resolve
+    defaultModeAppliedRef.current = true;
+    setMode(
+      hasEvergreenMiners && selectedMiner && minerRemaining > 0
+        ? "miner"
+        : "glw",
+    );
+  }, [
+    open,
+    phase,
+    isEvergreenLoading,
+    hasEvergreenMiners,
+    selectedMiner,
+    minerRemaining,
+  ]);
+  // V2 points: miners earn spendable points (8 / $1 by default) that buying GLW
+  // from the pool does NOT. Surface the per-miner award on the card to drive
+  // miner sales, and the granted total on the success screen (see deposit-dialog).
+  const { data: pointsRatesData } = useV2PointsRates();
+  const minerPointsPerUsd =
+    pointsRatesData?.rates?.minerPurchasePointsPerUsd ?? 8;
+  const minerPointsPerUnit =
+    minerUnitPriceUsd > 0 ? minerUnitPriceUsd * minerPointsPerUsd : 0;
+  const minerPointsTotal = minerPointsPerUnit * minerClampedQty;
+  // Est. rewards + weeks-of-earning for the evergreen miner card.
+  const selectedMinerMiningScore = selectedMiner
+    ? getMiningScoreForApplication(miningScoreMap, selectedMiner.id)
+    : null;
+  const minerWeeklyGlwRewards = React.useMemo(
+    () => parseWeeklyGlwRewards(selectedMinerMiningScore?.weeklyGlwRewards),
+    [selectedMinerMiningScore?.weeklyGlwRewards],
+  );
+  const minerWeeklyRewardsUsd =
+    minerWeeklyGlwRewards != null && glowSpotPrice > 0
+      ? minerWeeklyGlwRewards * glowSpotPrice
+      : null;
+  const minerWeeksRemainingLabel = formatMinerWeeksRemainingLabel(
+    selectedMinerMiningScore?.weeksOfMinerLifeRemaining,
+  );
+  const selectedMinerImageSrc =
+    selectedMiner?.afterInstallPictures?.[0]?.url ||
+    "/images/sections/residential.jpg";
+  // wagmi's useWalletClient() can stay undefined under Privy even while the
+  // wallet is connected; useConnectorClient() is populated in that gap. Derive a
+  // viem WalletClient from the connector (extend with walletActions) as a
+  // fallback so the miner buy never hits "Signer not available".
+  const fallbackWalletClient = React.useMemo<WalletClient | undefined>(() => {
+    if (!connectorClient) return undefined;
+    try {
+      return connectorClient.extend(walletActions) as unknown as WalletClient;
+    } catch {
+      return undefined;
+    }
+  }, [connectorClient]);
+  const minerFractionsHook = usePatchedOffchainFractions(
+    walletClient ?? fallbackWalletClient,
+    publicClient,
+    chainId,
+  );
+  // Declared here (above handleBuyMiner) so the miner ETH->USDC swap can use it;
+  // the GLW flow further below reuses the same instance.
+  const { estimateEthToUsdc, estimateGasForSwapEthToUsdc, swapEthToUsdc } =
+    useSwapETHToUSDC();
+
+  // Defined above handleBuyMiner (and reused by handleBuyGlow) so both can drive
+  // the shared TransactionStepper processing screen.
+  const updateStepStatus = React.useCallback(
+    (
+      stepId: string,
+      status: StepStatus,
+      extras?: { txHash?: string; errorMessage?: string },
+    ) => {
+      setTransactionSteps((prev) => {
+        const updated = prev.map((s) => {
+          if (s.id === stepId) {
+            return {
+              ...s,
+              status,
+              startedAt:
+                status === "waiting_signature" || status === "confirming"
+                  ? (s.startedAt ?? Date.now())
+                  : s.startedAt,
+              txHash: extras?.txHash ?? s.txHash,
+              errorMessage: extras?.errorMessage ?? s.errorMessage,
+            };
+          }
+          return s;
+        });
+        stepsRef.current = updated;
+        return updated;
+      });
+    },
+    [],
+  );
+
+  const handleBuyMiner = React.useCallback(async () => {
+    if (!isConnected || !address) {
+      openConnectModal();
+      return;
+    }
+    const fraction = selectedMiner?.activeFraction;
+    if (!selectedMiner || !fraction?.owner || !fraction?.id) return;
+    const qty = minerClampedQty;
+    if (qty < 1) return;
+
+    const payingWithEth = payToken === "ETH";
+    // Listing fill BEFORE the buy, for the success ring.
+    const totalStepsForRing = fraction.totalSteps;
+    const filledBeforeSteps = Math.max(
+      0,
+      fraction.splitsSold != null
+        ? fraction.splitsSold
+        : totalStepsForRing - (minerRemaining || 0),
+    );
+
+    // Build the processing-screen steps (mirrors the deposit-dialog stepper).
+    const steps: TransactionStep[] = [];
+    if (payingWithEth) {
+      steps.push({
+        id: "SWAP_ETH_TO_USDC",
+        title: t.buyGlow.stepSwapEthToUsdcTitle,
+        description: t.buyGlow.stepSwapEthToUsdcDescription,
+        tokenFrom: "ETH",
+        tokenTo: "USDC",
+        status: "idle",
+      });
+    }
+    steps.push({
+      id: "APPROVE_USDC",
+      title: "Approve USDC",
+      description: "Allow the contract to spend your USDC",
+      tokenFrom: "USDC",
+      status: "idle",
+    });
+    steps.push({
+      id: "BUY_MINER",
+      title: `Purchase ${qty} miner${qty > 1 ? "s" : ""}`,
+      description: "Confirm your miner purchase",
+      tokenFrom: "USDC",
+      status: "idle",
+    });
+
+    setMinerBusy(true);
+    setMinerSuccess(null);
+    setErrorMessage(null);
+    stepsRef.current = steps;
+    setTransactionSteps(steps);
+    setPhase("processing");
+
+    try {
+      // When paying with ETH, swap enough ETH to cover the USDC cost first.
+      if (payingWithEth) {
+        updateStepStatus("SWAP_ETH_TO_USDC", "waiting_signature");
+        const requiredUsdc = BigInt(fraction.stepPrice) * BigInt(qty);
+        if (requiredUsdc <= 0n) throw new Error("Invalid miner price.");
+
+        const probeWei = parseUnits("0.1", 18);
+        const probeRes = await estimateEthToUsdc({
+          amountInWei: probeWei,
+          slippageBps: BigInt(100),
+        });
+        if (!probeRes.ok || probeRes.val.amountOutUsdc <= 0n) {
+          throw new Error("Failed to quote ETH to USDC.");
+        }
+        let amountInWei =
+          (probeWei * requiredUsdc) / probeRes.val.amountOutUsdc;
+        amountInWei = (amountInWei * 102n) / 100n;
+        for (let i = 0; i < 3; i++) {
+          const res = await estimateEthToUsdc({
+            amountInWei,
+            slippageBps: BigInt(100),
+          });
+          if (res.ok && res.val.amountOutMinUsdc >= requiredUsdc) break;
+          amountInWei = (amountInWei * 105n) / 100n;
+        }
+        updateStepStatus("SWAP_ETH_TO_USDC", "confirming");
+        const swapRes = await swapEthToUsdc({
+          amountInWei,
+          slippageBps: BigInt(100),
+        });
+        if (!swapRes.ok) throw new Error(String(swapRes.val));
+        updateStepStatus("SWAP_ETH_TO_USDC", "completed");
+      }
+
+      const hash = await minerFractionsHook.buyFractions(
+        {
+          creator: fraction.owner as `0x${string}`,
+          id: fraction.id as `0x${string}`,
+          stepsToBuy: BigInt(qty),
+          minStepsToBuy: BigInt(qty),
+          refundTo: address,
+          creditTo: address,
+          useCounterfactualAddressForRefund: false,
+        },
+        {
+          // Miners are a fixed $399/step — approve the exact cost, no buffer.
+          approvalBufferAtomic: 0n,
+          // Drive the Approve + Purchase steps. "approving"/"approved" only fire
+          // when an approval is actually needed; "purchasing" always fires (and
+          // marks Approve done if it was skipped because allowance sufficed).
+          onPhase: (phase) => {
+            if (phase === "approving") {
+              updateStepStatus("APPROVE_USDC", "waiting_signature");
+            } else if (phase === "approved") {
+              updateStepStatus("APPROVE_USDC", "completed");
+            } else if (phase === "purchasing") {
+              updateStepStatus("APPROVE_USDC", "completed");
+              updateStepStatus("BUY_MINER", "waiting_signature");
+            }
+          },
+        },
+      );
+      updateStepStatus("BUY_MINER", "completed", { txHash: hash });
+
+      trackEvent("buy_miner_success", {
+        application_id: selectedMiner.id,
+        quantity: qty,
+        pay_token: payToken,
+        source,
+      });
+      setTxHash(hash);
+      // Miner points are deterministic at purchase: USDC paid × rate (8/$1),
+      // which is exactly what the backend credits as a `miner_purchase` award.
+      const unitUsd = Number(formatUnits(BigInt(fraction.stepPrice), 6));
+      setMinerSuccess({
+        qty,
+        totalSteps: totalStepsForRing,
+        filledBeforeSteps,
+        weeklyGlwPerMiner: minerWeeklyGlwRewards,
+        pointsAwarded: unitUsd > 0 ? unitUsd * qty * minerPointsPerUsd : null,
+        farmName: selectedMiner.farmName ?? null,
+      });
+      setMinerQty(1);
+      setPhase("success");
+      await refetchEvergreen?.();
+      onSuccess?.();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Miner purchase failed.";
+      const active = stepsRef.current.find(
+        (s) => s.status === "waiting_signature" || s.status === "confirming",
+      );
+      if (active) updateStepStatus(active.id, "error", { errorMessage: message });
+      setErrorMessage(message);
+      setPhase("error");
+      toast.error(message);
+    } finally {
+      setMinerBusy(false);
+    }
+  }, [
+    isConnected,
+    address,
+    selectedMiner,
+    minerClampedQty,
+    minerRemaining,
+    minerFractionsHook,
+    openConnectModal,
+    refetchEvergreen,
+    source,
+    payToken,
+    estimateEthToUsdc,
+    swapEthToUsdc,
+    updateStepStatus,
+    minerWeeklyGlwRewards,
+    minerPointsPerUsd,
+    onSuccess,
+    t,
+  ]);
+
+  // USDG only buys GLW; if it's selected when switching to the miner option,
+  // fall back to USDC (miners accept USDC, or ETH swapped to USDC).
+  React.useEffect(() => {
+    if (mode === "miner" && payToken === "USDG") {
+      setPayToken("USDC");
+    }
+  }, [mode, payToken]);
 
   const { authenticated: isPrivyAuthenticated } = usePrivy();
   const expectedChainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID) || 1;
@@ -447,9 +890,6 @@ export function BuyGlowDialog({
     lastTxHashRef: usdcToUsdgLastTxHashRef,
     resetLastTxHash: resetUsdcToUsdgLastTxHash,
   } = useSwapUSDCToUSDG();
-  const { estimateEthToUsdc, estimateGasForSwapEthToUsdc, swapEthToUsdc } =
-    useSwapETHToUSDC();
-
   const {
     swap: swapUsdGToGlow,
     resetUniswapPurchaseState,
@@ -771,35 +1211,6 @@ export function BuyGlowDialog({
       return null;
     return Number(inputAmount) / Number(estimatedGlw);
   }, [inputAmount, estimatedGlw, payToken]);
-
-  const updateStepStatus = React.useCallback(
-    (
-      stepId: string,
-      status: StepStatus,
-      extras?: { txHash?: string; errorMessage?: string },
-    ) => {
-      setTransactionSteps((prev) => {
-        const updated = prev.map((s) => {
-          if (s.id === stepId) {
-            return {
-              ...s,
-              status,
-              startedAt:
-                status === "waiting_signature" || status === "confirming"
-                  ? (s.startedAt ?? Date.now())
-                  : s.startedAt,
-              txHash: extras?.txHash ?? s.txHash,
-              errorMessage: extras?.errorMessage ?? s.errorMessage,
-            };
-          }
-          return s;
-        });
-        stepsRef.current = updated;
-        return updated;
-      });
-    },
-    [],
-  );
 
   const handleBuyGlow = React.useCallback(async () => {
     if (!inputAmount || Number(inputAmount) <= 0 || !smartAmounts) {
@@ -1258,6 +1669,10 @@ export function BuyGlowDialog({
     // setTimeout for dialog close animation
     setTimeout(() => {
       setPhase("input");
+      setMode("glw");
+      setMinerQty(1);
+      setMinerBusy(false);
+      setMinerSuccess(null);
       setPayToken("USDC");
       setInputAmount("");
       setEstimatedGlw("");
@@ -1304,6 +1719,166 @@ export function BuyGlowDialog({
   const renderContent = () => {
     // SUCCESS PHASE
     if (phase === "success") {
+      // Miner purchase success: segmented ring + projected rewards (mirrors
+      // the deposit-dialog mining-center success).
+      if (minerSuccess) {
+        const filledAfter = Math.min(
+          minerSuccess.totalSteps,
+          minerSuccess.filledBeforeSteps + minerSuccess.qty,
+        );
+        const left = Math.max(0, minerSuccess.totalSteps - filledAfter);
+        const weeklyGlwTotal =
+          minerSuccess.weeklyGlwPerMiner != null
+            ? minerSuccess.weeklyGlwPerMiner * minerSuccess.qty
+            : null;
+        const weeklyUsdTotal =
+          weeklyGlwTotal != null && glowSpotPrice > 0
+            ? weeklyGlwTotal * glowSpotPrice
+            : null;
+        const explorerBase =
+          chainId === 11155111
+            ? "https://sepolia.etherscan.io"
+            : "https://etherscan.io";
+        return (
+          <div className="px-6 py-8 text-center space-y-6">
+            <div className="space-y-1">
+              <div className="text-2xl font-bold text-foreground">
+                Purchase complete
+              </div>
+              <div className="text-sm text-muted-foreground">
+                You bought {minerSuccess.qty} miner
+                {minerSuccess.qty > 1 ? "s" : ""}
+                {minerSuccess.farmName ? ` on ${minerSuccess.farmName}` : ""}.
+              </div>
+            </div>
+
+            <div className="flex flex-col items-center">
+              <SegmentedCircleProgress
+                totalSteps={minerSuccess.totalSteps}
+                filledBeforeSteps={minerSuccess.filledBeforeSteps}
+                userSteps={minerSuccess.qty}
+                size={180}
+                strokeWidth={12}
+                otherColor="rgba(32, 129, 226, 0.75)"
+                userColor="var(--color-miner)"
+                label={
+                  <span className="text-3xl font-bold tracking-tight font-mono">
+                    {filledAfter}/{minerSuccess.totalSteps}
+                  </span>
+                }
+                sublabel={
+                  <span className="text-xs text-muted-foreground">
+                    {left} left
+                  </span>
+                }
+                className="my-2"
+              />
+              <div className="mt-3 flex items-center justify-center gap-4 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: "rgba(32, 129, 226, 0.75)" }}
+                  />
+                  <span>Already sold</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: "var(--color-miner)" }}
+                  />
+                  <span>Yours</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Est. weekly rewards + Points earned share a row (each flex-1, so
+                they're 50/50 when both present, full-width if one is missing).
+                Points = spendable Points Shop currency, mirroring deposit-dialog. */}
+            {(weeklyGlwTotal != null ||
+              (minerSuccess.pointsAwarded != null &&
+                minerSuccess.pointsAwarded > 0)) && (
+              <div className="flex gap-3">
+                {weeklyGlwTotal != null && (
+                  <div className="flex-1 rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 px-4 py-4 text-left">
+                    <div className="text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest mb-2">
+                      Est. weekly rewards
+                    </div>
+                    <div className="text-xl font-mono font-semibold text-foreground leading-none">
+                      {weeklyGlwTotal.toLocaleString(undefined, {
+                        maximumFractionDigits: 2,
+                      })}{" "}
+                      <span className="text-sm text-muted-foreground">GLW</span>
+                    </div>
+                    {weeklyUsdTotal != null && (
+                      <div className="mt-1 text-xs font-mono text-muted-foreground">
+                        ≈ $
+                        {weeklyUsdTotal.toLocaleString(undefined, {
+                          maximumFractionDigits: 2,
+                        })}
+                        /wk
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {minerSuccess.pointsAwarded != null &&
+                  minerSuccess.pointsAwarded > 0 && (
+                    <div className="flex-1 rounded-xl border border-green-500/20 bg-green-500/5 px-4 py-4 text-left dark:border-[#D1FF4D]/20 dark:bg-[#D1FF4D]/5">
+                      <div className="mb-2 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+                        Points earned
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <PointsIcon className="h-4 w-4 shrink-0 text-green-600 dark:text-[#D1FF4D]" />
+                        <span className="text-xl font-mono font-bold leading-none text-green-600 dark:text-[#D1FF4D]">
+                          +
+                          {minerSuccess.pointsAwarded.toLocaleString("en-US", {
+                            maximumFractionDigits: 0,
+                          })}
+                        </span>
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Spend in the Points Shop
+                      </div>
+                    </div>
+                  )}
+              </div>
+            )}
+
+            {txHash && (
+              <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4 text-left">
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground text-sm">
+                    {t.buyGlow.transactionLabel}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-foreground text-sm font-mono">
+                      {`${txHash.slice(0, 6)}...${txHash.slice(-4)}`}
+                    </span>
+                    <button
+                      onClick={copyTxHash}
+                      className="p-1 hover:bg-muted/50 rounded transition-colors"
+                    >
+                      <Copy className="w-3 h-3 text-muted-foreground hover:text-foreground" />
+                    </button>
+                    <a
+                      href={`${explorerBase}/tx/${txHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1 hover:bg-muted/50 rounded transition-colors"
+                    >
+                      <ExternalLink className="w-3 h-3 text-muted-foreground hover:text-foreground" />
+                    </a>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <Button variant="outline" onClick={handleClose} className="w-full">
+              {t.buyGlow.close}
+            </Button>
+          </div>
+        );
+      }
       return (
         <div className="px-6 py-8 text-center space-y-6">
           {/* Success Icon */}
@@ -1499,9 +2074,11 @@ export function BuyGlowDialog({
               <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
                 {t.buyGlow.title}
               </DialogTitle>
-              <div className="mt-2 text-sm text-muted-foreground">
-                {t.buyGlow.subtitle}
-              </div>
+              {(hasEvergreenMiners || isEvergreenLoading) && (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Two ways to get GLW — instantly, or from a solar farm.
+                </p>
+              )}
             </div>
             <NetworkRequirementBanner
               expectedNetworkLabel={expectedNetworkLabel}
@@ -1515,177 +2092,403 @@ export function BuyGlowDialog({
           </div>
         </div>
 
-        <div className="px-5 py-5 space-y-5">
-          {/* Amount Input Section */}
-          <div className="bg-muted/30 dark:bg-muted/50 rounded-xl p-5 border border-border/20 dark:border-border/40">
-            <div className="flex items-center justify-between mb-3">
-              <Label
-                htmlFor="buy-amount"
-                className="text-xs font-medium text-muted-foreground uppercase tracking-wider"
-              >
-                {t.buyGlow.youPay}
-              </Label>
-              <div className="flex items-center gap-2">
-                {isConnected && (
-                  <span className="text-xs text-muted-foreground font-mono">
-                    {payToken === "ETH"
-                      ? toFixedTruncate(Number(ethBalanceFormatted || "0"), 4)
-                      : formatLocaleAmount(
-                          availablePayBalanceFormatted,
-                          2,
-                        )}{" "}
-                    {payToken}
-                  </span>
+        <div className="px-5 py-5 space-y-4">
+          {/* Two options side by side: Buy GLW directly, or buy from a miner.
+              Both are peer "cards": a header region (branded band / photo
+              banner) over a body, so the two read as the same component. */}
+          <div
+            className={cn(
+              "grid gap-4",
+              hasEvergreenMiners || isEvergreenLoading
+                ? "md:grid-cols-2"
+                : "grid-cols-1",
+            )}
+          >
+            {/* OPTION 1 — Buy GLW directly */}
+            <div
+              onClick={() => chooseMode("glw")}
+              className={cn(
+                "order-2 overflow-hidden rounded-2xl border bg-muted/30 dark:bg-muted/50 transition-colors",
+                hasEvergreenMiners && "cursor-pointer",
+                mode === "glw"
+                  ? "border-foreground/30 ring-1 ring-foreground/15"
+                  : "border-border/20 dark:border-border/40 hover:border-border/40 dark:hover:border-border/60",
+              )}
+            >
+              {/* Header band (mirrors the miner photo banner height) */}
+              <div className="relative flex h-32 flex-col justify-center gap-1 border-b border-border/20 dark:border-border/40 p-4">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#4ADE80]/25 bg-[#4ADE80]/10">
+                  <GlowSymbol className="h-6 w-6" />
+                </div>
+                <div className="mt-1 min-w-0">
+                  <h3 className="truncate text-base font-semibold text-foreground">
+                    Buy GLW
+                  </h3>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Buy directly from Uniswap pool
+                  </p>
+                </div>
+                {hasEvergreenMiners && mode === "glw" && (
+                  <span className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-[#4ADE80]" />
                 )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={async () => {
-                    if (!isConnected) {
-                      trackEvent("buy_glw_connect_wallet_click", {
-                        location: "dialog_max",
-                        source,
-                      });
-                      openConnectModal();
-                      return;
-                    }
-
-                    trackEvent("buy_glw_max_click", {
-                      pay_token: payToken,
-                      pay_balance: availablePayBalanceFormatted,
-                      source,
-                    });
-
-                    if (payToken === "ETH") {
-                      if (!ethBalanceWei) return;
-                      try {
-                        const probeWei =
-                          ethBalanceWei > parseUnits("0.05", 18)
-                            ? parseUnits("0.05", 18)
-                            : ethBalanceWei;
-                        const gasRes = await estimateGasForSwapEthToUsdc({
-                          amountInWei: probeWei,
-                          slippageBps: BigInt(100),
-                        });
-                        const feeWei = gasRes.ok
-                          ? gasRes.val.estimatedFeeWei
-                          : BigInt(0);
-                        const bufferedFeeWei = (feeWei * BigInt(12)) / BigInt(10);
-                        const maxSpendWei =
-                          ethBalanceWei > bufferedFeeWei
-                            ? ethBalanceWei - bufferedFeeWei
-                            : BigInt(0);
-                        handleInputChange(formatEthMaxFromWei(maxSpendWei));
-                      } catch (e: any) {
-                        toast.error(e?.message || t.buyGlow.toastFailedComputeMaxEth);
-                      }
-                      return;
-                    }
-
-                    handleInputChange(availablePayBalanceFormatted);
-                  }}
-                  className="h-6 px-2.5 text-xs font-semibold rounded-full"
-                >
-                  {t.buyGlow.max}
-                </Button>
               </div>
-            </div>
 
-            <div className="flex items-center gap-3">
-              <Input
-                id="buy-amount"
-                type="text"
-                inputMode="decimal"
-                placeholder="0"
-                value={inputAmount}
-                onChange={(e) => {
-                  // Accept comma as decimal separator (common in EU locales)
-                  const value = e.target.value.replace(",", ".");
-                  if (value === "" || /^\d*\.?\d*$/.test(value)) {
-                    handleInputChange(value);
-                  }
-                }}
-                className={cn(
-                  "text-lg md:text-3xl font-bold border-0 bg-transparent p-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0 flex-1 min-w-0 tabular-nums placeholder:text-muted-foreground/30",
-                  isConnected &&
-                    Number(inputAmount) > Number(availablePayBalanceFormatted)
-                    ? "text-destructive"
-                    : "text-foreground",
-                )}
-              />
-              <div className="flex items-center gap-2 shrink-0 bg-background/50 rounded-xl px-3 py-2 border border-border/50">
-                <TokenIcon symbol={payToken} />
-                <span className="text-base font-semibold text-foreground">
-                  {payToken}
-                </span>
-              </div>
-            </div>
+              {/* Body */}
+              <div className="space-y-3 p-4">
+                <div className="rounded-xl border border-border/20 dark:border-border/40 bg-card p-3">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <Label
+                      htmlFor="buy-amount"
+                      className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+                    >
+                      {t.buyGlow.youPay}
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      {isConnected && (
+                        <span className="text-[11px] font-mono tabular-nums text-muted-foreground">
+                          {payToken === "ETH"
+                            ? toFixedTruncate(
+                                Number(ethBalanceFormatted || "0"),
+                                4,
+                              )
+                            : formatLocaleAmount(
+                                availablePayBalanceFormatted,
+                                2,
+                              )}{" "}
+                          {payToken}
+                        </span>
+                      )}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={async (event) => {
+                          event.stopPropagation();
+                          chooseMode("glw");
+                          if (!isConnected) {
+                            trackEvent("buy_glw_connect_wallet_click", {
+                              location: "dialog_max",
+                              source,
+                            });
+                            openConnectModal();
+                            return;
+                          }
 
-            {payToken === "ETH" &&
-              inputAmount &&
-              Number(inputAmount) > 0 &&
-              ethPrice > 0 && (
-                <div className="mt-2 text-sm text-muted-foreground">
-                  {t.buyGlow.approximateUsd(
-                    (Number(inputAmount) * ethPrice).toLocaleString("en-US", {
-                      maximumFractionDigits: 2,
-                    }),
+                          trackEvent("buy_glw_max_click", {
+                            pay_token: payToken,
+                            pay_balance: availablePayBalanceFormatted,
+                            source,
+                          });
+
+                          if (payToken === "ETH") {
+                            if (!ethBalanceWei) return;
+                            try {
+                              const probeWei =
+                                ethBalanceWei > parseUnits("0.05", 18)
+                                  ? parseUnits("0.05", 18)
+                                  : ethBalanceWei;
+                              const gasRes = await estimateGasForSwapEthToUsdc({
+                                amountInWei: probeWei,
+                                slippageBps: BigInt(100),
+                              });
+                              const feeWei = gasRes.ok
+                                ? gasRes.val.estimatedFeeWei
+                                : BigInt(0);
+                              const bufferedFeeWei =
+                                (feeWei * BigInt(12)) / BigInt(10);
+                              const maxSpendWei =
+                                ethBalanceWei > bufferedFeeWei
+                                  ? ethBalanceWei - bufferedFeeWei
+                                  : BigInt(0);
+                              handleInputChange(
+                                formatEthMaxFromWei(maxSpendWei),
+                              );
+                            } catch (error) {
+                              toast.error(
+                                error instanceof Error
+                                  ? error.message
+                                  : t.buyGlow.toastFailedComputeMaxEth,
+                              );
+                            }
+                            return;
+                          }
+
+                          handleInputChange(availablePayBalanceFormatted);
+                        }}
+                        className="h-7 rounded-full px-2.5 text-xs font-semibold"
+                      >
+                        {t.buyGlow.max}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="buy-amount"
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="0"
+                      value={inputAmount}
+                      onFocus={() => chooseMode("glw")}
+                      onChange={(e) => {
+                        chooseMode("glw");
+                        const value = e.target.value.replace(",", ".");
+                        if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                          handleInputChange(value);
+                        }
+                      }}
+                      className={cn(
+                        "min-w-0 flex-1 border-0 bg-transparent p-0 text-xl font-bold tabular-nums placeholder:text-muted-foreground/30 focus-visible:ring-0 focus-visible:ring-offset-0",
+                        isConnected &&
+                          Number(inputAmount) >
+                            Number(availablePayBalanceFormatted)
+                          ? "text-destructive"
+                          : "text-foreground",
+                      )}
+                    />
+                    <div className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border/20 dark:border-border/40 bg-muted/40 dark:bg-muted/60 px-2.5 py-1.5">
+                      <TokenIcon symbol={payToken} />
+                      <span className="text-sm font-semibold text-foreground">
+                        {payToken}
+                      </span>
+                    </div>
+                  </div>
+
+                  {payToken === "ETH" &&
+                    inputAmount &&
+                    Number(inputAmount) > 0 &&
+                    ethPrice > 0 && (
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        {t.buyGlow.approximateUsd(
+                          (Number(inputAmount) * ethPrice).toLocaleString(
+                            "en-US",
+                            { maximumFractionDigits: 2 },
+                          ),
+                        )}
+                      </div>
+                    )}
+
+                  {isBalanceInsufficient && (
+                    <div className="mt-2 text-xs font-medium text-destructive">
+                      {t.buyGlow.insufficientBalance}
+                    </div>
                   )}
                 </div>
-              )}
 
-            {isBalanceInsufficient && (
-              <div className="mt-2 text-xs text-destructive font-medium">
-                {t.buyGlow.insufficientBalance}
-              </div>
-            )}
-          </div>
-
-          {/* You Receive - Animated */}
-          <div className="bg-muted/30 dark:bg-muted/50 rounded-xl p-4 border border-border/20 dark:border-border/40 relative overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-foreground/5 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
-            <div className="relative flex justify-between items-center">
-              <div>
-                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-0.5">
-                  {t.buyGlow.youReceive}
-                </div>
-                <div className="flex items-baseline gap-1.5">
-                  <AnimatePresence mode="popLayout">
-                    {isEstimating ? (
-                      <Skeleton className="h-7 w-28" />
-                    ) : (
-                      <motion.span
-                        key={estimatedGlw}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="text-xl font-bold font-mono text-emerald-700 dark:text-[color:var(--color-glow-green)]"
-                      >
-                        {estimatedGlw && Number(estimatedGlw) > 0
-                          ? formatPrice(estimatedGlw, 2)
-                          : "0"}
-                      </motion.span>
+                <div className="rounded-xl border border-border/20 dark:border-border/40 bg-card p-3">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      {t.buyGlow.youReceive}
+                    </div>
+                    {pricePerGlw && (
+                      <span className="text-[11px] font-mono tabular-nums text-muted-foreground">
+                        {t.buyGlow.pricePerGlw(pricePerGlw.toFixed(4))}
+                      </span>
                     )}
-                  </AnimatePresence>
-                  <span className="text-sm text-emerald-700/70 dark:text-[color:var(--color-glow-green)]/70 font-medium">
-                    GLW
-                  </span>
+                  </div>
+                  <div className="flex items-baseline gap-1.5">
+                    <AnimatePresence mode="popLayout">
+                      {isEstimating ? (
+                        <Skeleton key="estimating" className="h-7 w-28" />
+                      ) : (
+                        <motion.span
+                          key={estimatedGlw || "0"}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -8 }}
+                          className="text-xl font-bold font-mono tabular-nums text-emerald-700 dark:text-[color:var(--color-glow-green)]"
+                        >
+                          {estimatedGlw && Number(estimatedGlw) > 0
+                            ? formatPrice(estimatedGlw, 2)
+                            : "0"}
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
+                    <span className="text-sm font-medium text-emerald-700/70 dark:text-[color:var(--color-glow-green)]/70">
+                      GLW
+                    </span>
+                  </div>
+                </div>
+                {/* Honest contrast with the miner option: a spot pool buy earns
+                    no Points-Shop points. Factual, non-financial. */}
+                <div className="flex items-center gap-2 px-1 text-[11px] text-muted-foreground">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
+                  Earns 0 Points Shop points
                 </div>
               </div>
-              {pricePerGlw && (
-                <div className="text-right text-xs text-muted-foreground font-mono">
-                  {t.buyGlow.pricePerGlw(pricePerGlw.toFixed(4))}
-                </div>
-              )}
             </div>
+
+            {/* OPTION 2 — Buy GLW from a miner (single private evergreen listing).
+                While the listing loads, a skeleton holds this slot so the dialog
+                opens as two columns (no full-width GLW card that then pops). */}
+            {hasEvergreenMiners && selectedMiner ? (
+              <div
+                onClick={() => chooseMode("miner")}
+                className={cn(
+                  "order-1 cursor-pointer overflow-hidden rounded-2xl border bg-muted/30 dark:bg-muted/50 transition-colors",
+                  mode === "miner"
+                    ? "border-foreground/30 ring-1 ring-foreground/15"
+                    : "border-border/20 dark:border-border/40 hover:border-border/40 dark:hover:border-border/60",
+                )}
+              >
+                {/* Photo banner — eyebrow + farm name + availability overlaid
+                    on the image to save vertical space (keeps the card height
+                    close to the GLW card). */}
+                <div className="relative h-32 overflow-hidden border-b border-border/20 dark:border-border/40 bg-muted">
+                  <FallbackImage
+                    src={selectedMinerImageSrc}
+                    widthForProxy={600}
+                    quality={70}
+                    alt={selectedMiner.farmName ?? selectedMiner.zone.name}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                    decoding="async"
+                    draggable={false}
+                  />
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-black/5" />
+                  <div className="absolute left-3 top-3 rounded-full bg-black/65 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur-sm">
+                    {selectedMiner.zone.name}
+                  </div>
+                  {mode === "miner" && (
+                    <span className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-[#4ADE80] ring-4 ring-black/20" />
+                  )}
+                  <div className="absolute inset-x-3 bottom-3 flex items-end justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-semibold uppercase tracking-wider text-white/75">
+                        Get GLW from a solar farm
+                      </div>
+                      <h3 className="mt-0.5 truncate text-base font-semibold leading-tight text-white drop-shadow">
+                        {selectedMiner.farmName ?? "Evergreen miner"}
+                      </h3>
+                    </div>
+                    <div className="shrink-0 rounded-full bg-black/65 px-2.5 py-1 text-[11px] tabular-nums text-white backdrop-blur-sm">
+                      {minerRemaining.toLocaleString()} available
+                    </div>
+                  </div>
+                </div>
+
+                {/* Body */}
+                <div className="space-y-3 p-4">
+                  {/* Row 1: est. rewards + weeks left (paired to save height) */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <CheckoutStat
+                      isLoading={
+                        isMiningScoresLoading && !selectedMinerMiningScore
+                      }
+                      label={
+                        <span className="inline-flex items-center gap-1.5">
+                          Est. rewards
+                          <span className="group/help relative inline-flex">
+                            <HelpCircle className="h-3.5 w-3.5 cursor-help text-muted-foreground" />
+                            <span className="absolute bottom-full left-1/2 z-50 mb-2 hidden w-60 -translate-x-1/2 group-hover/help:block">
+                              <span className="block rounded-lg border border-border bg-popover px-3 py-2 text-xs font-normal normal-case tracking-normal text-popover-foreground shadow-lg">
+                                Estimate only, not a guarantee. The current
+                                weekly rate per miner; it can decrease as new
+                                regional farms dilute emissions.
+                              </span>
+                            </span>
+                          </span>
+                        </span>
+                      }
+                      value={
+                        minerWeeklyGlwRewards != null
+                          ? `${minerWeeklyGlwRewards.toLocaleString("en-US", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })} GLW`
+                          : "0.00 GLW"
+                      }
+                      subvalue={
+                        minerWeeklyRewardsUsd != null
+                          ? `≈ ${formatUsdAmount(minerWeeklyRewardsUsd, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })} / week`
+                          : "≈ $0.00 / week"
+                      }
+                    />
+                    <CheckoutStat
+                      isLoading={
+                        isMiningScoresLoading && !selectedMinerMiningScore
+                      }
+                      label="Weeks left"
+                      value={minerWeeksRemainingLabel}
+                    />
+                  </div>
+
+                  {/* Row 2: price-per-unit paired with the quantity stepper */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <CheckoutStat
+                      label="Price"
+                      value={formatUsdAmount(minerUnitPriceUsd)}
+                      subvalue="/ miner"
+                    />
+                    <div className="rounded-xl border border-border/20 dark:border-border/40 bg-card p-3">
+                      <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Quantity
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            chooseMode("miner");
+                            setMinerQty((q) => Math.max(1, q - 1));
+                          }}
+                          disabled={minerClampedQty <= 1}
+                          aria-label="Decrease miner quantity"
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/20 dark:border-border/40 text-foreground transition-colors hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <Minus className="h-4 w-4" />
+                        </button>
+                        <span className="text-base font-semibold tabular-nums">
+                          {minerClampedQty}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            chooseMode("miner");
+                            setMinerQty((q) =>
+                              Math.min(minerRemaining || 1, q + 1),
+                            );
+                          }}
+                          disabled={minerClampedQty >= minerRemaining}
+                          aria-label="Increase miner quantity"
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/20 dark:border-border/40 text-foreground transition-colors hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : isEvergreenLoading ? (
+              <div className="order-1 overflow-hidden rounded-2xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50">
+                <Skeleton className="h-32 w-full rounded-none" />
+                <div className="space-y-3 p-4">
+                  <div className="grid grid-cols-2 gap-2">
+                    <Skeleton className="h-[4.5rem] rounded-xl" />
+                    <Skeleton className="h-[4.5rem] rounded-xl" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Skeleton className="h-[4.5rem] rounded-xl" />
+                    <Skeleton className="h-[4.5rem] rounded-xl" />
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
 
-          {/* Payment Method Selection */}
+          {/* SHARED Payment Method — a labelled section directly on the dialog
+              surface so the muted option rows read with clear contrast (no
+              muted-on-muted, per DIALOG-DESIGN-GUIDELINES contrast layering). */}
           <div className="flex flex-col gap-2">
             <label className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
               {t.buyGlow.paymentMethod}
             </label>
-            <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2">
               <PaymentOption
                 label={t.buyGlow.usdcLabel}
                 balance={
@@ -1698,19 +2501,23 @@ export function BuyGlowDialog({
                 onSelect={() => handlePayTokenChange("USDC")}
                 isLoading={isConnected && isBalancesLoading}
               />
-              <PaymentOption
-                label={t.buyGlow.usdgLabel}
-                balance={
-                  isConnected
-                    ? `${formatLocaleAmount(usdgBalanceFormatted, 2)} USDG`
-                    : t.buyGlow.connectWalletBalance
-                }
-                icon={<TokenIcon symbol="USDG" />}
-                selected={payToken === "USDG"}
-                onSelect={() => handlePayTokenChange("USDG")}
-                isLoading={isConnected && isBalancesLoading}
-                disabled={!showUsdgOption}
-              />
+              {/* USDG only buys GLW directly; not offered for miners. */}
+              {mode === "glw" && (
+                <PaymentOption
+                  label={t.buyGlow.usdgLabel}
+                  balance={
+                    isConnected
+                      ? `${formatLocaleAmount(usdgBalanceFormatted, 2)} USDG`
+                      : t.buyGlow.connectWalletBalance
+                  }
+                  icon={<TokenIcon symbol="USDG" />}
+                  selected={payToken === "USDG"}
+                  onSelect={() => handlePayTokenChange("USDG")}
+                  isLoading={isConnected && isBalancesLoading}
+                  disabled={!showUsdgOption}
+                />
+              )}
+              {/* ETH works for both: GLW (swap path) and miners (ETH -> USDC). */}
               {isEthPayEnabled && (
                 <PaymentOption
                   label={t.buyGlow.ethLabel}
@@ -1730,6 +2537,32 @@ export function BuyGlowDialog({
               )}
             </div>
           </div>
+
+          {/* Order total — sits after the payment options (miner checkout).
+              The Points Shop award rides in this row (under "Total") so the
+              points indicator doesn't cost an extra row, while still flagging
+              the reason to pick a miner over buying GLW from the pool. */}
+          {mode === "miner" && (
+            <div className="flex items-center justify-between gap-3 rounded-2xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 px-4 py-3">
+              <div className="flex min-w-0 flex-col gap-1">
+                <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+                  Total
+                </span>
+                {minerPointsTotal > 0 && (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-green-700 dark:text-[#D1FF4D]">
+                    <PointsIcon className="h-3.5 w-3.5 shrink-0" />+
+                    {minerPointsTotal.toLocaleString("en-US", {
+                      maximumFractionDigits: 0,
+                    })}{" "}
+                    points to spend in the Points Shop
+                  </span>
+                )}
+              </div>
+              <span className="shrink-0 text-2xl font-bold text-foreground tabular-nums">
+                {formatUsdAmount(minerTotalUsd)}
+              </span>
+            </div>
+          )}
         </div>
       </>
     );
@@ -1770,10 +2603,23 @@ export function BuyGlowDialog({
                   : t.wallet.switchTo(expectedNetworkLabel)}
               </Button>
             </div>
+          ) : mode === "miner" ? (
+            <Button
+              className="w-full h-12 rounded-xl text-base font-medium"
+              onClick={handleBuyMiner}
+              disabled={
+                minerBusy || !selectedMinerFraction || minerRemaining < 1
+              }
+            >
+              {minerBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {`Buy ${minerClampedQty} miner${
+                minerClampedQty > 1 ? "s" : ""
+              } · ${formatUsdAmount(minerTotalUsd)}`}
+            </Button>
           ) : (
             <div className="space-y-2">
               <Button
-                className="w-full"
+                className="w-full h-12 rounded-xl text-base font-medium"
                 onClick={handleBuyGlow}
                 disabled={
                   !inputAmount ||
@@ -1840,8 +2686,25 @@ export function BuyGlowDialog({
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent
-        className="md:max-w-md p-0 gap-0 bg-card border border-border/40 text-foreground overflow-hidden rounded-[24px] flex flex-col max-h-[85vh]"
+        className={cn(
+          "p-0 gap-0 bg-card border border-border/40 text-foreground overflow-hidden rounded-[24px] flex flex-col max-h-[85vh]",
+          // Width fix: the base DialogContent ships an UNPREFIXED arbitrary
+          // `max-w-[calc(100%-2rem)]` (≈ full viewport) that out-cascades any
+          // responsive `md:max-w-*` override (twMerge keeps both; the unprefixed
+          // arbitrary utility wins). A single unprefixed arbitrary `min()` value
+          // is the only reliable fix: twMerge REPLACES the full-width base
+          // utility, and the value itself encodes the responsive cap
+          // (viewport-2rem on mobile, fixed ceiling on desktop). The two-option
+          // checkout caps wider; the GLW-only case stays narrow.
+          phase === "input" && (hasEvergreenMiners || isEvergreenLoading)
+            ? "max-w-[min(calc(100vw-2rem),44rem)]"
+            : "max-w-[min(calc(100vw-2rem),28rem)]",
+        )}
         onInteractOutside={(e) => e.preventDefault()}
+        // Don't let Radix auto-focus the GLW amount field on open: its onFocus
+        // forced mode="glw" and fought the post-load miner default. Nothing
+        // grabs focus on open; user clicks/tabs still select normally.
+        onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <DialogHeader className="sr-only">
           <DialogTitle>

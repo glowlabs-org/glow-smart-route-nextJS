@@ -85,17 +85,17 @@ function SourceRow({
           <Icon className="w-4 h-4" />
         </div>
         <div className="flex flex-col min-w-0">
-          <span className="text-sm font-medium text-foreground truncate">
+          <span className="text-sm font-medium text-foreground line-clamp-2">
             {label}
           </span>
-          <span className="text-[10px] text-muted-foreground truncate">
+          <span className="text-[10px] text-muted-foreground line-clamp-2">
             {sublabel}
           </span>
         </div>
       </div>
       <div className="flex items-center gap-3 shrink-0">
         {/* Fixed-width, right-aligned value column so every row's number lines up. */}
-        <div className="w-32 text-right">
+        <div className="w-24 text-right">
           <div
             className={cn(
               "font-mono font-semibold text-sm tabular-nums",
@@ -113,7 +113,7 @@ function SourceRow({
         </div>
         {/* Fixed-width CTA column, reserved even when empty so buttons align
             in their own column and the value column's right edge stays put. */}
-        <div className="w-24 shrink-0">
+        <div className="w-20 shrink-0">
           {ctaLabel && onCta && (
             <Button
               size="sm"

@@ -126,6 +126,12 @@ export interface RoutesStrings {
     buyMiners: string;
     delegateSgctl: string;
     delegateGlw: string;
+    sgctlOpensAtPublicLaunch: string;
+    earlyAccessAvailableTitle: string;
+    earlyAccessUnlockBody: (minutes: number) => string;
+    earlyAccessUnlockBodyNoMinutes: string;
+    earlyAccessUnlockCta: string;
+    earlyAccessSigning: string;
     activeListing: string;
     activeListings: string;
     stablePriceLower: string;
@@ -1101,6 +1107,14 @@ const en: RoutesStrings = {
     buyMiners: "Buy Miners",
     delegateSgctl: "Delegate SGCTL",
     delegateGlw: "Delegate GLW",
+    sgctlOpensAtPublicLaunch: "Opens at public launch (Tue 9 AM ET)",
+    earlyAccessAvailableTitle: "Early access available",
+    earlyAccessUnlockBody: (minutes: number) =>
+      `Unlock to see and buy new miners and GLW delegations up to ${minutes} minutes early. sGCTL opens at the public launch.`,
+    earlyAccessUnlockBodyNoMinutes:
+      "Unlock to see and buy new miners and GLW delegations early. sGCTL opens at the public launch.",
+    earlyAccessUnlockCta: "Unlock early access",
+    earlyAccessSigning: "Signing…",
     activeListing: "Active Listing",
     activeListings: "Active Listings",
     stablePriceLower: "Stable price",
@@ -2163,6 +2177,14 @@ const ko: RoutesStrings = {
     buyMiners: "마이너 구매",
     delegateSgctl: "SGCTL 위임",
     delegateGlw: "GLW 위임",
+    sgctlOpensAtPublicLaunch: "공개 출시 시 오픈 (화 오전 9시 ET)",
+    earlyAccessAvailableTitle: "얼리 액세스 가능",
+    earlyAccessUnlockBody: (minutes: number) =>
+      `잠금을 해제하면 신규 마이너와 GLW 위임을 최대 ${minutes}분 먼저 확인하고 구매할 수 있습니다. sGCTL은 공개 출시 시 오픈됩니다.`,
+    earlyAccessUnlockBodyNoMinutes:
+      "잠금을 해제하면 신규 마이너와 GLW 위임을 먼저 확인하고 구매할 수 있습니다. sGCTL은 공개 출시 시 오픈됩니다.",
+    earlyAccessUnlockCta: "얼리 액세스 잠금 해제",
+    earlyAccessSigning: "서명 중…",
     activeListing: "활성 매물",
     activeListings: "활성 매물",
     stablePriceLower: "고정 가격",
@@ -3216,6 +3238,14 @@ const zh: RoutesStrings = {
     buyMiners: "购买矿工",
     delegateSgctl: "委托 SGCTL",
     delegateGlw: "委托 GLW",
+    sgctlOpensAtPublicLaunch: "公开发布时开放（周二美东时间上午9点）",
+    earlyAccessAvailableTitle: "抢先体验可用",
+    earlyAccessUnlockBody: (minutes: number) =>
+      `解锁后可提前最多 ${minutes} 分钟查看并购买新矿机和 GLW 委托。sGCTL 将在公开发布时开放。`,
+    earlyAccessUnlockBodyNoMinutes:
+      "解锁后可提前查看并购买新矿机和 GLW 委托。sGCTL 将在公开发布时开放。",
+    earlyAccessUnlockCta: "解锁抢先体验",
+    earlyAccessSigning: "签名中…",
     activeListing: "进行中挂牌",
     activeListings: "进行中挂牌",
     stablePriceLower: "稳定价格",

@@ -41,11 +41,13 @@ import { useGlowSpotPriceSummary } from "@/hooks/useGlowSpotPriceSummary";
 import { useEthPrice } from "@/hooks/useEthPrice";
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import {
+  earlyAccessQueryDiscriminator,
   fetchSponsorListings,
   useRewardsBreakdown,
   useSponsorApplication,
   type AuctionApplication,
 } from "@/hooks";
+import { useMinerEarlyAccessSignature } from "@/hooks/v2-early-access";
 import {
   useWalletRegionAvailableStake,
   useWallets,
@@ -119,6 +121,7 @@ import {
   resolveSgctlRemainingUnits,
 } from "@/hooks/hub-listings";
 import { resolveLaunchpadDelegationUnitCount } from "@/utils/launchpad-rewards";
+import { isBeforePublicVisibleAt } from "@/utils/launchpad-card-legs";
 import { normalizeMinerWeeksRemainingDisplay } from "@/lib/mining-score";
 import { useLang } from "@/lib/i18n";
 
@@ -145,6 +148,7 @@ type DepositDialogProps =
       selectedCurrency: "GLW" | "SGCTL";
       rewardScore?: LaunchpadRewardScore | null;
       onSuccess?: () => void;
+      evergreen?: never;
     }
   | {
       open: boolean;
@@ -153,6 +157,12 @@ type DepositDialogProps =
       selectedCurrency: "USDC";
       rewardScore?: MiningCenterScore | null;
       onSuccess?: () => void;
+      /**
+       * When buying a PRIVATE evergreen listing, the pre-buy refetch must query
+       * the evergreen surface (the public miner feed excludes evergreen rows),
+       * else it would miss the listing and fall back to stale data.
+       */
+      evergreen?: boolean;
     };
 
 // Icon Helpers (module scope so the component identity is stable across renders)
@@ -212,10 +222,16 @@ export function DepositDialog({
   selectedCurrency,
   rewardScore,
   onSuccess,
+  evergreen,
 }: DepositDialogProps) {
   const { t } = useLang();
   const dd = t.routes.depositDialog;
   const { isConnected, address, connector } = useAccount();
+  // V2 early access: reuse the module-scoped signature unlocked in the
+  // marketplace view (never prompts here). When present, the pre-buy refetch
+  // resolves the wallet's EARLY listing (correct inventory/pricing/asset) so an
+  // entitled holder doesn't fall back to the public-bucket listing.
+  const { header: earlyAccessHeader } = useMinerEarlyAccessSignature();
   const isMobile = useIsMobile();
   const chainId = useChainId();
   const { signer, isLoading: isSignerLoading } = useEthersSigner();
@@ -501,17 +517,29 @@ export function DepositDialog({
 
     const filters =
       selectedCurrency === "USDC"
-        ? ({ includeFilled: true, type: "mining-center" } as const)
+        ? evergreen
+          ? ({
+              includeFilled: true,
+              type: "mining-center",
+              evergreen: true,
+            } as const)
+          : ({ includeFilled: true, type: "mining-center" } as const)
         : ({ includeFilled: true } as const);
 
     const listings = await queryClient.fetchQuery({
-      queryKey: QUERY_KEYS.listings.sponsor(filters),
+      // Match the `useSponsorListings` early-access discriminator EXACTLY so the
+      // entitled refetch shares the early bucket (not the public one).
+      queryKey: [
+        ...QUERY_KEYS.listings.sponsor(filters),
+        earlyAccessQueryDiscriminator(earlyAccessHeader),
+      ],
       staleTime: 0,
-      queryFn: async () => await fetchSponsorListings(filters),
+      queryFn: async () =>
+        await fetchSponsorListings(filters, earlyAccessHeader),
     });
 
     return listings.find((item) => item.id === application.id) ?? application;
-  }, [application, queryClient, selectedCurrency]);
+  }, [application, queryClient, selectedCurrency, earlyAccessHeader, evergreen]);
 
   const costInGLW = React.useCallback(
     (qty: number) =>
@@ -1209,9 +1237,22 @@ export function DepositDialog({
   const launchpadTotalShares = React.useMemo(
     () =>
       effectiveApplication
-        ? resolveLaunchpadDelegationUnitCount(effectiveApplication)
+        ? resolveLaunchpadDelegationUnitCount(
+            effectiveApplication,
+            // Use the explicit delegation leg (this dialog already knows the
+            // currency) so the per-unit reward divisor matches the GLW leg's
+            // unit count, not the sGCTL leg's. resolveDelegationCurrency()
+            // returns "SGCTL" for dual-leg consolidated listings, which would
+            // divide by the sGCTL unit count (~125) instead of the GLW count
+            // (~22) and understate EST. WEEKLY REWARDS (5.0 -> 27 GLW).
+            // "USDC" (mining-center) is not a delegation leg -> pass undefined
+            // (the override is DelegationCurrency = "GLW" | "SGCTL").
+            runtimeSelectedCurrency === "USDC"
+              ? undefined
+              : runtimeSelectedCurrency,
+          )
         : 0,
-    [effectiveApplication],
+    [effectiveApplication, runtimeSelectedCurrency],
   );
   const estimatedRewardsBreakdown = React.useMemo(
     () =>
@@ -1271,6 +1312,15 @@ export function DepositDialog({
     runtimeSelectedCurrency === "SGCTL"
       ? resolveSgctlRemainingUnits(effectiveApplication?.activeFraction)
       : resolveGlwRemainingSteps(effectiveApplication?.activeFraction);
+
+  // sGCTL early-access gate (defense-in-depth): early access covers miners +
+  // the GLW leg only. If an entitled wallet reached the sGCTL path before the
+  // listing's PUBLIC visibleAt, block the buy — Control would reject it as "not
+  // live yet" until the public 9 AM ET window. The card already disables the
+  // sGCTL CTA early; this guards the dialog if it's opened another way.
+  const sgctlNotYetOpen =
+    runtimeSelectedCurrency === "SGCTL" &&
+    isBeforePublicVisibleAt(effectiveApplication?.activeFraction);
 
   // The largest number of units the wallet can afford in the selected payment
   // method, capped by the listing's remaining steps. Drives the Max button.
@@ -2590,6 +2640,11 @@ export function DepositDialog({
               </div>
             ) : (
               <div className="space-y-2">
+                {sgctlNotYetOpen ? (
+                  <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-relaxed text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+                    {t.routes.launchpad.sgctlOpensAtPublicLaunch}
+                  </p>
+                ) : null}
                 <Button
                   className="w-full h-12"
                   onClick={handleConfirm}
@@ -2598,13 +2653,16 @@ export function DepositDialog({
                     isPreparingWalletAuthorization ||
                     isCheckingInitialPositionEligibility ||
                     initialPositionValueGuard.isBlocked ||
+                    sgctlNotYetOpen ||
                     !affordability.canSubmit
                   }
                 >
                   {isSubmitting && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   )}
-                  {ctaLabel}
+                  {sgctlNotYetOpen
+                    ? t.routes.launchpad.sgctlOpensAtPublicLaunch
+                    : ctaLabel}
                 </Button>
                 {(() => {
                   if (selectedPaymentMethod !== "USDC") return null;

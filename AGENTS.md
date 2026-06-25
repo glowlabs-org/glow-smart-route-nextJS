@@ -417,3 +417,10 @@ When creating or modifying UI:
 5. **No shadows**: Verify no shadow classes are used
 6. **Spacing**: Is there enough breathing room?
 7. **Typography**: Are numbers prominent and labels quiet?
+
+## Docs & Retrieval (backend context this frontend depends on)
+This frontend calls the two backends; when a task touches rewards/points/watts/delegation/quotes data, read the backend docs to understand the contract and the scaling:
+- **Cross-service flows** — `gca-crm-backend/docs/flows/` traces features end to end across this frontend + the backends (delegation→points/watts, miner purchase, referral, region lifecycle, sGCTL presale). Read the relevant flow BEFORE wiring or changing a data-dependent UI.
+- **Backend maps & router indexes** — `gca-crm-backend/src/README.md` + `src/routers/README.md` (user dashboard, points/watts/referral, shop, quotes) and `glow-control-backend/src/README.md` + `src/routers/README.md` (GCTL/sGCTL, reward splits, regions). Each links per-router READMEs with a "when to use" hook.
+- Cross-repo ground truth + token scaling (GLW 1e18 wei, GCTL 1e6 atomic, points scaled6 1e6 — never `Number()` a wei value): the workspace-root `CLAUDE.md`.
+- Frontend-specific router/component docs are not yet generated (TODO); use this file + the perf/design conventions above meanwhile.

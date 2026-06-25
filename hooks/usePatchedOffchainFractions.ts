@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import {
   OFFCHAIN_FRACTIONS_ABI,
   OffchainFractionsError,
@@ -72,11 +73,35 @@ export function usePatchedOffchainFractions(
 ) {
   const sdk = useSdkOffchainFractions(walletClient, publicClient, chainId);
 
-  async function buyFractions(params: BuyFractionsParams): Promise<string> {
-    if (!walletClient) {
+  // wagmi's useWalletClient() can be transiently undefined right after connect
+  // (esp. with Privy) even though the wallet is connected. Keep the last
+  // non-undefined walletClient so a buy clicked during that gap doesn't fail
+  // with "Signer not available" (mirrors useContracts' walletClientRef).
+  const walletClientRef = useRef<WalletClient | undefined>(walletClient);
+  useEffect(() => {
+    if (walletClient) walletClientRef.current = walletClient;
+  }, [walletClient]);
+
+  async function buyFractions(
+    params: BuyFractionsParams,
+    // approvalBufferAtomic: extra USDC (atomic) added to the ERC-20 approval as a
+    // safety margin for callers with price variance. Mining-center listings have
+    // a FIXED step price, so the miner buy passes 0 to approve the exact cost.
+    // onPhase: lets callers render the approve + buy as distinct steps. Emits
+    // "approving"/"approved" only when an approval is actually needed, then
+    // "purchasing" before the buyFractions tx.
+    options?: {
+      approvalBufferAtomic?: bigint;
+      onPhase?: (phase: "approving" | "approved" | "purchasing") => void;
+    },
+  ): Promise<string> {
+    const approvalBufferAtomic = options?.approvalBufferAtomic ?? 10_000_000n;
+    const onPhase = options?.onPhase;
+    const activeWalletClient = walletClient ?? walletClientRef.current;
+    if (!activeWalletClient) {
       throw new Error(OffchainFractionsError.SIGNER_NOT_AVAILABLE);
     }
-    if (!walletClient.account) {
+    if (!activeWalletClient.account) {
       throw new Error("Wallet client must have an account");
     }
     if (!publicClient) {
@@ -108,7 +133,7 @@ export function usePatchedOffchainFractions(
 
       const fractionData = await sdk.getFraction(creator, id);
       const requiredAmount = stepsToBuy * fractionData.step;
-      const owner = walletClient.account.address;
+      const owner = activeWalletClient.account.address;
 
       const balance = await sdk.checkTokenBalance(owner, fractionData.token);
       if (balance < requiredAmount) {
@@ -117,14 +142,15 @@ export function usePatchedOffchainFractions(
 
       let allowance = await sdk.checkTokenAllowance(owner, fractionData.token);
       if (allowance < requiredAmount) {
-        const approvalAmount = requiredAmount + 10_000_000n;
-        const approveHash = await walletClient.writeContract({
+        onPhase?.("approving");
+        const approvalAmount = requiredAmount + approvalBufferAtomic;
+        const approveHash = await activeWalletClient.writeContract({
           address: fractionData.token as Address,
           abi: ERC20_APPROVAL_ABI,
           functionName: "approve",
           args: [sdk.addresses.OFFCHAIN_FRACTIONS as Address, approvalAmount],
-          chain: walletClient.chain,
-          account: walletClient.account,
+          chain: activeWalletClient.chain,
+          account: activeWalletClient.account,
         });
 
         await waitForTransactionReceipt(approveHash);
@@ -145,8 +171,10 @@ export function usePatchedOffchainFractions(
         if (allowance < requiredAmount) {
           throw new Error(ALLOWANCE_NOT_VISIBLE_ERROR);
         }
+        onPhase?.("approved");
       }
 
+      onPhase?.("purchasing");
       // Reuse the simulated request so the wallet does not re-estimate against stale allowance state.
       const { request } = await publicClient.simulateContract({
         address: sdk.addresses.OFFCHAIN_FRACTIONS as Address,
@@ -161,10 +189,10 @@ export function usePatchedOffchainFractions(
           creditTo as Address,
           useCounterfactualAddressForRefund,
         ],
-        account: walletClient.account,
+        account: activeWalletClient.account,
       });
 
-      const hash = await walletClient.writeContract(request);
+      const hash = await activeWalletClient.writeContract(request);
 
       try {
         await waitForTransactionReceipt(hash);

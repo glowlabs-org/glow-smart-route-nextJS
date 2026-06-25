@@ -276,6 +276,12 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
   const [statsDialogOpen, setStatsDialogOpen] = React.useState(false);
   const [selectedApplicationForStats, setSelectedApplicationForStats] =
     React.useState<LocalTaggedApplication | null>(null);
+  // Leg currency of the tile the stats dialog was opened from (GLW vs sGCTL).
+  // Without this the dialog defaults to resolveDelegationCurrency() -> "SGCTL"
+  // for dual-leg listings, showing the wrong leg's stats on the GLW tile.
+  const [selectedLegForStats, setSelectedLegForStats] = React.useState<
+    "GLW" | "SGCTL" | undefined
+  >(undefined);
   const [selectedScoreDataForStats, setSelectedScoreDataForStats] =
     React.useState<LaunchpadRewardScore | MiningCenterScore | null>(null);
 
@@ -294,7 +300,11 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
   const activeMinerEntitlement = React.useMemo(
     () =>
       (earlyAccessQuery.data?.entitlements ?? []).find(
-        (e) => e.active && e.scope === "miner",
+        // Match the unified `"launch"` scope AND legacy `"miner"` rows: new
+        // passes are written as `"launch"`, old ones stay `"miner"` and both
+        // grant early access. Gating on `"miner"` alone would silently stop
+        // recognizing new passes.
+        (e) => e.active && (e.scope === "launch" || e.scope === "miner"),
       ) ?? null,
     [earlyAccessQuery.data],
   );
@@ -310,10 +320,17 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
   // Tag applications with their type
   const taggedDelegations = React.useMemo<LocalTaggedApplication[]>(
     () =>
-      filterPublicLaunchpadApplications(delegationApplications).map((app) => ({
-        ...app,
-        _type: "delegations" as const,
-      })),
+      filterPublicLaunchpadApplications(delegationApplications)
+        // Guard: the launchpad branch (includeFilled) can return completed farms
+        // that are also live miners; their activeFraction serializes as a
+        // mining-center fraction. Those are NOT delegation legs, so drop them
+        // here, else a miner renders as a phantom "0 GLW" GLW-delegation tile
+        // (the USDC step read as GLW wei rounds to 0).
+        .filter((app) => app.activeFraction?.type !== "mining-center")
+        .map((app) => ({
+          ...app,
+          _type: "delegations" as const,
+        })),
     [delegationApplications],
   );
 
@@ -359,9 +376,14 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
   // Two-tile model: fetch a FORCED-GLW score map (the GLW tile's score, no
   // bonus) and a FORCED-SGCTL score map (the sGCTL tile's score, with the
   // solved n). The sGCTL map only covers farms with a buyable sGCTL leg.
+  // Derive from the FULL tagged set, NOT activeDelegationsForScores: that set is
+  // filtered by the GLW-centric sold-out check, which drops a farm once its GLW
+  // leg sells out even when its sGCTL leg is still live (e.g. Serene Chasm: GLW
+  // 20/20 sold, sGCTL 12 units left). Excluding it there left the sGCTL tile with
+  // no reward estimate -> "EST. WEEKLY unavailable".
   const sgctlLegDelegationsForScores = React.useMemo(
-    () => activeDelegationsForScores.filter(hasBuyableSgctlLeg),
-    [activeDelegationsForScores],
+    () => taggedDelegations.filter(hasBuyableSgctlLeg),
+    [taggedDelegations],
   );
 
   // Fetch scores
@@ -417,15 +439,11 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
     return entries.map((entry) => {
       const application = entry.application;
       const leg = entry.leg;
-      // The GLW (no-bonus) estimate is the base for BOTH tiles' score: the sGCTL
-      // tile's reward score is pinned frontend-side to (GLW score + the bump)
-      // below, where the bump is the live, control-derived sgctlScoreBumpOverGlwLeg.
-      // The sGCTL (+n) estimate is used for the sGCTL tile's weekly-reward AMOUNTS
-      // (it reflects the bonus emission) AND carries that derived bump. Pinning
-      // here — rather than trusting the sGCTL call's absolute score — guarantees
-      // the two tiles ALWAYS differ by exactly the configured bump, since the two
-      // estimate calls use different deposit contexts (GLW wei vs GCTL atomic) and
-      // can't otherwise be kept in lockstep.
+      // Each tile uses its own leg's estimate: the GLW tile the GLW (no-bonus)
+      // estimate, the sGCTL tile the sGCTL (+n) estimate. The sGCTL estimate's
+      // absolute reward score IS the leg's natural total (the n-solve pins it to
+      // the constant target), and its weekly-reward amounts reflect the bonus
+      // emission, so both the score and amounts come straight from it.
       const glwReward = getRewardScoreForApplication(
         glwRewardScoreMap,
         application.id,
@@ -461,22 +479,18 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
         application.id,
       );
 
-      // Reward score per tile: GLW tile = GLW score; sGCTL tile = GLW score +
-      // the bump control derived from the persisted split bonus n (publish-time
-      // `sgctlRewardScoreBump`, default 10). Pinning to the GLW tile's score
-      // (rather than trusting the sGCTL estimate's absolute score) keeps the two
-      // tiles in lockstep across their different deposit contexts; sourcing the
-      // bump from the live estimate honors a non-default configured bump. Falls
-      // back to 10 if the field is absent (control pre-deploy / old-era leg).
-      // null when the GLW score isn't loaded yet.
+      // Reward score per tile: each tile shows its OWN leg's natural score.
+      // `reward` is already the leg-appropriate estimate (the sGCTL +n estimate
+      // for the sGCTL tile, the GLW estimate for the GLW tile), so its absolute
+      // score is correct: the sGCTL tile reads the sGCTL leg's score — its own
+      // PD recovery + bonus emission, which the publish-time n-solve pins to the
+      // constant target (e.g. 135). Previously the sGCTL tile was GLW-score +
+      // bump, which stacked the bump on the GLW leg's HIGHER PD recovery and
+      // overstated the score (e.g. 212 instead of 135).
       const delegationRewardScore: number | null =
         application._type !== "delegations"
           ? null
-          : glwReward?.rewardScore != null
-            ? leg === "SGCTL"
-              ? glwReward.rewardScore + (reward?.sgctlScoreBumpOverGlwLeg ?? 10)
-              : glwReward.rewardScore
-            : null;
+          : (reward?.rewardScore ?? null);
 
       const score =
         application._type === "delegations"
@@ -511,7 +525,10 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
               ),
             );
           }
-          return parseDelegationStepAmount(application);
+          return parseDelegationStepAmount(
+            application,
+            delegationCurrency ?? undefined,
+          );
         } catch {
           return 0;
         }
@@ -528,7 +545,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
               ),
             );
           }
-          const totalShares = resolveLaunchpadDelegationUnitCount(application);
+          const totalShares = resolveLaunchpadDelegationUnitCount(application, delegationCurrency ?? undefined);
           if (!reward || !totalShares) return 0;
           return calculateLaunchpadPerShareRewards({
             reward,
@@ -543,7 +560,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
       const weeklyPdYield = (() => {
         try {
           if (application._type === "miners") return 0;
-          const totalShares = resolveLaunchpadDelegationUnitCount(application);
+          const totalShares = resolveLaunchpadDelegationUnitCount(application, delegationCurrency ?? undefined);
           if (!reward || !totalShares) return 0;
           const pdRewards = parseFloat(
             formatUnits(
@@ -560,7 +577,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
       const totalAmountNeeded = (() => {
         if (!application.activeFraction) return 0;
         if (application._type === "delegations") {
-          const totalSteps = resolveLaunchpadDelegationUnitCount(application);
+          const totalSteps = resolveLaunchpadDelegationUnitCount(application, delegationCurrency ?? undefined);
           if (!Number.isFinite(cost) || cost <= 0 || totalSteps <= 0) return 0;
           return cost * totalSteps;
         }
@@ -578,7 +595,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
         if (application._type === "miners") {
           return weeklyYield * (glwSpotPrice || 0);
         }
-        const totalShares = resolveLaunchpadDelegationUnitCount(application);
+        const totalShares = resolveLaunchpadDelegationUnitCount(application, delegationCurrency ?? undefined);
         if (!reward || totalShares <= 0) {
           return weeklyYield * (glwSpotPrice || 0);
         }
@@ -755,6 +772,13 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
   const showMinersTab = minerApplications.length > 0;
   const showAllTab = showDelegationsTab || showMinersTab;
 
+  // If the active tab's button is no longer rendered (its listing type vanished),
+  // fall back to "all" so the user is never stranded on a hidden filter.
+  React.useEffect(() => {
+    if (activeTab === "delegations" && !showDelegationsTab) setActiveTab("all");
+    else if (activeTab === "miners" && !showMinersTab) setActiveTab("all");
+  }, [activeTab, showDelegationsTab, showMinersTab]);
+
   // Handle card click
   const handleCardClick = React.useCallback(
     (row: ListingRow) => {
@@ -899,6 +923,11 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                   });
                   setSelectedApplicationForStats(application);
                   setSelectedScoreDataForStats(row.scoreData);
+                  setSelectedLegForStats(
+                    application._type === "miners"
+                      ? undefined
+                      : delegationCurrency,
+                  );
                   setStatsDialogOpen(true);
                 }}
                 className="backdrop-blur-xl bg-white/90 dark:bg-black/60 hover:bg-white dark:hover:bg-black/70 border border-border/20 dark:border-white/20 text-foreground dark:text-white rounded-full px-2.5 sm:px-3 h-7 sm:h-8 text-[10px] sm:text-xs font-semibold transition-all shadow-sm"
@@ -1073,8 +1102,9 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                     ) : (
                       // sGCTL tile: mirror the GLW tile's layout exactly (one big
                       // value row + one sub-line) so both tiles are the SAME
-                      // height. The GLW emission is the headline; the SGCTL PD
-                      // recovery rides on the sub-line.
+                      // height (2 lines). Both reward tokens (GLW emission + SGCTL
+                      // PD recovery) ride the headline; the USD value is dropped so
+                      // it fits on 2 lines and the sub-line is just "for 100 weeks".
                       <>
                         <div className="flex items-baseline gap-1 flex-wrap">
                           <span className="text-xl lg:text-base xl:text-lg font-bold text-foreground font-mono tabular-nums leading-tight">
@@ -1082,13 +1112,11 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                           </span>
                           <span className="text-xs text-muted-foreground font-medium">
                             GLW
-                            {weeklyYieldUsd > 0 &&
-                              ` · $${formatNumber(weeklyYieldUsd, 2)}`}
+                            {weeklyPdYield > 0 &&
+                              ` +${formatRewardAmount(weeklyPdYield)} SGCTL`}
                           </span>
                         </div>
                         <span className="text-xs text-muted-foreground font-medium">
-                          {weeklyPdYield > 0 &&
-                            `+${formatRewardAmount(weeklyPdYield)} SGCTL · `}
                           {t.widgets.launchpadStatus.for100Weeks}
                         </span>
                       </>
@@ -1114,7 +1142,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                       resolveLaunchpadDelegationShareCount(application) > 0
                         ? (() => {
                             const totalShares =
-                              resolveLaunchpadDelegationUnitCount(application);
+                              resolveLaunchpadDelegationUnitCount(application, delegationCurrency ?? undefined);
                             const glwRewards = parseFloat(
                               formatUnits(
                                 BigInt(
@@ -1295,8 +1323,11 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
     );
   }
 
-  // No listings state
-  if (filteredRows.length === 0) {
+  // Bare empty state (no tabs) only when there are NO listings of any kind.
+  // If listings exist but the *current* filter is empty (e.g. "Deleg." with 0
+  // remaining while miners are available), fall through to the card below so the
+  // filter tabs stay visible and the user can switch back to another filter.
+  if (!showAllTab) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <GlowSymbol className="h-12 w-12 mb-4 opacity-50" />
@@ -1489,6 +1520,17 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
           page, drop to two columns so they span the full width instead of
           leaving an empty third slot. */}
       <div className="space-y-4">
+        {/* Current filter has no listings (other filters may still have some):
+            show the empty message but keep the tabs above so the user can switch
+            back. The empty grid below collapses to nothing. */}
+        {filteredRows.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <GlowSymbol className="h-12 w-12 mb-4 opacity-50" />
+            <div className="text-sm text-muted-foreground">
+              {t.widgets.launchpadStatus.noListings}
+            </div>
+          </div>
+        )}
         <div
           className={cn(
             "grid grid-cols-1 md:grid-cols-2 gap-4",
@@ -1572,6 +1614,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
           open={statsDialogOpen}
           onOpenChange={setStatsDialogOpen}
           application={selectedApplicationForStats as TaggedAuctionApplication}
+          delegationCurrency={selectedLegForStats}
           rewardScore={
             selectedScoreDataForStats as {
               userWeeklyGlwRewards: string;
@@ -2158,7 +2201,7 @@ export default function LaunchpadStatusWidget({
               "flex flex-col gap-4",
               variant === "full-row"
                 ? "px-0 pb-0 lg:grid lg:grid-cols-3 lg:items-center lg:gap-4"
-                : "px-5 pb-5",
+                : "px-4 pb-5 sm:px-8",
             )}
           >
             {/* Big Countdown Hero */}
@@ -2179,7 +2222,7 @@ export default function LaunchpadStatusWidget({
                 <div className="sm:hidden">
                   <AnimatedCountdownDhms
                     remainingMs={remainingMs}
-                    size="lg"
+                    size="md"
                     showLabels
                   />
                 </div>
