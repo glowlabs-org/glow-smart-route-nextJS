@@ -12,6 +12,7 @@ import {
   List,
   Image as ImageIcon,
   ExternalLink,
+  Sparkles,
 } from "lucide-react";
 import { useAccount } from "wagmi";
 import { cn } from "@/lib/utils";
@@ -653,6 +654,10 @@ interface FarmCardData {
   }>;
   lastWeekRewardsGlw?: number;
   inProgressPercent?: number;
+  /** When a recent purchase merged into THIS already-owned farm's card (so no
+   * separate "pending start" card appears), a short note like "+$1,596 added"
+   * to reassure the user their purchase landed here. Null when none. */
+  recentlyAddedNote?: string | null;
   estimatedUserWeeklyGlw?: number;
   estimatedUserWeeklyUsd?: number;
   estimatedUserWeeklyPd?: number;
@@ -1243,6 +1248,17 @@ function FarmCard({
           </div>
         ) : (
           <div className={cn("space-y-4", isCompact && "space-y-2.5")}>
+            {farm.recentlyAddedNote && (
+              <div
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-[color:var(--color-glow-green)] font-mono font-semibold",
+                  isCompact ? "text-[9px] px-2 py-0.5" : "text-[10px] px-2.5 py-1",
+                )}
+              >
+                <Sparkles className={cn(isCompact ? "w-2.5 h-2.5" : "w-3 h-3")} />
+                {farm.recentlyAddedNote}
+              </div>
+            )}
             <div
               className={cn(
                 "grid",
@@ -2299,6 +2315,52 @@ export default function MyFarmsGridSection({
   const unsortedFarmCards = React.useMemo<FarmCardData[]>(() => {
     const cards: FarmCardData[] = [];
 
+    // A recent purchase on an ALREADY-owned farm merges into its existing card
+    // (no separate pending-start card shows), which confused users ("I can't
+    // find my new miners"). recentPurchasesWithoutRewards lists which farms+types
+    // just got a purchase; surface a "+$X added recently" note on that card. The
+    // wallet-total recent amount maps cleanly to a figure only when a single
+    // (farm, type) is recent, so we show the amount just then, else a plain note.
+    const recentPairs: Array<{
+      farmId: string;
+      type: "launchpad" | "mining-center";
+    }> = [];
+    for (const entry of rewardsBreakdown?.recentPurchasesWithoutRewards ?? []) {
+      for (const ty of entry.types) {
+        recentPairs.push({ farmId: entry.farmId, type: ty });
+      }
+    }
+    const recentUsdcAfter =
+      Number(
+        rewardsBreakdown?.delegatedAfterWeekRange?.totalUsdcSpentAfter ?? "0"
+      ) / 1e6;
+    const recentGlwAfter = parseGlwFromWei(
+      rewardsBreakdown?.delegatedAfterWeekRange?.totalGlwDelegatedAfter ?? "0"
+    );
+    const recentMiningCount = recentPairs.filter(
+      (p) => p.type === "mining-center"
+    ).length;
+    const recentLaunchpadCount = recentPairs.filter(
+      (p) => p.type === "launchpad"
+    ).length;
+    const recentlyAddedNoteByFarmTypeKey = new Map<string, string>();
+    for (const p of recentPairs) {
+      let amountLabel: string | null = null;
+      if (p.type === "mining-center" && recentMiningCount === 1 && recentUsdcAfter > 0) {
+        amountLabel = fmtUsd(recentUsdcAfter);
+      } else if (
+        p.type === "launchpad" &&
+        recentLaunchpadCount === 1 &&
+        recentGlwAfter > 0
+      ) {
+        amountLabel = `${fmtGlw(recentGlwAfter)} GLW`;
+      }
+      recentlyAddedNoteByFarmTypeKey.set(
+        `${p.farmId}:${p.type}`,
+        t.widgets.myFarms.recentlyAddedNote(amountLabel)
+      );
+    }
+
     (rewardsBreakdown?.farmDetails ?? []).forEach((farm) => {
       const farmMetadata = purchasedFarms.find((f) => f.farmId === farm.farmId);
       const regionName = (() => {
@@ -2350,6 +2412,9 @@ export default function MyFarmsGridSection({
           lastWeekRewardsGlw: parseGlwFromWei(farm.lastWeekRewards ?? "0"),
           delegatedAmountsByAsset:
             launchpadDelegatedAmountsByFarmId.get(farm.farmId),
+          recentlyAddedNote:
+            recentlyAddedNoteByFarmTypeKey.get(`${farm.farmId}:launchpad`) ??
+            null,
         });
       } else {
         const initialCostUsd = parseUsdcFromBaseUnits(farm.amountInvested);
@@ -2376,6 +2441,10 @@ export default function MyFarmsGridSection({
           totalWeeks: 99,
           weeklyBreakdown: farm.weeklyBreakdown,
           lastWeekRewardsGlw: parseGlwFromWei(farm.lastWeekRewards ?? "0"),
+          recentlyAddedNote:
+            recentlyAddedNoteByFarmTypeKey.get(
+              `${farm.farmId}:mining-center`
+            ) ?? null,
         });
       }
     });

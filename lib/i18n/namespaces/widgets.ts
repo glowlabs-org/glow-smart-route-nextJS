@@ -442,6 +442,10 @@ export interface WidgetStrings {
     costText: (amount: string) => string;
     pointsCost: (amount: string) => string;
     delegatedText: (amount: string) => string;
+    /** Note shown on an already-owned farm's card when a recent purchase merged
+     * into it (so no separate pending card appears). `amount` is a preformatted
+     * figure like "$1,596" or "144 GLW", or null when it can't be isolated. */
+    recentlyAddedNote: (amount: string | null) => string;
     progressText: (pct: number) => string;
     // Farm detail dialog
     farmOverview: string;
@@ -1147,6 +1151,8 @@ const en: WidgetStrings = {
     costText: (amount) => `Cost: ${amount}`,
     pointsCost: (amount) => `${amount} pts`,
     delegatedText: (amount) => `Delegated: ${amount}`,
+    recentlyAddedNote: (amount) =>
+      amount ? `+${amount} added recently` : "Recently added",
     progressText: (pct) => `${pct}% Progress`,
     farmOverview: "Farm Overview",
     closeAria: "Close",
@@ -1869,6 +1875,8 @@ const ko: WidgetStrings = {
     costText: (amount) => `비용: ${amount}`,
     pointsCost: (amount) => `${amount} 포인트`,
     delegatedText: (amount) => `위임: ${amount}`,
+    recentlyAddedNote: (amount) =>
+      amount ? `+${amount} 최근 추가됨` : "최근 추가됨",
     progressText: (pct) => `${pct}% 진행`,
     farmOverview: "발전소 개요",
     closeAria: "닫기",
@@ -2581,6 +2589,8 @@ const zh: WidgetStrings = {
     costText: (amount) => `成本:${amount}`,
     pointsCost: (amount) => `${amount} 积分`,
     delegatedText: (amount) => `已委托:${amount}`,
+    recentlyAddedNote: (amount) =>
+      amount ? `+${amount} 最近添加` : "最近添加",
     progressText: (pct) => `进度 ${pct}%`,
     farmOverview: "农场概览",
     closeAria: "关闭",
