@@ -1275,7 +1275,7 @@ function FarmCard({
                   </div>
                 </div>
               )}
-              <div className="text-right">
+              <div className="text-right min-w-0">
                 <div
                   className={cn(
                     "uppercase tracking-wider text-muted-foreground font-semibold mb-1",
@@ -1294,7 +1294,9 @@ function FarmCard({
                   className={cn(
                     "font-mono font-bold",
                     isCompact ? "text-xs" : "text-sm",
-                    !isCompact && "whitespace-nowrap",
+                    // Two-asset earned values (e.g. "37,155 GLW + 2,410.78
+                    // SGCTL") must wrap within the grid cell, not overflow the
+                    // card edge. Let it wrap like the LAST WEEK column does.
                     isPendingStart
                       ? "text-muted-foreground"
                       : isMiner
