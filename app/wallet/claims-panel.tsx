@@ -109,6 +109,18 @@ const CURRENCY_CONFIG = {
 
 type CurrencyKey = keyof typeof CURRENCY_CONFIG;
 
+// Canonical display order for reward-currency chips, derived from the
+// CURRENCY_CONFIG declaration order (GLW, USDC, USDG, SGCTL). `weekData
+// .totalProtocolDeposit` is a Map whose entries() order varies week to week,
+// which made the per-week chips render USDG / sGCTL in an inconsistent order
+// across rows. Sort by this index so every row is consistent; unknown
+// currencies sort last.
+const CURRENCY_DISPLAY_ORDER = Object.keys(CURRENCY_CONFIG);
+function currencyOrderIndex(currency: string): number {
+  const index = CURRENCY_DISPLAY_ORDER.indexOf(currency);
+  return index === -1 ? CURRENCY_DISPLAY_ORDER.length : index;
+}
+
 type ClaimStageState = {
   status: ClaimStageStatus;
   txHash?: string | null;
@@ -2653,7 +2665,12 @@ export function ClaimsPanel({
                 currency,
                 amount: parseFloat(amount || "0"),
               }))
-              .filter((entry) => entry.amount > 0);
+              .filter((entry) => entry.amount > 0)
+              .sort(
+                (a, b) =>
+                  currencyOrderIndex(a.currency) -
+                  currencyOrderIndex(b.currency)
+              );
 
             return (
               <Collapsible
