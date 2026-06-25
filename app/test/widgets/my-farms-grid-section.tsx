@@ -974,14 +974,27 @@ function FarmCard({
     isPendingStart && pendingTimeline?.isClaimReady,
   );
 
-  const totalValue = farm.recovered + farm.inflation;
+  // For a non-GLW (SGCTL) delegation the inflation reward is denominated in GLW
+  // while the protocol-deposit recovery (and the delegated principal) are SGCTL.
+  // Summing them mixes units and pushed the progress bar past 100%, so here the
+  // progress is the deposit-recovery ratio only (recovered SGCTL / delegated
+  // SGCTL). GLW inflation is a separate stream surfaced under EARNED. GLW
+  // delegations keep the total-value (recovery + inflation) ratio since both
+  // legs are GLW.
+  const isNonGlwDelegation =
+    isDelegation &&
+    farm.protocolDepositAsset != null &&
+    farm.protocolDepositAsset !== "GLW";
+  const progressValue = isNonGlwDelegation
+    ? farm.recovered
+    : farm.recovered + farm.inflation;
   const timeBasedProgress =
     (farm.weeksActive / Math.max(farm.totalWeeks, 1)) * 100;
   const roiPercent =
     isMiner || isOther
       ? timeBasedProgress
       : farm.initialCost > 0
-        ? (totalValue / farm.initialCost) * 100
+        ? (progressValue / farm.initialCost) * 100
         : 0;
   const isProfitable = roiPercent >= 100;
   const lastWeekLabel = getFarmLastWeekLabel(farm);

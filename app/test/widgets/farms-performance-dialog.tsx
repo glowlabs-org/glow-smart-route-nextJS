@@ -363,13 +363,22 @@ function computeDerivedMetrics(data: PerformanceRowData) {
     data.type === "miner" || (data.type === "other" && !hasCostBasis);
   const denom = hasCostBasis ? Math.max(data.initialCost, 1) : 1;
   const timePercent = Math.min((data.weeksActive / data.totalWeeks) * 100, 100);
+  // Non-GLW (SGCTL) delegation: protocol-deposit recovery + principal are SGCTL
+  // but inflation is GLW, so they can't be summed into one ratio (it inflated
+  // the bar past 100%). Use deposit-recovery only; GLW inflation shows under
+  // EARNED. GLW delegations keep the total-value (recovery + inflation) ratio.
+  const isNonGlwDelegation =
+    data.type === "delegation" &&
+    data.protocolDepositAsset != null &&
+    formatProtocolDepositAsset(data.protocolDepositAsset) !== "GLW";
+  const valueNumerator = isNonGlwDelegation ? data.recovered : totalEarned;
   const valuePercent = useTimeAsValue
     ? timePercent
-    : (totalEarned / denom) * 100;
+    : (valueNumerator / denom) * 100;
   const deltaPercent =
     data.initialCost === 0
       ? 0
-      : ((totalEarned - data.initialCost) / data.initialCost) * 100;
+      : ((valueNumerator - data.initialCost) / data.initialCost) * 100;
 
   return {
     totalEarned,
