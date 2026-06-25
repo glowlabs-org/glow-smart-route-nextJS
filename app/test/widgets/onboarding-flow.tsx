@@ -39,7 +39,6 @@ import {
   CarouselItem,
   type CarouselApi,
 } from "@/components/ui/carousel";
-import AutoHeight from "embla-carousel-auto-height";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/lib/i18n";
 import { trackEvent } from "@/lib/telemetry";
@@ -957,10 +956,37 @@ export function GetStartedCarousel({
     }
   }, [api, startOnDelegate]);
 
-  // Auto-height: the carousel follows the active slide's height instead of
-  // forcing every slide to the tallest one — kills the large dead space short
-  // slides (esp. on mobile, where everything stacks) would otherwise show.
-  const autoHeightPlugins = React.useMemo(() => [AutoHeight()], []);
+  // Auto-height: size the carousel to the ACTIVE slide instead of the tallest,
+  // so short slides don't show dead space (esp. on mobile, where everything
+  // stacks). A ResizeObserver re-applies the height when async content settles
+  // — e.g. the miner slide growing from its loading state to the populated
+  // card once the evergreen data + image land (which an embla auto-height
+  // plugin misses, since it only re-measures on navigation → bottom clipping).
+  React.useEffect(() => {
+    if (!api) return;
+    const container = api.containerNode();
+    const applyHeight = () => {
+      const node = api.slideNodes()[api.selectedScrollSnap()];
+      if (node) container.style.height = `${node.offsetHeight}px`;
+    };
+    applyHeight();
+    api.on("select", applyHeight);
+    api.on("reInit", applyHeight);
+    const observers: ResizeObserver[] = [];
+    if (typeof ResizeObserver !== "undefined") {
+      api.slideNodes().forEach((node) => {
+        const observer = new ResizeObserver(applyHeight);
+        observer.observe(node);
+        observers.push(observer);
+      });
+    }
+    return () => {
+      api.off("select", applyHeight);
+      api.off("reInit", applyHeight);
+      observers.forEach((observer) => observer.disconnect());
+      container.style.height = "";
+    };
+  }, [api]);
 
   return (
     <div>
@@ -969,7 +995,6 @@ export function GetStartedCarousel({
       <Carousel
         setApi={setApi}
         opts={{ loop: true }}
-        plugins={autoHeightPlugins}
         aria-label="Get started with Glow"
       >
         {/* items-start so off-screen slides keep their natural height; the
