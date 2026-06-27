@@ -14,19 +14,21 @@ describe("pending-start-cards", () => {
     ).toBe(false);
   });
 
-  it("treats filled and expired mining-center splits as pending-start", () => {
+  it("treats filled, expired and committed mining-center splits as pending-start", () => {
     expect(
       isPendingStartStatus({ fractionType: "mining-center", status: "filled" })
     ).toBe(true);
     expect(
       isPendingStartStatus({ fractionType: "mining-center", status: "expired" })
     ).toBe(true);
+    // Evergreen miners are perpetually "committed" (never sell out), so a
+    // committed mining-center purchase must still surface a pending-start card.
     expect(
       isPendingStartStatus({
         fractionType: "mining-center",
         status: "committed",
       })
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("still shows pending-start when ownership has not been computed yet (hasCurrentOwnership=false means unknown, not sold)", () => {

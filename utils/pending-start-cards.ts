@@ -13,7 +13,15 @@ export function isPendingStartStatus(params: {
     return status === "filled";
   }
 
-  return status === "filled" || status === "expired";
+  // Evergreen mining-center listings are always-on and never sell out, so their
+  // fraction stays "committed" indefinitely and never flips to "filled". A
+  // buyer's committed mining-center purchase is still a real, settled position
+  // (USDC paid, split recorded on-chain), so treat committed splits as
+  // pending-start too, otherwise an evergreen miner purchase stays invisible on
+  // "My Farms" until it starts earning rewards.
+  return (
+    status === "filled" || status === "expired" || status === "committed"
+  );
 }
 
 export function shouldIncludePendingStartCard(params: {

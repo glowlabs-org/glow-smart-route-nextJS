@@ -69,6 +69,7 @@ import {
   useRegions,
   useSplitsActivity,
   useMiningCenter,
+  useEvergreenMiners,
   useMiningScore,
 } from "@/hooks";
 import { getCurrentEpoch } from "@/utils/getCurrentEpoch";
@@ -2153,6 +2154,15 @@ export default function MyFarmsGridSection({
     enabled: shouldLoadInProgress,
   });
 
+  // Evergreen miners are hidden from the public mining-center feed, so a buyer's
+  // committed evergreen purchase has no listing metadata in `miningCenterListings`.
+  // Fetch them separately and merge below so the pending-start card resolves its
+  // region / image / est-weekly score instead of falling back to a bare card.
+  const { applications: evergreenMinerListings } = useEvergreenMiners({
+    filters: { paymentCurrency: "USDC", includeFilled: true },
+    enabled: shouldLoadInProgress,
+  });
+
   const { applications: visibleLaunchpadApplications } = useGlowLaunchpad({
     enabled: shouldLoadInProgress,
   });
@@ -2174,8 +2184,12 @@ export default function MyFarmsGridSection({
     for (const app of miningCenterListings) {
       map.set(app.id, app);
     }
+    // Merge evergreen listings so committed evergreen purchases resolve metadata.
+    for (const app of evergreenMinerListings) {
+      map.set(app.id, app);
+    }
     return map;
-  }, [miningCenterListings]);
+  }, [miningCenterListings, evergreenMinerListings]);
 
   const miningCenterAppsForScores = React.useMemo(() => {
     const apps = new Map<string, (typeof miningCenterListings)[number]>();
