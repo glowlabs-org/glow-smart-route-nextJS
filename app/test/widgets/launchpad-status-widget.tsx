@@ -484,9 +484,9 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
       // for the sGCTL tile, the GLW estimate for the GLW tile), so its absolute
       // score is correct: the sGCTL tile reads the sGCTL leg's score — its own
       // PD recovery + bonus emission, which the publish-time n-solve pins to the
-      // constant target (e.g. 135). Previously the sGCTL tile was GLW-score +
+      // constant target (e.g. 125). Previously the sGCTL tile was GLW-score +
       // bump, which stacked the bump on the GLW leg's HIGHER PD recovery and
-      // overstated the score (e.g. 212 instead of 135).
+      // overstated the score (e.g. 212 instead of 125).
       const delegationRewardScore: number | null =
         application._type !== "delegations"
           ? null
