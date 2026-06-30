@@ -51,6 +51,13 @@ export function useWalletLaunchpadInProgress(params: {
       .filter((app): app is AuctionApplication => app !== null);
   }, [sponsorshipsInProgress]);
 
+  // Two-map model (matches launchpad-view / launchpad-status-widget): force GLW
+  // for the GLW map and SGCTL for the SGCTL map. WITHOUT forceCurrency,
+  // resolveRewardScorePaymentCurrency() resolves a dual-leg listing
+  // (activeFraction.sgctl != null) to SGCTL on BOTH calls, so the "GLW" map
+  // carries the sGCTL leg's userWeeklyPdRewards in GCTL 6-decimal units. Parsed
+  // as 18-decimal GLW that PD collapses to ~0, dropping the GLW PD recovery
+  // (~16.7/unit) from a GLW-delegated in-progress card's EST. WEEKLY.
   const {
     rewardScoreMap,
     isLoading: isRewardScoresLoading,
@@ -58,6 +65,7 @@ export function useWalletLaunchpadInProgress(params: {
   } = useRewardScore({
     applications: applicationsForRewards,
     paymentCurrency: "GLW",
+    forceCurrency: "GLW",
     enabled: shouldLoad && applicationsForRewards.length > 0,
     walletAddress: walletAddress ?? null,
   });
@@ -68,6 +76,7 @@ export function useWalletLaunchpadInProgress(params: {
   } = useRewardScore({
     applications: applicationsForRewards,
     paymentCurrency: "SGCTL",
+    forceCurrency: "SGCTL",
     enabled: shouldLoad && applicationsForRewards.length > 0,
     walletAddress: walletAddress ?? null,
   });

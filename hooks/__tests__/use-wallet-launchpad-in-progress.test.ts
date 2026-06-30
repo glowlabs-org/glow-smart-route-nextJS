@@ -241,6 +241,10 @@ describe("useWalletLaunchpadInProgress", () => {
       1,
       expect.objectContaining({
         paymentCurrency: "GLW",
+        // Regression guard: a dual-leg listing must pin the GLW map with
+        // forceCurrency, else resolveRewardScorePaymentCurrency auto-resolves it
+        // to SGCTL and the GLW PD recovery collapses to ~0.
+        forceCurrency: "GLW",
         walletAddress: "0xabc",
         enabled: true,
       })
@@ -249,6 +253,7 @@ describe("useWalletLaunchpadInProgress", () => {
       2,
       expect.objectContaining({
         paymentCurrency: "SGCTL",
+        forceCurrency: "SGCTL",
         walletAddress: "0xabc",
         enabled: true,
       })
