@@ -6,7 +6,7 @@ import {
   normalizeDelegationCurrency,
   parseTokenAmountFromBaseUnits,
   parseUsd6Amount,
-  resolveLaunchpadDelegationShareCount,
+  resolveLaunchpadDelegationUnitCount,
   resolveDelegationCurrencyFromSplitActivity,
   resolveDelegationCurrency,
   type DelegationCurrency,
@@ -126,12 +126,17 @@ export function attachEstimatedWeeklyLaunchpadRewards(params: {
   if (!sponsorshipsInProgress.length) return [];
 
   return sponsorshipsInProgress.map((item) => {
-    const totalSteps =
-      item.application != null
-        ? resolveLaunchpadDelegationShareCount(item.application)
-        : null;
     const currentCurrency = resolveDelegationCurrency(item.application);
     const delegationCurrency = item.delegationCurrency ?? currentCurrency;
+    // Divide the farm reward by the GLW unit count (deposit / GLW step), NOT the
+    // dual-leg listing's sGCTL share count. Without the currency override,
+    // resolveDelegationCurrency() returns SGCTL for dual-leg listings, which
+    // divides by ~11x too many shares and badly understates EST. WEEKLY REWARDS
+    // (~19 instead of ~215 GLW for 7 units). Mirrors the deposit dialog.
+    const totalSteps =
+      item.application != null
+        ? resolveLaunchpadDelegationUnitCount(item.application, delegationCurrency)
+        : null;
     const preferredRewardScoreMap =
       rewardScoreMapByCurrency?.[delegationCurrency] ?? rewardScoreMap;
     const fallbackRewardScoreMap =

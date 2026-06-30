@@ -253,7 +253,9 @@ function purchaseToMinerSource(
   row: V2ShopPurchaseRow,
 ): { farmId: string; glowSplit6: string; valueUsd: number } | null {
   const g = row.grant;
-  if (g.kind === "miner" && g.splitTransferRef) {
+  // Defensive: a malformed or not-yet-fulfilled purchase row can carry a null
+  // grant (e.g. an admin-inserted early-access row). Never crash My Farms on it.
+  if (g && g.kind === "miner" && g.splitTransferRef) {
     return {
       farmId: g.splitTransferRef.farmId,
       glowSplit6: g.splitTransferRef.glowPercent6Decimals,
