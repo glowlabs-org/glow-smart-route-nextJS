@@ -638,6 +638,11 @@ interface FarmCardData {
   /** Points spent on this shop miner (summed across repeat purchases). */
   shopPointsCost?: number;
   initialCost: number;
+  /** USD-equivalent value of the points-shop-sourced miners folded into this
+   * card (the rest of `initialCost` is the USDC mining-center spend). Set only
+   * when shop miners merged into a regular miner card, so the UI can show a
+   * "mining center vs points shop" cost breakdown. */
+  shopMinerCostUsd?: number;
   recovered: number;
   inflation: number;
   inflationGlw: number;
@@ -716,12 +721,49 @@ function mergeShopMinerCards(
       estimatedUserWeeklyUsd:
         (c.estimatedUserWeeklyUsd ?? 0) + (s.estimatedUserWeeklyUsd ?? 0),
       shopPointsCost: (c.shopPointsCost ?? 0) + (s.shopPointsCost ?? 0),
+      // The shop-sourced USD portion of the (now combined) initialCost, so the
+      // card/dialog can break the cost down into mining-center vs points-shop.
+      shopMinerCostUsd: (c.shopMinerCostUsd ?? 0) + s.initialCost,
       recentlyAddedNote: s.recentlyAddedNote ?? c.recentlyAddedNote,
       isNewThisWeek: Boolean(c.isNewThisWeek) || Boolean(s.isNewThisWeek),
     };
   });
   const standalone = shop.filter((s) => !usedFarmIds.has(s.farmId));
   return [...merged, ...standalone];
+}
+
+/** When a miner card combines a USDC mining-center position with points-shop
+ * miners, break the merged cost down so the user sees each source. Renders
+ * nothing for a pure mining-center or pure shop card. */
+function CostBreakdownLine({
+  farm,
+  className,
+}: {
+  farm: FarmCardData;
+  className?: string;
+}) {
+  const { t } = useLang();
+  const shopUsd = farm.shopMinerCostUsd ?? 0;
+  const miningCenterUsd = farm.initialCost - shopUsd;
+  if (shopUsd <= 0 || miningCenterUsd <= 0) return null;
+  return (
+    <div
+      className={cn(
+        "flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-mono text-muted-foreground/80",
+        className,
+      )}
+    >
+      <span>
+        {t.widgets.myFarms.miningCenterLabel} {fmtUsd(miningCenterUsd)}
+      </span>
+      <span aria-hidden="true" className="text-muted-foreground/40">
+        ·
+      </span>
+      <span>
+        {t.widgets.myFarms.shopMinerSource} {fmtUsd(shopUsd)}
+      </span>
+    </div>
+  );
 }
 
 interface FarmListRowProps {
@@ -1477,6 +1519,10 @@ function FarmCard({
                     isProfitable && "[&>div]:bg-emerald-500",
                   )}
                 />
+                <CostBreakdownLine
+                  farm={farm}
+                  className={cn(isCompact ? "text-[9px]" : "text-[10px]")}
+                />
               </div>
             )}
             <div
@@ -1769,8 +1815,14 @@ function FarmDetailDialog({
                           : t.widgets.myFarms.totalDelegated}
                       </div>
                     </div>
-                    <div className="text-2xl sm:text-3xl font-semibold font-mono tracking-tight leading-tight whitespace-normal break-words text-foreground">
-                      {investedLabel}
+                    <div>
+                      <div className="text-2xl sm:text-3xl font-semibold font-mono tracking-tight leading-tight whitespace-normal break-words text-foreground">
+                        {investedLabel}
+                      </div>
+                      <CostBreakdownLine
+                        farm={farm}
+                        className="text-[11px] mt-1.5"
+                      />
                     </div>
                   </CardContent>
                 </Card>

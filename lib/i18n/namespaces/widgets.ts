@@ -422,6 +422,7 @@ export interface WidgetStrings {
     typeRewards: string;
     typeShopMiner: string;
     shopMinerSource: string;
+    miningCenterLabel: string;
     typeInProgress: string;
     // Farm card labels
     fundingProgress: string;
@@ -1132,6 +1133,7 @@ const en: WidgetStrings = {
     typeRewards: "Rewards",
     typeShopMiner: "Shop miner",
     shopMinerSource: "Points shop",
+    miningCenterLabel: "Mining center",
     typeInProgress: "In Progress",
     fundingProgress: "Funding Progress",
     costLabel: "Cost",
@@ -1856,6 +1858,7 @@ const ko: WidgetStrings = {
     typeRewards: "리워드",
     typeShopMiner: "샵 마이너",
     shopMinerSource: "포인트 샵",
+    miningCenterLabel: "마이닝 센터",
     typeInProgress: "진행 중",
     fundingProgress: "펀딩 진행률",
     costLabel: "비용",
@@ -2570,6 +2573,7 @@ const zh: WidgetStrings = {
     typeRewards: "奖励",
     typeShopMiner: "商店矿机",
     shopMinerSource: "积分商店",
+    miningCenterLabel: "矿机中心",
     typeInProgress: "进行中",
     fundingProgress: "募资进度",
     costLabel: "成本",
