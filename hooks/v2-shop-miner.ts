@@ -23,6 +23,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { formatUnits } from "viem";
+import { getCurrentEpoch, dateToEpoch } from "@/utils/getCurrentEpoch";
 import type {
   FarmImagesBatchResponse,
   MiningScoresBatchResponse,
@@ -249,6 +250,9 @@ export interface ShopMinerHolding {
   /** Unix ms of the wallet's most recent shop-miner purchase on this farm, used
    *  to flag "new this week". Null when unknown. */
   latestPurchaseAtMs: number | null;
+  /** Summed USD value of this farm's shop-miner purchases made in the CURRENT
+   *  protocol epoch — drives the "+$X added recently" note. 0 if none. */
+  recentValueUsd: number;
 }
 
 /** Pull the (farmId, glowSplit6, valueUsd) a miner-like purchase fulfilled. */
@@ -280,6 +284,7 @@ export function useShopMinerHoldings(
   const purchasesQuery = useV2ShopPurchases(wallet);
 
   const byFarm = useMemo(() => {
+    const currentEpoch = getCurrentEpoch();
     const map = new Map<
       string,
       {
@@ -288,6 +293,7 @@ export function useShopMinerHoldings(
         pricePoints: number;
         count: number;
         latestAtMs: number;
+        recentValueUsd: number;
       }
     >();
     for (const row of purchasesQuery.data?.rows ?? []) {
@@ -299,6 +305,7 @@ export function useShopMinerHoldings(
         pricePoints: 0,
         count: 0,
         latestAtMs: 0,
+        recentValueUsd: 0,
       };
       let add = 0n;
       try {
@@ -308,12 +315,15 @@ export function useShopMinerHoldings(
       }
       const points = Number(row.pricePointsTotal);
       const ts = Date.parse(row.createdAt);
+      const isThisEpoch =
+        Number.isFinite(ts) && dateToEpoch(new Date(ts)) === currentEpoch;
       map.set(src.farmId, {
         glowSplit6: prev.glowSplit6 + add,
         valueUsd: prev.valueUsd + src.valueUsd,
         pricePoints: prev.pricePoints + (Number.isFinite(points) ? points : 0),
         count: prev.count + 1,
         latestAtMs: Math.max(prev.latestAtMs, Number.isFinite(ts) ? ts : 0),
+        recentValueUsd: prev.recentValueUsd + (isThisEpoch ? src.valueUsd : 0),
       });
     }
     return map;
@@ -407,6 +417,7 @@ export function useShopMinerHoldings(
         pricePoints: v.pricePoints,
         purchaseCount: v.count,
         latestPurchaseAtMs: v.latestAtMs > 0 ? v.latestAtMs : null,
+        recentValueUsd: v.recentValueUsd,
       } satisfies ShopMinerHolding;
     });
   }, [entries, scoreQuery.data, metaQuery.data]);

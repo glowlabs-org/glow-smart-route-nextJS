@@ -691,6 +691,39 @@ function isFarmNewThisWeek(card: {
   );
 }
 
+/** Fold each points-shop miner into the wallet's existing regular MINER card for
+ * the SAME farm: one card shows all that farm's miners (summed initial cost,
+ * weekly reward, and points spent), carrying the shop miner's "+$X added
+ * recently" note + glow. A shop miner whose farm has no regular miner card stays
+ * as its own standalone card. */
+function mergeShopMinerCards(
+  regular: FarmCardData[],
+  shop: FarmCardData[],
+): FarmCardData[] {
+  const shopByFarmId = new Map<string, FarmCardData>();
+  for (const s of shop) shopByFarmId.set(s.farmId, s);
+  const usedFarmIds = new Set<string>();
+  const merged = regular.map((c) => {
+    if (c.type !== "miner") return c;
+    const s = shopByFarmId.get(c.farmId);
+    if (!s) return c;
+    usedFarmIds.add(c.farmId);
+    return {
+      ...c,
+      initialCost: c.initialCost + s.initialCost,
+      estimatedUserWeeklyGlw:
+        (c.estimatedUserWeeklyGlw ?? 0) + (s.estimatedUserWeeklyGlw ?? 0),
+      estimatedUserWeeklyUsd:
+        (c.estimatedUserWeeklyUsd ?? 0) + (s.estimatedUserWeeklyUsd ?? 0),
+      shopPointsCost: (c.shopPointsCost ?? 0) + (s.shopPointsCost ?? 0),
+      recentlyAddedNote: s.recentlyAddedNote ?? c.recentlyAddedNote,
+      isNewThisWeek: Boolean(c.isNewThisWeek) || Boolean(s.isNewThisWeek),
+    };
+  });
+  const standalone = shop.filter((s) => !usedFarmIds.has(s.farmId));
+  return [...merged, ...standalone];
+}
+
 interface FarmListRowProps {
   farm: FarmCardData;
   onClick: () => void;
@@ -3056,16 +3089,25 @@ export default function MyFarmsGridSection({
       weeklyBreakdown: [],
       estimatedUserWeeklyGlw: h.weeklyGlwRewards ?? undefined,
       estimatedUserWeeklyUsd: h.weeklyGlwRewardsUsd ?? undefined,
-      // Glow a points-shop miner bought in the current protocol epoch (its card
-      // path carries no recentlyAddedNote/isPendingStart signal).
+      // Glow + "added recently" note for a points-shop miner bought in the
+      // current protocol epoch (its card path carries no recentlyAddedNote/
+      // isPendingStart signal otherwise).
       isNewThisWeek:
         h.latestPurchaseAtMs != null &&
         dateToEpoch(new Date(h.latestPurchaseAtMs)) === currentEpoch,
+      recentlyAddedNote:
+        h.recentValueUsd > 0
+          ? t.widgets.myFarms.recentlyAddedNote(fmtUsd(h.recentValueUsd))
+          : null,
     }));
-  }, [shopMinerHoldings, t.widgets.myFarms.shopMinerSource]);
+  }, [
+    shopMinerHoldings,
+    t.widgets.myFarms.shopMinerSource,
+    t.widgets.myFarms.recentlyAddedNote,
+  ]);
 
   const farmCards = React.useMemo(() => {
-    const cards = [...unsortedFarmCards, ...shopMinerCards];
+    const cards = mergeShopMinerCards(unsortedFarmCards, shopMinerCards);
 
     const getSize = (f: FarmCardData) => {
       const price = glwSpotPriceUsd || 0;
