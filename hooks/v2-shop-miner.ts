@@ -23,7 +23,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { formatUnits } from "viem";
-import { getCurrentEpoch, dateToEpoch } from "@/utils/getCurrentEpoch";
 import type {
   FarmImagesBatchResponse,
   MiningScoresBatchResponse,
@@ -33,11 +32,7 @@ import {
   MINING_SCORE_FALLBACK_USER_ID,
   normalizeMinerWeeksRemainingDisplay,
 } from "@/lib/mining-score";
-import {
-  useV2ShopPurchases,
-  type V2ShopItem,
-  type V2ShopPurchaseRow,
-} from "@/hooks/v2-points-shop";
+import { type V2ShopItem } from "@/hooks/v2-points-shop";
 
 export interface ShopMinerFarmInfo {
   farmId: string;
@@ -239,9 +234,6 @@ export interface ShopMinerHolding {
   weeklyGlwRewards: number | null;
   weeklyGlwRewardsUsd: number | null;
   weeksRemaining: number | null;
-  /** Summed glow split (6-decimal weight) across all the wallet's shop
-   * miners on this farm. */
-  glowSplit6: string;
   /** Summed notional USD value of the miners bought on this farm. */
   minerValueUsd: number;
   /** Summed points spent across the wallet's shop miners on this farm. */
@@ -255,188 +247,37 @@ export interface ShopMinerHolding {
   recentValueUsd: number;
 }
 
-/** Pull the (farmId, glowSplit6, valueUsd) a miner-like purchase fulfilled. */
-function purchaseToMinerSource(
-  row: V2ShopPurchaseRow,
-): { farmId: string; glowSplit6: string; valueUsd: number } | null {
-  // The grant can arrive DOUBLE-ENCODED (a JSON *string* of the grant object)
-  // from the API — reading `.kind`/`.splitTransferRef` off a string yields
-  // undefined and silently drops the shop miner — so parse a string first. A
-  // null/malformed grant is simply skipped (never crash; e.g. an admin row).
-  const rawGrant: unknown = row.grant;
-  const g: V2ShopPurchaseRow["grant"] | null =
-    typeof rawGrant === "string"
-      ? (() => {
-          try {
-            return JSON.parse(rawGrant) as V2ShopPurchaseRow["grant"];
-          } catch {
-            return null;
-          }
-        })()
-      : (rawGrant as V2ShopPurchaseRow["grant"] | null);
-  if (g && g.kind === "miner" && g.splitTransferRef) {
-    return {
-      farmId: g.splitTransferRef.farmId,
-      glowSplit6: g.splitTransferRef.glowPercent6Decimals,
-      valueUsd: g.minerValueUsd ?? 0,
-    };
-  }
-  return null;
+interface ShopMinerHoldingsResponse {
+  wallet: string;
+  holdings: ShopMinerHolding[];
 }
 
 /**
- * The wallet's shop-purchased miner holdings, one per source farm (splits and
- * notional value summed across repeat purchases). Reward + weeks come from the
- * same farmId-based mining-score route as the shop cards; farm name/photo from
- * the control images batch.
+ * The wallet's shop-purchased miner holdings, one per source farm. Computed
+ * SERVER-SIDE: the per-purchase grant's `splitTransferRef` (source farmId +
+ * split) is redacted from the public /purchases endpoint (PB-1), so the
+ * reward, weeks, name and photo are resolved on the backend from the
+ * un-redacted grant and only display fields are returned here.
  */
 export function useShopMinerHoldings(
   wallet: string | null | undefined,
 ): { holdings: ShopMinerHolding[]; isLoading: boolean } {
-  const purchasesQuery = useV2ShopPurchases(wallet);
-
-  const byFarm = useMemo(() => {
-    const currentEpoch = getCurrentEpoch();
-    const map = new Map<
-      string,
-      {
-        glowSplit6: bigint;
-        valueUsd: number;
-        pricePoints: number;
-        count: number;
-        latestAtMs: number;
-        recentValueUsd: number;
-      }
-    >();
-    for (const row of purchasesQuery.data?.rows ?? []) {
-      const src = purchaseToMinerSource(row);
-      if (!src) continue;
-      const prev = map.get(src.farmId) ?? {
-        glowSplit6: 0n,
-        valueUsd: 0,
-        pricePoints: 0,
-        count: 0,
-        latestAtMs: 0,
-        recentValueUsd: 0,
-      };
-      let add = 0n;
-      try {
-        add = BigInt(src.glowSplit6);
-      } catch {
-        add = 0n;
-      }
-      const points = Number(row.pricePointsTotal);
-      const ts = Date.parse(row.createdAt);
-      const isThisEpoch =
-        Number.isFinite(ts) && dateToEpoch(new Date(ts)) === currentEpoch;
-      map.set(src.farmId, {
-        glowSplit6: prev.glowSplit6 + add,
-        valueUsd: prev.valueUsd + src.valueUsd,
-        pricePoints: prev.pricePoints + (Number.isFinite(points) ? points : 0),
-        count: prev.count + 1,
-        latestAtMs: Math.max(prev.latestAtMs, Number.isFinite(ts) ? ts : 0),
-        recentValueUsd: prev.recentValueUsd + (isThisEpoch ? src.valueUsd : 0),
-      });
-    }
-    return map;
-  }, [purchasesQuery.data]);
-
-  const farmIds = useMemo(() => Array.from(byFarm.keys()), [byFarm]);
-  const entries = useMemo(() => Array.from(byFarm.entries()), [byFarm]);
-
-  const scoreKey = useMemo(
-    () => entries.map(([f, v]) => `${f}:${v.glowSplit6}`).join("|"),
-    [entries],
-  );
-  const scoreQuery = useQuery({
-    queryKey: ["shop-miner-holding-scores", scoreKey],
-    enabled: entries.length > 0,
+  const query = useQuery({
+    queryKey: ["shop-miner-holdings", wallet?.toLowerCase() ?? null],
+    enabled: Boolean(wallet),
     staleTime: 60_000,
     retry: 0,
-    queryFn: async (): Promise<MiningScoresBatchResponse> => {
-      const farms = entries.map(([farmId, v]) => ({
-        farmId,
-        userId: MINING_SCORE_FALLBACK_USER_ID,
-        dollarCostOfMiner: String(v.valueUsd > 0 ? v.valueUsd : 1),
-        numberOfMiners: 1,
-        minerRewardSplit: v.glowSplit6.toString(),
-      }));
-      const res = await fetch("/api/farms/mining-scores-batch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ farms }),
-      });
-      if (!res.ok) throw new Error(`mining-scores-batch failed: ${res.status}`);
-      return (await res.json()) as MiningScoresBatchResponse;
-    },
-  });
-
-  const metaKey = useMemo(() => farmIds.join(","), [farmIds]);
-  const metaQuery = useQuery({
-    queryKey: ["shop-miner-holding-meta", metaKey],
-    enabled: farmIds.length > 0,
-    staleTime: 5 * 60_000,
-    retry: 0,
-    queryFn: async (): Promise<FarmImagesBatchResponse> => {
-      const res = await fetch("/api/farms/images-batch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ farmIds }),
-      });
-      if (!res.ok) throw new Error(`farms/images-batch failed: ${res.status}`);
-      return (await res.json()) as FarmImagesBatchResponse;
-    },
-  });
-
-  const holdings = useMemo(() => {
-    const results = scoreQuery.data?.results ?? [];
-    return entries.map(([farmId, v], i) => {
-      const result = results[i];
-      const meta = metaQuery.data?.results?.[farmId];
-      let weeklyGlwRewards: number | null = null;
-      let weeklyGlwRewardsUsd: number | null = null;
-      let weeksRemaining: number | null = null;
-      if (result && result.success) {
-        const wei = (() => {
-          try {
-            return BigInt(result.data.userWeeklyGlwRewards || "0");
-          } catch {
-            return 0n;
-          }
-        })();
-        const glw = Number(formatUnits(wei, 18));
-        weeklyGlwRewards = Number.isFinite(glw) ? glw : null;
-        const priceUsd = result.data.glwPriceUsd6
-          ? Number(result.data.glwPriceUsd6) / 1_000_000
-          : null;
-        weeklyGlwRewardsUsd =
-          weeklyGlwRewards != null && priceUsd != null
-            ? weeklyGlwRewards * priceUsd
-            : null;
-        weeksRemaining = normalizeMinerWeeksRemainingDisplay(
-          result.data.weeksOfMinerLifeRemaining,
-        );
+    queryFn: async (): Promise<ShopMinerHolding[]> => {
+      const res = await fetch(
+        `/api/points-shop/miner-holdings?wallet=${encodeURIComponent(wallet!)}`,
+      );
+      if (!res.ok) {
+        throw new Error(`points-shop/miner-holdings failed: ${res.status}`);
       }
-      return {
-        farmId,
-        farmName: meta?.name ?? null,
-        imageUrl: meta?.imageUrl ?? null,
-        weeklyGlwRewards,
-        weeklyGlwRewardsUsd,
-        weeksRemaining,
-        glowSplit6: v.glowSplit6.toString(),
-        minerValueUsd: v.valueUsd,
-        pricePoints: v.pricePoints,
-        purchaseCount: v.count,
-        latestPurchaseAtMs: v.latestAtMs > 0 ? v.latestAtMs : null,
-        recentValueUsd: v.recentValueUsd,
-      } satisfies ShopMinerHolding;
-    });
-  }, [entries, scoreQuery.data, metaQuery.data]);
+      const body = (await res.json()) as ShopMinerHoldingsResponse;
+      return body.holdings ?? [];
+    },
+  });
 
-  return {
-    holdings,
-    isLoading:
-      purchasesQuery.isLoading || scoreQuery.isLoading || metaQuery.isLoading,
-  };
+  return { holdings: query.data ?? [], isLoading: query.isLoading };
 }

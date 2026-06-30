@@ -253,6 +253,15 @@ export function useV2ShopPurchase() {
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.v2.shopCurrent(),
       });
+      // A miner purchase folds into the wallet's My Farms miner card via the
+      // server-computed holdings endpoint (separate query key from purchase
+      // history), so refresh it too — otherwise the "+$X added recently" note
+      // can lag a freshly redeemed miner by up to its staleTime.
+      if (result.grant.kind === "miner") {
+        queryClient.invalidateQueries({
+          queryKey: ["shop-miner-holdings", wallet],
+        });
+      }
       // A watts purchase transfers Foundation->buyer watts, so the wallet's
       // watts hero/breakdown and the leaderboard standing change too.
       if (result.grant.kind === "watts") {
