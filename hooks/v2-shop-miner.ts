@@ -246,6 +246,9 @@ export interface ShopMinerHolding {
   /** Summed points spent across the wallet's shop miners on this farm. */
   pricePoints: number;
   purchaseCount: number;
+  /** Unix ms of the wallet's most recent shop-miner purchase on this farm, used
+   *  to flag "new this week". Null when unknown. */
+  latestPurchaseAtMs: number | null;
 }
 
 /** Pull the (farmId, glowSplit6, valueUsd) a miner-like purchase fulfilled. */
@@ -279,7 +282,13 @@ export function useShopMinerHoldings(
   const byFarm = useMemo(() => {
     const map = new Map<
       string,
-      { glowSplit6: bigint; valueUsd: number; pricePoints: number; count: number }
+      {
+        glowSplit6: bigint;
+        valueUsd: number;
+        pricePoints: number;
+        count: number;
+        latestAtMs: number;
+      }
     >();
     for (const row of purchasesQuery.data?.rows ?? []) {
       const src = purchaseToMinerSource(row);
@@ -289,6 +298,7 @@ export function useShopMinerHoldings(
         valueUsd: 0,
         pricePoints: 0,
         count: 0,
+        latestAtMs: 0,
       };
       let add = 0n;
       try {
@@ -297,11 +307,13 @@ export function useShopMinerHoldings(
         add = 0n;
       }
       const points = Number(row.pricePointsTotal);
+      const ts = Date.parse(row.createdAt);
       map.set(src.farmId, {
         glowSplit6: prev.glowSplit6 + add,
         valueUsd: prev.valueUsd + src.valueUsd,
         pricePoints: prev.pricePoints + (Number.isFinite(points) ? points : 0),
         count: prev.count + 1,
+        latestAtMs: Math.max(prev.latestAtMs, Number.isFinite(ts) ? ts : 0),
       });
     }
     return map;
@@ -394,6 +406,7 @@ export function useShopMinerHoldings(
         minerValueUsd: v.valueUsd,
         pricePoints: v.pricePoints,
         purchaseCount: v.count,
+        latestPurchaseAtMs: v.latestAtMs > 0 ? v.latestAtMs : null,
       } satisfies ShopMinerHolding;
     });
   }, [entries, scoreQuery.data, metaQuery.data]);

@@ -72,7 +72,7 @@ import {
   useEvergreenMiners,
   useMiningScore,
 } from "@/hooks";
-import { getCurrentEpoch } from "@/utils/getCurrentEpoch";
+import { getCurrentEpoch, dateToEpoch } from "@/utils/getCurrentEpoch";
 import { useWalletLaunchpadInProgress } from "@/hooks/use-wallet-launchpad-in-progress";
 import { useShopMinerHoldings } from "@/hooks/v2-shop-miner";
 import { useQuery } from "@tanstack/react-query";
@@ -666,16 +666,29 @@ interface FarmCardData {
   delegatedAmountsByAsset?: DelegationAmountsByAsset;
   isPendingStart?: boolean;
   pendingPurchaseDate?: string | null;
+  /** A points-shop miner bought in the current protocol epoch. Its card is built
+   *  from the shop-holdings path, which has no recentlyAddedNote/isPendingStart,
+   *  so this flag is what makes a fresh shop-miner glow. */
+  isNewThisWeek?: boolean;
 }
 
-/** A farm the user acquired (or added to) THIS week: a fresh pending-start
- * position, or one a recent purchase merged into. These float to the top of the
- * list and get a glow ring so a brand-new buy is immediately visible. */
+/** A position the wallet acquired THIS week — across ALL types: in-progress
+ * delegations (still funding), funded "pending start" delegations/miners, a
+ * purchase merged into an existing card, or a points-shop miner bought this
+ * protocol epoch. These float to the top and get a glow ring so a brand-new buy
+ * is immediately visible. */
 function isFarmNewThisWeek(card: {
   recentlyAddedNote?: string | null;
   isPendingStart?: boolean;
+  type?: string;
+  isNewThisWeek?: boolean;
 }): boolean {
-  return Boolean(card.recentlyAddedNote) || Boolean(card.isPendingStart);
+  return (
+    Boolean(card.recentlyAddedNote) ||
+    Boolean(card.isPendingStart) ||
+    card.type === "in-progress" ||
+    Boolean(card.isNewThisWeek)
+  );
 }
 
 interface FarmListRowProps {
@@ -3022,6 +3035,7 @@ export default function MyFarmsGridSection({
     useShopMinerHoldings(walletAddress);
 
   const shopMinerCards = React.useMemo<FarmCardData[]>(() => {
+    const currentEpoch = getCurrentEpoch();
     return shopMinerHoldings.map((h) => ({
       farmKey: `shop-miner-${h.farmId}`,
       farmId: h.farmId,
@@ -3042,6 +3056,11 @@ export default function MyFarmsGridSection({
       weeklyBreakdown: [],
       estimatedUserWeeklyGlw: h.weeklyGlwRewards ?? undefined,
       estimatedUserWeeklyUsd: h.weeklyGlwRewardsUsd ?? undefined,
+      // Glow a points-shop miner bought in the current protocol epoch (its card
+      // path carries no recentlyAddedNote/isPendingStart signal).
+      isNewThisWeek:
+        h.latestPurchaseAtMs != null &&
+        dateToEpoch(new Date(h.latestPurchaseAtMs)) === currentEpoch,
     }));
   }, [shopMinerHoldings, t.widgets.myFarms.shopMinerSource]);
 
