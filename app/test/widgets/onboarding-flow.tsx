@@ -45,6 +45,12 @@ import { trackEvent } from "@/lib/telemetry";
 import { normalizeMinerWeeksRemainingDisplay } from "@/lib/mining-score";
 import { useGlowSpotPriceSummary } from "@/hooks/useGlowSpotPriceSummary";
 import { useLaunchpadStatus } from "@/hooks/useLaunchpadStatus";
+import { filterPublicLaunchpadApplications } from "@/utils/launchpad";
+import {
+  calculateLaunchpadPerShareRewards,
+  resolveLaunchpadDelegationUnitCount,
+} from "@/utils/launchpad-rewards";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useGlowCirculatingSupply } from "@/hooks/useGlowCirculatingSupply";
 import { useCountdownTo } from "@/app/components/animated-countdown";
 import {
@@ -52,6 +58,10 @@ import {
   useMiningScore,
   getMiningScoreForApplication,
   useTotalActivelyDelegated,
+  useGlowLaunchpad,
+  useRewardScore,
+  getRewardScoreForApplication,
+  isFractionOpenForMarketplace,
 } from "@/hooks";
 import {
   PointsShopIcon,
@@ -382,42 +392,209 @@ function NextListingCountdownPanel({
 }
 
 /**
- * STEP 02 — Delegate GLW to Solar Farms. When the launchpad is LIVE this shows
- * the real launchpad listing cards (which fill the column); otherwise it shows
- * the bespoke "next listing window" countdown panel above.
+ * STEP 02 — Delegate GLW to Solar Farms. Shows a card for the FIRST live GLW
+ * delegation in the current batch (image + reward score + est. weekly + a
+ * Delegate CTA). While the launchpad status / listings / score are still
+ * loading it shows a skeleton (never the countdown); only once we know there is
+ * no live delegation does it fall back to the "next listing window" countdown.
  */
 function DelegateSlide({
   onPayDeposit,
   onBuyGlowClick,
-  isApproaching,
 }: {
   onPayDeposit: React.ComponentProps<
     typeof LaunchpadStatusWidget
   >["onPayDeposit"];
   onBuyGlowClick: () => void;
+  // Still accepted from the parent step host; the listing card no longer needs
+  // the approaching flag (the countdown fallback covers the pre-live window).
   isApproaching: boolean;
 }) {
   const { t } = useLang();
-  const { isLive, nextBatchAtMs } = useLaunchpadStatus();
+  const { isLive, isLoading: statusLoading, nextBatchAtMs } =
+    useLaunchpadStatus();
+
+  // No-arg call matches useLaunchpadStatus's useGlowLaunchpad query exactly, so
+  // this shares its cache instead of triggering a second fetch.
+  const { applications: delegationApps, isLoading: delegationsLoading } =
+    useGlowLaunchpad();
+  const { spotPriceUsd } = useGlowSpotPriceSummary();
+
+  // First public, in-stock GLW delegation in the live batch (if any).
+  const firstDelegation = React.useMemo(() => {
+    const publicApps = filterPublicLaunchpadApplications(delegationApps);
+    return (
+      publicApps.find((a) =>
+        isFractionOpenForMarketplace(a.activeFraction),
+      ) ?? null
+    );
+  }, [delegationApps]);
+
+  const scoreApps = React.useMemo(
+    () => (firstDelegation ? [firstDelegation] : []),
+    [firstDelegation],
+  );
+  const { rewardScoreMap, isLoading: scoreLoading } = useRewardScore({
+    applications: scoreApps,
+    paymentCurrency: "GLW",
+    forceCurrency: "GLW",
+    enabled: scoreApps.length > 0,
+  });
+
+  const card = React.useMemo(() => {
+    if (!firstDelegation) return null;
+    const score = getRewardScoreForApplication(
+      rewardScoreMap,
+      firstDelegation.id,
+    );
+    // Per-unit rewards via the SAME helper the live launchpad card uses, so the
+    // GLW amount and its USD value (1e6-scaled by the API) match exactly.
+    const totalShares = resolveLaunchpadDelegationUnitCount(
+      firstDelegation,
+      "GLW",
+    );
+    const perShare =
+      score && totalShares
+        ? calculateLaunchpadPerShareRewards({
+            reward: score,
+            totalShares,
+            delegationCurrency: "GLW",
+            glwSpotPrice: spotPriceUsd || 0,
+          })
+        : null;
+    return {
+      application: firstDelegation,
+      // The deposit dialog only reads these two fields for a GLW delegation.
+      scoreData: score
+        ? {
+            userWeeklyGlwRewards: score.userWeeklyGlwRewards,
+            userWeeklyPdRewards: score.userWeeklyPdRewards,
+          }
+        : null,
+      rewardScore: score ? score.rewardScore : null,
+      weeklyGlw: perShare ? perShare.totalGlwPerShare : null,
+      weeklyUsd:
+        perShare && perShare.totalUsdPerShare > 0
+          ? perShare.totalUsdPerShare
+          : null,
+      image: firstDelegation.afterInstallPictures?.[0]?.url ?? "",
+      farmName: firstDelegation.farmName || "Solar farm",
+      region: firstDelegation.zone?.name ?? "",
+    };
+  }, [firstDelegation, rewardScoreMap, spotPriceUsd]);
+
+  // Skeleton while the launchpad status / listings / first score resolve, so we
+  // never flash the countdown before we know whether a delegation is live.
+  const loading =
+    statusLoading ||
+    delegationsLoading ||
+    (firstDelegation != null && scoreLoading && card?.rewardScore == null);
 
   return (
-    <div className={SLIDE_GRID}>
+    <div className="grid flex-1 grid-cols-1 gap-6 lg:grid-cols-[1.4fr_1.6fr] lg:items-stretch">
       <SlideHeader
         kicker={t.onboarding.delegate.kicker}
         title={t.onboarding.delegate.title}
       >
         {t.onboarding.delegate.body}
       </SlideHeader>
-      <div className="flex lg:col-span-2">
-        {isLive ? (
+
+      <div className="flex min-w-0">
+        {loading ? (
+          <DelegateCardSkeleton />
+        ) : card ? (
           <WidgetErrorBoundary>
-            <LaunchpadStatusWidget
-              className="h-full w-full"
-              variant="minimal"
-              forcedType="delegations"
-              isApproaching={isApproaching}
-              onPayDeposit={onPayDeposit}
-            />
+            <div className="group flex h-full w-full flex-col overflow-hidden rounded-2xl border border-border/20 bg-card transition-[border-color] duration-300 hover:border-border/40 dark:border-border/40 dark:bg-card">
+              <div className="relative m-3 mb-0 aspect-[3/2] overflow-hidden rounded-xl sm:aspect-[16/9] lg:aspect-[5/2]">
+                <FallbackImage
+                  src={card.image}
+                  widthForProxy={800}
+                  quality={85}
+                  alt={`${card.farmName} solar farm`}
+                  className="h-full w-full object-cover outline outline-1 -outline-offset-1 outline-black/10 transition-transform duration-700 group-hover:scale-105 dark:outline-white/10"
+                />
+                <div className="absolute inset-0 rounded-xl bg-gradient-to-b from-black/40 via-transparent to-transparent" />
+                <div className="absolute left-3 top-3 z-10 sm:left-4 sm:top-4">
+                  <div className="flex items-center gap-1.5 rounded-full border border-purple-400/50 bg-white/90 px-2.5 py-1 text-[10px] font-semibold text-foreground backdrop-blur-xl sm:gap-2 sm:px-3 sm:py-1.5 sm:text-xs dark:bg-black/60 dark:text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-purple-400" />
+                    {t.widgets.launchpadStatus.delegation}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-1 flex-col px-4 pb-5 pt-4 sm:p-5 lg:p-5">
+                <div className="mb-3 flex items-start gap-3">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="line-clamp-1 text-balance text-xl font-bold tracking-tight text-foreground">
+                      {card.farmName}
+                    </h3>
+                    {card.region && (
+                      <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground sm:mt-1.5 sm:text-sm">
+                        <MapPin className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" />
+                        <span className="truncate">{card.region}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-auto grid auto-rows-fr grid-cols-2 gap-2">
+                  <div className="flex min-w-0 flex-col rounded-lg bg-muted/30 p-3 lg:px-2.5 lg:py-2 dark:bg-muted/50">
+                    <span className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                      {t.onboarding.delegate.rewardScore}
+                    </span>
+                    <span className="font-mono text-xl font-bold leading-tight tabular-nums text-foreground lg:text-lg">
+                      {card.rewardScore != null
+                        ? Math.round(card.rewardScore)
+                        : "—"}
+                    </span>
+                  </div>
+
+                  <div className="flex min-w-0 flex-col rounded-lg bg-muted/30 p-3 lg:px-2.5 lg:py-2 dark:bg-muted/50">
+                    <div className="mb-1 flex items-center gap-1">
+                      <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                        {t.onboarding.delegate.estWeekly}
+                      </span>
+                      <HelpCircle className="h-2.5 w-2.5 text-muted-foreground/60 sm:h-3 sm:w-3" />
+                    </div>
+                    <div className="flex flex-wrap items-baseline gap-1">
+                      <span className="font-mono text-xl font-bold leading-tight tabular-nums text-foreground lg:text-lg">
+                        {card.weeklyGlw != null
+                          ? `+${card.weeklyGlw.toFixed(1)}`
+                          : "—"}
+                      </span>
+                      <span className="text-xs font-medium text-muted-foreground">
+                        GLW
+                        {card.weeklyUsd != null
+                          ? ` · $${card.weeklyUsd.toFixed(2)}`
+                          : ""}
+                      </span>
+                    </div>
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {t.onboarding.delegate.forWeeks}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <Button
+                    className="h-12 w-full rounded-xl text-sm font-semibold"
+                    onClick={() =>
+                      onPayDeposit?.(
+                        {
+                          ...card.application,
+                          _type: "delegations",
+                        } as TaggedAuctionApplication,
+                        card.scoreData,
+                        "GLW",
+                      )
+                    }
+                  >
+                    {t.onboarding.delegate.cta}
+                    <ArrowUpRight className="ml-1.5 h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
           </WidgetErrorBoundary>
         ) : (
           <NextListingCountdownPanel
@@ -425,6 +602,27 @@ function DelegateSlide({
             onBuyGlowClick={onBuyGlowClick}
           />
         )}
+      </div>
+    </div>
+  );
+}
+
+/** Card-shaped placeholder so the delegate step shows a skeleton (not the
+ * countdown) while the live batch + reward score are still loading. */
+function DelegateCardSkeleton() {
+  return (
+    <div className="flex h-full w-full flex-col overflow-hidden rounded-2xl border border-border/20 bg-card dark:border-border/40 dark:bg-card">
+      <div className="m-3 mb-0 aspect-[3/2] sm:aspect-[16/9] lg:aspect-[5/2]">
+        <Skeleton className="h-full w-full rounded-xl" />
+      </div>
+      <div className="flex flex-1 flex-col px-4 pb-5 pt-4 sm:p-5 lg:p-5">
+        <Skeleton className="mb-2 h-6 w-2/3 rounded" />
+        <Skeleton className="mb-4 h-4 w-1/3 rounded" />
+        <div className="mt-auto grid grid-cols-2 gap-2">
+          <Skeleton className="h-[68px] rounded-lg" />
+          <Skeleton className="h-[68px] rounded-lg" />
+        </div>
+        <Skeleton className="mt-4 h-12 w-full rounded-xl" />
       </div>
     </div>
   );

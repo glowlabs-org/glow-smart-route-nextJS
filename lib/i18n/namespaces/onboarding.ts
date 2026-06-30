@@ -29,6 +29,10 @@ export interface OnboardingStrings {
     kicker: string;
     title: string;
     body: string;
+    rewardScore: string;
+    estWeekly: string;
+    forWeeks: string;
+    cta: string;
   };
   countdown: {
     nextWindow: string;
@@ -111,6 +115,10 @@ const en: OnboardingStrings = {
     kicker: "Delegation",
     title: "Delegate GLW to Solar Farms",
     body: "Each solar farm produces a variable amount of rewards based on how competitive it is. By delegating GLW to a farm you endorse its participation in Glow, and you earn rewards (or penalties) based on how competitive that farm is.",
+    rewardScore: "Reward Score",
+    estWeekly: "Est. weekly",
+    forWeeks: "for 100 weeks",
+    cta: "Delegate GLW",
   },
   countdown: {
     nextWindow: "Next listing window",
@@ -193,6 +201,10 @@ const ko: OnboardingStrings = {
     kicker: "위임",
     title: "태양광 발전소에 GLW 위임하기",
     body: "각 태양광 발전소는 경쟁력에 따라 변동하는 리워드를 생성합니다. 발전소에 GLW를 위임하면 해당 발전소의 Glow 참여를 지지하게 되며, 발전소의 경쟁력에 따라 리워드(또는 페널티)를 받게 됩니다.",
+    rewardScore: "리워드 점수",
+    estWeekly: "주간 예상",
+    forWeeks: "100주 동안",
+    cta: "GLW 위임",
   },
   countdown: {
     nextWindow: "다음 상장 시점",
@@ -275,6 +287,10 @@ const zh: OnboardingStrings = {
     kicker: "委托",
     title: "向太阳能电站委托 GLW",
     body: "每个太阳能电站根据其竞争力产生数量不等的奖励。通过向电站委托 GLW，你即表示支持其参与 Glow，并根据该电站的竞争力获得奖励（或惩罚）。",
+    rewardScore: "奖励分数",
+    estWeekly: "预计每周",
+    forWeeks: "持续 100 周",
+    cta: "委托 GLW",
   },
   countdown: {
     nextWindow: "下一个上线窗口",
