@@ -847,10 +847,6 @@ export interface RoutesStrings {
     successDelegationComplete: string;
     successPurchaseSubtitle: string;
     successDelegationSubtitle: string;
-    /** Shown on the purchase-success screen when the buyer already had a
-     * position on this farm, so the new shares merge into the existing My Farms
-     * card rather than appearing as a new one. */
-    successAddedToExisting: string;
     successLeft: (n: string) => string;
     successAlreadyFilled: string;
     successYourContribution: string;
@@ -1912,8 +1908,6 @@ const en: RoutesStrings = {
     successPurchaseComplete: "Purchase Complete!",
     successDelegationComplete: "Delegation Complete!",
     successPurchaseSubtitle: "You helped accelerate real-world solar deployment.",
-    successAddedToExisting:
-      "If you already hold this farm, these stack onto its existing card on the My Farms tab rather than appearing as a new one.",
     successDelegationSubtitle: "You just activated real-world solar rewards.",
     successLeft: (n) => `${n} left`,
     successAlreadyFilled: "Already filled",
@@ -2974,8 +2968,6 @@ const ko: RoutesStrings = {
     successPurchaseComplete: "구매 완료!",
     successDelegationComplete: "위임 완료!",
     successPurchaseSubtitle: "실제 솔라 배치 가속화에 기여하셨습니다.",
-    successAddedToExisting:
-      "이미 이 팜을 보유 중이라면, 이 지분은 새 카드가 아니라 My Farms 탭의 기존 카드에 합산됩니다.",
     successDelegationSubtitle: "실제 솔라 리워드를 활성화하셨습니다.",
     successLeft: (n) => `${n}개 남음`,
     successAlreadyFilled: "이미 채워짐",
@@ -4044,8 +4036,6 @@ const zh: RoutesStrings = {
     successPurchaseComplete: "购买完成!",
     successDelegationComplete: "委托完成!",
     successPurchaseSubtitle: "您加速了真实世界的太阳能部署。",
-    successAddedToExisting:
-      "如果您已持有该农场，这些份额会合并到 My Farms 标签页的现有卡片上，而不是新建一张卡片。",
     successDelegationSubtitle: "您刚刚激活了真实世界的太阳能奖励。",
     successLeft: (n) => `剩余 ${n} 个`,
     successAlreadyFilled: "已满额",

@@ -1341,6 +1341,18 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
     );
   }
 
+  // Early access only matters while at least one shown listing is still being
+  // revealed early (its PUBLIC visible-at — `marketplaceVisibleAt` — is in the
+  // future). Once it's past 9 AM and the listings are public, the banner is
+  // noise, so hide it.
+  const nowMs = getLaunchpadNowMs();
+  const hasEarlyAccessReveal = allRows.some((row) => {
+    const publicVisibleAtMs = Date.parse(
+      row.application.activeFraction?.marketplaceVisibleAt ?? "",
+    );
+    return Number.isFinite(publicVisibleAtMs) && nowMs < publicVisibleAtMs;
+  });
+
   return (
     <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-8 space-y-4">
       {/* Filter tabs (left) + asset filter dropdown (top right) */}
@@ -1479,8 +1491,9 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
         )}
       </div>
 
-      {/* V2 miner early access: opt-in unlock banner for entitled wallets */}
-      {activeMinerEntitlement ? (
+      {/* V2 early access: opt-in unlock banner for entitled wallets — only
+          while listings are still being revealed early (hidden once public). */}
+      {activeMinerEntitlement && hasEarlyAccessReveal ? (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[color:var(--color-miner)]/30 bg-[color:var(--color-miner)]/10 px-4 py-3">
           <div className="flex items-center gap-2.5">
             <Sparkles className="h-4 w-4 shrink-0 text-[color:var(--color-miner-contrast)]" />

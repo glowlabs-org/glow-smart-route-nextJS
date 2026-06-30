@@ -1010,7 +1010,10 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
     <div
       className={cn(
         "rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 transition-colors",
-        isPendingStart && "border-border/30 dark:border-border/50"
+        // New-this-week buys (pending start) get a glow ring so a fresh purchase
+        // stands out at the top of the list.
+        isPendingStart &&
+          "ring-2 ring-emerald-500/50 dark:ring-[color:var(--color-glow-green)]/60 border-border/30 dark:border-border/50"
       )}
     >
       {/* MOBILE CARD */}
@@ -2530,8 +2533,14 @@ export function FarmsPerformanceDialogContent({
       filtered = filtered.filter((r) => r.type === "delegation");
     if (filter === "other")
       filtered = filtered.filter((r) => r.type === "other");
-    // Sort by Total Value % (High performance first)
+    // Sort by Total Value % (High performance first), but float new-this-week
+    // buys (pending start) to the very top so a fresh purchase is visible.
     return filtered.sort((a, b) => {
+      const aNew = Boolean(a.isPendingStart);
+      const bNew = Boolean(b.isPendingStart);
+      if (aNew && !bNew) return -1;
+      if (!aNew && bNew) return 1;
+
       const totalA = a.recovered + a.inflation;
       const totalB = b.recovered + b.inflation;
 

@@ -1759,11 +1759,6 @@ export function DepositDialog({
                 ? dd.successPurchaseSubtitle
                 : dd.successDelegationSubtitle}
             </div>
-            {hasExistingMinerOrDelegation && (
-              <div className="text-xs sm:text-sm font-medium text-emerald-700 dark:text-[color:var(--color-glow-green)]">
-                {dd.successAddedToExisting}
-              </div>
-            )}
           </div>
 
           {effectiveApplication?.activeFraction && successMetrics ? (

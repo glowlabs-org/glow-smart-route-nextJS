@@ -668,6 +668,16 @@ interface FarmCardData {
   pendingPurchaseDate?: string | null;
 }
 
+/** A farm the user acquired (or added to) THIS week: a fresh pending-start
+ * position, or one a recent purchase merged into. These float to the top of the
+ * list and get a glow ring so a brand-new buy is immediately visible. */
+function isFarmNewThisWeek(card: {
+  recentlyAddedNote?: string | null;
+  isPendingStart?: boolean;
+}): boolean {
+  return Boolean(card.recentlyAddedNote) || Boolean(card.isPendingStart);
+}
+
 interface FarmListRowProps {
   farm: FarmCardData;
   onClick: () => void;
@@ -892,7 +902,11 @@ function FarmMosaicCard({ farm, onClick }: FarmMosaicCardProps) {
   return (
     <Card
       data-farm-id={farm.farmId}
-      className="group relative overflow-hidden cursor-pointer bg-muted/30 dark:bg-muted/50 hover:bg-muted/50 dark:hover:bg-muted/60 transition-colors border-border/20 dark:border-border/40 p-0 gap-0 h-full"
+      className={cn(
+        "group relative overflow-hidden cursor-pointer bg-muted/30 dark:bg-muted/50 hover:bg-muted/50 dark:hover:bg-muted/60 transition-colors border-border/20 dark:border-border/40 p-0 gap-0 h-full",
+        isFarmNewThisWeek(farm) &&
+          "ring-2 ring-emerald-500/50 dark:ring-[color:var(--color-glow-green)]/60",
+      )}
       onClick={onClick}
     >
       <div className="relative h-full aspect-square w-full overflow-hidden bg-muted/20">
@@ -1073,7 +1087,11 @@ function FarmCard({
   return (
     <Card
       data-farm-id={farm.farmId}
-      className="group relative overflow-hidden cursor-pointer bg-muted/30 dark:bg-muted/50 hover:bg-muted/50 dark:hover:bg-muted/60 transition-colors border-border/20 dark:border-border/40 p-0 gap-0"
+      className={cn(
+        "group relative overflow-hidden cursor-pointer bg-muted/30 dark:bg-muted/50 hover:bg-muted/50 dark:hover:bg-muted/60 transition-colors border-border/20 dark:border-border/40 p-0 gap-0",
+        isFarmNewThisWeek(farm) &&
+          "ring-2 ring-emerald-500/50 dark:ring-[color:var(--color-glow-green)]/60",
+      )}
       onClick={onClick}
     >
       <div
@@ -3057,8 +3075,8 @@ export default function MyFarmsGridSection({
       case "date":
         // Newest first
         return cards.sort((a, b) => {
-          const isAPending = a.isPendingStart || a.type === "in-progress";
-          const isBPending = b.isPendingStart || b.type === "in-progress";
+          const isAPending = isFarmNewThisWeek(a) || a.type === "in-progress";
+          const isBPending = isFarmNewThisWeek(b) || b.type === "in-progress";
 
           if (isAPending && !isBPending) return -1;
           if (!isAPending && isBPending) return 1;
@@ -3071,8 +3089,12 @@ export default function MyFarmsGridSection({
         });
       default:
         return cards.sort((a, b) => {
-          if (a.isPendingStart && !b.isPendingStart) return -1;
-          if (!a.isPendingStart && b.isPendingStart) return 1;
+          // New-this-week buys (a fresh pending position or a merged purchase)
+          // float to the very top so the user sees what they just bought.
+          const aNew = isFarmNewThisWeek(a);
+          const bNew = isFarmNewThisWeek(b);
+          if (aNew && !bNew) return -1;
+          if (!aNew && bNew) return 1;
           if (a.type === "in-progress" && b.type !== "in-progress") return -1;
           if (a.type !== "in-progress" && b.type === "in-progress") return 1;
           const totalA = a.recovered + a.inflationGlw;
@@ -3289,7 +3311,11 @@ export default function MyFarmsGridSection({
                   <TableRow
                     key={farm.farmKey}
                     data-farm-id={farm.farmId}
-                    className="cursor-pointer border-border/20 dark:border-border/40 hover:bg-muted/50 dark:hover:bg-muted/60 transition-colors group"
+                    className={cn(
+                      "cursor-pointer border-border/20 dark:border-border/40 hover:bg-muted/50 dark:hover:bg-muted/60 transition-colors group",
+                      isFarmNewThisWeek(farm) &&
+                        "ring-2 ring-inset ring-emerald-500/40 dark:ring-[color:var(--color-glow-green)]/50",
+                    )}
                     onClick={() => {
                       trackEvent("dashboard_my_farm_click", {
                         source,
