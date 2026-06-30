@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import { useGlowLaunchpad, useMiningCenter } from "@/hooks";
+import { useMinerEarlyAccessSignature } from "@/hooks/v2-early-access";
 import {
   getNextLaunchpadDelegationBatchAtET,
   getNextMiningCenterBatchAtET,
@@ -41,17 +42,26 @@ function getLaunchpadBatchSchedule(): LaunchpadBatchSchedule {
 }
 
 export function useLaunchpadStatus(): LaunchpadStatus {
+  // An UNLOCKED early-access wallet sends its signed header so the backend
+  // returns the per-wallet early `visibleAt`. That flips `isLive` and the
+  // available counts up to the pass window before the public 9 AM open, which
+  // is what actually reveals the listings early (and lets the countdown's early
+  // target line up with a real live state instead of stalling at 00:00:00).
+  const earlyAccess = useMinerEarlyAccessSignature();
   const {
     applications: launchpadApplications,
     isLoading: isLaunchpadLoading,
     isError: isLaunchpadError,
-  } = useGlowLaunchpad();
+  } = useGlowLaunchpad({ earlyAccessHeader: earlyAccess.header });
 
   const {
     applications: minersApplications,
     isLoading: isMinersLoading,
     isError: isMinersError,
-  } = useMiningCenter({ filters: { paymentCurrency: "USDC" } });
+  } = useMiningCenter({
+    filters: { paymentCurrency: "USDC" },
+    earlyAccessHeader: earlyAccess.header,
+  });
 
   const isLoading = isLaunchpadLoading || isMinersLoading;
   const isError = isLaunchpadError || isMinersError;

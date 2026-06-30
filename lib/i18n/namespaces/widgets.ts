@@ -753,9 +753,9 @@ const en: WidgetStrings = {
       "Launchpad listings and miners all open at Tuesday 9:00 AM ET. GLW and sGCTL delegations go live together in the same window.",
     earlyAccessBadge: "Early access",
     earlyAccessActive: (minutes) =>
-      `Early access active. Miner windows open ${minutes} minutes early.`,
+      `Early access active. Listings open ${minutes} minutes early.`,
     earlyAccessAvailable: (minutes) =>
-      `You have miner early access. Unlock to see windows ${minutes} minutes early.`,
+      `You have early access. Unlock to see listings ${minutes} minutes early.`,
     earlyAccessUnlock: "Unlock early access",
     earlyAccessUnlocking: "Unlocking",
   },
@@ -1477,9 +1477,9 @@ const ko: WidgetStrings = {
       "런치패드 등록과 마이너는 모두 화요일 오전 9시(동부시간)에 오픈됩니다. GLW와 sGCTL 위임이 동일한 창에서 함께 시작됩니다.",
     earlyAccessBadge: "얼리 액세스",
     earlyAccessActive: (minutes) =>
-      `얼리 액세스가 활성화되었습니다. 마이너 창이 ${minutes}분 일찍 열립니다.`,
+      `얼리 액세스가 활성화되었습니다. 리스팅이 ${minutes}분 일찍 열립니다.`,
     earlyAccessAvailable: (minutes) =>
-      `마이너 얼리 액세스가 있습니다. 잠금을 해제하면 창을 ${minutes}분 일찍 볼 수 있습니다.`,
+      `얼리 액세스 권한이 있습니다. 잠금을 해제하면 리스팅을 ${minutes}분 일찍 볼 수 있습니다.`,
     earlyAccessUnlock: "얼리 액세스 잠금 해제",
     earlyAccessUnlocking: "잠금 해제 중",
   },
@@ -2199,9 +2199,9 @@ const zh: WidgetStrings = {
       "启动板列表和矿机均于美东时间周二上午 9:00 开放。GLW 与 sGCTL 委托在同一窗口同时上线。",
     earlyAccessBadge: "抢先体验",
     earlyAccessActive: (minutes) =>
-      `抢先体验已激活。矿工窗口将提前 ${minutes} 分钟开放。`,
+      `抢先体验已激活。列表将提前 ${minutes} 分钟开放。`,
     earlyAccessAvailable: (minutes) =>
-      `您拥有矿工抢先体验权限。解锁后可提前 ${minutes} 分钟查看窗口。`,
+      `您拥有抢先体验权限。解锁后可提前 ${minutes} 分钟查看列表。`,
     earlyAccessUnlock: "解锁抢先体验",
     earlyAccessUnlocking: "解锁中",
   },

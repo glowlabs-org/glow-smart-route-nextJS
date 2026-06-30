@@ -285,18 +285,21 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
   const [selectedScoreDataForStats, setSelectedScoreDataForStats] =
     React.useState<LaunchpadRewardScore | MiningCenterScore | null>(null);
 
+  // V2 early access: an entitled wallet that signs (opt-in) sees BOTH delegation
+  // and mining-center listings up to its window before public visibility. The
+  // signed header makes the backend return this wallet's early `visibleAt`, so
+  // it must be sent on the delegations fetch too (not just miners).
+  const earlyAccessQuery = useV2EarlyAccess(address);
+  const minerEarlyAccess = useMinerEarlyAccessSignature();
+
   // Fetch delegations
   const {
     applications: delegationApplications,
     isLoading: isDelegationsLoading,
   } = useGlowLaunchpad({
     filters: { includeFilled: true },
+    earlyAccessHeader: minerEarlyAccess.header,
   });
-
-  // V2 miner early access: an entitled wallet that signs (opt-in) sees
-  // mining-center listings up to its window before public visibility.
-  const earlyAccessQuery = useV2EarlyAccess(address);
-  const minerEarlyAccess = useMinerEarlyAccessSignature();
   const activeMinerEntitlement = React.useMemo(
     () =>
       (earlyAccessQuery.data?.entitlements ?? []).find(
@@ -1751,11 +1754,13 @@ export default function LaunchpadStatusWidget({
   } = useGlowLaunchpad({
     filters: { includeFilled: true },
     enabled: delegationsEnabled,
+    earlyAccessHeader: earlyAccess.header,
   });
   const { applications: minerApplications, isLoading: isMinersLoading } =
     useMiningCenter({
       filters: { paymentCurrency: "USDC", includeFilled: true },
       enabled: minersEnabled,
+      earlyAccessHeader: earlyAccess.header,
     });
 
   const publicDelegationApplications = React.useMemo(
