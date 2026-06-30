@@ -180,19 +180,53 @@ async function buildCardData(
 
   const estimate = await estimateRewardScore(app, variant);
   const unitCount = variant === "sgctl" ? sgctlUnitCount : totalStepsGlw;
-  const denom = unitCount > 0 ? unitCount : 1;
+  // A unit's weekly reward is its DOLLAR share of the FULL protocol deposit, not
+  // 1/legUnits. On a mixed (GLW+sGCTL) listing the leg's units fund only part of
+  // the deposit, so dividing the full-deposit emission by the leg's unit count
+  // overstates per-unit rewards. Mirror the CRM publish dialog: scale the farm
+  // total by unitUsd6 / fullDepositUsd6. (GLW-only listings are unchanged, since
+  // there legUnits * unitUsd6 == fullDepositUsd6.)
+  const fullDepositUsd6 = parseBigIntSafe(app.finalProtocolFee);
+  const unitUsd6 = (() => {
+    const priceUsd6 =
+      variant === "sgctl"
+        ? parseBigIntSafe(app.applicationPriceQuotes?.[0]?.prices?.GCTL ?? null)
+        : parseBigIntSafe(app.applicationPriceQuotes?.[0]?.prices?.GLW ?? null);
+    if (priceUsd6 == null || priceUsd6 <= 0n) return null;
+    if (variant === "sgctl") {
+      const atomic = parseBigIntSafe(app.activeFraction?.sgctlStepAtomic ?? null);
+      return atomic != null ? (atomic * priceUsd6) / 1_000_000n : null;
+    }
+    const step = parseBigIntSafe(
+      app.activeFraction?.step ?? app.activeFraction?.stepPrice,
+    );
+    return step != null ? (step * priceUsd6) / 10n ** 18n : null;
+  })();
 
   let glwPerUnit = "0";
   let pdPerUnit = "0";
-  if (estimate) {
+  if (
+    estimate &&
+    unitUsd6 != null &&
+    unitUsd6 > 0n &&
+    fullDepositUsd6 != null &&
+    fullDepositUsd6 > 0n
+  ) {
+    const unitUsd6Dec = new Decimal(unitUsd6.toString());
+    const depositUsd6Dec = new Decimal(fullDepositUsd6.toString());
+
     const glwTotalWei = new Decimal(estimate.userWeeklyGlwRewards || "0");
-    const glwPerUnitWei = glwTotalWei.div(denom).toFixed(0, Decimal.ROUND_DOWN);
-    glwPerUnit = formatPerUnit(glwPerUnitWei, 18, variant === "sgctl" ? 2 : 2);
+    const glwPerUnitWei = glwTotalWei
+      .mul(unitUsd6Dec)
+      .div(depositUsd6Dec)
+      .toFixed(0, Decimal.ROUND_DOWN);
+    glwPerUnit = formatPerUnit(glwPerUnitWei, 18, 2);
 
     const pdDecimals = variant === "sgctl" ? 6 : 18;
     const pdTotalAtomic = new Decimal(estimate.userWeeklyPdRewards || "0");
     const pdPerUnitAtomic = pdTotalAtomic
-      .div(denom)
+      .mul(unitUsd6Dec)
+      .div(depositUsd6Dec)
       .toFixed(0, Decimal.ROUND_DOWN);
     pdPerUnit = formatPerUnit(pdPerUnitAtomic, pdDecimals, 2);
   }
