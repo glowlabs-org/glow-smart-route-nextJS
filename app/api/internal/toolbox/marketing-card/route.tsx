@@ -91,26 +91,24 @@ async function estimateRewardScore(
   const targetUsd6 = app.finalProtocolFee;
   if (!targetUsd6) return null;
 
-  const protocolDepositAmount =
-    variant === "sgctl"
-      ? (() => {
-          const unitCount = computeSgctlUnitCount(app);
-          const atomic = parseBigIntSafe(fraction.sgctlStepAtomic ?? null);
-          if (!atomic || unitCount <= 0) return null;
-          return (atomic * BigInt(unitCount)).toString();
-        })()
-      : (() => {
-          const step = parseBigIntSafe(fraction.step ?? fraction.stepPrice);
-          const steps = fraction.totalSteps ?? 0;
-          if (!step || steps <= 0) return null;
-          return (step * BigInt(steps)).toString();
-        })();
-  if (!protocolDepositAmount) return null;
-
   const paymentCurrencyPriceUsd6 =
     variant === "sgctl"
       ? app.applicationPriceQuotes?.[0]?.prices?.GCTL ?? undefined
       : app.applicationPriceQuotes?.[0]?.prices?.GLW ?? undefined;
+
+  // Estimate against the FULL protocol deposit (not just this leg) in the payment
+  // currency, so PD recovery and the reward score reflect the whole farm deposit
+  // and match the CRM publish dialog. PD recovery is proportional to the deposit
+  // principal, so passing only the leg understates it (and skews the score). The
+  // per-unit slice in buildCardData then scales this by unitUsd6 / fullDepositUsd6.
+  const fullDepositUsd6 = parseBigIntSafe(targetUsd6);
+  const priceUsd6 = parseBigIntSafe(paymentCurrencyPriceUsd6 ?? null);
+  if (fullDepositUsd6 == null || priceUsd6 == null || priceUsd6 <= 0n) return null;
+  const protocolDepositAmount = (
+    variant === "sgctl"
+      ? (fullDepositUsd6 * 1_000_000n) / priceUsd6
+      : (fullDepositUsd6 * 10n ** 18n) / priceUsd6
+  ).toString();
 
   if (!app.zone) return null;
   try {
