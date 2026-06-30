@@ -1660,10 +1660,66 @@ export default function LaunchpadStatusWidget({
   const isFlow = variant === "flow";
   const isMinimal = variant === "minimal";
 
+  // V2 Early Access Pass surfaced in the COUNTDOWN state: an entitled wallet can
+  // unlock (sign) during the countdown, which shifts the countdown target earlier
+  // by its window and reveals listings early. Mirrors FullRowLaunchpadGrid.
+  const earlyAccessQuery = useV2EarlyAccess(address);
+  const earlyAccess = useMinerEarlyAccessSignature();
+  const activeEntitlement = React.useMemo(
+    () =>
+      (earlyAccessQuery.data?.entitlements ?? []).find(
+        (e) => e.active && (e.scope === "launch" || e.scope === "miner"),
+      ) ?? null,
+    [earlyAccessQuery.data],
+  );
+  const earlyAccessMinutes = activeEntitlement?.earlyAccessMinutes ?? 15;
+  // Shift the countdown only once UNLOCKED (signed) — that is when the backend
+  // actually reveals listings early. The indicator shows for any entitled wallet
+  // so it can unlock during the countdown.
+  const earlyAccessUnlocked =
+    Boolean(activeEntitlement) && earlyAccess.isUnlocked;
+  const effectiveNextBatchAtMs =
+    earlyAccessUnlocked && earlyAccessMinutes > 0
+      ? nextBatchAtMs - earlyAccessMinutes * 60_000
+      : nextBatchAtMs;
+
+  const earlyAccessIndicator = activeEntitlement ? (
+    <div className="flex flex-wrap items-center justify-center gap-2.5 rounded-full border border-[color:var(--color-miner)]/30 bg-[color:var(--color-miner)]/10 px-4 py-2">
+      <Sparkles className="h-4 w-4 shrink-0 text-[color:var(--color-miner-contrast)]" />
+      <span className="text-sm font-medium text-foreground">
+        {earlyAccess.isUnlocked
+          ? t.widgets.launchpadStatus.earlyAccessActive(earlyAccessMinutes)
+          : t.widgets.launchpadStatus.earlyAccessAvailable(earlyAccessMinutes)}
+      </span>
+      {!earlyAccess.isUnlocked ? (
+        <Button
+          type="button"
+          size="sm"
+          disabled={earlyAccess.isSigning}
+          onClick={async () => {
+            const ok = await earlyAccess.unlock();
+            if (ok) {
+              trackEvent("early_access_used", {
+                source,
+                wallet_connected: isConnected,
+                wallet_address: walletAddress,
+                early_access_minutes: earlyAccessMinutes,
+              });
+            }
+          }}
+        >
+          {earlyAccess.isSigning
+            ? t.widgets.launchpadStatus.earlyAccessUnlocking
+            : t.widgets.launchpadStatus.earlyAccessUnlock}
+        </Button>
+      ) : null}
+    </div>
+  ) : null;
+
   const internalIsApproaching = React.useMemo(() => {
     if (isLive) return false;
     const now = getLaunchpadNowMs();
-    const timeUntilLive = nextBatchAtMs - now;
+    const timeUntilLive = effectiveNextBatchAtMs - now;
     // Stay in the approaching state within 1h of launch AND through the
     // publishing grace window so the UI keeps showing the countdown (at
     // 00:00:00) instead of flashing educational explainers while we wait
@@ -1672,7 +1728,7 @@ export default function LaunchpadStatusWidget({
       timeUntilLive <= ONE_HOUR_MS &&
       timeUntilLive > -LAUNCHPAD_PUBLISHING_GRACE_MS
     );
-  }, [isLive, nextBatchAtMs]);
+  }, [isLive, effectiveNextBatchAtMs]);
 
   const effectiveIsApproaching = isApproaching || internalIsApproaching;
   // Consolidated launch window: miners and delegations now share one Tuesday
@@ -1763,7 +1819,7 @@ export default function LaunchpadStatusWidget({
   }, [invalidateSponsorListings]);
 
   const remainingMs = useCountdownTo({
-    targetAtMs: nextBatchAtMs,
+    targetAtMs: effectiveNextBatchAtMs,
     onComplete: handleCountdownComplete,
   });
 
@@ -1773,9 +1829,9 @@ export default function LaunchpadStatusWidget({
   // "stops at 00:00:00, nothing happens until you reload" bug.
   React.useEffect(() => {
     const now = getLaunchpadNowMs();
-    const graceEndsAt = nextBatchAtMs + LAUNCHPAD_PUBLISHING_GRACE_MS;
+    const graceEndsAt = effectiveNextBatchAtMs + LAUNCHPAD_PUBLISHING_GRACE_MS;
 
-    if (now < nextBatchAtMs) return; // still before launch
+    if (now < effectiveNextBatchAtMs) return; // still before launch
     if (isLive) {
       refreshNextBatchAtMs();
       return;
@@ -1794,7 +1850,12 @@ export default function LaunchpadStatusWidget({
       window.clearInterval(pollId);
       window.clearTimeout(expireId);
     };
-  }, [isLive, nextBatchAtMs, invalidateSponsorListings, refreshNextBatchAtMs]);
+  }, [
+    isLive,
+    effectiveNextBatchAtMs,
+    invalidateSponsorListings,
+    refreshNextBatchAtMs,
+  ]);
 
   const priceLabel = React.useMemo(
     () => formatUsdPrice(spotPriceUsd),
@@ -2097,6 +2158,7 @@ export default function LaunchpadStatusWidget({
                 <div className="text-lg md:text-xl font-medium text-muted-foreground uppercase tracking-wider">
                   {t.widgets.launchpadStatus.newListingsIn}
                 </div>
+                {earlyAccessIndicator}
                 <div className="font-mono font-bold tracking-tighter tabular-nums text-foreground">
                   <div className="sm:hidden">
                     <AnimatedCountdownDhms
@@ -2218,6 +2280,7 @@ export default function LaunchpadStatusWidget({
                     : t.widgets.launchpadStatus.newSolarFarmListingIn}
                 </CardTitle>
               ) : null}
+              {earlyAccessIndicator}
               <div className="font-mono font-bold tracking-tighter tabular-nums text-foreground">
                 <div className="sm:hidden">
                   <AnimatedCountdownDhms
