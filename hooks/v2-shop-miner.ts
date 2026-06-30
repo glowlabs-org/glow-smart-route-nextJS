@@ -259,9 +259,21 @@ export interface ShopMinerHolding {
 function purchaseToMinerSource(
   row: V2ShopPurchaseRow,
 ): { farmId: string; glowSplit6: string; valueUsd: number } | null {
-  const g = row.grant;
-  // Defensive: a malformed or not-yet-fulfilled purchase row can carry a null
-  // grant (e.g. an admin-inserted early-access row). Never crash My Farms on it.
+  // The grant can arrive DOUBLE-ENCODED (a JSON *string* of the grant object)
+  // from the API — reading `.kind`/`.splitTransferRef` off a string yields
+  // undefined and silently drops the shop miner — so parse a string first. A
+  // null/malformed grant is simply skipped (never crash; e.g. an admin row).
+  const rawGrant: unknown = row.grant;
+  const g: V2ShopPurchaseRow["grant"] | null =
+    typeof rawGrant === "string"
+      ? (() => {
+          try {
+            return JSON.parse(rawGrant) as V2ShopPurchaseRow["grant"];
+          } catch {
+            return null;
+          }
+        })()
+      : (rawGrant as V2ShopPurchaseRow["grant"] | null);
   if (g && g.kind === "miner" && g.splitTransferRef) {
     return {
       farmId: g.splitTransferRef.farmId,
