@@ -103,19 +103,19 @@ function getShareWattsLabel(watts: number): { value: string; unit: string } {
   return { value: Math.round(watts).toLocaleString(), unit: "W" };
 }
 
-function getShareHomesLabel(homesPowered: number): {
+function getShareHomesLabel(
+  homesPowered: number,
+  ledBulbsPowered: number
+): {
   value: string;
   unit: string;
   count: number;
 } {
   if (homesPowered < 1) {
-    const bulbCount = homesPowered * 40;
     return {
-      value: bulbCount.toLocaleString(undefined, {
-        maximumFractionDigits: 1,
-      }),
+      value: ledBulbsPowered.toLocaleString(),
       unit: "bulbs",
-      count: bulbCount,
+      count: ledBulbsPowered,
     };
   }
   return {
@@ -624,21 +624,41 @@ export default function SolarCollectorWidget({
       let cumulative = 0;
       return sorted.map((f) => {
         cumulative += Number(f.wattsTotal);
+        const date = new Date(f.fundedAt);
         return {
           week: 0,
-          date: new Date(f.fundedAt),
+          date,
+          ts: date.getTime(),
           watts: Math.round(cumulative),
           panels: (cumulative / WATTS_PER_PANEL).toFixed(1),
         };
       });
     }
-    return model.weeklyHistory.map((item) => ({
-      week: item.weekNumber,
-      date: weekToDate(item.weekNumber),
-      watts: item.cumulativeWatts,
-      panels: (item.cumulativeWatts / WATTS_PER_PANEL).toFixed(1),
-    }));
+    return model.weeklyHistory.map((item) => {
+      const date = weekToDate(item.weekNumber);
+      return {
+        week: item.weekNumber,
+        date,
+        ts: date.getTime(),
+        watts: item.cumulativeWatts,
+        panels: (item.cumulativeWatts / WATTS_PER_PANEL).toFixed(1),
+      };
+    });
   }, [v2ImpactQuery.data?.farms, model.weeklyHistory]);
+
+  // The footprint x-axis is a real time scale (not a category band), so farms
+  // funded in the same window sit at their true positions instead of being
+  // spread evenly and collapsing to identical month labels. When the whole
+  // history spans a short window we show the day; otherwise month + year, so
+  // ticks are never all-identical (the "every label says Oct" bug) and years
+  // stay distinguishable.
+  const growthSpanDays = React.useMemo(() => {
+    const times = growthData
+      .map((d) => d.ts)
+      .filter((n) => Number.isFinite(n));
+    if (times.length < 2) return 0;
+    return (Math.max(...times) - Math.min(...times)) / 86_400_000;
+  }, [growthData]);
 
   const impactPowerTrendData = React.useMemo(() => {
     const allRids = new Set<number>();
@@ -752,7 +772,10 @@ export default function SolarCollectorWidget({
     try {
       const shareTitle = "My Solar Footprint on Glow";
       const shareWatts = getShareWattsLabel(model.totalWatts);
-      const shareHomes = getShareHomesLabel(impact.homesPowered);
+      const shareHomes = getShareHomesLabel(
+        impact.homesPowered,
+        impact.ledBulbsPowered
+      );
       const shareText = [
         `My network contributions have captured ${shareWatts.value}${shareWatts.unit} of verified solar on @GlowFND ☀️`,
         "",
@@ -996,12 +1019,7 @@ export default function SolarCollectorWidget({
               <div className="flex items-baseline gap-1">
                 <span className="font-mono text-xl md:text-2xl font-bold tracking-tight text-foreground tabular-nums">
                   {impact.homesPowered < 1
-                    ? (impact.homesPowered * 40).toLocaleString(
-                        undefined,
-                        {
-                          maximumFractionDigits: 1,
-                        }
-                      )
+                    ? impact.ledBulbsPowered.toLocaleString()
                     : impact.homesPowered.toLocaleString()}
                 </span>
                 <span className="text-sm font-mono text-muted-foreground">
@@ -1257,15 +1275,21 @@ export default function SolarCollectorWidget({
                   >
                     <CartesianGrid vertical={false} strokeDasharray="3 3" />
                     <XAxis
-                      dataKey="date"
+                      dataKey="ts"
+                      type="number"
+                      scale="time"
+                      domain={["dataMin", "dataMax"]}
                       tickLine={false}
                       axisLine={false}
                       tickMargin={8}
                       minTickGap={32}
-                      tickFormatter={(value) =>
-                        value.toLocaleDateString("en-US", {
-                          month: "short",
-                        })
+                      tickFormatter={(value: number) =>
+                        new Date(value).toLocaleDateString(
+                          "en-US",
+                          growthSpanDays <= 60
+                            ? { month: "short", day: "numeric" }
+                            : { month: "short", year: "2-digit" }
+                        )
                       }
                     />
                     <YAxis

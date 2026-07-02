@@ -93,6 +93,7 @@ export interface SolarCollectorModel {
     annualEnergyKwh: number;
     treesEquivalent: number;
     homesPowered: number;
+    ledBulbsPowered: number;
   };
   weeklyHistory: SolarCollectorStatsResponse["weeklyHistory"];
   weeklyPowerHistory: SolarCollectorStatsResponse["weeklyPowerHistory"];
@@ -148,6 +149,15 @@ export function calculateImpact(totalWatts: number) {
   const homesPowered =
     Math.round((avgContinuousPowerKw / US_HOME_KW_CONTINUOUS) * 10) / 10;
 
+  // 3b. Metric: LED Lightbulbs Powered (shown instead of homes for sub-home
+  // footprints). Derived straight from continuous watts at the 9W LED figure
+  // the tooltip advertises — NOT from `homesPowered`, whose 0.1-home rounding
+  // quantized the bulb count into steps of 40 and badly understated it.
+  const LED_BULB_WATTS = 9;
+  const ledBulbsPowered = Math.round(
+    (avgContinuousPowerKw * 1000) / LED_BULB_WATTS
+  );
+
   // 4. Metric: Trees Equivalent
   // Formula: annualTonnesCO2 / 0.022
   const annualTonnesCO2 =
@@ -156,7 +166,7 @@ export function calculateImpact(totalWatts: number) {
     annualTonnesCO2 / TONNES_CO2_PER_YEAR_PER_TREE
   );
 
-  return { annualEnergyKwh, treesEquivalent, homesPowered };
+  return { annualEnergyKwh, treesEquivalent, homesPowered, ledBulbsPowered };
 }
 
 async function fetchSolarCollectorApi<T>(params: {
@@ -264,7 +274,12 @@ export function useSolarCollectorQuery(args: {
         multiplier: 1,
         strongholdRegionId: null,
         recentDrop: null,
-        impact: { annualEnergyKwh: 0, treesEquivalent: 0, homesPowered: 0 },
+        impact: {
+          annualEnergyKwh: 0,
+          treesEquivalent: 0,
+          homesPowered: 0,
+          ledBulbsPowered: 0,
+        },
         weeklyHistory: [],
         weeklyPowerHistory: [],
         wattsByRegion: {},
@@ -288,7 +303,12 @@ export function useSolarCollectorQuery(args: {
         multiplier: 1,
         strongholdRegionId: null,
         recentDrop: null,
-        impact: { annualEnergyKwh: 0, treesEquivalent: 0, homesPowered: 0 },
+        impact: {
+          annualEnergyKwh: 0,
+          treesEquivalent: 0,
+          homesPowered: 0,
+          ledBulbsPowered: 0,
+        },
         weeklyHistory: [],
         weeklyPowerHistory: [],
         wattsByRegion: {},
