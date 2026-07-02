@@ -613,6 +613,13 @@ export default function SolarCollectorWidget({
   // solar-collector weekly model only while the V2 payload is still loading.
   const growthData = React.useMemo(() => {
     const farms = v2ImpactQuery.data?.farms;
+    let points: {
+      week: number;
+      date: Date;
+      ts: number;
+      watts: number;
+      panels: string;
+    }[];
     if (farms) {
       const sorted = farms
         .filter((f) => f.fundedAt && Number(f.wattsTotal) > 0)
@@ -622,7 +629,7 @@ export default function SolarCollectorWidget({
             new Date(a.fundedAt).getTime() - new Date(b.fundedAt).getTime(),
         );
       let cumulative = 0;
-      return sorted.map((f) => {
+      points = sorted.map((f) => {
         cumulative += Number(f.wattsTotal);
         const date = new Date(f.fundedAt);
         return {
@@ -633,17 +640,30 @@ export default function SolarCollectorWidget({
           panels: (cumulative / WATTS_PER_PANEL).toFixed(1),
         };
       });
+    } else {
+      points = model.weeklyHistory.map((item) => {
+        const date = weekToDate(item.weekNumber);
+        return {
+          week: item.weekNumber,
+          date,
+          ts: date.getTime(),
+          watts: item.cumulativeWatts,
+          panels: (item.cumulativeWatts / WATTS_PER_PANEL).toFixed(1),
+        };
+      });
     }
-    return model.weeklyHistory.map((item) => {
-      const date = weekToDate(item.weekNumber);
-      return {
-        week: item.weekNumber,
-        date,
-        ts: date.getTime(),
-        watts: item.cumulativeWatts,
-        panels: (item.cumulativeWatts / WATTS_PER_PANEL).toFixed(1),
-      };
-    });
+
+    // Extend the curve flat to today so the x-axis ends on the current date,
+    // not on the last funded farm. Cumulative watts don't change between
+    // fundings, so the segment from the latest addition to now is flat.
+    if (points.length > 0) {
+      const last = points[points.length - 1];
+      const nowTs = Date.now();
+      if (nowTs > last.ts) {
+        points.push({ ...last, date: new Date(nowTs), ts: nowTs });
+      }
+    }
+    return points;
   }, [v2ImpactQuery.data?.farms, model.weeklyHistory]);
 
   // The footprint x-axis is a real time scale (not a category band), so farms
@@ -1271,7 +1291,7 @@ export default function SolarCollectorWidget({
                 >
                   <AreaChart
                     data={growthData}
-                    margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                    margin={{ top: 10, right: 10, left: 12, bottom: 0 }}
                   >
                     <CartesianGrid vertical={false} strokeDasharray="3 3" />
                     <XAxis
