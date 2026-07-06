@@ -687,6 +687,9 @@ const REGION_COLORS: Record<string, string> = {
   "Steadfast Idaho": "#14b8a6",
   "Noble Oklahoma": "#ec4899",
   "Ratan Rajasthan": "#eab308",
+  "Shimmering Michigan": "#ef4444",
+  "Thriving Lebanon": "#6366f1",
+  "Eternal Florida": "#84cc16",
 };
 const DEFAULT_REGION_COLOR = "#94a3b8";
 

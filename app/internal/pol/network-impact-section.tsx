@@ -25,6 +25,9 @@ const ZONE_COLORS: Record<string, string> = {
   "Shining Missouri": "#f59e0b",
   "Steadfast Idaho": "#14b8a6",
   "Ratan Rajasthan": "#eab308",
+  "Shimmering Michigan": "#a855f7",
+  "Thriving Lebanon": "#84cc16",
+  "Eternal Florida": "#f472b6",
 };
 
 const FALLBACK_COLORS = [
@@ -51,6 +54,9 @@ const ZONE_SHORT_LABELS: Record<string, string> = {
   "Shining Missouri": "MO",
   "Steadfast Idaho": "ID",
   "Ratan Rajasthan": "RJ",
+  "Shimmering Michigan": "MI",
+  "Thriving Lebanon": "LB",
+  "Eternal Florida": "FL",
   Unassigned: "UN",
 };
 
