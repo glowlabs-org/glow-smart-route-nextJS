@@ -1204,7 +1204,7 @@ export function ClaimsPanel({
   variant = "dialog",
   className,
 }: ClaimsPanelProps = {}) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const { address, isConnected, connector } = useAccount();
   const chainId = useChainId();
   const { data: walletClient } = useWalletClient();
@@ -2689,7 +2689,12 @@ export function ClaimsPanel({
                           {t.claims.weekLabel(weekData.week)}
                         </div>
                         <div className="text-[10px] font-mono text-muted-foreground/50 dark:text-muted-foreground/70">
-                          {formatWeekDate(weekData.week)}
+                          {formatRewardPipelineDate(weekData.unlockMs, {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                            locale: getBcp47(lang),
+                          })}
                         </div>
                       </div>
                       <Badge
