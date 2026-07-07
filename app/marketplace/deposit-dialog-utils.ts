@@ -1418,10 +1418,42 @@ export interface SuccessMetrics {
 export function calculateSuccessMetrics(
   activeFraction: ActiveFraction,
   quantity: number,
-  selectedCurrency?: DepositSelectedCurrency | null
+  selectedCurrency?: DepositSelectedCurrency | null,
+  // Optional: the wallet's CUMULATIVE units in the current leg (GLW steps or
+  // sGCTL units) AFTER this transaction, sourced from the refreshed
+  // splits-by-wallet summary. When provided, the ring highlights the wallet's
+  // whole participation instead of just this transaction's slice, keeping the
+  // total fill (filledBeforeSteps + userSteps) unchanged. When omitted, the
+  // legacy this-tx-only behavior is preserved.
+  userCumulativeStepsInLeg?: number
 ): SuccessMetrics | null {
   try {
     const userSteps = Math.max(0, Math.floor(quantity));
+
+    // Re-slice a default metrics result so `userSteps` reflects the wallet's
+    // cumulative units in the leg while the overall fill stays constant. The
+    // pre-purchase snapshot lumps the wallet's prior delegations into
+    // filledBeforeSteps; here we move exactly that overlap back into userSteps.
+    const applyCumulative = (metrics: SuccessMetrics): SuccessMetrics => {
+      if (
+        userCumulativeStepsInLeg == null ||
+        !Number.isFinite(userCumulativeStepsInLeg)
+      ) {
+        return metrics;
+      }
+      const filledAfter = metrics.filledBeforeSteps + metrics.userSteps;
+      const cumulative = Math.max(0, Math.floor(userCumulativeStepsInLeg));
+      const cappedUserSteps = Math.min(metrics.totalSteps, cumulative);
+      const filledBeforeSteps = Math.max(
+        0,
+        Math.min(metrics.totalSteps, filledAfter - cappedUserSteps)
+      );
+      return {
+        totalSteps: metrics.totalSteps,
+        filledBeforeSteps,
+        userSteps: cappedUserSteps,
+      };
+    };
 
     const isSgctlLeg =
       (selectedCurrency === "SGCTL" ||
@@ -1444,11 +1476,11 @@ export function calculateSuccessMetrics(
           ? Math.max(0, Math.floor(sgctl.soldUnits))
           : null;
       if (totalUnits != null && totalUnits > 0 && soldUnits != null) {
-        return {
+        return applyCumulative({
           totalSteps: totalUnits,
           filledBeforeSteps: Math.min(totalUnits, soldUnits),
           userSteps,
-        };
+        });
       }
       // Fallback (older payloads exposing only remainingUnits, no total/sold):
       // the user buys FROM the units that were available, so the ring is their
@@ -1456,11 +1488,11 @@ export function calculateSuccessMetrics(
       // remaining + userSteps, which double-counts the purchase and wrongly
       // shows "N left" after buying all N). Math.max guards userSteps > remaining.
       const remainingUnits = Math.max(0, Math.floor(sgctl.remainingUnits));
-      return {
+      return applyCumulative({
         totalSteps: Math.max(remainingUnits, userSteps),
         filledBeforeSteps: 0,
         userSteps,
-      };
+      });
     }
 
     const totalSteps = resolveLaunchpadRewardShareCountForDialog(
@@ -1487,11 +1519,11 @@ export function calculateSuccessMetrics(
       }
     }
 
-    return {
+    return applyCumulative({
       totalSteps,
       filledBeforeSteps,
       userSteps,
-    };
+    });
   } catch {
     return null;
   }

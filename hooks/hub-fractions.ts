@@ -639,9 +639,13 @@ export interface FractionSplitsResponse {
   summary: {
     totalTransactions: number;
     totalStepsPurchased: number;
+    glwStepsPurchased: number;
+    sgctlUnitsPurchased: number;
     totalAmountSpent: string;
   };
 }
+
+export type FractionSplitsSummary = FractionSplitsResponse["summary"];
 
 export function useFractionSplits(params: {
   walletAddress: string | null;
@@ -675,6 +679,8 @@ export function useFractionSplits(params: {
             summary: {
               totalTransactions: 0,
               totalStepsPurchased: 0,
+              glwStepsPurchased: 0,
+              sgctlUnitsPurchased: 0,
               totalAmountSpent: "0",
             },
           },
@@ -688,6 +694,8 @@ export function useFractionSplits(params: {
     summary: query.data?.summary || {
       totalTransactions: 0,
       totalStepsPurchased: 0,
+      glwStepsPurchased: 0,
+      sgctlUnitsPurchased: 0,
       totalAmountSpent: "0",
     },
     isLoading: query.isLoading,

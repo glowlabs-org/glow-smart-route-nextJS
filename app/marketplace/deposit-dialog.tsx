@@ -60,7 +60,7 @@ import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
 import { publicClient } from "@/web3/web3/clients/publicClient";
 import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-warning-dialog";
 import { toast } from "sonner";
-import { useFractionSplits } from "@/hooks";
+import { useFractionSplits, type FractionSplitsSummary } from "@/hooks";
 import { addresses } from "@/web3/constants/addresses";
 import { useSwapUSDCToUSDG } from "@/hooks/useSwapUSDCToUSDG";
 import { useSwap } from "@/hooks/useSwap";
@@ -1447,9 +1447,9 @@ export function DepositDialog({
   };
 
   const confirmPurchaseInSplits = React.useCallback(
-    async (expectedAdditionalSteps: number) => {
+    async (expectedAdditionalSteps: number): Promise<FractionSplitsSummary> => {
       const initialPurchased = splitsSummary?.totalStepsPurchased || 0;
-      let confirmed = false;
+      let confirmedSummary: FractionSplitsSummary | null = null;
 
       for (let i = 0; i < 30; i += 1) {
         await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -1462,14 +1462,18 @@ export function DepositDialog({
             expectedAdditionalSteps,
           )
         ) {
-          confirmed = true;
+          confirmedSummary = res.data.summary;
           break;
         }
       }
 
-      if (!confirmed) {
+      if (!confirmedSummary) {
         throw new Error(SPLIT_CONFIRMATION_DELAYED_MESSAGE);
       }
+      // Return the refreshed summary so the caller can highlight the wallet's
+      // CUMULATIVE per-leg units (glwStepsPurchased / sgctlUnitsPurchased) in
+      // the success ring instead of only this transaction's slice.
+      return confirmedSummary;
     },
     [refetchSplits, splitsSummary?.totalStepsPurchased],
   );

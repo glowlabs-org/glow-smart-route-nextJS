@@ -20,7 +20,11 @@ import { bucketUsd } from "@/lib/telemetry-buckets";
 import { getStoredReferralAttribution } from "@/lib/referral-attribution";
 import { useLang } from "@/lib/i18n";
 import { type StepStatus } from "@/components/transaction-stepper";
-import { useSponsorApplication, type AuctionApplication } from "@/hooks";
+import {
+  useSponsorApplication,
+  type AuctionApplication,
+  type FractionSplitsSummary,
+} from "@/hooks";
 import {
   fetchWeeklyReportData,
   getHotWalletAddress,
@@ -77,6 +81,22 @@ export type Phase =
   | "success"
   | "error"
   | "pending_confirmation";
+
+/**
+ * The wallet's CUMULATIVE units in the CURRENT delegation leg after a
+ * successful transaction, read from the refreshed splits-by-wallet summary.
+ * The sGCTL and GLW legs are counted in different units (sGCTL units vs GLW
+ * steps) and must never be summed, so pick the field matching the leg. USDC
+ * (miner) purchases live on the GLW-step leg.
+ */
+function resolveLegCumulativeSteps(
+  summary: FractionSplitsSummary,
+  currency: DepositSelectedCurrency,
+): number {
+  return currency === "SGCTL"
+    ? summary.sgctlUnitsPurchased
+    : summary.glwStepsPurchased;
+}
 
 interface UseDepositConfirmDeps {
   application: AuctionApplication | null;
@@ -161,7 +181,9 @@ interface UseDepositConfirmDeps {
       clearStartedAt?: boolean;
     },
   ) => void;
-  confirmPurchaseInSplits: (expectedAdditionalSteps: number) => Promise<void>;
+  confirmPurchaseInSplits: (
+    expectedAdditionalSteps: number,
+  ) => Promise<FractionSplitsSummary>;
 
   dd: ReturnType<typeof useLang>["t"]["routes"]["depositDialog"];
 }
@@ -461,7 +483,7 @@ export function useDepositConfirm(deps: UseDepositConfirmDeps) {
         updateStepStatus("DELEGATE_SGCTL", "completed");
         updateStepStatus("CONFIRM_TX", "confirming");
 
-        await confirmPurchaseInSplits(quantity);
+        const confirmedSplitsSummary = await confirmPurchaseInSplits(quantity);
         const confirmedApplication =
           (await fetchLatestApplication()) ?? currentApplication;
         setLiveApplication(confirmedApplication);
@@ -470,6 +492,10 @@ export function useDepositConfirm(deps: UseDepositConfirmDeps) {
             activeFraction,
             quantity,
             runtimeSelectedCurrency,
+            resolveLegCumulativeSteps(
+              confirmedSplitsSummary,
+              runtimeSelectedCurrency,
+            ),
           ),
         );
 
@@ -809,7 +835,24 @@ export function useDepositConfirm(deps: UseDepositConfirmDeps) {
 
       void (async () => {
         try {
-          await confirmPurchaseInSplits(quantity);
+          const confirmedSplitsSummary =
+            await confirmPurchaseInSplits(quantity);
+          // Re-slice the success ring once the refreshed splits summary is
+          // available: highlight the wallet's CUMULATIVE units in the current
+          // leg instead of only this transaction's slice. The immediate
+          // this-tx ring set above stays visible until this resolves.
+          const cumulativeMetrics = calculateSuccessMetrics(
+            activeFraction,
+            quantity,
+            runtimeSelectedCurrency,
+            resolveLegCumulativeSteps(
+              confirmedSplitsSummary,
+              runtimeSelectedCurrency,
+            ),
+          );
+          if (cumulativeMetrics) {
+            setSuccessMetrics(cumulativeMetrics);
+          }
           const confirmedApplication =
             (await fetchLatestApplication()) ?? optimisticApplication;
           setLiveApplication(confirmedApplication);
