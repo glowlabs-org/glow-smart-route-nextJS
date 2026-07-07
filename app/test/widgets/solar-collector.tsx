@@ -1005,6 +1005,16 @@ export default function SolarCollectorWidget({
                   GCTL
                 </span>
               </div>
+              {formatCompact(gctl.walletBalanceGctl) !== "0" && (
+                <div className="mt-1.5 flex items-baseline gap-1.5">
+                  <span className="font-mono text-sm font-bold tabular-nums text-glow-orange">
+                    {formatCompact(gctl.walletBalanceGctl)}
+                  </span>
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                    {t.widgets.gctlHeatmap.freeToStake}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Homes Powered */}

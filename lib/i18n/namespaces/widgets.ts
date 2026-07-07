@@ -354,6 +354,7 @@ export interface WidgetStrings {
     mintAndStake: string;
     mintGctl: string;
     myHoldings: string;
+    freeToStake: string;
     liquidSuffix: string;
     activeSuffix: string;
     availableSuffix: string;
@@ -1066,6 +1067,7 @@ const en: WidgetStrings = {
     mintAndStake: "Mint & Stake GCTL",
     mintGctl: "Mint GCTL",
     myHoldings: "My Holdings",
+    freeToStake: "Free to stake",
     liquidSuffix: "Liquid",
     activeSuffix: "Active",
     availableSuffix: "Available",
@@ -1791,6 +1793,7 @@ const ko: WidgetStrings = {
     mintAndStake: "GCTL 발행 및 스테이킹",
     mintGctl: "GCTL 발행",
     myHoldings: "내 보유량",
+    freeToStake: "스테이킹 가능",
     liquidSuffix: "유동",
     activeSuffix: "활성",
     availableSuffix: "사용 가능",
@@ -2510,6 +2513,7 @@ const zh: WidgetStrings = {
     mintAndStake: "铸造并质押 GCTL",
     mintGctl: "铸造 GCTL",
     myHoldings: "我的持仓",
+    freeToStake: "可质押",
     liquidSuffix: "流动",
     activeSuffix: "活跃",
     availableSuffix: "可用",
