@@ -1039,8 +1039,15 @@ export function initializeTransactionSteps(
   selectedPaymentMethod: DepositPaymentMethod,
   options?: { sgctlSource?: SgctlSourceMode }
 ): TransactionStep[] {
+  // Paying with unclaimed GLW rewards is NOT a swap: the reward GLW is claimed
+  // then delegated (execution uses the BUY_FRACTIONS/DELEGATE_GLW path, see
+  // useDepositConfirm's isSwapDelegate). Excluding it here keeps the displayed
+  // steps in sync with execution; otherwise the dialog showed USDC->USDG->GLW
+  // swap steps for the "use unclaimed rewards" option.
   const isSwapDelegate =
-    selectedCurrency === "GLW" && selectedPaymentMethod !== "GLW";
+    selectedCurrency === "GLW" &&
+    selectedPaymentMethod !== "GLW" &&
+    selectedPaymentMethod !== "UNCLAIMED_REWARDS";
 
   const steps: TransactionStep[] = [];
 
