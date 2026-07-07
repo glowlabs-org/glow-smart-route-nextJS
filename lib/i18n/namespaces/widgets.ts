@@ -251,6 +251,7 @@ export interface WidgetStrings {
     tooltipFallback: string;
     tooltipLiquid: string;
     tooltipDelegated: string;
+    tooltipPendingDelegation: string;
     tooltipPendingRecovery: string;
     tooltipUnclaimed: string;
   };
@@ -962,6 +963,7 @@ const en: WidgetStrings = {
     tooltipFallback: "GLW worth",
     tooltipLiquid: "Liquid",
     tooltipDelegated: "Actively delegated",
+    tooltipPendingDelegation: "Pending delegation",
     tooltipPendingRecovery: "Pending recovery",
     tooltipUnclaimed: "Unclaimed",
   },
@@ -1688,6 +1690,7 @@ const ko: WidgetStrings = {
     tooltipFallback: "GLW 자산",
     tooltipLiquid: "유동",
     tooltipDelegated: "활성 위임",
+    tooltipPendingDelegation: "위임 대기분",
     tooltipPendingRecovery: "회수 대기분",
     tooltipUnclaimed: "미청구",
   },
@@ -2409,6 +2412,7 @@ const zh: WidgetStrings = {
     tooltipFallback: "GLW 净值",
     tooltipLiquid: "流动",
     tooltipDelegated: "已委托",
+    tooltipPendingDelegation: "待委托",
     tooltipPendingRecovery: "待回收",
     tooltipUnclaimed: "未领取",
   },

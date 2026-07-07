@@ -9,6 +9,8 @@ export interface DialogsStrings {
     liquidSublabel: string;
     delegatedLabel: string;
     delegatedSublabel: string;
+    pendingDelegatedLabel: string;
+    pendingDelegatedSublabel: string;
     pendingRecoveryLabel: string;
     pendingRecoverySublabel: string;
     unclaimedLabel: string;
@@ -216,6 +218,9 @@ const en: DialogsStrings = {
     delegatedLabel: "Actively delegated GLW",
     delegatedSublabel:
       "Principal still locked in farm delegations. Less than your initial delegation (recovery has been earned), but includes recent on-chain delegations not yet in the protocol's split history.",
+    pendingDelegatedLabel: "Pending delegation",
+    pendingDelegatedSublabel:
+      "GLW you delegated to a farm that's still funding. It has left your wallet but the vault isn't assigned yet, so it counts here until funding completes.",
     pendingRecoveryLabel: "Pending recovery",
     pendingRecoverySublabel:
       "Protocol deposit recovery earned but not yet claimable",
@@ -412,6 +417,9 @@ const ko: DialogsStrings = {
     delegatedLabel: "활성 위임 GLW",
     delegatedSublabel:
       "농장 위임에 잠겨 있는 원금. 회수가 진행되어 초기 위임액보다 적지만, 아직 프로토콜 스플릿 히스토리에 반영되지 않은 최근 온체인 위임이 포함됩니다.",
+    pendingDelegatedLabel: "위임 대기분",
+    pendingDelegatedSublabel:
+      "아직 펀딩 중인 농장에 위임한 GLW입니다. 지갑에서 빠져나갔지만 볼트가 아직 배정되지 않아 펀딩이 완료될 때까지 여기에 표시됩니다.",
     pendingRecoveryLabel: "회수 대기분",
     pendingRecoverySublabel:
       "획득했지만 아직 클레임할 수 없는 프로토콜 디포짓 회수분",
@@ -606,6 +614,9 @@ const zh: DialogsStrings = {
     delegatedLabel: "活跃委托的 GLW",
     delegatedSublabel:
       "仍锁定在农场委托中的本金。低于您最初的委托额（已赚取部分回收），但包含尚未计入协议拆分历史的近期链上委托。",
+    pendingDelegatedLabel: "待委托",
+    pendingDelegatedSublabel:
+      "您委托给尚在募资中的农场的 GLW。已离开您的钱包但金库尚未分配，因此在募资完成前计入此处。",
     pendingRecoveryLabel: "待回收",
     pendingRecoverySublabel: "已赚取但尚不可领取的协议存款回收",
     unclaimedLabel: "未领取奖励",

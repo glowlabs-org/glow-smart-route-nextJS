@@ -79,12 +79,14 @@ export interface ImpactGlowWorthResponse {
   walletAddress: string;
   liquidGlwWei: string;
   delegatedActiveGlwWei: string;
+  pendingDelegatedGlwWei?: string;
   pendingRecoveredGlwWei?: string;
   unclaimedGlwRewardsWei: string;
   glowWorthWei: string;
   dataSources?: {
     liquidGlw?: string;
     delegatedActiveGlw?: string;
+    pendingDelegatedGlw?: string;
     pendingRecoveredGlw?: string;
     unclaimedGlwRewards?: string;
   };

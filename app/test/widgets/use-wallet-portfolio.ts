@@ -20,6 +20,7 @@ export interface GlowWorthPoint {
   isCurrent?: boolean;
   liquidGlw?: number;
   delegatedActiveGlw?: number;
+  pendingDelegatedGlw?: number;
   pendingRecoveredGlw?: number;
   unclaimedGlwRewards?: number;
 }
@@ -207,6 +208,9 @@ export function useWalletPortfolio(params: {
   const impactDelegatedActiveGlw = React.useMemo(() => {
     return parseGlwFromWei(impactGlowWorth?.delegatedActiveGlwWei);
   }, [impactGlowWorth?.delegatedActiveGlwWei]);
+  const impactPendingDelegatedGlw = React.useMemo(() => {
+    return parseGlwFromWei(impactGlowWorth?.pendingDelegatedGlwWei);
+  }, [impactGlowWorth?.pendingDelegatedGlwWei]);
   const impactPendingRecoveredGlw = React.useMemo(() => {
     return parseGlwFromWei(impactGlowWorth?.pendingRecoveredGlwWei);
   }, [impactGlowWorth?.pendingRecoveredGlwWei]);
@@ -235,6 +239,7 @@ export function useWalletPortfolio(params: {
       glowWorthGlw,
       liquidGlw: impactLiquidGlw,
       delegatedActiveGlw: impactDelegatedActiveGlw,
+      pendingDelegatedGlw: impactPendingDelegatedGlw,
       pendingRecoveredGlw: impactPendingRecoveredGlw,
       unclaimedGlwRewards: impactUnclaimedGlwRewards,
     };
@@ -242,6 +247,7 @@ export function useWalletPortfolio(params: {
     glowWorthGlw,
     hasWallet,
     impactDelegatedActiveGlw,
+    impactPendingDelegatedGlw,
     impactPendingRecoveredGlw,
     impactLiquidGlw,
     impactUnclaimedGlwRewards,
@@ -308,6 +314,7 @@ export function useWalletPortfolio(params: {
           isCurrent: true,
           liquidGlw: impactLiquidGlw,
           delegatedActiveGlw: impactDelegatedActiveGlw,
+          pendingDelegatedGlw: impactPendingDelegatedGlw,
           pendingRecoveredGlw: impactPendingRecoveredGlw,
           unclaimedGlwRewards: impactUnclaimedGlwRewards,
         },
@@ -325,6 +332,9 @@ export function useWalletPortfolio(params: {
       const delegatedActiveGlw = isCurrent
         ? impactDelegatedActiveGlw
         : undefined;
+      const pendingDelegatedGlw = isCurrent
+        ? impactPendingDelegatedGlw
+        : undefined;
       const pendingRecoveredGlw = isCurrent
         ? impactPendingRecoveredGlw
         : undefined;
@@ -338,6 +348,7 @@ export function useWalletPortfolio(params: {
         isCurrent,
         liquidGlw,
         delegatedActiveGlw,
+        pendingDelegatedGlw,
         pendingRecoveredGlw,
         unclaimedGlwRewards,
       };
@@ -349,6 +360,7 @@ export function useWalletPortfolio(params: {
     impactGlowWorth?.glowWorthWei,
     impactLiquidGlw,
     impactDelegatedActiveGlw,
+    impactPendingDelegatedGlw,
     impactPendingRecoveredGlw,
     impactUnclaimedGlwRewards,
   ]);
