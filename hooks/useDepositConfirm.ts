@@ -489,7 +489,7 @@ export function useDepositConfirm(deps: UseDepositConfirmDeps) {
         setLiveApplication(confirmedApplication);
         setSuccessMetrics(
           calculateSuccessMetrics(
-            activeFraction,
+            confirmedApplication?.activeFraction ?? activeFraction,
             quantity,
             runtimeSelectedCurrency,
             resolveLegCumulativeSteps(
@@ -837,12 +837,17 @@ export function useDepositConfirm(deps: UseDepositConfirmDeps) {
         try {
           const confirmedSplitsSummary =
             await confirmPurchaseInSplits(quantity);
+          const confirmedApplication =
+            (await fetchLatestApplication()) ?? optimisticApplication;
+          setLiveApplication(confirmedApplication);
           // Re-slice the success ring once the refreshed splits summary is
           // available: highlight the wallet's CUMULATIVE units in the current
-          // leg instead of only this transaction's slice. The immediate
-          // this-tx ring set above stays visible until this resolves.
+          // leg instead of only this transaction's slice. Use the fresh
+          // post-transaction fraction so the ring's total fill reflects the
+          // current sold count. The immediate this-tx ring set above stays
+          // visible until this resolves.
           const cumulativeMetrics = calculateSuccessMetrics(
-            activeFraction,
+            confirmedApplication?.activeFraction ?? activeFraction,
             quantity,
             runtimeSelectedCurrency,
             resolveLegCumulativeSteps(
@@ -853,9 +858,6 @@ export function useDepositConfirm(deps: UseDepositConfirmDeps) {
           if (cumulativeMetrics) {
             setSuccessMetrics(cumulativeMetrics);
           }
-          const confirmedApplication =
-            (await fetchLatestApplication()) ?? optimisticApplication;
-          setLiveApplication(confirmedApplication);
 
           await sponsorMutation.mutateAsync({
             applicationId: currentApplication.id,

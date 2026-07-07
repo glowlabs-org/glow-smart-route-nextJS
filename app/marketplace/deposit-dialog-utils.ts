@@ -1432,8 +1432,9 @@ export function calculateSuccessMetrics(
 
     // Re-slice a default metrics result so `userSteps` reflects the wallet's
     // cumulative units in the leg while the overall fill stays constant. The
-    // pre-purchase snapshot lumps the wallet's prior delegations into
-    // filledBeforeSteps; here we move exactly that overlap back into userSteps.
+    // fraction passed in is the fresh post-transaction snapshot, so
+    // filledBeforeSteps already reflects the current total sold (including this
+    // tx); the cumulative slice is carved OUT of that total, not added on top.
     const applyCumulative = (metrics: SuccessMetrics): SuccessMetrics => {
       if (
         userCumulativeStepsInLeg == null ||
@@ -1441,7 +1442,10 @@ export function calculateSuccessMetrics(
       ) {
         return metrics;
       }
-      const filledAfter = metrics.filledBeforeSteps + metrics.userSteps;
+      // Fresh post-transaction snapshot: filledBeforeSteps already reflects the
+      // current total sold; userSteps (the cumulative slice) is carved out of
+      // that total, not added on top.
+      const filledAfter = metrics.filledBeforeSteps;
       const cumulative = Math.max(0, Math.floor(userCumulativeStepsInLeg));
       const cappedUserSteps = Math.min(metrics.totalSteps, cumulative);
       const filledBeforeSteps = Math.max(
