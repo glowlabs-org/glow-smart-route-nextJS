@@ -78,7 +78,9 @@ export function WeeklyReportPanel({ week, className }: WeeklyReportPanelProps) {
         setWeeklyError(null);
 
         const baseWeek = week ?? Math.max(0, getFinalizedReportWeek());
-        const url = `https://pub-311748c72106476cbeabe0a22a59217d.r2.dev/weekly-report-week-${baseWeek}.json`;
+        // Same-origin proxy (see app/api/merkle-proof/[week]); never hit r2.dev
+        // directly — it is geo-blocked for some users.
+        const url = `/api/merkle-proof/${baseWeek}`;
         const res = await fetch(url, { cache: "no-store" });
         if (!res.ok)
           throw new Error(`Failed to fetch weekly report (${res.status})`);

@@ -8,9 +8,12 @@ import type {
 } from "@glowlabs-org/utils/browser";
 import { SDKAddresses } from "@/web3/constants/addresses";
 
-// Base URL for merkle proof data
-export const MERKLE_PROOF_BASE_URL =
-  "https://pub-311748c72106476cbeabe0a22a59217d.r2.dev";
+// Base URL for merkle proof data.
+// Served SAME-ORIGIN via a Next route that proxies the R2 bucket server-side
+// (app/api/merkle-proof/[week]). The browser must never hit `*.r2.dev` directly:
+// that domain is network-blocked by some ISPs/regions (e.g. Greece), which left
+// the claims panel stuck on "Loading proof…" for reachable-but-blocked users.
+export const MERKLE_PROOF_BASE_URL = "/api/merkle-proof";
 
 // Type definitions based on the provided structure
 export interface OffchainAssetEarned {
@@ -80,9 +83,19 @@ interface UseMerkleProofsResult {
 export async function fetchWeeklyReportData(
   week: number
 ): Promise<WeeklyReportData> {
-  const response = await fetch(
-    `${MERKLE_PROOF_BASE_URL}/weekly-report-week-${week}.json`
-  );
+  // Hard timeout so a blocked/hung request surfaces as an error (react-query can
+  // then retry / show a failure state) instead of an infinite "Loading proof…".
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25_000);
+
+  let response: Response;
+  try {
+    response = await fetch(`${MERKLE_PROOF_BASE_URL}/${week}`, {
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!response.ok) {
     throw new Error(`Failed to fetch merkle proof for week ${week}`);
