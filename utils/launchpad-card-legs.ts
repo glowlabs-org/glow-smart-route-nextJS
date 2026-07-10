@@ -49,12 +49,14 @@ export interface LaunchpadCardEntry<
 }
 
 /**
- * True when the listing has a PUBLIC `visibleAt` still in the future — i.e. an
- * entitled wallet is seeing it early. The early window covers the GLW leg only;
- * the sGCTL leg stays gated until this passes. Reads the public `visibleAt`
- * (the backend never shifts it for cache safety) and falls back to the legacy
- * `marketplaceVisibleAt`. Returns false when no visible-at is known (never
- * gate on a missing boundary).
+ * True when the listing is still before its PUBLIC visible-at, i.e. an entitled
+ * wallet is seeing it early. The early window covers miners + the GLW leg only;
+ * the sGCTL leg stays gated until the PUBLIC launch. Reads `marketplaceVisibleAt`
+ * FIRST because that field is always the public 9 AM slot: the backend shifts the
+ * consolidated `visibleAt` earlier for early-access reads (so `visibleAt` is NOT a
+ * safe public boundary here), but keeps `marketplaceVisibleAt` public. Falls back
+ * to `visibleAt` only when the public field is absent. Returns false when no
+ * visible-at is known (never gate on a missing boundary).
  */
 export function isBeforePublicVisibleAt(
   fraction:
@@ -64,9 +66,12 @@ export function isBeforePublicVisibleAt(
   nowMs?: number,
 ): boolean {
   if (!fraction) return false;
-  const visibleAt = fraction.visibleAt ?? fraction.marketplaceVisibleAt;
-  if (!visibleAt) return false;
-  const visibleAtMs = Date.parse(visibleAt);
+  // Public-first: marketplaceVisibleAt is never shifted; the consolidated
+  // visibleAt IS shifted earlier for early-access reads, so using it here would
+  // wrongly open the sGCTL leg ~15 min before the public launch.
+  const publicVisibleAt = fraction.marketplaceVisibleAt ?? fraction.visibleAt;
+  if (!publicVisibleAt) return false;
+  const visibleAtMs = Date.parse(publicVisibleAt);
   if (!Number.isFinite(visibleAtMs)) return false;
   return getLaunchpadNowMs(nowMs) < visibleAtMs;
 }

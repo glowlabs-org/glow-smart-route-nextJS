@@ -169,3 +169,35 @@ describe("expandLaunchpadCardEntries (two-tile + sGCTL freeze)", () => {
     expect(glw?.legSoldOut).toBe(true);
   });
 });
+
+describe("expandLaunchpadCardEntries early-access sGCTL gate (public-first visibleAt)", () => {
+  // The backend shifts the consolidated `visibleAt` earlier for an entitled
+  // early-access read (e.g. 8:45 ET) but keeps `marketplaceVisibleAt` PUBLIC
+  // (9:00 ET). The sGCTL leg must stay gated to the PUBLIC slot, not the shifted
+  // one, or an early-access wallet could buy sGCTL ~15 min before public launch.
+  const PUBLIC_AT = "2026-07-14T13:00:00.000Z"; // Tue 9:00 AM ET
+  const EARLY_AT = "2026-07-14T12:45:00.000Z"; // shifted 15 min -> 8:45 AM ET
+  const inEarlyWindowMs = Date.parse("2026-07-14T12:56:00.000Z"); // 8:56 ET
+  const atPublicMs = Date.parse(PUBLIC_AT);
+
+  const earlyRead = () =>
+    makeApp("early", { visibleAt: EARLY_AT, marketplaceVisibleAt: PUBLIC_AT });
+
+  function sgctlEntry(nowMs: number) {
+    const entries = expandLaunchpadCardEntries({
+      applications: [earlyRead()],
+      isSgctlEligible: allEligible,
+      isDelegation: allDelegations,
+      nowMs,
+    });
+    return entries.find((e) => e.leg === "SGCTL");
+  }
+
+  it("holds the sGCTL tile closed during the early window (uses public marketplaceVisibleAt, not the shifted visibleAt)", () => {
+    expect(sgctlEntry(inEarlyWindowMs)?.legNotYetOpen).toBe(true);
+  });
+
+  it("opens the sGCTL tile once the PUBLIC visible-at passes", () => {
+    expect(sgctlEntry(atPublicMs)?.legNotYetOpen).toBe(false);
+  });
+});
