@@ -14,8 +14,13 @@ import { toast } from "sonner";
 import { Button } from "./ui/button";
 import { useUSDGRedemption } from "@/hooks/useUSDGRedemption";
 import { toFixedTruncate } from "@/utils/toFixedTruncate";
-import { parseUnits } from "viem";
+import { formatUnits, parseUnits, type Address } from "viem";
 import { useLang, type Strings } from "@/lib/i18n";
+import { useEthGasPreflight } from "@/hooks/useEthGasPreflight";
+import { useSmartAccountCheck } from "@/hooks/useSmartAccountCheck";
+import { estimateSwapGasUnits } from "@/lib/transaction-gas";
+import { useTransactionOperationGuard } from "@/hooks/useTransactionOperationGuard";
+import { getTransactionOperationCancellation } from "@/lib/transaction-operation";
 
 type SwapLabels = Strings["swap"];
 
@@ -56,8 +61,16 @@ const buildDefaultPendingStates = (s: SwapLabels): PendingState[] => [
 export const UsdgToUsdcRedemptionDialog: FC<{
   isOpen: boolean;
   amountToRedeem: string;
+  quoteExpiresAt: number;
+  expectedAccount: Address;
   onOpenChange: (open: boolean) => void;
-}> = ({ isOpen, onOpenChange, amountToRedeem }) => {
+}> = ({
+  isOpen,
+  onOpenChange,
+  amountToRedeem,
+  quoteExpiresAt,
+  expectedAccount,
+}) => {
   const { t } = useLang();
   const s = t.swap;
   const [isPending, setIsPending] = React.useState(false);
@@ -74,14 +87,57 @@ export const UsdgToUsdcRedemptionDialog: FC<{
   >("NONE");
   const [isTransactionSuccessful, setIsTransactionSuccessful] =
     React.useState(false);
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const [actualAmountReceived, setActualAmountReceived] =
+    React.useState<string>("");
+  const beginTransactionOperation = useTransactionOperationGuard(isOpen);
 
   const { redeemUSDGForUSDC } = useUSDGRedemption();
+  const gasPreflight = useEthGasPreflight({
+    estimatedGasUnits: estimateSwapGasUnits({
+      sellToken: "USDG",
+      buyToken: "USDC",
+    }),
+    safetyBps: 1_500,
+    enabled: isOpen && !isPending && !isTransactionSuccessful,
+  });
+  const smartAccountCheck = useSmartAccountCheck({
+    enabled: isOpen && !isPending && !isTransactionSuccessful,
+  });
+  const hasInsufficientGas = gasPreflight.sufficient === false;
+  const isPreflightChecking =
+    gasPreflight.isChecking || smartAccountCheck.isChecking;
+  const isPreflightBlocked =
+    hasInsufficientGas || smartAccountCheck.isBlocked;
+  const gasShortfallEth = gasPreflight.shortfallWei
+    ? formatUnits(gasPreflight.shortfallWei, 18)
+    : null;
 
   const handleRedeemUSDG = async () => {
+    if (smartAccountCheck.isBlocked) {
+      const message =
+        smartAccountCheck.reason ?? s.smartAccountNotSupported;
+      setErrorMessage(message);
+      setCurrentState("ERROR");
+      return;
+    }
+    if (hasInsufficientGas) {
+      setErrorMessage(s.insufficientGasError);
+      setCurrentState("ERROR");
+      return;
+    }
+    const operation = beginTransactionOperation();
+    if (!operation) return;
+    const { assertActive: assertTransactionActive } = operation;
+
     setIsPending(true);
     setCurrentState("NONE");
+    setErrorMessage(null);
 
     try {
+      if (Date.now() > quoteExpiresAt) {
+        throw new Error("This quote expired. Close the dialog to refresh it.");
+      }
       const amountUSDG = parseUnits(amountToRedeem, 6);
 
       // Update state for approval
@@ -95,23 +151,35 @@ export const UsdgToUsdcRedemptionDialog: FC<{
       setCurrentState("REDEEMING_USDG_FOR_USDC");
       updatePendingStates(2);
 
-      const redeemRes = await redeemUSDGForUSDC(amountUSDG);
+      const redeemRes = await redeemUSDGForUSDC(amountUSDG, {
+        expectedAccount,
+        assertTransactionActive,
+      });
+      assertTransactionActive();
 
       if (redeemRes.ok) {
+        setActualAmountReceived(formatUnits(redeemRes.val.usdcReceived, 6));
         setCurrentState("DONE");
         updatePendingStates(3);
         setIsTransactionSuccessful(true);
       } else {
         setCurrentState("ERROR");
         setErrorStates();
+        setErrorMessage(String(redeemRes.val));
         toast.error(redeemRes.val);
       }
 
       setIsPending(false);
     } catch (error: any) {
+      if (
+        getTransactionOperationCancellation(error, assertTransactionActive)
+      ) {
+        return;
+      }
       setCurrentState("ERROR");
       setErrorStates();
       setIsPending(false);
+      setErrorMessage(error?.message || s.transactionFailed);
       toast.error(error?.message || s.transactionFailed);
     }
   };
@@ -126,8 +194,11 @@ export const UsdgToUsdcRedemptionDialog: FC<{
         pending: false,
       }))
     );
+    setIsPending(false);
     setIsTransactionSuccessful(false);
-  }, [isOpen]);
+    setErrorMessage(null);
+    setActualAmountReceived("");
+  }, [isOpen, s]);
 
   const updatePendingStates = (updateIndex: number) => {
     setPendingStates((prev) =>
@@ -152,9 +223,19 @@ export const UsdgToUsdcRedemptionDialog: FC<{
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open && isPending) return;
+        onOpenChange(open);
+      }}
+    >
       <DialogContent
+        showCloseButton={!isPending}
         onInteractOutside={(e) => {
+          if (isPending) e.preventDefault();
+        }}
+        onEscapeKeyDown={(e) => {
           if (isPending) e.preventDefault();
         }}
         className="bg-card rounded-[24px] p-0 md:max-w-sm w-full border border-border/40 overflow-hidden gap-0"
@@ -173,7 +254,10 @@ export const UsdgToUsdcRedemptionDialog: FC<{
               {/* Amount Display */}
               <div className="text-center">
                 <div className="text-3xl font-semibold text-foreground tracking-tight mb-1">
-                  +{toFixedTruncate(Number(amountToRedeem), 2)} USDC
+                  +{toFixedTruncate(
+                    Number(actualAmountReceived || amountToRedeem),
+                    2,
+                  )} USDC
                 </div>
                 <div className="text-xs font-mono text-muted-foreground/60 uppercase tracking-widest">
                   {s.redeemedFromUsdg}
@@ -210,7 +294,10 @@ export const UsdgToUsdcRedemptionDialog: FC<{
                     {s.amountReceived}
                   </span>
                   <span className="text-[#4ADE80] text-sm font-mono font-medium">
-                    {toFixedTruncate(Number(amountToRedeem), 2)} USDC
+                    {toFixedTruncate(
+                      Number(actualAmountReceived || amountToRedeem),
+                      2,
+                    )} USDC
                   </span>
                 </div>
 
@@ -352,39 +439,48 @@ export const UsdgToUsdcRedemptionDialog: FC<{
                   </div>
                 </div>
               ) : currentState === "NONE" ? (
-                <div className="mt-6">
+                <div className="mt-6 space-y-3">
+                  {smartAccountCheck.isBlocked && (
+                    <div className="rounded-md bg-red-50 border border-red-200 text-red-900 text-xs px-3 py-2 text-left">
+                      {smartAccountCheck.reason ?? s.smartAccountNotSupported}
+                    </div>
+                  )}
+                  {!smartAccountCheck.isBlocked && hasInsufficientGas && (
+                    <div className="rounded-md bg-amber-50 border border-amber-200 text-amber-900 text-xs px-3 py-2 text-left">
+                      {s.notEnoughEthRedemption(
+                        gasShortfallEth
+                          ? `~${Number(gasShortfallEth).toFixed(5)} ETH`
+                          : "ETH",
+                      )}
+                    </div>
+                  )}
                   <Button
                     variant="default"
                     onClick={handleRedeemUSDG}
                     className="w-full"
+                    disabled={isPreflightBlocked || isPreflightChecking}
                   >
                     {isPending && (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     )}
-                    {s.approveAndRedeem}
+                    {isPreflightChecking ? s.checking : s.approveAndRedeem}
                   </Button>
                 </div>
               ) : null}
 
               {currentState === "ERROR" ? (
-                <div className="mt-6">
+                <div className="mt-6 space-y-3">
+                  {errorMessage && (
+                    <div className="rounded-md bg-red-50 border border-red-200 text-red-900 text-xs px-3 py-2 text-left">
+                      {errorMessage}
+                    </div>
+                  )}
                   <Button
                     variant="outline"
-                    onClick={() => {
-                      setCurrentState("NONE");
-                      setPendingStates(
-                        buildDefaultPendingStates(s).map((state) => ({
-                          ...state,
-                          validated: false,
-                          pending: false,
-                        }))
-                      );
-                      setIsTransactionSuccessful(false);
-                      handleRedeemUSDG();
-                    }}
+                    onClick={() => onOpenChange(false)}
                     className="w-full"
                   >
-                    {s.tryAgain}
+                    {s.close}
                   </Button>
                 </div>
               ) : null}

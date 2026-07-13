@@ -3,14 +3,22 @@ import Decimal from "decimal.js";
 export const DEFAULT_SLIPPAGE_TOLERANCE = "5";
 export const DEFAULT_SLIPPAGE_BPS = 500n;
 export const HIGH_SLIPPAGE_WARNING_THRESHOLD_PCT = 5;
+export const MAX_SLIPPAGE_TOLERANCE_PCT = 50;
 export const SLIPPAGE_BPS_DENOMINATOR = 10_000n;
+export const CONFIRMED_GLOW_BELOW_REVIEWED_MINIMUM_MESSAGE =
+  "The confirmed route returned less GLOW than the minimum you reviewed.";
 
 export function normalizeSlippageTolerance(value: string, fallback: string) {
   const trimmed = value.trim();
   if (!trimmed) return fallback;
   if (!/^\d*\.?\d*$/.test(trimmed)) return fallback;
   const n = Number(trimmed);
-  if (!Number.isFinite(n) || n <= 0) return fallback;
+  if (
+    !Number.isFinite(n) ||
+    n <= 0 ||
+    n > MAX_SLIPPAGE_TOLERANCE_PCT
+  )
+    return fallback;
   return trimmed;
 }
 
@@ -20,7 +28,12 @@ export function slippagePctToBps(
 ) {
   try {
     const d = new Decimal(value || "0");
-    if (!d.isFinite() || d.lte(0)) return fallbackBps;
+    if (
+      !d.isFinite() ||
+      d.lte(0) ||
+      d.gt(MAX_SLIPPAGE_TOLERANCE_PCT)
+    )
+      return fallbackBps;
     return BigInt(d.mul(100).toFixed(0, Decimal.ROUND_DOWN));
   } catch {
     return fallbackBps;
@@ -30,7 +43,12 @@ export function slippagePctToBps(
 export function parseSlippageTolerance(value: string): Decimal | null {
   try {
     const d = new Decimal(value || "0");
-    if (!d.isFinite() || d.lte(0)) return null;
+    if (
+      !d.isFinite() ||
+      d.lte(0) ||
+      d.gt(MAX_SLIPPAGE_TOLERANCE_PCT)
+    )
+      return null;
     return d;
   } catch {
     return null;
@@ -41,10 +59,69 @@ export function computeAmountOutMin(
   quotedAmountOut: bigint,
   slippageBps: bigint
 ) {
+  const boundedSlippageBps =
+    slippageBps <= 0n
+      ? 0n
+      : slippageBps >= SLIPPAGE_BPS_DENOMINATOR
+        ? SLIPPAGE_BPS_DENOMINATOR
+        : slippageBps;
   return (
     quotedAmountOut -
-    (quotedAmountOut * slippageBps) / SLIPPAGE_BPS_DENOMINATOR
+    (quotedAmountOut * boundedSlippageBps) / SLIPPAGE_BPS_DENOMINATOR
   );
+}
+
+export function enforceReviewedAmountOutMinimum(
+  currentMinimum: bigint,
+  reviewedMinimum?: bigint,
+): bigint {
+  const safeCurrent = currentMinimum > 0n ? currentMinimum : 0n;
+  const safeReviewed =
+    reviewedMinimum !== undefined && reviewedMinimum > 0n
+      ? reviewedMinimum
+      : 0n;
+  return safeReviewed > safeCurrent ? safeReviewed : safeCurrent;
+}
+
+export function computeGuaranteedGlowRouteMinimum({
+  uniswapQuotedAmountOut,
+  slippageBps,
+  bondingIncrements,
+}: {
+  uniswapQuotedAmountOut: bigint;
+  slippageBps: bigint;
+  bondingIncrements: number | null | undefined;
+}): bigint {
+  const safeIncrements =
+    bondingIncrements != null &&
+    Number.isSafeInteger(bondingIncrements) &&
+    bondingIncrements > 0
+      ? bondingIncrements
+      : 0;
+  const bondingGuaranteed =
+    BigInt(safeIncrements) * 10_000_000_000_000_000n;
+  return (
+    computeAmountOutMin(uniswapQuotedAmountOut, slippageBps) +
+    bondingGuaranteed
+  );
+}
+
+export function enforceConfirmedGlowRouteMinimum({
+  uniswapReceived,
+  bondingReceived,
+  reviewedMinimum,
+}: {
+  uniswapReceived: bigint;
+  bondingReceived: bigint;
+  reviewedMinimum: bigint;
+}): bigint {
+  const safeUniswap = uniswapReceived > 0n ? uniswapReceived : 0n;
+  const safeBonding = bondingReceived > 0n ? bondingReceived : 0n;
+  const totalReceived = safeUniswap + safeBonding;
+  if (totalReceived < reviewedMinimum) {
+    throw new Error(CONFIRMED_GLOW_BELOW_REVIEWED_MINIMUM_MESSAGE);
+  }
+  return totalReceived;
 }
 
 function parsePositiveDecimal(

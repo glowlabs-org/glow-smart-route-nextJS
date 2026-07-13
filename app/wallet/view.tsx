@@ -41,7 +41,11 @@ import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useER20Balances } from "@/hooks/useERC20Balances";
 import { useGctlApi } from "@/hooks";
 import { formatUnits } from "ethers";
-import { formatUnits as formatUnitsViem } from "viem";
+import {
+  formatUnits as formatUnitsViem,
+  parseUnits,
+  type Address,
+} from "viem";
 import { Header } from "@/components/header";
 import { useLang } from "@/lib/i18n";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
@@ -74,6 +78,7 @@ import {
   resolveDelegationCurrency,
 } from "@/utils/launchpad-rewards";
 import { useWalletLaunchpadInProgress } from "@/hooks/use-wallet-launchpad-in-progress";
+import { SWAP_QUOTE_MAX_AGE_MS } from "@/lib/swap-quote";
 import {
   isSplitActivityStillActive,
   resolveLaunchpadSplitCurrency,
@@ -168,6 +173,18 @@ export default function View() {
   const [regionalBreakdownOpen, setRegionalBreakdownOpen] =
     React.useState(false);
   const [amountToConvert, setAmountToConvert] = React.useState<string>("");
+  const amountToConvertAtomic = React.useMemo(() => {
+    try {
+      const parsed = parseUnits(amountToConvert, DECIMALS_BY_TOKEN.USDC);
+      return parsed > 0n ? parsed : null;
+    } catch {
+      return null;
+    }
+  }, [amountToConvert]);
+  const [usdcToUsdgQuoteExpiresAt, setUsdcToUsdgQuoteExpiresAt] =
+    React.useState<number | null>(null);
+  const [usdcToUsdgExpectedAccount, setUsdcToUsdgExpectedAccount] =
+    React.useState<Address | null>(null);
   const [inputAmount, setInputAmount] = React.useState<string>("");
 
   // Buy Glow flow state
@@ -191,8 +208,7 @@ export default function View() {
   const hasTrackedGettingStartedViewRef = React.useRef(false);
 
   // USDC to USDG swap hook
-  const { swapUSDCToUSDG, lastTxHashRef: usdcToUsdgWrapTxHashRef } =
-    useSwapUSDCToUSDG();
+  const { swapUSDCToUSDG } = useSwapUSDCToUSDG();
 
   // ERC20 balances (GLOW, USDC, USDG)
   const {
@@ -472,16 +488,23 @@ export default function View() {
   };
 
   const handleConfirmAmount = () => {
-    if (!inputAmount || Number(inputAmount) <= 0) {
+    if (!address) {
+      toast.error(t.wallet.connectWalletFirst);
+      return;
+    }
+    let inputAmountAtomic: bigint;
+    try {
+      inputAmountAtomic = parseUnits(inputAmount, DECIMALS_BY_TOKEN.USDC);
+    } catch {
+      toast.error(t.walletView.toastEnterValidAmount);
+      return;
+    }
+    if (inputAmountAtomic <= 0n) {
       toast.error(t.walletView.toastEnterValidAmount);
       return;
     }
 
-    const usdcBalanceFormatted = usdcBalance
-      ? formatUnits(usdcBalance, DECIMALS_BY_TOKEN.USDC)
-      : "0";
-
-    if (Number(inputAmount) > Number(usdcBalanceFormatted)) {
+    if (inputAmountAtomic > (usdcBalance ?? 0n)) {
       toast.error(t.walletView.toastAmountExceedsUsdc);
       return;
     }
@@ -489,7 +512,11 @@ export default function View() {
     trackEvent("wallet_convert_usdc_to_usdg_submit", {
       amount: inputAmount,
     });
-    setAmountToConvert(inputAmount);
+    setAmountToConvert(
+      formatUnits(inputAmountAtomic, DECIMALS_BY_TOKEN.USDC),
+    );
+    setUsdcToUsdgExpectedAccount(address);
+    setUsdcToUsdgQuoteExpiresAt(Date.now() + SWAP_QUOTE_MAX_AGE_MS);
     setAmountInputDialogOpen(false);
     setUsdcToUsdgDialogOpen(true);
   };
@@ -1619,26 +1646,34 @@ export default function View() {
       />
 
       {/* USDC to USDG Dialog */}
-      <UsdcToTokenDialog
-        isOpen={usdcToUsdgDialogOpen}
-        amount={amountToConvert} // 1:1 conversion for USDC to USDG
-        amountToSell={amountToConvert}
-        selectedTokenSell={tokens.USDC}
-        selectedTokenBuy={tokens.USDG}
-        smartBalancingAmounts={undefined} // Not needed for USDC -> USDG
-        swapUSDCToUSDG={swapUSDCToUSDG}
-        lastWrapTxHashRef={usdcToUsdgWrapTxHashRef}
-        slippagePointsTenThousandths={BigInt(100)} // 1% slippage
-        onOpenChange={(open) => {
-          setUsdcToUsdgDialogOpen(open);
-          if (!open) {
-            // Reset states and refresh balances when dialog closes
-            setAmountToConvert("");
-            setInputAmount("");
-            refreshBalances();
-          }
-        }}
-      />
+      {usdcToUsdgQuoteExpiresAt !== null &&
+        usdcToUsdgExpectedAccount &&
+        amountToConvertAtomic !== null && (
+        <UsdcToTokenDialog
+          isOpen={usdcToUsdgDialogOpen}
+          amount={amountToConvert} // 1:1 conversion for USDC to USDG
+          amountToSell={amountToConvert}
+          selectedTokenSell={tokens.USDC}
+          selectedTokenBuy={tokens.USDG}
+          smartBalancingAmounts={undefined} // Not needed for USDC -> USDG
+          swapUSDCToUSDG={swapUSDCToUSDG}
+          slippagePointsTenThousandths={BigInt(100)} // 1% slippage
+          quoteExpiresAt={usdcToUsdgQuoteExpiresAt}
+          expectedAccount={usdcToUsdgExpectedAccount}
+          minimumAmountOut={amountToConvertAtomic}
+          onOpenChange={(open) => {
+            setUsdcToUsdgDialogOpen(open);
+            if (!open) {
+              // Reset states and refresh balances when dialog closes
+              setAmountToConvert("");
+              setInputAmount("");
+              setUsdcToUsdgQuoteExpiresAt(null);
+              setUsdcToUsdgExpectedAccount(null);
+              refreshBalances();
+            }
+          }}
+        />
+      )}
 
       {/* Regional Breakdown Dialog */}
       <Dialog

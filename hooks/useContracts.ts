@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { type UseWalletClientReturnType, useWalletClient } from "wagmi";
-import { parseAbi } from "viem";
+import { getAddress, parseAbi, type Address } from "viem";
 import { EarlyLiquidityABI, USDGABI } from "@glowlabs-org/guarded-launch-abis";
 import { publicClient } from "@/web3/web3/clients/publicClient";
 import { getAddresses } from "@glowlabs-org/utils/browser";
@@ -9,6 +9,13 @@ import {
   addresses as staticAddresses,
 } from "@/web3/constants/addresses";
 import { normalizeTxHash } from "@/lib/normalize-tx-hash";
+import {
+  assertWalletClientAccount,
+  assertWalletClientForOrder,
+  assertWalletClientOnExpectedChain,
+  getExpectedChain,
+} from "@/lib/wallet-chain";
+import type { AssertTransactionActive } from "@/lib/transaction-operation";
 
 const erc20Abi = parseAbi([
   "function balanceOf(address owner) view returns (uint256)",
@@ -26,15 +33,15 @@ export function useContracts(_signer: any) {
   const walletClientRef = useRef<WalletClientFromWagmi | null>(null);
 
   useEffect(() => {
-    walletClientRef.current = walletClient ?? null;
+    if (walletClient) walletClientRef.current = walletClient;
   }, [walletClient]);
 
-  const walletClientKey = useMemo(() => {
-    const chainId = (walletClient as any)?.chain?.id;
-    const address = walletClient?.account?.address;
-    if (!chainId || !address) return "";
-    return `${chainId}:${address}`;
-  }, [walletClient?.account?.address, (walletClient as any)?.chain?.id]);
+  const walletClientChainId = walletClient?.chain?.id;
+  const walletClientAddress = walletClient?.account?.address;
+  const walletClientKey =
+    walletClientChainId && walletClientAddress
+      ? `${walletClientChainId}:${walletClientAddress}`
+      : "";
 
   const { earlyLiquidity, glow, usdg, usdc } = useMemo(() => {
     if (!process.env.NEXT_PUBLIC_CHAIN_ID) {
@@ -57,19 +64,22 @@ export function useContracts(_signer: any) {
       } as any;
     }
 
-    function getWalletClientOrThrow() {
+    function getWalletClientOrThrow(expectedAccount?: Address) {
       const wc = walletClientRef.current;
       if (!wc) throw new Error("Wallet client not available");
+      assertWalletClientOnExpectedChain(wc);
+      if (expectedAccount) assertWalletClientAccount(wc, expectedAccount);
       return wc;
     }
 
     function makeSignerLike() {
       return {
-        getAddress: async () => {
-          const wc = getWalletClientOrThrow();
+        getAddress: async (expectedAccount?: Address) => {
+          const wc = getWalletClientOrThrow(expectedAccount);
+          await assertWalletClientForOrder(wc, expectedAccount);
           if (!wc.account?.address)
             throw new Error("Wallet client not available");
-          return wc.account.address as AnyAddress;
+          return getAddress(wc.account.address) as AnyAddress;
         },
       } as any;
     }
@@ -99,25 +109,47 @@ export function useContracts(_signer: any) {
             functionName: "allowance",
             args: [owner, spender],
           })) as bigint,
-        approve: async (spender: AnyAddress, amount: bigint) => {
+        approve: async (
+          spender: AnyAddress,
+          amount: bigint,
+          expectedAccount?: Address,
+          assertTransactionActive?: AssertTransactionActive,
+        ) => {
           console.log("approve", spender, amount);
-          const wc = getWalletClientOrThrow();
+          assertTransactionActive?.();
+          const wc = getWalletClientOrThrow(expectedAccount);
+          await assertWalletClientForOrder(wc, expectedAccount);
+          assertTransactionActive?.();
           const hash = await wc.writeContract({
             address,
             abi: erc20Abi,
             functionName: "approve",
             args: [spender, amount],
+            chain: getExpectedChain(),
+            account: wc.account,
           });
+          assertTransactionActive?.();
           return makeTx(hash);
         },
-        transfer: async (to: AnyAddress, amount: bigint) => {
-          const wc = getWalletClientOrThrow();
+        transfer: async (
+          to: AnyAddress,
+          amount: bigint,
+          expectedAccount?: Address,
+          assertTransactionActive?: AssertTransactionActive,
+        ) => {
+          assertTransactionActive?.();
+          const wc = getWalletClientOrThrow(expectedAccount);
+          await assertWalletClientForOrder(wc, expectedAccount);
+          assertTransactionActive?.();
           const hash = await wc.writeContract({
             address,
             abi: erc20Abi,
             functionName: "transfer",
             args: [to, amount],
+            chain: getExpectedChain(),
+            account: wc.account,
           });
+          assertTransactionActive?.();
           return makeTx(hash);
         },
         estimateGas: {
@@ -142,14 +174,25 @@ export function useContracts(_signer: any) {
           functionName: "getPrice",
           args: [BigInt(increments)],
         })) as bigint,
-      buy: async (increments: number, usdgMaxToSpend: bigint) => {
-        const wc = getWalletClientOrThrow();
+      buy: async (
+        increments: number,
+        usdgMaxToSpend: bigint,
+        expectedAccount?: Address,
+        assertTransactionActive?: AssertTransactionActive,
+      ) => {
+        assertTransactionActive?.();
+        const wc = getWalletClientOrThrow(expectedAccount);
+        await assertWalletClientForOrder(wc, expectedAccount);
+        assertTransactionActive?.();
         const hash = await wc.writeContract({
           address: EARLY_LIQUIDITY_ADDRESS,
           abi: EarlyLiquidityABI,
           functionName: "buy",
           args: [BigInt(increments), usdgMaxToSpend],
+          chain: getExpectedChain(),
+          account: wc.account,
         });
+        assertTransactionActive?.();
         return makeTx(hash);
       },
     } as any;
@@ -158,14 +201,31 @@ export function useContracts(_signer: any) {
 
     const usdg = {
       ...makeErc20(USDG_ADDRESS),
-      swap: async (recipient: AnyAddress, usdcAmount: bigint) => {
-        const wc = getWalletClientOrThrow();
+      swap: async (
+        recipient: AnyAddress,
+        usdcAmount: bigint,
+        expectedAccount?: Address,
+        assertTransactionActive?: AssertTransactionActive,
+      ) => {
+        assertTransactionActive?.();
+        const wc = getWalletClientOrThrow(expectedAccount);
+        await assertWalletClientForOrder(wc, expectedAccount);
+        assertTransactionActive?.();
+        if (
+          expectedAccount &&
+          getAddress(recipient) !== getAddress(expectedAccount)
+        ) {
+          throw new Error("USDG recipient does not match this order's wallet.");
+        }
         const hash = await wc.writeContract({
           address: USDG_ADDRESS,
           abi: USDGABI,
           functionName: "swap",
           args: [recipient, usdcAmount],
+          chain: getExpectedChain(),
+          account: wc.account,
         });
+        assertTransactionActive?.();
         return makeTx(hash);
       },
     } as any;
@@ -173,6 +233,10 @@ export function useContracts(_signer: any) {
     const usdc = makeErc20(USDC_ADDRESS);
 
     return { earlyLiquidity, glow, usdg, usdc };
+    // The wrappers intentionally read walletClientRef at call time so a
+    // transient undefined wagmi value cannot erase an otherwise valid client.
+    // Rebuild only when the connected account or chain identity changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walletClientKey]);
 
   return {

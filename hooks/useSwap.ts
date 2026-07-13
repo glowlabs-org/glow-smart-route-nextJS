@@ -8,7 +8,7 @@ import { Result, Ok, Err } from "ts-results";
 import { addresses } from "@glowlabs-org/guarded-launch-abis";
 import { publicClient } from "@/web3/web3/clients/publicClient";
 import { useWalletClient } from "wagmi";
-import { formatEther, parseAbi } from "viem";
+import { formatEther, getAddress, parseAbi, type Address } from "viem";
 import Decimal from "decimal.js";
 import { waitForTransactionReceipt } from "@/lib/wait-for-transaction-receipt";
 import * as Sentry from "@sentry/nextjs";
@@ -22,14 +22,28 @@ import {
   isWalletInteractionTimeoutError,
   normalizeSwapFailureMessage,
   WALLET_INTERACTION_TIMEOUT_MESSAGE,
-  withInternalRpcRetry,
 } from "@/lib/rpc-error-utils";
-import { computeAmountOutMin } from "@/lib/swap-slippage";
+import {
+  computeAmountOutMin,
+  enforceReviewedAmountOutMinimum,
+} from "@/lib/swap-slippage";
+import { sumErc20TransfersTo } from "@/lib/transaction-receipts";
 import {
   getSmartAccountStatus,
   isSmartAccountBlocked,
   SMART_ACCOUNT_UNSUPPORTED_MESSAGE,
 } from "@/web3/web3/utils/detectSmartAccount";
+import {
+  assertWalletClientAccount,
+  assertWalletClientForOrder,
+  assertWalletClientOnExpectedChain,
+  getExpectedChain,
+} from "@/lib/wallet-chain";
+import {
+  getTransactionOperationCancellation,
+  type AssertTransactionActive,
+} from "@/lib/transaction-operation";
+import { synchronizePrerequisiteBalance } from "@/lib/prerequisite-balance";
 
 const MAX_UINT256 = (BigInt(1) << BigInt(256)) - BigInt(1);
 
@@ -63,6 +77,18 @@ export enum SwapError {
   FAILED_TO_SWAP = "Failed to swap",
   GET_AMOUNT_OUT_FAILED = "Failed to get amount out",
   USDC_NOT_AVAILABLE = "USDC not available",
+  ACCOUNT_CHANGED = "Wallet account changed during this order.",
+  QUOTE_BELOW_REVIEWED_MINIMUM = "The current quote is below the minimum reviewed for this order.",
+}
+
+export interface SwapGlowToUsdgSuccess {
+  txHash: `0x${string}`;
+  usdgReceived: bigint;
+}
+
+export interface SwapSuccess {
+  txHash: `0x${string}`;
+  amountReceived: bigint;
 }
 
 function isUserRejectedRequest(err: unknown, errorMessage?: string): boolean {
@@ -226,11 +252,18 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
           functionName: "allowance",
           args: [owner, spender],
         })) as bigint,
-      approve: async (spender: `0x${string}`, amount: bigint) => {
-        return writeApprovalWithRetry({
+      approve: async (
+        spender: `0x${string}`,
+        amount: bigint,
+        expectedAccount?: Address,
+        assertTransactionActive?: AssertTransactionActive,
+      ) => {
+        return writeApproval({
           address,
           spender,
           amount,
+          expectedAccount,
+          assertTransactionActive,
         });
       },
       estimateGas: {
@@ -278,29 +311,30 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
         amountOutMin: bigint,
         path: `0x${string}`[],
         to: `0x${string}`,
-        deadline: number
+        deadline: number,
+        expectedAccount?: Address,
+        assertTransactionActive?: AssertTransactionActive,
       ) => {
         if (!walletClient) throw new Error("Wallet client not available");
-        const rawHash = await withInternalRpcRetry(
-          () =>
-            walletClient.writeContract({
-              address,
-              abi: UNISWAP_V2_ROUTER_ABI,
-              functionName: "swapExactTokensForTokens",
-              args: [amountIn, amountOutMin, path, to, BigInt(deadline)],
-            }),
-          {
-            maxRetries: 1,
-            delayMs: 1500,
-            onRetry: () => {
-              if (typeof window !== "undefined") {
-                console.warn(
-                  "Retrying swapExactTokensForTokens after transient wallet RPC error"
-                );
-              }
-            },
+        assertTransactionActive?.();
+        assertWalletClientOnExpectedChain(walletClient);
+        if (expectedAccount) {
+          assertWalletClientAccount(walletClient, expectedAccount);
+          if (getAddress(to) !== getAddress(expectedAccount)) {
+            throw new Error("Swap recipient does not match this order's wallet.");
           }
-        );
+        }
+        await assertWalletClientForOrder(walletClient, expectedAccount);
+        assertTransactionActive?.();
+        const rawHash = await walletClient.writeContract({
+          address,
+          abi: UNISWAP_V2_ROUTER_ABI,
+          functionName: "swapExactTokensForTokens",
+          args: [amountIn, amountOutMin, path, to, BigInt(deadline)],
+          chain: getExpectedChain(),
+          account: walletClient.account,
+        });
+        assertTransactionActive?.();
         const hash = normalizeTxHash(rawHash);
         lastTxHashRef.current = hash;
         setLastTxHash(hash);
@@ -331,28 +365,38 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     });
   }
 
-  async function writeApprovalWithRetry({
+  async function writeApproval({
     address,
     spender,
     amount,
+    expectedAccount,
+    assertTransactionActive,
   }: {
     address: `0x${string}`;
     spender: `0x${string}`;
     amount: bigint;
+    expectedAccount?: Address;
+    assertTransactionActive?: AssertTransactionActive;
   }) {
     if (!walletClient) throw new Error("Wallet client not available");
-    const rawHash = await withInternalRpcRetry(
-      () =>
-        walletClient.writeContract({
-          address,
-          abi: parseAbi([
-            "function approve(address spender, uint256 amount) returns (bool)",
-          ]),
-          functionName: "approve",
-          args: [spender, amount],
-        }),
-      { maxRetries: 1, delayMs: 1500 }
-    );
+    assertTransactionActive?.();
+    assertWalletClientOnExpectedChain(walletClient);
+    if (expectedAccount) {
+      assertWalletClientAccount(walletClient, expectedAccount);
+    }
+    await assertWalletClientForOrder(walletClient, expectedAccount);
+    assertTransactionActive?.();
+    const rawHash = await walletClient.writeContract({
+      address,
+      abi: parseAbi([
+        "function approve(address spender, uint256 amount) returns (bool)",
+      ]),
+      functionName: "approve",
+      args: [spender, amount],
+      chain: getExpectedChain(),
+      account: walletClient.account,
+    });
+    assertTransactionActive?.();
     const hash = normalizeTxHash(rawHash);
     lastTxHashRef.current = hash;
     setLastTxHash(hash);
@@ -466,41 +510,31 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     amount,
     slippagePercentTenThousandDenominator = SLIPPAGE_NUMERATOR_DEFAULT,
     prerequisiteTxHashes,
+    minimumAmountOut,
+    expectedAccount,
+    assertTransactionActive,
   }: {
     amount: bigint | { toString(): string };
     slippagePercentTenThousandDenominator?: bigint | { toString(): string };
     prerequisiteTxHashes?: (`0x${string}` | null | undefined)[];
-  }): Promise<Result<boolean, SwapError>> {
+    minimumAmountOut?: bigint;
+    expectedAccount?: Address;
+    assertTransactionActive?: AssertTransactionActive;
+  }): Promise<Result<SwapSuccess, SwapError>> {
     if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") {
-      return new Ok(false);
+      return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     }
     if (!uniswapRouter) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     if (!pairAddress) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     if (!tokenA) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     if (!tokenB) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     if (!signer) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
+    assertTransactionActive?.();
     const amountBigInt = toBigIntAmount(amount);
     const slippageBigInt = toBigIntPlain(slippagePercentTenThousandDenominator);
 
-    // Wait for prior txs (e.g. USDC->USDG wrap) on the RPC the simulation
-    // routes to. The multi-RPC receipt poll upstream resolves on first hit,
-    // but simulation may land on a node that hasn't indexed yet, producing
-    // a spurious TRANSFER_FROM_FAILED.
-    if (prerequisiteTxHashes?.length) {
-      for (const hash of prerequisiteTxHashes) {
-        if (!hash) continue;
-        try {
-          await publicClient.waitForTransactionReceipt({
-            hash,
-            confirmations: 1,
-            retryCount: 8,
-            retryDelay: 1000,
-          });
-        } catch {
-          // Proceed: simulation will surface a clearer error than a wait timeout.
-        }
-      }
-    }
+    const confirmedPrerequisiteHashes =
+      prerequisiteTxHashes?.filter((hash): hash is `0x${string}` => Boolean(hash)) ?? [];
 
     const getReservesResult = await getReservesViem({
       tokenA: tokenA.address as `0x${string}`,
@@ -508,6 +542,13 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
       pairAddress: pairAddress as `0x${string}`,
     });
     const signerAddress = await signer.getAddress();
+    assertTransactionActive?.();
+    if (
+      expectedAccount &&
+      getAddress(signerAddress) !== getAddress(expectedAccount)
+    ) {
+      return new Err(SwapError.ACCOUNT_CHANGED);
+    }
 
     // Read the tokenA balance, tolerating read-after-write RPC lag. In the
     // combined USDC->GLW flow the USDC->USDG wrap was just confirmed, but the
@@ -519,44 +560,62 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     // (by then every node has caught up) succeeds. When we know a prerequisite
     // tx just landed, re-poll the balance until it reflects the expected funds
     // before giving up. Standalone swaps (no prerequisite tx) still fail fast.
-    let balanceTokenA = await tokenA.balanceOf(signerAddress);
-    const hasPrerequisiteTx = Boolean(
-      prerequisiteTxHashes?.some((hash) => Boolean(hash))
-    );
-    if (balanceTokenA < amountBigInt && hasPrerequisiteTx) {
-      const BALANCE_RECHECK_ATTEMPTS = 8;
-      const BALANCE_RECHECK_DELAY_MS = 1000;
-      for (
-        let attempt = 0;
-        attempt < BALANCE_RECHECK_ATTEMPTS && balanceTokenA < amountBigInt;
-        attempt++
-      ) {
-        await new Promise((resolve) =>
-          setTimeout(resolve, BALANCE_RECHECK_DELAY_MS)
-        );
-        try {
-          balanceTokenA = await tokenA.balanceOf(signerAddress);
-        } catch {
-          // Transient RPC error -- keep polling until the attempt budget is spent.
-        }
-      }
-    }
+    const balanceTokenA =
+      confirmedPrerequisiteHashes.length > 0
+        ? await synchronizePrerequisiteBalance({
+            prerequisiteTxHashes: confirmedPrerequisiteHashes,
+            waitForReceipt: (hash) =>
+              publicClient.waitForTransactionReceipt({
+                hash,
+                confirmations: 1,
+                retryCount: 8,
+                retryDelay: 1000,
+              }),
+            minimumBalance: amountBigInt,
+            readBalance: () => tokenA.balanceOf(signerAddress),
+            assertTransactionActive,
+          })
+        : await tokenA.balanceOf(signerAddress);
+    assertTransactionActive?.();
     if (balanceTokenA < amountBigInt)
       return new Err(SwapError.INSUFFICIENT_TOKEN_A_BALANCE);
+
+    if (!getReservesResult.ok) return new Err(SwapError.GET_AMOUNT_OUT_FAILED);
+    const { reserveTokenA, reserveTokenB } = getReservesResult.val;
+    const amountOut = getAmountOutBigInt({
+      amountIn: amountBigInt,
+      reserveIn: BigInt(reserveTokenA.toString()),
+      reserveOut: BigInt(reserveTokenB.toString()),
+    });
+    if (!amountOut.ok) return new Err(SwapError.GET_AMOUNT_OUT_FAILED);
+    const amountOutVal = amountOut.val;
+    const amountOutMin = enforceReviewedAmountOutMinimum(
+      computeAmountOutMin(amountOutVal, slippageBigInt),
+      minimumAmountOut,
+    );
+    if (amountOutVal < amountOutMin) {
+      return new Err(SwapError.QUOTE_BELOW_REVIEWED_MINIMUM);
+    }
+
     const allowanceTokenA = await tokenA.allowance(
       signerAddress,
       uniswapRouter.address
     );
+    assertTransactionActive?.();
 
     if (allowanceTokenA < amountBigInt) {
       try {
         setUniswapPurchaseState("REQUESTING_TOKEN_APPROVAL");
         const approveTx = await tokenA.approve(
           uniswapRouter.address,
-          MAX_UINT256
+          MAX_UINT256,
+          expectedAccount,
+          assertTransactionActive,
         );
+        assertTransactionActive?.();
         setUniswapPurchaseState("APPROVING_TOKEN");
         await approveTx.wait();
+        assertTransactionActive?.();
 
         // Mirror the receipt wait on publicClient: the multi-RPC poll above
         // resolves on the first hit, which may not be the node the upcoming
@@ -573,8 +632,14 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
           } catch {
             // Proceed: simulation will surface a clearer error if needed.
           }
+          assertTransactionActive?.();
         }
       } catch (err: any) {
+        const cancellation = getTransactionOperationCancellation(
+          err,
+          assertTransactionActive,
+        );
+        if (cancellation) throw cancellation;
         setUniswapPurchaseState("ERROR");
         const errorMessage = extractErrorMessage(
           err,
@@ -606,17 +671,6 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
       }
     }
 
-    if (!getReservesResult.ok) return new Err(SwapError.GET_AMOUNT_OUT_FAILED);
-    const { reserveTokenA, reserveTokenB } = getReservesResult.val;
-    const amountOut = getAmountOutBigInt({
-      amountIn: amountBigInt,
-      reserveIn: BigInt(reserveTokenA.toString()),
-      reserveOut: BigInt(reserveTokenB.toString()),
-    });
-    if (!amountOut.ok) return new Err(SwapError.GET_AMOUNT_OUT_FAILED);
-    const amountOutVal = amountOut.val;
-    const amountOutMin = computeAmountOutMin(amountOutVal, slippageBigInt);
-
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 20);
     const path = [tokenA.address, tokenB.address];
 
@@ -629,17 +683,40 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
         to: signerAddress as `0x${string}`,
         deadline,
       });
+      assertTransactionActive?.();
 
       const tx = await uniswapRouter.swapExactTokensForTokens(
         amountBigInt,
         amountOutMin,
         path as any,
         signerAddress as any,
-        Number(deadline)
+        Number(deadline),
+        expectedAccount,
+        assertTransactionActive,
       );
-      await tx.wait();
+      assertTransactionActive?.();
+      const receipt = await tx.wait();
+      assertTransactionActive?.();
+      const txHash = lastTxHashRef.current;
+      if (!txHash) throw new Error("Swap transaction hash is unavailable.");
+      const amountReceived = sumErc20TransfersTo({
+        logs: receipt.logs,
+        token: tokenB.address,
+        recipient: signerAddress as Address,
+      });
+      if (amountReceived < amountOutMin) {
+        throw new Error(
+          "The confirmed swap returned less than this order required.",
+        );
+      }
       setUniswapPurchaseState("DONE");
+      return new Ok({ txHash, amountReceived });
     } catch (err: any) {
+      const cancellation = getTransactionOperationCancellation(
+        err,
+        assertTransactionActive,
+      );
+      if (cancellation) throw cancellation;
       setUniswapPurchaseState("ERROR");
       const errorMessage = extractErrorMessage(err, SwapError.FAILED_TO_SWAP);
 
@@ -669,7 +746,6 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
 
       return new Err(errorMessage as SwapError);
     }
-    return new Ok(true);
   }
 
   async function estimateOutputAmount({
@@ -752,15 +828,22 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
   async function swapGlowToUSDG({
     amount,
     slippagePercentTenThousandDenominator = SLIPPAGE_NUMERATOR_DEFAULT,
+    minimumAmountOut,
+    expectedAccount,
+    assertTransactionActive,
   }: {
     amount: bigint | { toString(): string };
     slippagePercentTenThousandDenominator?: bigint | { toString(): string };
-  }): Promise<Result<boolean, SwapError>> {
+    minimumAmountOut?: bigint;
+    expectedAccount?: Address;
+    assertTransactionActive?: AssertTransactionActive;
+  }): Promise<Result<SwapGlowToUsdgSuccess, SwapError>> {
     if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") {
-      return new Ok(false);
+      return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     }
     if (!uniswapRouter) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     if (!signer) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
+    assertTransactionActive?.();
 
     // Create token instances for GLOW and USDG
     const glowToken = makeErc20(addresses.glow);
@@ -779,36 +862,74 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
       tokenB: addresses.usdg,
       pairAddress: pairAddress,
     });
+    assertTransactionActive?.();
 
     const signerAddress = (await signer.getAddress()) as `0x${string}`;
+    assertTransactionActive?.();
+    if (
+      expectedAccount &&
+      getAddress(signerAddress) !== getAddress(expectedAccount)
+    ) {
+      return new Err(SwapError.ACCOUNT_CHANGED);
+    }
     const smartAccountBlockReason =
       await getSmartAccountBlockReason(signerAddress);
+    assertTransactionActive?.();
     if (smartAccountBlockReason) {
       setUniswapPurchaseState("ERROR");
       return new Err(smartAccountBlockReason as SwapError);
     }
     const balanceGlow = await glowToken.balanceOf(signerAddress);
+    assertTransactionActive?.();
 
     const amountBigInt = toBigIntAmount(amount);
     const slippageBigInt = toBigIntPlain(slippagePercentTenThousandDenominator);
     if (balanceGlow < amountBigInt)
       return new Err(SwapError.INSUFFICIENT_TOKEN_A_BALANCE);
 
+    if (!getReservesResult.ok) return new Err(SwapError.GET_AMOUNT_OUT_FAILED);
+    const { reserveTokenA, reserveTokenB } = getReservesResult.val;
+    const amountOut = getAmountOutBigInt({
+      amountIn: amountBigInt,
+      reserveIn: BigInt(reserveTokenA.toString()),
+      reserveOut: BigInt(reserveTokenB.toString()),
+    });
+    if (!amountOut.ok) return new Err(SwapError.GET_AMOUNT_OUT_FAILED);
+
+    const amountOutVal = amountOut.val;
+    const amountOutMin = enforceReviewedAmountOutMinimum(
+      computeAmountOutMin(amountOutVal, slippageBigInt),
+      minimumAmountOut,
+    );
+    if (amountOutVal < amountOutMin) {
+      return new Err(SwapError.QUOTE_BELOW_REVIEWED_MINIMUM);
+    }
+
     const allowanceGlow = await glowToken.allowance(
       signerAddress,
       uniswapRouter.address
     );
+    assertTransactionActive?.();
 
     if (allowanceGlow < amountBigInt) {
       try {
         setUniswapPurchaseState("REQUESTING_TOKEN_APPROVAL");
         const approveTx = await glowToken.approve(
           uniswapRouter.address,
-          MAX_UINT256
+          MAX_UINT256,
+          expectedAccount,
+          assertTransactionActive,
         );
+        assertTransactionActive?.();
         setUniswapPurchaseState("APPROVING_TOKEN");
         await approveTx.wait();
+        assertTransactionActive?.();
       } catch (err: any) {
+        const cancellation = getTransactionOperationCancellation(
+          err,
+          assertTransactionActive,
+        );
+        if (cancellation) throw cancellation;
         setUniswapPurchaseState("ERROR");
         const errorMessage = extractErrorMessage(
           err,
@@ -841,18 +962,6 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
       }
     }
 
-    if (!getReservesResult.ok) return new Err(SwapError.GET_AMOUNT_OUT_FAILED);
-    const { reserveTokenA, reserveTokenB } = getReservesResult.val;
-    const amountOut = getAmountOutBigInt({
-      amountIn: amountBigInt,
-      reserveIn: BigInt(reserveTokenA.toString()),
-      reserveOut: BigInt(reserveTokenB.toString()),
-    });
-    if (!amountOut.ok) return new Err(SwapError.GET_AMOUNT_OUT_FAILED);
-
-    const amountOutVal = amountOut.val;
-    const amountOutMin = computeAmountOutMin(amountOutVal, slippageBigInt);
-
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 20);
     const path = [addresses.glow, addresses.usdg];
 
@@ -865,17 +974,40 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
         to: signerAddress as `0x${string}`,
         deadline,
       });
+      assertTransactionActive?.();
 
       const tx = await uniswapRouter.swapExactTokensForTokens(
         amountBigInt,
         amountOutMin,
         path as any,
         signerAddress as any,
-        Number(deadline)
+        Number(deadline),
+        expectedAccount,
+        assertTransactionActive,
       );
-      await tx.wait();
+      assertTransactionActive?.();
+      const receipt = await tx.wait();
+      assertTransactionActive?.();
+      const txHash = lastTxHashRef.current;
+      if (!txHash) throw new Error("Swap transaction hash is unavailable.");
+      const usdgReceived = sumErc20TransfersTo({
+        logs: receipt.logs,
+        token: addresses.usdg,
+        recipient: signerAddress,
+      });
+      if (usdgReceived < amountOutMin) {
+        throw new Error(
+          "The confirmed swap returned less USDG than this order required.",
+        );
+      }
       setUniswapPurchaseState("DONE");
+      return new Ok({ txHash, usdgReceived });
     } catch (err: any) {
+      const cancellation = getTransactionOperationCancellation(
+        err,
+        assertTransactionActive,
+      );
+      if (cancellation) throw cancellation;
       setUniswapPurchaseState("ERROR");
       const errorMessage = extractErrorMessage(err, SwapError.FAILED_TO_SWAP);
 
@@ -906,7 +1038,6 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
 
       return new Err(errorMessage as SwapError);
     }
-    return new Ok(true);
   }
 
   async function deployFixture() {

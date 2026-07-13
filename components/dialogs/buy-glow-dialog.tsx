@@ -36,8 +36,14 @@ import { useSwapUSDCToUSDG } from "@/hooks/useSwapUSDCToUSDG";
 import { useSwap } from "@/hooks/useSwap";
 import { useEarlyLiquidityPrice } from "@/hooks/useEarlyLiquidityPrice";
 import { addresses } from "@/web3/constants/addresses";
-import { formatUnits, parseUnits, walletActions, type WalletClient } from "viem";
-import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
+import {
+  formatUnits,
+  parseUnits,
+  walletActions,
+  type Address,
+  type WalletClient,
+} from "viem";
+import { DECIMALS_BY_TOKEN, getAddresses } from "@glowlabs-org/utils/browser";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice } from "@/utils/formatPrice";
 import { motion, AnimatePresence } from "framer-motion";
@@ -90,6 +96,29 @@ import { capturePrivyWalletError } from "@/lib/privy-errors";
 import { useLang } from "@/lib/i18n";
 import { NetworkRequirementBanner } from "@/components/dialogs/network-requirement-banner";
 import { chainIdToName, resolveWalletChainId } from "@/lib/tos-chain";
+import { useEthGasPreflight } from "@/hooks/useEthGasPreflight";
+import {
+  computeRequiredEthBalanceWei,
+  estimateBuyGlowGasUnits,
+  estimateMinerPurchaseGasUnits,
+} from "@/lib/transaction-gas";
+import { getExpectedChainId } from "@/lib/wallet-chain";
+import { BONDING_CURVE_QUOTE_CHANGED_MESSAGE } from "@/lib/bonding-curve-budget";
+import {
+  SWAP_QUOTE_MAX_AGE_MS,
+  validateSmartBalancingQuote,
+} from "@/lib/swap-quote";
+import {
+  computeAmountOutMin,
+  computeGuaranteedGlowRouteMinimum,
+  enforceConfirmedGlowRouteMinimum,
+} from "@/lib/swap-slippage";
+import { useTransactionOperationGuard } from "@/hooks/useTransactionOperationGuard";
+import {
+  getTransactionOperationCancellation,
+  isTransactionOperationCancelled,
+  type AssertTransactionActive,
+} from "@/lib/transaction-operation";
 
 const ONE_E18 = 1_000_000_000_000_000_000n;
 const POINTS_PER_GLW_WORTH_SCALED6 = 1_000n;
@@ -217,6 +246,16 @@ interface BuyGlowDialogProps {
 type Phase = "input" | "processing" | "success" | "error";
 type PayToken = "USDC" | "USDG" | "ETH";
 
+interface BuyGlowEstimateResult {
+  estimatedGlw: string;
+  smartAmounts: SmartBalancingAmounts | undefined;
+  forAmount: string;
+  forPayToken: PayToken | null;
+  forPrice: number | null;
+  quotedAt: number;
+  ethToUsdcMinimum?: bigint;
+}
+
 const TOKEN_ICON_SRC_BY_SYMBOL = {
   ETH: "/images/tokens/eth.svg",
   USDC: "/images/tokens/usdc.svg",
@@ -318,6 +357,8 @@ export function BuyGlowDialog({
 }: BuyGlowDialogProps) {
   const { t } = useLang();
   const queryClient = useQueryClient();
+  const expectedChainId = getExpectedChainId();
+  const expectedMinerPaymentToken = getAddresses(expectedChainId).USDC as Address;
   const [phase, setPhase] = React.useState<Phase>("input");
   // Evergreen miner listings power the right "From a miner" option. Gated by
   // `enabled: open` so the private (?evergreen=true) surface is only queried
@@ -351,6 +392,9 @@ export function BuyGlowDialog({
   }, []);
   const [minerQty, setMinerQty] = React.useState<number>(1);
   const [minerBusy, setMinerBusy] = React.useState(false);
+  const [isPreparingPurchase, setIsPreparingPurchase] = React.useState(false);
+  const purchaseLockRef = React.useRef<symbol | null>(null);
+  const beginTransactionOperation = useTransactionOperationGuard(open);
   const [payToken, setPayToken] = React.useState<PayToken>("USDC");
   const [inputAmount, setInputAmount] = React.useState<string>("");
   const [smartAmounts, setSmartAmounts] =
@@ -358,6 +402,13 @@ export function BuyGlowDialog({
   const [estimatedGlw, setEstimatedGlw] = React.useState<string>("");
   const [lastEstimatedAmount, setLastEstimatedAmount] =
     React.useState<string>("");
+  const [lastEstimatedPayToken, setLastEstimatedPayToken] =
+    React.useState<PayToken | null>(null);
+  const [lastEstimatedPrice, setLastEstimatedPrice] =
+    React.useState<number | null>(null);
+  const [lastEstimatedAt, setLastEstimatedAt] = React.useState(0);
+  const [lastEthToUsdcMinimum, setLastEthToUsdcMinimum] =
+    React.useState<bigint | undefined>();
   const [transactionSteps, setTransactionSteps] = React.useState<
     TransactionStep[]
   >([]);
@@ -379,23 +430,30 @@ export function BuyGlowDialog({
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const { data: connectorClient } = useConnectorClient();
-  const { switchChain, isPending: isSwitchingChain } = useSwitchChain();
+  const { switchChainAsync, isPending: isSwitchingChain } = useSwitchChain();
   const { data: walletClient } = useWalletClient();
-  const publicClient = usePublicClient();
+  const publicClient = usePublicClient({ chainId: expectedChainId });
   const [isSmartAccountWarningOpen, setIsSmartAccountWarningOpen] =
     React.useState(false);
 
-  const checkSmartAccountBeforeBuy =
-    React.useCallback(async (): Promise<boolean> => {
+  React.useEffect(() => {
+    if (!open) setIsSmartAccountWarningOpen(false);
+  }, [open]);
+
+  const checkSmartAccountBeforeBuy = React.useCallback(
+    async (
+      assertTransactionActive?: AssertTransactionActive,
+    ): Promise<boolean> => {
       if (!address || !walletClient) return false;
 
       try {
         const status = await getSmartAccountStatus({
           address: address as `0x${string}`,
-          chainId,
+          chainId: expectedChainId,
           walletClient,
           getBytecode: publicClient?.getBytecode,
         });
+        assertTransactionActive?.();
 
         const isSmartAccount =
           status &&
@@ -403,17 +461,18 @@ export function BuyGlowDialog({
             status.isEip7702Delegated ||
             status.hasWalletAABatching);
 
-        if (isSmartAccount) {
-          setIsSmartAccountWarningOpen(true);
-          return true;
-        }
-
-        return false;
+        return Boolean(isSmartAccount);
       } catch (error) {
+        if (isTransactionOperationCancelled(error)) throw error;
+        // If the operation was invalidated while the detector failed, do not
+        // log or update anything for the stale dialog generation.
+        assertTransactionActive?.();
         console.error("Smart account check failed:", error);
         return false;
       }
-    }, [address, chainId, walletClient, publicClient?.getBytecode]);
+    },
+    [address, expectedChainId, walletClient, publicClient?.getBytecode],
+  );
 
   const { connectWallet } = useConnectWallet({
     onError: (error) => {
@@ -518,12 +577,38 @@ export function BuyGlowDialog({
   const minerFractionsHook = usePatchedOffchainFractions(
     walletClient ?? fallbackWalletClient,
     publicClient,
-    chainId,
+    expectedChainId,
   );
   // Declared here (above handleBuyMiner) so the miner ETH->USDC swap can use it;
   // the GLW flow further below reuses the same instance.
-  const { estimateEthToUsdc, estimateGasForSwapEthToUsdc, swapEthToUsdc } =
-    useSwapETHToUSDC();
+  const { estimateEthToUsdc, swapEthToUsdc } = useSwapETHToUSDC();
+
+  const assertFullFlowEthBudget = React.useCallback(
+    async ({
+      gasUnits,
+      valueWei = 0n,
+      account,
+    }: {
+      gasUnits: bigint;
+      valueWei?: bigint;
+      account: Address;
+    }) => {
+      if (!publicClient) throw new Error(t.buyGlow.toastConnectRequired);
+      const [balanceWei, gasPriceWei] = await Promise.all([
+        publicClient.getBalance({ address: account }),
+        publicClient.getGasPrice(),
+      ]);
+      const requiredWei = computeRequiredEthBalanceWei({
+        gasUnits,
+        gasPriceWei,
+        valueWei,
+      });
+      if (balanceWei < requiredWei) {
+        throw new Error(t.swap.insufficientGasErrorExplained);
+      }
+    },
+    [publicClient, t.buyGlow.toastConnectRequired, t.swap.insufficientGasErrorExplained],
+  );
 
   // Defined above handleBuyMiner (and reused by handleBuyGlow) so both can drive
   // the shared TransactionStepper processing screen.
@@ -564,10 +649,15 @@ export function BuyGlowDialog({
     const fraction = selectedMiner?.activeFraction;
     if (!selectedMiner || !fraction?.owner || !fraction?.id) return;
     const qty = minerClampedQty;
-    if (qty < 1) return;
+    if (qty < 1 || minerBusy || purchaseLockRef.current) return;
+    const operation = beginTransactionOperation();
+    if (!operation) return;
+    const { assertActive: assertTransactionActive } = operation;
+    const expectedAccount = address;
+    const purchaseLockToken = Symbol("miner-purchase");
+    purchaseLockRef.current = purchaseLockToken;
 
     const payingWithEth = payToken === "ETH";
-    // Listing fill BEFORE the buy, for the success ring.
     const totalStepsForRing = fraction.totalSteps;
     const filledBeforeSteps = Math.max(
       0,
@@ -576,73 +666,155 @@ export function BuyGlowDialog({
         : totalStepsForRing - (minerRemaining || 0),
     );
 
-    // Build the processing-screen steps (mirrors the deposit-dialog stepper).
-    const steps: TransactionStep[] = [];
-    if (payingWithEth) {
-      steps.push({
-        id: "SWAP_ETH_TO_USDC",
-        title: t.buyGlow.stepSwapEthToUsdcTitle,
-        description: t.buyGlow.stepSwapEthToUsdcDescription,
-        tokenFrom: "ETH",
-        tokenTo: "USDC",
-        status: "idle",
-      });
-    }
-    steps.push({
-      id: "APPROVE_USDC",
-      title: "Approve USDC",
-      description: "Allow the contract to spend your USDC",
-      tokenFrom: "USDC",
-      status: "idle",
-    });
-    steps.push({
-      id: "BUY_MINER",
-      title: `Purchase ${qty} miner${qty > 1 ? "s" : ""}`,
-      description: "Confirm your miner purchase",
-      tokenFrom: "USDC",
-      status: "idle",
-    });
-
     setMinerBusy(true);
     setMinerSuccess(null);
     setErrorMessage(null);
-    stepsRef.current = steps;
-    setTransactionSteps(steps);
-    setPhase("processing");
+    stepsRef.current = [];
+    setTransactionSteps([]);
 
     try {
-      // When paying with ETH, swap enough ETH to cover the USDC cost first.
-      if (payingWithEth) {
-        updateStepStatus("SWAP_ETH_TO_USDC", "waiting_signature");
-        const requiredUsdc = BigInt(fraction.stepPrice) * BigInt(qty);
-        if (requiredUsdc <= 0n) throw new Error("Invalid miner price.");
+      const minerWalletChainId = await resolveWalletChainId({
+        connectorClient: connectorClient as
+          | {
+              request?: (args: {
+                method: string;
+                params?: unknown[];
+              }) => Promise<unknown>;
+            }
+          | undefined,
+        fallbackChainId: chainId,
+      });
+      assertTransactionActive();
+      if (minerWalletChainId !== expectedChainId) {
+        toast.error(
+          t.wallet.wrongNetworkBody(
+            chainIdToName(minerWalletChainId ?? chainId),
+            chainIdToName(expectedChainId),
+          ),
+        );
+        operation.finish();
+        return;
+      }
 
+      let ethAmountInWei: bigint | null = null;
+      let prerequisiteUsdcTxHash: `0x${string}` | undefined;
+      const requiredUsdc = BigInt(fraction.stepPrice) * BigInt(qty);
+      if (requiredUsdc <= 0n) throw new Error("Invalid miner price.");
+      // Bind the reviewed backend order to the configured-chain fraction
+      // before an ETH conversion or any token approval can begin. buyFractions
+      // repeats this validation immediately before its own spend path.
+      await minerFractionsHook.assertPurchaseTerms(
+        {
+          creator: fraction.owner as `0x${string}`,
+          id: fraction.id as `0x${string}`,
+          stepsToBuy: BigInt(qty),
+        },
+        {
+          expectedPaymentToken: expectedMinerPaymentToken,
+          expectedRequiredAmount: requiredUsdc,
+          assertTransactionActive,
+        },
+      );
+      assertTransactionActive();
+      const fullFlowGasUnits = estimateMinerPurchaseGasUnits(
+        payingWithEth ? "ETH" : "USDC",
+      );
+
+      if (payingWithEth) {
         const probeWei = parseUnits("0.1", 18);
         const probeRes = await estimateEthToUsdc({
           amountInWei: probeWei,
-          slippageBps: BigInt(100),
+          slippageBps: 100n,
         });
+        assertTransactionActive();
         if (!probeRes.ok || probeRes.val.amountOutUsdc <= 0n) {
           throw new Error("Failed to quote ETH to USDC.");
         }
-        let amountInWei =
-          (probeWei * requiredUsdc) / probeRes.val.amountOutUsdc;
-        amountInWei = (amountInWei * 102n) / 100n;
-        for (let i = 0; i < 3; i++) {
-          const res = await estimateEthToUsdc({
-            amountInWei,
-            slippageBps: BigInt(100),
+
+        ethAmountInWei =
+          ((probeWei * requiredUsdc) / probeRes.val.amountOutUsdc * 102n) / 100n;
+        let finalQuoteCoversPurchase = false;
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          const quote = await estimateEthToUsdc({
+            amountInWei: ethAmountInWei,
+            slippageBps: 100n,
           });
-          if (res.ok && res.val.amountOutMinUsdc >= requiredUsdc) break;
-          amountInWei = (amountInWei * 105n) / 100n;
+          assertTransactionActive();
+          if (quote.ok && quote.val.amountOutMinUsdc >= requiredUsdc) {
+            finalQuoteCoversPurchase = true;
+            break;
+          }
+          ethAmountInWei = (ethAmountInWei * 105n) / 100n;
         }
+        if (!finalQuoteCoversPurchase) {
+          throw new Error("The ETH quote does not cover the miner purchase.");
+        }
+        await assertFullFlowEthBudget({
+          gasUnits: fullFlowGasUnits,
+          valueWei: ethAmountInWei,
+          account: expectedAccount,
+        });
+        assertTransactionActive();
+      } else {
+        await assertFullFlowEthBudget({
+          gasUnits: fullFlowGasUnits,
+          account: expectedAccount,
+        });
+        assertTransactionActive();
+      }
+
+      // Build the processing screen only after quotes and the full gas budget pass.
+      const steps: TransactionStep[] = [];
+      if (payingWithEth) {
+        steps.push({
+          id: "SWAP_ETH_TO_USDC",
+          title: t.buyGlow.stepSwapEthToUsdcTitle,
+          description: t.buyGlow.stepSwapEthToUsdcDescription,
+          tokenFrom: "ETH",
+          tokenTo: "USDC",
+          status: "idle",
+        });
+      }
+      steps.push(
+        {
+          id: "APPROVE_USDC",
+          title: "Approve USDC",
+          description: "Allow the contract to spend your USDC",
+          tokenFrom: "USDC",
+          status: "idle",
+        },
+        {
+          id: "BUY_MINER",
+          title: `Purchase ${qty} miner${qty > 1 ? "s" : ""}`,
+          description: "Confirm your miner purchase",
+          tokenFrom: "USDC",
+          status: "idle",
+        },
+      );
+      stepsRef.current = steps;
+      setTransactionSteps(steps);
+      setPhase("processing");
+
+      if (payingWithEth && ethAmountInWei !== null) {
+        updateStepStatus("SWAP_ETH_TO_USDC", "waiting_signature");
         updateStepStatus("SWAP_ETH_TO_USDC", "confirming");
         const swapRes = await swapEthToUsdc({
-          amountInWei,
-          slippageBps: BigInt(100),
+          amountInWei: ethAmountInWei,
+          slippageBps: 100n,
+          minimumAmountOutUsdc: requiredUsdc,
+          expectedAccount,
+          assertTransactionActive,
         });
+        assertTransactionActive();
         if (!swapRes.ok) throw new Error(String(swapRes.val));
-        updateStepStatus("SWAP_ETH_TO_USDC", "completed");
+        if (swapRes.val.usdcReceived < requiredUsdc) {
+          throw new Error("The ETH swap did not cover the miner purchase.");
+        }
+        updateStepStatus("SWAP_ETH_TO_USDC", "completed", {
+          txHash: swapRes.val.txHash,
+        });
+        setTxHash(swapRes.val.txHash);
+        prerequisiteUsdcTxHash = swapRes.val.txHash;
       }
 
       const hash = await minerFractionsHook.buyFractions(
@@ -651,13 +823,20 @@ export function BuyGlowDialog({
           id: fraction.id as `0x${string}`,
           stepsToBuy: BigInt(qty),
           minStepsToBuy: BigInt(qty),
-          refundTo: address,
-          creditTo: address,
+          refundTo: expectedAccount,
+          creditTo: expectedAccount,
           useCounterfactualAddressForRefund: false,
         },
         {
           // Miners are a fixed $399/step — approve the exact cost, no buffer.
           approvalBufferAtomic: 0n,
+          expectedAccount,
+          expectedPaymentToken: expectedMinerPaymentToken,
+          expectedRequiredAmount: requiredUsdc,
+          prerequisiteTxHashes: prerequisiteUsdcTxHash
+            ? [prerequisiteUsdcTxHash]
+            : undefined,
+          assertTransactionActive,
           // Drive the Approve + Purchase steps. "approving"/"approved" only fire
           // when an approval is actually needed; "purchasing" always fires (and
           // marks Approve done if it was skipped because allowance sufficed).
@@ -673,6 +852,7 @@ export function BuyGlowDialog({
           },
         },
       );
+      assertTransactionActive();
       updateStepStatus("BUY_MINER", "completed", { txHash: hash });
 
       trackEvent("buy_miner_success", {
@@ -696,8 +876,14 @@ export function BuyGlowDialog({
       setMinerQty(1);
       setPhase("success");
       await refetchEvergreen?.();
+      assertTransactionActive();
       onSuccess?.();
     } catch (error) {
+      if (
+        getTransactionOperationCancellation(error, assertTransactionActive)
+      ) {
+        return;
+      }
       const message =
         error instanceof Error ? error.message : "Miner purchase failed.";
       const active = stepsRef.current.find(
@@ -708,12 +894,16 @@ export function BuyGlowDialog({
       setPhase("error");
       toast.error(message);
     } finally {
-      setMinerBusy(false);
+      if (purchaseLockRef.current === purchaseLockToken) {
+        purchaseLockRef.current = null;
+        setMinerBusy(false);
+      }
     }
   }, [
     isConnected,
     address,
     selectedMiner,
+    minerBusy,
     minerClampedQty,
     minerRemaining,
     minerFractionsHook,
@@ -723,11 +913,17 @@ export function BuyGlowDialog({
     payToken,
     estimateEthToUsdc,
     swapEthToUsdc,
+    assertFullFlowEthBudget,
     updateStepStatus,
     minerWeeklyGlwRewards,
     minerPointsPerUsd,
     onSuccess,
     t,
+    chainId,
+    expectedChainId,
+    expectedMinerPaymentToken,
+    connectorClient,
+    beginTransactionOperation,
   ]);
 
   // USDG only buys GLW; if it's selected when switching to the miner option,
@@ -739,12 +935,11 @@ export function BuyGlowDialog({
   }, [mode, payToken]);
 
   const { authenticated: isPrivyAuthenticated } = usePrivy();
-  const expectedChainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID) || 1;
   const [activeWalletChainId, setActiveWalletChainId] = React.useState<
     number | undefined
   >(chainId);
   React.useEffect(() => {
-    if (!isConnected) {
+    if (!isConnected || !address) {
       setActiveWalletChainId(undefined);
       return;
     }
@@ -769,7 +964,7 @@ export function BuyGlowDialog({
     return () => {
       cancelled = true;
     };
-  }, [chainId, connectorClient, isConnected]);
+  }, [address, chainId, connectorClient, isConnected]);
 
   const effectiveWalletChainId = activeWalletChainId ?? chainId;
   const isWrongNetwork =
@@ -794,13 +989,13 @@ export function BuyGlowDialog({
   );
   const handleSwitchNetwork = React.useCallback(async () => {
     try {
-      await switchChain({ chainId: expectedChainId });
+      await switchChainAsync({ chainId: expectedChainId });
       toast.success(t.wallet.switchedTo(expectedNetworkLabel));
     } catch (switchError) {
       console.error("Failed to switch network in buy GLW dialog:", switchError);
       toast.error(t.wallet.failedToSwitchNetwork);
     }
-  }, [expectedChainId, expectedNetworkLabel, switchChain, t.wallet]);
+  }, [expectedChainId, expectedNetworkLabel, switchChainAsync, t.wallet]);
   const pendingCardFundRef = React.useRef<{
     address: `0x${string}`;
     amount: string;
@@ -887,7 +1082,6 @@ export function BuyGlowDialog({
 
   const {
     swapUSDCToUSDG,
-    lastTxHashRef: usdcToUsdgLastTxHashRef,
     resetLastTxHash: resetUsdcToUsdgLastTxHash,
   } = useSwapUSDCToUSDG();
   const {
@@ -927,9 +1121,11 @@ export function BuyGlowDialog({
   const showUsdgOption =
     usdgBalanceWei > 0n || (isConnected && isBalancesLoading);
 
-  const isEthPayEnabled = chainId === 1 || chainId === 11155111;
+  const isEthPayEnabled =
+    expectedChainId === mainnet.id || expectedChainId === sepolia.id;
   const ethBalanceQuery = useBalance({
     address,
+    chainId: expectedChainId,
     query: {
       enabled: Boolean(open && address && isEthPayEnabled),
     },
@@ -952,6 +1148,37 @@ export function BuyGlowDialog({
   ]);
 
   const ethBalanceWei = ethBalanceQuery.data?.value ?? null;
+  const hasBondingAllocationForGas =
+    mode === "glw" &&
+    (payToken === "ETH" ||
+      !smartAmounts ||
+      smartAmounts.amount_in_glow_bonding_curve > 0n);
+  const fullFlowGasUnits = React.useMemo(
+    () =>
+      mode === "miner"
+        ? estimateMinerPurchaseGasUnits(payToken === "ETH" ? "ETH" : "USDC")
+        : estimateBuyGlowGasUnits({
+            payToken,
+            hasBondingAllocation: hasBondingAllocationForGas,
+          }),
+    [hasBondingAllocationForGas, mode, payToken],
+  );
+  const nativeValueWei = React.useMemo(() => {
+    if (mode !== "glw" || payToken !== "ETH") return 0n;
+    try {
+      return parseUnits(trimToDecimals(inputAmount, 18), 18);
+    } catch {
+      return 0n;
+    }
+  }, [inputAmount, mode, payToken]);
+  const fullFlowGasPreflight = useEthGasPreflight({
+    estimatedGasUnits: fullFlowGasUnits,
+    additionalRequiredWei: nativeValueWei,
+    safetyBps: 1_500,
+    enabled: open && phase === "input" && isConnected && !isWrongNetwork,
+  });
+  const hasInsufficientFullFlowGas =
+    fullFlowGasPreflight.sufficient === false;
 
   const impactQuote = React.useMemo(() => {
     if (!estimatedGlw || Number(estimatedGlw) <= 0) return null;
@@ -1017,15 +1244,24 @@ export function BuyGlowDialog({
   ]);
 
   const estimateRunner = React.useCallback(
-    async (amount: string, signal: AbortSignal) => {
+    async (amount: string, signal: AbortSignal): Promise<BuyGlowEstimateResult> => {
+      const emptyResult = (attempted = false): BuyGlowEstimateResult => ({
+        estimatedGlw: "",
+        smartAmounts: undefined,
+        forAmount: attempted ? amount : "",
+        forPayToken: attempted ? payToken : null,
+        forPrice: attempted ? earlyLiquidityCurrentPrice : null,
+        quotedAt: 0,
+      });
       if (!amount || Number(amount) <= 0) {
-        return { estimatedGlw: "", smartAmounts: undefined, forAmount: "" };
+        return emptyResult();
       }
 
       let usdgEquivalent = amount;
+      let ethToUsdcMinimum: bigint | undefined;
       if (payToken === "ETH") {
         if (!isEthPayEnabled) {
-          return { estimatedGlw: "", smartAmounts: undefined, forAmount: "" };
+          return emptyResult(true);
         }
         const amountInWei = parseUnits(amount, 18);
         const quoteRes = await estimateEthToUsdc({
@@ -1033,9 +1269,10 @@ export function BuyGlowDialog({
           slippageBps: BigInt(100),
         });
         if (!quoteRes.ok) {
-          return { estimatedGlw: "", smartAmounts: undefined, forAmount: "" };
+          return emptyResult(true);
         }
         usdgEquivalent = formatUnits(quoteRes.val.amountOutUsdc, 6);
+        ethToUsdcMinimum = quoteRes.val.amountOutMinUsdc;
       }
 
       const result = await getSmartBalancingAmounts({
@@ -1044,7 +1281,7 @@ export function BuyGlowDialog({
       });
 
       if (signal.aborted)
-        return { estimatedGlw: "", smartAmounts: undefined, forAmount: "" };
+        return emptyResult();
 
       if (result.ok) {
         const amounts = result.val;
@@ -1056,10 +1293,14 @@ export function BuyGlowDialog({
           estimatedGlw: totalOut.toString(),
           smartAmounts: amounts,
           forAmount: amount,
+          forPayToken: payToken,
+          forPrice: earlyLiquidityCurrentPrice,
+          quotedAt: Date.now(),
+          ethToUsdcMinimum,
         };
       }
 
-      return { estimatedGlw: "", smartAmounts: undefined, forAmount: "" };
+      return emptyResult(true);
     },
     [
       estimateEthToUsdc,
@@ -1071,23 +1312,28 @@ export function BuyGlowDialog({
   );
 
   const handleEstimateResult = React.useCallback(
-    (result: {
-      estimatedGlw: string;
-      smartAmounts: SmartBalancingAmounts | undefined;
-      forAmount: string;
-    }) => {
+    (result: BuyGlowEstimateResult) => {
       setEstimatedGlw(result.estimatedGlw);
       setSmartAmounts(result.smartAmounts);
       setLastEstimatedAmount(result.forAmount);
+      setLastEstimatedPayToken(result.forPayToken);
+      setLastEstimatedPrice(result.forPrice);
+      setLastEstimatedAt(result.quotedAt);
+      setLastEthToUsdcMinimum(result.ethToUsdcMinimum);
     },
     [],
   );
 
-  const handleEstimateError = React.useCallback(() => {
+  const handleEstimateError = React.useCallback((_error: unknown, amount: string) => {
     console.error("Failed to estimate");
     setEstimatedGlw("");
     setSmartAmounts(undefined);
-  }, []);
+    setLastEstimatedAmount(amount);
+    setLastEstimatedPayToken(payToken);
+    setLastEstimatedPrice(earlyLiquidityCurrentPrice);
+    setLastEstimatedAt(0);
+    setLastEthToUsdcMinimum(undefined);
+  }, [earlyLiquidityCurrentPrice, payToken]);
 
   const estimateOptions = React.useMemo(
     () => ({
@@ -1098,10 +1344,53 @@ export function BuyGlowDialog({
     [handleEstimateError, handleEstimateResult],
   );
 
-  const { run: runEstimate, isRunning: isEstimating } = useDebouncedAsync(
+  const {
+    run: runEstimate,
+    cancel: cancelEstimate,
+    isRunning: isEstimating,
+  } = useDebouncedAsync(
     estimateRunner,
     estimateOptions,
   );
+
+  const hasCurrentBuyGlowQuote =
+    lastEstimatedAmount === inputAmount &&
+    lastEstimatedPayToken === payToken &&
+    lastEstimatedPrice === earlyLiquidityCurrentPrice &&
+    lastEstimatedAt > 0 &&
+    Date.now() - lastEstimatedAt <= SWAP_QUOTE_MAX_AGE_MS &&
+    Boolean(smartAmounts) &&
+    smartAmounts?.earlyLiquidityCurrentPrice === earlyLiquidityCurrentPrice;
+  const hasAttemptedCurrentQuoteBasis =
+    lastEstimatedAmount === inputAmount &&
+    lastEstimatedPayToken === payToken &&
+    lastEstimatedPrice === earlyLiquidityCurrentPrice;
+
+  React.useEffect(() => {
+    if (!open || phase !== "input" || lastEstimatedAt <= 0) return;
+    const remainingMs =
+      lastEstimatedAt + SWAP_QUOTE_MAX_AGE_MS - Date.now();
+    if (remainingMs <= 0) {
+      setLastEstimatedAt(0);
+      setLastEstimatedAmount("");
+      setLastEstimatedPayToken(null);
+      setLastEstimatedPrice(null);
+      setLastEthToUsdcMinimum(undefined);
+      setEstimatedGlw("");
+      setSmartAmounts(undefined);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setLastEstimatedAt(0);
+      setLastEstimatedAmount("");
+      setLastEstimatedPayToken(null);
+      setLastEstimatedPrice(null);
+      setLastEthToUsdcMinimum(undefined);
+      setEstimatedGlw("");
+      setSmartAmounts(undefined);
+    }, remainingMs + 25);
+    return () => window.clearTimeout(timer);
+  }, [lastEstimatedAt, open, phase]);
 
   React.useEffect(() => {
     if (!open) return;
@@ -1115,19 +1404,18 @@ export function BuyGlowDialog({
       return;
     if (payToken === "ETH" && !isEthPayEnabled) return;
 
-    const hasQuoteForCurrentPrice =
-      lastEstimatedAmount === inputAmount &&
-      Boolean(smartAmounts) &&
-      smartAmounts?.earlyLiquidityCurrentPrice === earlyLiquidityCurrentPrice;
-
-    if (hasQuoteForCurrentPrice) return;
+    if (hasCurrentBuyGlowQuote || hasAttemptedCurrentQuoteBasis) return;
     runEstimate(inputAmount);
   }, [
     earlyLiquidityCurrentPrice,
     inputAmount,
     isEstimating,
     isEthPayEnabled,
-    lastEstimatedAmount,
+    hasCurrentBuyGlowQuote,
+    hasAttemptedCurrentQuoteBasis,
+    lastEstimatedAt,
+    lastEstimatedPayToken,
+    lastEstimatedPrice,
     open,
     payToken,
     phase,
@@ -1145,27 +1433,38 @@ export function BuyGlowDialog({
 
   const handleInputChange = React.useCallback(
     (value: string) => {
+      cancelEstimate();
       setInputAmount(value);
+      setEstimatedGlw("");
+      setSmartAmounts(undefined);
+      setLastEstimatedAmount("");
+      setLastEstimatedPayToken(null);
+      setLastEstimatedPrice(null);
+      setLastEstimatedAt(0);
+      setLastEthToUsdcMinimum(undefined);
 
       if (!value || Number(value) <= 0) {
-        setEstimatedGlw("");
-        setSmartAmounts(undefined);
         return;
       }
 
       runEstimate(value);
     },
-    [runEstimate],
+    [cancelEstimate, runEstimate],
   );
 
   const handlePayTokenChange = React.useCallback(
     (next: PayToken) => {
+      cancelEstimate();
       setPayToken(next);
       hasPrefilledForOpenRef.current = false;
       setInputAmount("");
       setEstimatedGlw("");
       setSmartAmounts(undefined);
       setLastEstimatedAmount("");
+      setLastEstimatedPayToken(null);
+      setLastEstimatedPrice(null);
+      setLastEstimatedAt(0);
+      setLastEthToUsdcMinimum(undefined);
       setTxHash(null);
       setErrorMessage(null);
       setTransactionSteps([]);
@@ -1180,7 +1479,7 @@ export function BuyGlowDialog({
         }
       }
     },
-    [defaultUsdcAmount, handleInputChange, open, phase, source],
+    [cancelEstimate, defaultUsdcAmount, handleInputChange, open, phase, source],
   );
 
   React.useEffect(() => {
@@ -1212,13 +1511,34 @@ export function BuyGlowDialog({
     return Number(inputAmount) / Number(estimatedGlw);
   }, [inputAmount, estimatedGlw, payToken]);
 
+  const getValidatedBondingPurchase = React.useCallback(
+    async (amounts: SmartBalancingAmounts) => {
+      const allocation = amounts.amount_in_glow_bonding_curve ?? 0n;
+      const output = Number(amounts.amount_out_glow || "0");
+      if (allocation <= 0n || !Number.isFinite(output) || output <= 0) return null;
+
+      const incrementsToPurchase = Math.floor(output * 100);
+      if (incrementsToPurchase <= 0) {
+        throw new Error(BONDING_CURVE_QUOTE_CHANGED_MESSAGE);
+      }
+      const quoteResult = await getGlowQuoteEarlyLiquidity(incrementsToPurchase);
+      if (!quoteResult.ok) throw new Error(String(quoteResult.val));
+      if (quoteResult.val > allocation) {
+        throw new Error(BONDING_CURVE_QUOTE_CHANGED_MESSAGE);
+      }
+
+      return { allocation, incrementsToPurchase };
+    },
+    [getGlowQuoteEarlyLiquidity],
+  );
+
   const handleBuyGlow = React.useCallback(async () => {
     if (!inputAmount || Number(inputAmount) <= 0 || !smartAmounts) {
       toast.error(t.buyGlow.toastEnterAmount);
       return;
     }
 
-    if (!isConnected) {
+    if (!isConnected || !address) {
       toast.error(t.buyGlow.toastConnectRequired);
       trackEvent("buy_glw_connect_required", { source });
       return;
@@ -1232,21 +1552,79 @@ export function BuyGlowDialog({
       return;
     }
 
-    if (inputAmount !== lastEstimatedAmount) {
+    if (!hasCurrentBuyGlowQuote) {
       toast.error(t.buyGlow.toastEstimateUpdating);
       return;
     }
 
-    const isBlocked = await checkSmartAccountBeforeBuy();
-    if (isBlocked) {
-      trackEvent("buy_glw_smart_account_blocked", { source });
+    if (fullFlowGasPreflight.isChecking) {
+      toast.error(t.swap.checking);
       return;
     }
+    if (hasInsufficientFullFlowGas) {
+      toast.error(t.swap.insufficientGasErrorExplained);
+      return;
+    }
+    if (purchaseLockRef.current) return;
+    const operation = beginTransactionOperation();
+    if (!operation) return;
+    const { assertActive: assertTransactionActive } = operation;
+    const expectedAccount = address;
+    const purchaseLockToken = Symbol("glow-purchase");
+    purchaseLockRef.current = purchaseLockToken;
+    setIsPreparingPurchase(true);
 
     try {
+      const isBlocked = await checkSmartAccountBeforeBuy(
+        assertTransactionActive,
+      );
+      assertTransactionActive();
+      if (isBlocked) {
+        setIsSmartAccountWarningOpen(true);
+        trackEvent("buy_glw_smart_account_blocked", { source });
+        operation.finish();
+        return;
+      }
+
+      stepsRef.current = [];
+      setTransactionSteps([]);
       let effectiveSmartAmounts: SmartBalancingAmounts = smartAmounts;
       let includeUsdcToUsdgSwap = payToken === "USDC" || payToken === "ETH";
       let usdcAmountToSwapToUsdg: bigint | null = null;
+      let routeBudgetAtomic: bigint | undefined;
+      let prerequisiteUsdcTxHash: `0x${string}` | undefined;
+      let prerequisiteWrapTxHash: `0x${string}` | undefined;
+      let confirmedUniswapGlwReceived = 0n;
+      let confirmedBondingGlwReceived = 0n;
+      const reviewedMinimumGlw = computeAmountOutMin(
+        parseUnits(estimatedGlw, 18),
+        100n,
+      );
+      const assertRouteGuaranteesReviewedMinimum = (
+        amounts: SmartBalancingAmounts,
+        bondingIncrements: number | null,
+      ) => {
+        const guaranteedMinimum = computeGuaranteedGlowRouteMinimum({
+          uniswapQuotedAmountOut:
+            amounts.amount_in_uni > 0n
+              ? parseUnits(amounts.amount_out_uni, 18)
+              : 0n,
+          slippageBps: 100n,
+          bondingIncrements,
+        });
+        if (guaranteedMinimum < reviewedMinimumGlw) {
+          throw new Error(
+            "This route cannot guarantee the minimum amount you reviewed.",
+          );
+        }
+      };
+
+      if (Date.now() - lastEstimatedAt > SWAP_QUOTE_MAX_AGE_MS) {
+        throw new Error(t.buyGlow.toastEstimateUpdating);
+      }
+      if (payToken === "ETH" && !lastEthToUsdcMinimum) {
+        throw new Error(t.buyGlow.toastEstimateUpdating);
+      }
 
       if (payToken === "USDC") {
         const requestedWei = parseUnits(
@@ -1256,6 +1634,7 @@ export function BuyGlowDialog({
         if (requestedWei > usdcBalanceWei)
           throw new Error(t.buyGlow.errorInsufficientUsdc);
 
+        routeBudgetAtomic = requestedWei;
         usdcAmountToSwapToUsdg = requestedWei;
       }
 
@@ -1267,7 +1646,16 @@ export function BuyGlowDialog({
         if (requestedWei > usdgBalanceWei)
           throw new Error(t.buyGlow.errorInsufficientUsdg);
 
+        routeBudgetAtomic = requestedWei;
         includeUsdcToUsdgSwap = false;
+      }
+
+      const initialRouteValidation = validateSmartBalancingQuote({
+        quote: effectiveSmartAmounts,
+        budgetAtomic: routeBudgetAtomic,
+      });
+      if (!initialRouteValidation.ok) {
+        throw new Error(initialRouteValidation.error);
       }
 
       const bondingAllocationInitial =
@@ -1277,6 +1665,25 @@ export function BuyGlowDialog({
       );
       const hasBondingOutputInitial =
         bondingAllocationInitial > BigInt(0) && bondingOutputInitial > 0;
+      let validatedBondingPurchase =
+        await getValidatedBondingPurchase(effectiveSmartAmounts);
+      assertTransactionActive();
+      assertRouteGuaranteesReviewedMinimum(
+        effectiveSmartAmounts,
+        validatedBondingPurchase?.incrementsToPurchase ?? null,
+      );
+
+      await assertFullFlowEthBudget({
+        gasUnits: fullFlowGasUnits,
+        valueWei:
+          payToken === "ETH" ? parseUnits(inputAmount, 18) : 0n,
+        account: expectedAccount,
+      });
+      assertTransactionActive();
+
+      if (Date.now() - lastEstimatedAt > SWAP_QUOTE_MAX_AGE_MS) {
+        throw new Error(t.buyGlow.toastEstimateUpdating);
+      }
 
       // Build transaction steps
       const steps: TransactionStep[] = [];
@@ -1352,7 +1759,11 @@ export function BuyGlowDialog({
         const swapEthRes = await swapEthToUsdc({
           amountInWei: parseUnits(inputAmount, 18),
           slippageBps: BigInt(100),
+          minimumAmountOutUsdc: lastEthToUsdcMinimum,
+          expectedAccount,
+          assertTransactionActive,
         });
+        assertTransactionActive();
         if (!swapEthRes.ok) {
           trackEvent("buy_glw_step_result", {
             step: "swap_eth_to_usdc",
@@ -1371,6 +1782,7 @@ export function BuyGlowDialog({
           txHash: swapEthRes.val.txHash,
         });
         setTxHash(swapEthRes.val.txHash);
+        prerequisiteUsdcTxHash = swapEthRes.val.txHash;
 
         usdcAmountToSwapToUsdg = swapEthRes.val.usdcReceived;
 
@@ -1379,8 +1791,30 @@ export function BuyGlowDialog({
           amountUsdgIn: usdcReceivedFormatted,
           earlyLiquidityCurrentPrice,
         });
+        assertTransactionActive();
         if (!recomputeRes.ok) throw new Error(String(recomputeRes.val));
         effectiveSmartAmounts = recomputeRes.val;
+        routeBudgetAtomic = swapEthRes.val.usdcReceived;
+        const replacementRouteValidation = validateSmartBalancingQuote({
+          quote: effectiveSmartAmounts,
+          budgetAtomic: routeBudgetAtomic,
+        });
+        if (!replacementRouteValidation.ok) {
+          throw new Error(replacementRouteValidation.error);
+        }
+        const replacementTotalGlow =
+          parseUnits(effectiveSmartAmounts.amount_out_uni, 18) +
+          parseUnits(effectiveSmartAmounts.amount_out_glow, 18);
+        if (replacementTotalGlow < reviewedMinimumGlw) {
+          throw new Error("The updated route is below the minimum you reviewed.");
+        }
+        validatedBondingPurchase =
+          await getValidatedBondingPurchase(effectiveSmartAmounts);
+        assertTransactionActive();
+        assertRouteGuaranteesReviewedMinimum(
+          effectiveSmartAmounts,
+          validatedBondingPurchase?.incrementsToPurchase ?? null,
+        );
 
         const bondingAllocation =
           effectiveSmartAmounts.amount_in_glow_bonding_curve ?? BigInt(0);
@@ -1421,7 +1855,14 @@ export function BuyGlowDialog({
       if (usdcAmountToSwapToUsdg && usdcAmountToSwapToUsdg > 0n) {
         updateStepStatus("SWAP_USDC_TO_USDG", "waiting_signature");
         updateStepStatus("SWAP_USDC_TO_USDG", "confirming");
-        const swapUsdcResult = await swapUSDCToUSDG(usdcAmountToSwapToUsdg);
+        const swapUsdcResult = await swapUSDCToUSDG(usdcAmountToSwapToUsdg, {
+          expectedAccount,
+          prerequisiteTxHashes: prerequisiteUsdcTxHash
+            ? [prerequisiteUsdcTxHash]
+            : undefined,
+          assertTransactionActive,
+        });
+        assertTransactionActive();
         if (!swapUsdcResult.ok) {
           trackEvent("buy_glw_step_result", {
             step: "swap_usdc_to_usdg",
@@ -1431,14 +1872,14 @@ export function BuyGlowDialog({
           });
           throw new Error(String(swapUsdcResult.val));
         }
+        prerequisiteWrapTxHash = swapUsdcResult.val.txHash;
         trackEvent("buy_glw_step_result", {
           step: "swap_usdc_to_usdg",
           ok: true,
           source,
         });
         updateStepStatus("SWAP_USDC_TO_USDG", "completed");
-        if (usdcToUsdgLastTxHashRef.current)
-          setTxHash(usdcToUsdgLastTxHashRef.current);
+        setTxHash(prerequisiteWrapTxHash);
       } else {
         updateStepStatus("SWAP_USDC_TO_USDG", "completed");
       }
@@ -1450,14 +1891,6 @@ export function BuyGlowDialog({
       );
       const hasBondingOutput =
         bondingAllocation > BigInt(0) && bondingOutput > 0;
-      const finalUniswapOut = Number(
-        effectiveSmartAmounts.amount_out_uni || "0",
-      );
-      const finalBondingOut = Number(
-        effectiveSmartAmounts.amount_out_glow || "0",
-      );
-      const finalEstimatedGlw = (finalUniswapOut + finalBondingOut).toString();
-
       const hasUniswapAllocation =
         effectiveSmartAmounts.amount_in_uni > BigInt(0);
       if (hasUniswapAllocation) {
@@ -1466,7 +1899,17 @@ export function BuyGlowDialog({
         const uniswapResult = await swapUsdGToGlow({
           amount: effectiveSmartAmounts.amount_in_uni,
           slippagePercentTenThousandDenominator: BigInt(100),
+          minimumAmountOut: computeAmountOutMin(
+            parseUnits(effectiveSmartAmounts.amount_out_uni, 18),
+            100n,
+          ),
+          prerequisiteTxHashes: prerequisiteWrapTxHash
+            ? [prerequisiteWrapTxHash]
+            : undefined,
+          expectedAccount,
+          assertTransactionActive,
         });
+        assertTransactionActive();
         if (!uniswapResult.ok) {
           trackEvent("buy_glw_step_result", {
             step: "swap_usdg_to_glw_uniswap",
@@ -1476,6 +1919,7 @@ export function BuyGlowDialog({
           });
           throw new Error(String(uniswapResult.val));
         }
+        confirmedUniswapGlwReceived += uniswapResult.val.amountReceived;
         trackEvent("buy_glw_step_result", {
           step: "swap_usdg_to_glw_uniswap",
           ok: true,
@@ -1491,58 +1935,54 @@ export function BuyGlowDialog({
       if (hasBondingOutput) {
         updateStepStatus("PURCHASING_GLOW", "waiting_signature");
         updateStepStatus("PURCHASING_GLOW", "confirming");
-        const incrementsToPurchase = Math.floor(bondingOutput * 100);
-        const quoteResult =
-          await getGlowQuoteEarlyLiquidity(incrementsToPurchase);
-        if (!quoteResult.ok) {
+        if (!validatedBondingPurchase) {
           trackEvent("buy_glw_step_result", {
             step: "purchase_glw_bonding",
             ok: false,
-            error_message: String(quoteResult.val),
+            error_message: BONDING_CURVE_QUOTE_CHANGED_MESSAGE,
             source,
           });
-          throw new Error(String(quoteResult.val));
+          throw new Error(BONDING_CURVE_QUOTE_CHANGED_MESSAGE);
         }
-
-        if (quoteResult.val > bondingAllocation) {
-          console.warn(
-            "Skipping bonding curve purchase due to insufficient USDG allocation",
-            {
-              bondingAllocation: bondingAllocation.toString(),
-              bondingQuote: quoteResult.val.toString(),
-            },
-          );
-          updateStepStatus("PURCHASING_GLOW", "completed");
+        const purchaseResult = await purchaseGlowEarlyLiquidity({
+          incrementsToPurchase: validatedBondingPurchase.incrementsToPurchase,
+          slippagePointsTenThousandths: 100n,
+          maxUsdgToSpend: bondingAllocation,
+          allowUsdcTopUp: false,
+          prerequisiteTxHashes: prerequisiteWrapTxHash
+            ? [prerequisiteWrapTxHash]
+            : undefined,
+          expectedAccount,
+          assertTransactionActive,
+        });
+        assertTransactionActive();
+        if (!purchaseResult.ok) {
           trackEvent("buy_glw_step_result", {
             step: "purchase_glw_bonding",
-            ok: true,
-            skipped: true,
+            ok: false,
+            error_message: String(purchaseResult.val),
             source,
           });
-        } else {
-          const purchaseResult = await purchaseGlowEarlyLiquidity({
-            incrementsToPurchase,
-            slippagePointsTenThousandths: BigInt(100),
-          });
-          if (!purchaseResult.ok) {
-            trackEvent("buy_glw_step_result", {
-              step: "purchase_glw_bonding",
-              ok: false,
-              error_message: String(purchaseResult.val),
-              source,
-            });
-            throw new Error(String(purchaseResult.val));
-          }
-          updateStepStatus("PURCHASING_GLOW", "completed");
-          trackEvent("buy_glw_step_result", {
-            step: "purchase_glw_bonding",
-            ok: true,
-            skipped: false,
-            source,
-          });
-          if (glowLastTxHashRef.current) setTxHash(glowLastTxHashRef.current);
+          throw new Error(String(purchaseResult.val));
         }
+        confirmedBondingGlwReceived += purchaseResult.val.glowReceived;
+        updateStepStatus("PURCHASING_GLOW", "completed");
+        trackEvent("buy_glw_step_result", {
+          step: "purchase_glw_bonding",
+          ok: true,
+          skipped: false,
+          source,
+        });
+        if (glowLastTxHashRef.current) setTxHash(glowLastTxHashRef.current);
       }
+
+      const confirmedGlwReceived = enforceConfirmedGlowRouteMinimum({
+        uniswapReceived: confirmedUniswapGlwReceived,
+        bondingReceived: confirmedBondingGlwReceived,
+        reviewedMinimum: reviewedMinimumGlw,
+      });
+      const finalConfirmedGlw = formatUnits(confirmedGlwReceived, 18);
+      setEstimatedGlw(finalConfirmedGlw);
 
       updateStepStatus("DONE", "confirming");
       updateStepStatus("DONE", "completed");
@@ -1558,7 +1998,7 @@ export function BuyGlowDialog({
       trackEvent("buy_glw_success", {
         pay_token: payToken,
         pay_amount: inputAmount,
-        estimated_glw: finalEstimatedGlw,
+        estimated_glw: finalConfirmedGlw,
         has_bonding_step: hasBondingOutput,
         source,
         amount_usd_bucket:
@@ -1568,6 +2008,11 @@ export function BuyGlowDialog({
       });
       onSuccess?.();
     } catch (error: any) {
+      if (
+        getTransactionOperationCancellation(error, assertTransactionActive)
+      ) {
+        return;
+      }
       console.error("Purchase failed:", error);
 
       const msg = error?.message || t.buyGlow.toastTransactionFailed;
@@ -1600,30 +2045,38 @@ export function BuyGlowDialog({
         error_message: msg,
         source,
       });
+    } finally {
+      if (purchaseLockRef.current === purchaseLockToken) {
+        purchaseLockRef.current = null;
+        setIsPreparingPurchase(false);
+      }
     }
   }, [
     earlyLiquidityCurrentPrice,
     getSmartBalancingAmounts,
     inputAmount,
+    estimatedGlw,
     smartAmounts,
-    lastEstimatedAmount,
+    lastEstimatedAt,
+    lastEthToUsdcMinimum,
+    hasCurrentBuyGlowQuote,
     payToken,
     swapUSDCToUSDG,
     swapUsdGToGlow,
     swapEthToUsdc,
     purchaseGlowEarlyLiquidity,
-    getGlowQuoteEarlyLiquidity,
+    getValidatedBondingPurchase,
     updateStepStatus,
     onSuccess,
     usdcBalanceFormatted,
     usdgBalanceFormatted,
     isEthPayEnabled,
     isConnected,
+    address,
     usdcBalanceWei,
     usdgBalanceWei,
     checkSmartAccountBeforeBuy,
     glowLastTxHashRef,
-    usdcToUsdgLastTxHashRef,
     uniswapLastTxHashRef,
     source,
     t.buyGlow,
@@ -1631,9 +2084,16 @@ export function BuyGlowDialog({
     isWrongNetwork,
     connectedNetworkLabel,
     expectedNetworkLabel,
+    fullFlowGasPreflight.isChecking,
+    hasInsufficientFullFlowGas,
+    fullFlowGasUnits,
+    assertFullFlowEthBudget,
+    t.swap,
+    beginTransactionOperation,
   ]);
 
   const handleClose = React.useCallback(() => {
+    cancelEstimate();
     if (address) {
       void (async () => {
         try {
@@ -1666,30 +2126,37 @@ export function BuyGlowDialog({
 
     onOpenChange(false);
     hasPrefilledForOpenRef.current = false;
-    // setTimeout for dialog close animation
-    setTimeout(() => {
-      setPhase("input");
-      setMode("glw");
-      setMinerQty(1);
-      setMinerBusy(false);
-      setMinerSuccess(null);
-      setPayToken("USDC");
-      setInputAmount("");
-      setEstimatedGlw("");
-      setSmartAmounts(undefined);
-      setLastEstimatedAmount("");
-      setTransactionSteps([]);
-      stepsRef.current = [];
-      setTxHash(null);
-      setErrorMessage(null);
-      resetUsdcToUsdgLastTxHash();
-      resetUniswapLastTxHash();
-      resetGlowLastTxHash();
-      resetGlowPurchaseState();
-      resetUniswapPurchaseState();
-    }, 300);
+    // Reset synchronously so a fast reopen cannot be mutated by a timer from
+    // the previous dialog session.
+    setPhase("input");
+    setMode("glw");
+    setMinerQty(1);
+    setMinerBusy(false);
+    setIsPreparingPurchase(false);
+    purchaseLockRef.current = null;
+    setMinerSuccess(null);
+    setPayToken("USDC");
+    setInputAmount("");
+    setEstimatedGlw("");
+    setSmartAmounts(undefined);
+    setLastEstimatedAmount("");
+    setLastEstimatedPayToken(null);
+    setLastEstimatedPrice(null);
+    setLastEstimatedAt(0);
+    setLastEthToUsdcMinimum(undefined);
+    setTransactionSteps([]);
+    stepsRef.current = [];
+    setTxHash(null);
+    setErrorMessage(null);
+    setIsSmartAccountWarningOpen(false);
+    resetUsdcToUsdgLastTxHash();
+    resetUniswapLastTxHash();
+    resetGlowLastTxHash();
+    resetGlowPurchaseState();
+    resetUniswapPurchaseState();
   }, [
     address,
+    cancelEstimate,
     chainId,
     onOpenChange,
     queryClient,
@@ -1706,15 +2173,6 @@ export function BuyGlowDialog({
       toast.success("Transaction ID copied to clipboard");
     }
   }, [txHash]);
-
-  const handleRetry = React.useCallback(() => {
-    setPhase("input");
-    setErrorMessage(null);
-    setTransactionSteps([]);
-    stepsRef.current = [];
-    resetGlowPurchaseState();
-    resetUniswapPurchaseState();
-  }, [resetGlowPurchaseState, resetUniswapPurchaseState]);
 
   const renderContent = () => {
     // SUCCESS PHASE
@@ -2049,15 +2507,8 @@ export function BuyGlowDialog({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
             >
-              <Button
-                variant="outline"
-                onClick={handleClose}
-                className="flex-1"
-              >
+              <Button variant="outline" onClick={handleClose} className="w-full">
                 {t.buyGlow.close}
-              </Button>
-              <Button onClick={handleRetry} className="flex-1">
-                {t.buyGlow.tryAgain}
               </Button>
             </motion.div>
           )}
@@ -2094,7 +2545,14 @@ export function BuyGlowDialog({
           </div>
         </div>
 
-        <div className="px-5 py-5 space-y-4">
+        <div
+          className={cn(
+            "px-5 py-5 space-y-4",
+            (isPreparingPurchase || minerBusy) &&
+              "pointer-events-none opacity-70",
+          )}
+          aria-busy={isPreparingPurchase || minerBusy}
+        >
           {/* Two options side by side: Buy GLW directly, or buy from a miner.
               Both are peer "cards": a header region (branded band / photo
               banner) over a body, so the two read as the same component. */}
@@ -2185,23 +2643,29 @@ export function BuyGlowDialog({
                           if (payToken === "ETH") {
                             if (!ethBalanceWei) return;
                             try {
-                              const probeWei =
-                                ethBalanceWei > parseUnits("0.05", 18)
-                                  ? parseUnits("0.05", 18)
-                                  : ethBalanceWei;
-                              const gasRes = await estimateGasForSwapEthToUsdc({
-                                amountInWei: probeWei,
-                                slippageBps: BigInt(100),
-                              });
-                              const feeWei = gasRes.ok
-                                ? gasRes.val.estimatedFeeWei
-                                : BigInt(0);
-                              const bufferedFeeWei =
-                                (feeWei * BigInt(12)) / BigInt(10);
+                              if (!publicClient) {
+                                throw new Error(t.buyGlow.toastFailedComputeMaxEth);
+                              }
+                              const gasPriceWei = await publicClient.getGasPrice();
+                              const fullPurchaseGasWei =
+                                computeRequiredEthBalanceWei({
+                                  gasUnits: estimateBuyGlowGasUnits({
+                                    payToken: "ETH",
+                                    // MAX must remain safe if the refreshed route
+                                    // uses both Uniswap and the bonding curve.
+                                    hasBondingAllocation: true,
+                                  }),
+                                  gasPriceWei,
+                                });
                               const maxSpendWei =
-                                ethBalanceWei > bufferedFeeWei
-                                  ? ethBalanceWei - bufferedFeeWei
-                                  : BigInt(0);
+                                ethBalanceWei > fullPurchaseGasWei
+                                  ? ethBalanceWei - fullPurchaseGasWei
+                                  : 0n;
+                              if (maxSpendWei <= 0n) {
+                                throw new Error(
+                                  t.swap.insufficientGasErrorExplained,
+                                );
+                              }
                               handleInputChange(
                                 formatEthMaxFromWei(maxSpendWei),
                               );
@@ -2610,10 +3074,16 @@ export function BuyGlowDialog({
               className="w-full h-12 rounded-xl text-base font-medium"
               onClick={handleBuyMiner}
               disabled={
-                minerBusy || !selectedMinerFraction || minerRemaining < 1
+                minerBusy ||
+                fullFlowGasPreflight.isChecking ||
+                hasInsufficientFullFlowGas ||
+                !selectedMinerFraction ||
+                minerRemaining < 1
               }
             >
-              {minerBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {(minerBusy || fullFlowGasPreflight.isChecking) && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
               {`Buy ${minerClampedQty} miner${
                 minerClampedQty > 1 ? "s" : ""
               } · ${formatUsdAmount(minerTotalUsd)}`}
@@ -2629,10 +3099,15 @@ export function BuyGlowDialog({
                   Number(inputAmount) > Number(availablePayBalanceFormatted) ||
                   !estimatedGlw ||
                   isEstimating ||
-                  inputAmount !== lastEstimatedAmount
+                  isPreparingPurchase ||
+                  fullFlowGasPreflight.isChecking ||
+                  hasInsufficientFullFlowGas ||
+                  !hasCurrentBuyGlowQuote
                 }
               >
-                {isEstimating && (
+                {(isEstimating ||
+                  isPreparingPurchase ||
+                  fullFlowGasPreflight.isChecking) && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
                 {t.buyGlow.buyGlw}
@@ -2681,12 +3156,29 @@ export function BuyGlowDialog({
             </div>
           )}
         </div>
+        {isConnected && !isWrongNetwork && hasInsufficientFullFlowGas && (
+          <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
+            {t.swap.insufficientGasErrorExplained}
+          </p>
+        )}
       </div>
     );
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (
+          nextOpen ||
+          phase === "processing" ||
+          minerBusy ||
+          isPreparingPurchase
+        )
+          return;
+        handleClose();
+      }}
+    >
       <DialogContent
         className={cn(
           "p-0 gap-0 bg-card border border-border/40 text-foreground overflow-hidden rounded-[24px] flex flex-col max-h-[85vh]",
@@ -2702,7 +3194,15 @@ export function BuyGlowDialog({
             ? "max-w-[min(calc(100vw-2rem),44rem)]"
             : "max-w-[min(calc(100vw-2rem),28rem)]",
         )}
+        showCloseButton={
+          phase !== "processing" && !minerBusy && !isPreparingPurchase
+        }
         onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => {
+          if (phase === "processing" || minerBusy || isPreparingPurchase) {
+            e.preventDefault();
+          }
+        }}
         // Don't let Radix auto-focus the GLW amount field on open: its onFocus
         // forced mode="glw" and fought the post-load miner default. Nothing
         // grabs focus on open; user clicks/tabs still select normally.

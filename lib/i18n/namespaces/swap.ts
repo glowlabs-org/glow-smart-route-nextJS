@@ -27,6 +27,7 @@ export interface SwapStrings {
   processing: string;
   earlyLiquidityDisabled: string;
   reconnectWallet: string;
+  invalidSlippage: string;
   enterAnAmount: string;
   insufficientEthBalance: string;
   insufficientFunds: string;
@@ -48,6 +49,7 @@ export interface SwapStrings {
   transactionFailed: string;
   failedEstimateSwap: string;
   failedComputeMaxEth: string;
+  quoteRefreshing: string;
 
   // Placeholders
   placeholder0: string;
@@ -145,6 +147,7 @@ const en: SwapStrings = {
   processing: "Processing...",
   earlyLiquidityDisabled: "Early liquidity disabled",
   reconnectWallet: "Reconnect Wallet",
+  invalidSlippage: "Enter a valid slippage tolerance",
   enterAnAmount: "Enter an amount",
   insufficientEthBalance: "Insufficient ETH balance",
   insufficientFunds: "Insufficient Funds",
@@ -165,6 +168,7 @@ const en: SwapStrings = {
   transactionFailed: "Transaction failed",
   failedEstimateSwap: "Failed to estimate swap amount",
   failedComputeMaxEth: "Failed to compute max ETH amount",
+  quoteRefreshing: "Your quote is updating. Please review the latest quote.",
 
   placeholder0: "0.00",
   placeholderLoadingBalances: "Loading balances…",
@@ -263,6 +267,7 @@ const ko: SwapStrings = {
   processing: "처리 중...",
   earlyLiquidityDisabled: "얼리 리퀴디티 비활성화됨",
   reconnectWallet: "지갑 재연결",
+  invalidSlippage: "유효한 슬리피지 허용치를 입력하세요",
   enterAnAmount: "금액을 입력하세요",
   insufficientEthBalance: "ETH 잔액 부족",
   insufficientFunds: "잔액 부족",
@@ -283,6 +288,7 @@ const ko: SwapStrings = {
   transactionFailed: "트랜잭션 실패",
   failedEstimateSwap: "스왑 금액 추정에 실패했습니다",
   failedComputeMaxEth: "최대 ETH 금액을 계산할 수 없습니다",
+  quoteRefreshing: "견적을 업데이트하고 있습니다. 최신 견적을 확인해주세요.",
 
   placeholder0: "0.00",
   placeholderLoadingBalances: "잔액 불러오는 중…",
@@ -380,6 +386,7 @@ const zh: SwapStrings = {
   processing: "处理中...",
   earlyLiquidityDisabled: "早期流动性已停用",
   reconnectWallet: "重新连接钱包",
+  invalidSlippage: "请输入有效的滑点容差",
   enterAnAmount: "请输入金额",
   insufficientEthBalance: "ETH 余额不足",
   insufficientFunds: "余额不足",
@@ -399,6 +406,7 @@ const zh: SwapStrings = {
   transactionFailed: "交易失败",
   failedEstimateSwap: "无法估算兑换金额",
   failedComputeMaxEth: "无法计算最大 ETH 金额",
+  quoteRefreshing: "报价正在更新，请查看最新报价。",
 
   placeholder0: "0.00",
   placeholderLoadingBalances: "正在加载余额…",

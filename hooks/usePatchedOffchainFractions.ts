@@ -6,11 +6,24 @@ import {
   type BuyFractionsParams,
   useOffchainFractions as useSdkOffchainFractions,
 } from "@glowlabs-org/utils/browser";
-import type { Address, PublicClient, WalletClient } from "viem";
+import type { Address, Hash, PublicClient, WalletClient } from "viem";
 import {
   DelayedConfirmationError,
   waitForTransactionReceipt,
 } from "@/lib/wait-for-transaction-receipt";
+import {
+  assertWalletClientAccount,
+  assertWalletClientForOrder,
+  assertWalletClientOnExpectedChain,
+  getExpectedChain,
+  getExpectedChainId,
+} from "@/lib/wallet-chain";
+import {
+  getTransactionOperationCancellation,
+  type AssertTransactionActive,
+} from "@/lib/transaction-operation";
+import { validateFractionPurchaseTerms } from "@/lib/fraction-order";
+import { synchronizePrerequisiteBalance } from "@/lib/prerequisite-balance";
 
 const ERC20_APPROVAL_ABI = [
   {
@@ -29,6 +42,14 @@ const ALLOWANCE_NOT_VISIBLE_ERROR =
   "Your token approval is confirmed but not visible to the next transaction yet. Please wait a moment and retry.";
 const SPLIT_CONFIRMATION_DELAYED_MESSAGE =
   "Transaction submitted but confirmation is delayed. Please refresh before retrying.";
+const FRACTION_READ_CHAIN_MISMATCH_MESSAGE =
+  "Miner purchase reads are not on the configured network. Refresh and try again.";
+
+interface ExpectedFractionPurchaseTerms {
+  expectedPaymentToken: Address;
+  expectedRequiredAmount: bigint;
+  assertTransactionActive?: AssertTransactionActive;
+}
 
 function toErrorWithCause(error: unknown, extras?: { txHash?: string }): Error {
   const message =
@@ -82,6 +103,33 @@ export function usePatchedOffchainFractions(
     if (walletClient) walletClientRef.current = walletClient;
   }, [walletClient]);
 
+  function assertConfiguredReadContext() {
+    const expectedChainId = getExpectedChainId();
+    if (
+      chainId !== expectedChainId ||
+      publicClient?.chain?.id !== expectedChainId
+    ) {
+      throw new Error(FRACTION_READ_CHAIN_MISMATCH_MESSAGE);
+    }
+  }
+
+  async function assertPurchaseTerms(
+    params: Pick<BuyFractionsParams, "creator" | "id" | "stepsToBuy">,
+    options: ExpectedFractionPurchaseTerms,
+  ) {
+    options.assertTransactionActive?.();
+    assertConfiguredReadContext();
+    const fractionData = await sdk.getFraction(params.creator, params.id);
+    options.assertTransactionActive?.();
+    return validateFractionPurchaseTerms({
+      paymentToken: fractionData.token,
+      stepAmount: fractionData.step,
+      stepsToBuy: params.stepsToBuy,
+      expectedPaymentToken: options.expectedPaymentToken,
+      expectedRequiredAmount: options.expectedRequiredAmount,
+    });
+  }
+
   async function buyFractions(
     params: BuyFractionsParams,
     // approvalBufferAtomic: extra USDC (atomic) added to the ERC-20 approval as a
@@ -93,10 +141,17 @@ export function usePatchedOffchainFractions(
     options?: {
       approvalBufferAtomic?: bigint;
       onPhase?: (phase: "approving" | "approved" | "purchasing") => void;
+      expectedAccount?: Address;
+      expectedPaymentToken?: Address;
+      expectedRequiredAmount?: bigint;
+      prerequisiteTxHashes?: Hash[];
+      assertTransactionActive?: AssertTransactionActive;
     },
   ): Promise<string> {
     const approvalBufferAtomic = options?.approvalBufferAtomic ?? 10_000_000n;
     const onPhase = options?.onPhase;
+    const assertTransactionActive = options?.assertTransactionActive;
+    assertTransactionActive?.();
     const activeWalletClient = walletClient ?? walletClientRef.current;
     if (!activeWalletClient) {
       throw new Error(OffchainFractionsError.SIGNER_NOT_AVAILABLE);
@@ -104,9 +159,19 @@ export function usePatchedOffchainFractions(
     if (!activeWalletClient.account) {
       throw new Error("Wallet client must have an account");
     }
+    assertWalletClientOnExpectedChain(activeWalletClient);
+    if (options?.expectedAccount) {
+      assertWalletClientAccount(activeWalletClient, options.expectedAccount);
+    }
+    await assertWalletClientForOrder(
+      activeWalletClient,
+      options?.expectedAccount,
+    );
+    assertTransactionActive?.();
     if (!publicClient) {
       throw new Error("Public client not available");
     }
+    assertConfiguredReadContext();
 
     try {
       const {
@@ -132,39 +197,90 @@ export function usePatchedOffchainFractions(
       }
 
       const fractionData = await sdk.getFraction(creator, id);
-      const requiredAmount = stepsToBuy * fractionData.step;
+      assertTransactionActive?.();
+      const hasExpectedTerms =
+        options?.expectedPaymentToken !== undefined ||
+        options?.expectedRequiredAmount !== undefined;
+      if (
+        hasExpectedTerms &&
+        (options?.expectedPaymentToken === undefined ||
+          options.expectedRequiredAmount === undefined)
+      ) {
+        throw new Error("Expected fraction purchase terms are incomplete.");
+      }
+      const requiredAmount = hasExpectedTerms
+        ? validateFractionPurchaseTerms({
+            paymentToken: fractionData.token,
+            stepAmount: fractionData.step,
+            stepsToBuy,
+            expectedPaymentToken: options!.expectedPaymentToken!,
+            expectedRequiredAmount: options!.expectedRequiredAmount!,
+          }).requiredAmount
+        : stepsToBuy * fractionData.step;
       const owner = activeWalletClient.account.address;
 
-      const balance = await sdk.checkTokenBalance(owner, fractionData.token);
+      const prerequisiteTxHashes = options?.prerequisiteTxHashes ?? [];
+      const balance =
+        prerequisiteTxHashes.length > 0
+          ? await synchronizePrerequisiteBalance({
+              prerequisiteTxHashes,
+              waitForReceipt: (hash) =>
+                publicClient.waitForTransactionReceipt({
+                  hash,
+                  confirmations: 1,
+                  retryCount: 8,
+                  retryDelay: 1_000,
+                }),
+              minimumBalance: requiredAmount,
+              readBalance: () =>
+                sdk.checkTokenBalance(owner, fractionData.token),
+              assertTransactionActive,
+            })
+          : await sdk.checkTokenBalance(owner, fractionData.token);
+      assertTransactionActive?.();
       if (balance < requiredAmount) {
         throw new Error(OffchainFractionsError.INSUFFICIENT_BALANCE);
       }
 
       let allowance = await sdk.checkTokenAllowance(owner, fractionData.token);
+      assertTransactionActive?.();
       if (allowance < requiredAmount) {
         onPhase?.("approving");
         const approvalAmount = requiredAmount + approvalBufferAtomic;
+        assertWalletClientOnExpectedChain(activeWalletClient);
+        if (options?.expectedAccount) {
+          assertWalletClientAccount(activeWalletClient, options.expectedAccount);
+        }
+        await assertWalletClientForOrder(
+          activeWalletClient,
+          options?.expectedAccount,
+        );
+        assertTransactionActive?.();
         const approveHash = await activeWalletClient.writeContract({
           address: fractionData.token as Address,
           abi: ERC20_APPROVAL_ABI,
           functionName: "approve",
           args: [sdk.addresses.OFFCHAIN_FRACTIONS as Address, approvalAmount],
-          chain: activeWalletClient.chain,
+          chain: getExpectedChain(),
           account: activeWalletClient.account,
         });
+        assertTransactionActive?.();
 
         await waitForTransactionReceipt(approveHash);
+        assertTransactionActive?.();
 
         const maxAllowanceChecks = 5;
         const allowanceCheckDelayMs = 500;
 
         for (let i = 0; i < maxAllowanceChecks; i += 1) {
           allowance = await sdk.checkTokenAllowance(owner, fractionData.token);
+          assertTransactionActive?.();
           if (allowance >= requiredAmount) {
             break;
           }
           if (i < maxAllowanceChecks - 1) {
             await new Promise((resolve) => setTimeout(resolve, allowanceCheckDelayMs));
+            assertTransactionActive?.();
           }
         }
 
@@ -191,11 +307,27 @@ export function usePatchedOffchainFractions(
         ],
         account: activeWalletClient.account,
       });
+      assertTransactionActive?.();
 
-      const hash = await activeWalletClient.writeContract(request);
+      assertWalletClientOnExpectedChain(activeWalletClient);
+      if (options?.expectedAccount) {
+        assertWalletClientAccount(activeWalletClient, options.expectedAccount);
+      }
+      await assertWalletClientForOrder(
+        activeWalletClient,
+        options?.expectedAccount,
+      );
+      assertTransactionActive?.();
+      const hash = await activeWalletClient.writeContract({
+        ...request,
+        chain: getExpectedChain(),
+        account: activeWalletClient.account,
+      });
+      assertTransactionActive?.();
 
       try {
         await waitForTransactionReceipt(hash);
+        assertTransactionActive?.();
       } catch (error) {
         if (error instanceof DelayedConfirmationError) {
           // Re-wrap with the buyFractions-specific user message while keeping
@@ -207,12 +339,18 @@ export function usePatchedOffchainFractions(
 
       return hash;
     } catch (error) {
+      const cancellation = getTransactionOperationCancellation(
+        error,
+        assertTransactionActive,
+      );
+      if (cancellation) throw cancellation;
       throw toErrorWithCause(error);
     }
   }
 
   return {
     ...sdk,
+    assertPurchaseTerms,
     buyFractions,
   };
 }

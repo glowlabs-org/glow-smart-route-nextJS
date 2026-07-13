@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo } from "react";
 import { useChainId, useWalletClient, usePublicClient } from "wagmi";
-import { getAddress, parseAbi, parseEventLogs } from "viem";
+import { parseAbi, type Address } from "viem";
 import { Err, Ok, Result } from "ts-results";
 import { getAddresses } from "@glowlabs-org/utils/browser";
 import { waitForTransactionReceipt } from "@/lib/wait-for-transaction-receipt";
@@ -11,16 +11,24 @@ import {
   isInvalidWalletTxResponseError,
   normalizeTxHash,
 } from "@/lib/normalize-tx-hash";
+import {
+  assertWalletClientAccount,
+  assertWalletClientForOrder,
+  assertWalletClientOnExpectedChain,
+  getExpectedChain,
+  getExpectedChainId,
+} from "@/lib/wallet-chain";
+import { enforceReviewedAmountOutMinimum } from "@/lib/swap-slippage";
+import { sumErc20TransfersTo } from "@/lib/transaction-receipts";
+import {
+  getTransactionOperationCancellation,
+  type AssertTransactionActive,
+} from "@/lib/transaction-operation";
 
 const UNISWAP_V2_ROUTER_ABI = parseAbi([
   "function WETH() external pure returns (address)",
   "function getAmountsOut(uint256 amountIn, address[] path) external view returns (uint256[] amounts)",
   "function swapExactETHForTokens(uint256 amountOutMin, address[] path, address to, uint256 deadline) external payable returns (uint256[] amounts)",
-]);
-
-const ERC20_ABI = parseAbi([
-  "function balanceOf(address owner) view returns (uint256)",
-  "event Transfer(address indexed from, address indexed to, uint256 value)",
 ]);
 
 // Sepolia-specific addresses from Uniswap
@@ -78,13 +86,14 @@ function computeAmountOutMin(amountOut: bigint, slippageBps: bigint) {
 export function useSwapETHToUSDC() {
   const chainId = useChainId();
   const { data: walletClient } = useWalletClient();
-  const publicClient = usePublicClient();
+  const expectedChainId = getExpectedChainId();
+  const publicClient = usePublicClient({ chainId: expectedChainId });
 
-  // Get addresses for the current chain, with Sepolia fallbacks
-  const sdkAddresses = getAddresses(chainId);
+  // Quotes and contract addresses always come from the app's configured chain.
+  const sdkAddresses = getAddresses(expectedChainId);
 
   const resolvedAddresses = useMemo(() => {
-    const isSepolia = chainId === 11155111;
+    const isSepolia = expectedChainId === 11155111;
 
     if (isSepolia) {
       // Use Uniswap V3 SwapRouter02 on Sepolia
@@ -102,13 +111,15 @@ export function useSwapETHToUSDC() {
     const usdc = sdkAddresses.USDC as `0x${string}` | undefined;
 
     return { router, usdc, weth: undefined, isSepolia: false, useV3: false };
-  }, [chainId, sdkAddresses]);
+  }, [expectedChainId, sdkAddresses]);
 
   const ensureEthPayChain = useCallback((): Result<true, string> => {
-    if (chainId !== 1 && chainId !== 11155111)
+    if (expectedChainId !== 1 && expectedChainId !== 11155111)
       return new Err("ETH pay is only supported on mainnet or sepolia.");
+    if (chainId !== expectedChainId)
+      return new Err(`Wrong network. Switch to chain ${expectedChainId}.`);
     return new Ok(true);
-  }, [chainId]);
+  }, [chainId, expectedChainId]);
 
   const estimateEthToUsdc = useCallback(
     async ({
@@ -196,26 +207,65 @@ export function useSwapETHToUSDC() {
     async ({
       amountInWei,
       slippageBps = DEFAULT_SLIPPAGE_BPS,
+      minimumAmountOutUsdc,
+      expectedAccount,
+      assertTransactionActive,
     }: {
       amountInWei: bigint;
       slippageBps?: bigint;
+      minimumAmountOutUsdc?: bigint;
+      expectedAccount?: Address;
+      assertTransactionActive?: AssertTransactionActive;
     }): Promise<Result<SwapEthToUsdcSuccess, string>> => {
+      assertTransactionActive?.();
       const chainOk = ensureEthPayChain();
       if (!chainOk.ok) return new Err(chainOk.val);
 
       if (!walletClient?.account?.address)
         return new Err("Wallet not connected.");
       if (!publicClient) return new Err("Public client not available.");
+      try {
+        assertWalletClientOnExpectedChain(walletClient);
+        if (expectedAccount) {
+          assertWalletClientAccount(walletClient, expectedAccount);
+        }
+        await assertWalletClientForOrder(walletClient, expectedAccount);
+      } catch (error) {
+        const cancellation = getTransactionOperationCancellation(
+          error,
+          assertTransactionActive,
+        );
+        if (cancellation) throw cancellation;
+        return new Err(error instanceof Error ? error.message : "Wrong network.");
+      }
+      assertTransactionActive?.();
 
       const quoteRes = await estimateEthToUsdc({ amountInWei, slippageBps });
+      assertTransactionActive?.();
       if (!quoteRes.ok) return new Err(quoteRes.val);
 
-      const { router, usdc, weth, amountOutMinUsdc } = quoteRes.val;
+      const { router, usdc, weth, amountOutMinUsdc, amountOutUsdc } =
+        quoteRes.val;
+      const enforcedAmountOutMinUsdc = enforceReviewedAmountOutMinimum(
+        amountOutMinUsdc,
+        minimumAmountOutUsdc,
+      );
+      if (amountOutUsdc < enforcedAmountOutMinUsdc) {
+        return new Err(
+          "The ETH quote moved below the minimum reviewed for this order.",
+        );
+      }
       const recipient = walletClient.account.address as `0x${string}`;
       const { useV3 } = resolvedAddresses;
 
       try {
         let txHash: `0x${string}`;
+        assertWalletClientOnExpectedChain(walletClient);
+        if (expectedAccount) {
+          assertWalletClientAccount(walletClient, expectedAccount);
+        }
+        await assertWalletClientForOrder(walletClient, expectedAccount);
+        assertTransactionActive?.();
 
         if (useV3) {
           // Uniswap V3 swap on Sepolia using exactInputSingle
@@ -234,12 +284,15 @@ export function useSwapETHToUSDC() {
                 fee,
                 recipient,
                 amountIn: amountInWei,
-                amountOutMinimum: amountOutMinUsdc,
+                amountOutMinimum: enforcedAmountOutMinUsdc,
                 sqrtPriceLimitX96,
               },
             ],
             value: amountInWei, // Send ETH which will be wrapped
+            chain: getExpectedChain(),
+            account: walletClient.account,
           });
+          assertTransactionActive?.();
           txHash = normalizeTxHash(rawHash);
         } else {
           // V2 swap on mainnet
@@ -248,36 +301,45 @@ export function useSwapETHToUSDC() {
             address: router,
             abi: UNISWAP_V2_ROUTER_ABI,
             functionName: "swapExactETHForTokens",
-            args: [amountOutMinUsdc, [weth, usdc], recipient, deadline],
+            args: [
+              enforcedAmountOutMinUsdc,
+              [weth, usdc],
+              recipient,
+              deadline,
+            ],
             value: amountInWei,
+            chain: getExpectedChain(),
+            account: walletClient.account,
           });
+          assertTransactionActive?.();
           txHash = normalizeTxHash(rawHash);
         }
 
-        await waitForTransactionReceipt(txHash);
+        const receipt = await waitForTransactionReceipt(txHash);
+        assertTransactionActive?.();
 
         // Derive usdcReceived from the receipt's Transfer events rather than a
         // balanceOf delta. A follow-up balanceOf can hit a stale RPC replica
         // and return the pre-swap balance, producing a false "0 USDC" result
         // even when the swap succeeded on-chain.
-        const receipt = await publicClient.getTransactionReceipt({
-          hash: txHash,
-        });
-        const usdcAddress = getAddress(usdc);
-        const recipientAddress = getAddress(recipient);
-        const transferLogs = parseEventLogs({
-          abi: ERC20_ABI,
-          eventName: "Transfer",
+        const usdcReceived = sumErc20TransfersTo({
           logs: receipt.logs,
+          token: usdc,
+          recipient,
         });
-        const usdcReceived = transferLogs.reduce((sum, log) => {
-          if (getAddress(log.address) !== usdcAddress) return sum;
-          if (getAddress(log.args.to) !== recipientAddress) return sum;
-          return sum + log.args.value;
-        }, BigInt(0));
+        if (usdcReceived < enforcedAmountOutMinUsdc) {
+          return new Err(
+            "The confirmed ETH swap returned less USDC than this order required.",
+          );
+        }
 
         return new Ok({ usdcReceived, txHash });
       } catch (e: any) {
+        const cancellation = getTransactionOperationCancellation(
+          e,
+          assertTransactionActive,
+        );
+        if (cancellation) throw cancellation;
         if (
           isInvalidWalletTxResponseError(e) ||
           isInvalidWalletTxResponseError(e?.message)
@@ -309,6 +371,11 @@ export function useSwapETHToUSDC() {
       if (!walletClient?.account?.address)
         return new Err("Wallet not connected.");
       if (!publicClient) return new Err("Public client not available.");
+      try {
+        assertWalletClientOnExpectedChain(walletClient);
+      } catch (error) {
+        return new Err(error instanceof Error ? error.message : "Wrong network.");
+      }
       if (amountInWei <= BigInt(0))
         return new Err("Amount must be greater than 0.");
 

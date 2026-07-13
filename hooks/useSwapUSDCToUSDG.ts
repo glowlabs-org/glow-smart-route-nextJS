@@ -1,4 +1,4 @@
-import { formatEther } from "viem";
+import { formatEther, getAddress, type Address, type Hash } from "viem";
 import React from "react";
 import { useContracts } from "./useContracts";
 import { useEthersSigner } from "./useEthersSigner";
@@ -11,6 +11,12 @@ import {
   isSmartAccountBlocked,
   SMART_ACCOUNT_UNSUPPORTED_MESSAGE,
 } from "@/web3/web3/utils/detectSmartAccount";
+import {
+  getTransactionOperationCancellation,
+  type AssertTransactionActive,
+} from "@/lib/transaction-operation";
+import { isDeterministicAllowanceResetError } from "@/lib/erc20-approval";
+import { synchronizePrerequisiteBalance } from "@/lib/prerequisite-balance";
 
 const MAX_UINT256 = (BigInt(1) << BigInt(256)) - BigInt(1);
 
@@ -22,6 +28,10 @@ export enum SwapUSDCToUSDGError {
   APPROVAL_FAILED = "Failed to approve USDC",
   SWAP_FAILED = "Failed to swap USDC to USDG",
   TRANSACTION_REJECTED = "Transaction was rejected",
+}
+
+export interface SwapUSDCToUSDGSuccess {
+  txHash: `0x${string}`;
 }
 // Helper function to parse errors
 function parseSwapError(error: any): string {
@@ -147,26 +157,43 @@ export const useSwapUSDCToUSDG = () => {
   };
 
   const swapUSDCToUSDG = async (
-    amount: bigint
-  ): Promise<Result<boolean, SwapUSDCToUSDGError | string>> => {
+    amount: bigint,
+    options?: {
+      expectedAccount?: Address;
+      prerequisiteTxHashes?: Hash[];
+      assertTransactionActive?: AssertTransactionActive;
+    },
+  ): Promise<Result<SwapUSDCToUSDGSuccess, SwapUSDCToUSDGError | string>> => {
     try {
       if (!usdc || !usdg || !isReady)
         return new Err(SwapUSDCToUSDGError.CONTRACTS_NOT_AVAILABLE);
       if (!signer) return new Err(SwapUSDCToUSDGError.SIGNER_NOT_AVAILABLE);
 
+      const expectedAccount = options?.expectedAccount;
+      const assertTransactionActive = options?.assertTransactionActive;
+      assertTransactionActive?.();
       const signerAddress = await signer.getAddress();
+      assertTransactionActive?.();
+      if (
+        expectedAccount &&
+        getAddress(signerAddress) !== getAddress(expectedAccount)
+      ) {
+        return new Err("Wallet account changed during this order.");
+      }
       try {
         const smartStatus = await getSmartAccountStatus({
           address: signerAddress as `0x${string}`,
           walletClient,
           getBytecode: publicClient.getBytecode,
         });
+        assertTransactionActive?.();
         if (isSmartAccountBlocked(smartStatus)) {
           return new Err(SMART_ACCOUNT_UNSUPPORTED_MESSAGE);
         }
       } catch {
         // best-effort guard only
       }
+      assertTransactionActive?.();
 
       // Validate amount
       if (amount <= BigInt(0)) {
@@ -174,7 +201,24 @@ export const useSwapUSDCToUSDG = () => {
       }
 
       // Check USDC balance before attempting swap
-      const usdcBalance = await usdc.balanceOf(signerAddress);
+      const prerequisiteTxHashes = options?.prerequisiteTxHashes ?? [];
+      const usdcBalance =
+        prerequisiteTxHashes.length > 0
+          ? await synchronizePrerequisiteBalance({
+              prerequisiteTxHashes,
+              waitForReceipt: (hash) =>
+                publicClient.waitForTransactionReceipt({
+                  hash,
+                  confirmations: 1,
+                  retryCount: 8,
+                  retryDelay: 1_000,
+                }),
+              minimumBalance: amount,
+              readBalance: () => usdc.balanceOf(signerAddress),
+              assertTransactionActive,
+            })
+          : await usdc.balanceOf(signerAddress);
+      assertTransactionActive?.();
 
       if (usdcBalance < amount) {
         return new Err(SwapUSDCToUSDGError.INSUFFICIENT_USDC_BALANCE);
@@ -182,43 +226,76 @@ export const useSwapUSDCToUSDG = () => {
 
       // Check and handle allowance
       const allowance = await usdc.allowance(signerAddress, usdg.address);
+      assertTransactionActive?.();
 
       if (allowance < amount) {
         try {
           try {
-            const tx = await usdc.approve(usdg.address, MAX_UINT256);
+            const tx = await usdc.approve(
+              usdg.address,
+              MAX_UINT256,
+              expectedAccount,
+              assertTransactionActive,
+            );
+            assertTransactionActive?.();
             lastTxHashRef.current = tx.hash as `0x${string}`;
             setLastTxHash(tx.hash as `0x${string}`);
             await waitForTransactionReceipt(tx.hash as `0x${string}`);
+            assertTransactionActive?.();
           } catch (approvalErr: any) {
+            const cancellation = getTransactionOperationCancellation(
+              approvalErr,
+              assertTransactionActive,
+            );
+            if (cancellation) throw cancellation;
             // Some tokens require setting allowance to 0 before raising it.
-            const message = String(approvalErr?.message || "");
-            if (
-              message.toLowerCase().includes("non-zero") ||
-              message.toLowerCase().includes("nonzero") ||
-              message.toLowerCase().includes("reset")
-            ) {
-              const resetTx = await usdc.approve(usdg.address, BigInt(0));
+            if (isDeterministicAllowanceResetError(approvalErr)) {
+              const resetTx = await usdc.approve(
+                usdg.address,
+                BigInt(0),
+                expectedAccount,
+                assertTransactionActive,
+              );
+              assertTransactionActive?.();
               lastTxHashRef.current = resetTx.hash as `0x${string}`;
               setLastTxHash(resetTx.hash as `0x${string}`);
               await waitForTransactionReceipt(resetTx.hash as `0x${string}`);
+              assertTransactionActive?.();
 
-              const tx = await usdc.approve(usdg.address, MAX_UINT256);
+              const tx = await usdc.approve(
+                usdg.address,
+                MAX_UINT256,
+                expectedAccount,
+                assertTransactionActive,
+              );
+              assertTransactionActive?.();
               lastTxHashRef.current = tx.hash as `0x${string}`;
               setLastTxHash(tx.hash as `0x${string}`);
               await waitForTransactionReceipt(tx.hash as `0x${string}`);
+              assertTransactionActive?.();
             } else {
               throw approvalErr;
             }
           }
         } catch (approvalError: any) {
+          const cancellation = getTransactionOperationCancellation(
+            approvalError,
+            assertTransactionActive,
+          );
+          if (cancellation) throw cancellation;
           return new Err(parseSwapError(approvalError));
         }
       }
 
       // Perform the swap
       try {
-        const tx = await usdg.swap(signerAddress, amount);
+        const tx = await usdg.swap(
+          signerAddress,
+          amount,
+          expectedAccount,
+          assertTransactionActive,
+        );
+        assertTransactionActive?.();
 
         if (!tx || !tx.hash) {
           return new Err(
@@ -229,8 +306,14 @@ export const useSwapUSDCToUSDG = () => {
         setLastTxHash(tx.hash as `0x${string}`);
 
         await waitForTransactionReceipt(tx.hash as `0x${string}`);
-        return new Ok(true);
+        assertTransactionActive?.();
+        return new Ok({ txHash: tx.hash as `0x${string}` });
       } catch (swapError: any) {
+        const cancellation = getTransactionOperationCancellation(
+          swapError,
+          assertTransactionActive,
+        );
+        if (cancellation) throw cancellation;
         // Check if it's a timeout error
         if (
           swapError?.message?.includes("timeout") ||
@@ -250,6 +333,11 @@ export const useSwapUSDCToUSDG = () => {
         return new Err(parseSwapError(swapError));
       }
     } catch (e: any) {
+      const cancellation = getTransactionOperationCancellation(
+        e,
+        options?.assertTransactionActive,
+      );
+      if (cancellation) throw cancellation;
       return new Err(parseSwapError(e));
     }
   };

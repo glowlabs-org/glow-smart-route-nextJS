@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { useAccount, useBalance, usePublicClient } from "wagmi";
+import { computeBufferedGasCostWei } from "@/lib/transaction-gas";
+import { getExpectedChainId } from "@/lib/wallet-chain";
 
 export interface EthGasPreflight {
   /** true when the user has enough ETH; false when short; null while loading */
@@ -9,6 +11,8 @@ export interface EthGasPreflight {
   /** wei the user currently holds, null while loading */
   haveWei: bigint | null;
   /** wei the estimated gas will cost at current gas price, null while loading */
+  gasCostWei: bigint | null;
+  /** wei needed for gas plus any native token value reserved by the flow */
   requiredWei: bigint | null;
   /** wei short (0 when sufficient), null while loading */
   shortfallWei: bigint | null;
@@ -23,11 +27,14 @@ export interface UseEthGasPreflightOptions {
   enabled?: boolean;
   /** multiplier to apply to (gasUnits * gasPrice) as a safety margin, default 1.07 (7%) */
   safetyBps?: number;
+  /** native token value the transaction flow will spend in addition to gas */
+  additionalRequiredWei?: bigint;
 }
 
 const EMPTY: EthGasPreflight = {
   sufficient: null,
   haveWei: null,
+  gasCostWei: null,
   requiredWei: null,
   shortfallWei: null,
   isChecking: false,
@@ -47,11 +54,18 @@ export function useEthGasPreflight(
   // slowly within the few seconds between preflight and submit, so a tighter
   // buffer keeps users from being blocked when they genuinely have enough
   // ETH for the swap.
-  const { estimatedGasUnits, enabled = true, safetyBps = 700 } = options;
+  const {
+    estimatedGasUnits,
+    enabled = true,
+    safetyBps = 700,
+    additionalRequiredWei = 0n,
+  } = options;
+  const expectedChainId = getExpectedChainId();
   const { address } = useAccount();
-  const publicClient = usePublicClient();
+  const publicClient = usePublicClient({ chainId: expectedChainId });
   const { data: balanceData } = useBalance({
     address,
+    chainId: expectedChainId,
     query: { enabled: enabled && Boolean(address) },
   });
 
@@ -88,17 +102,30 @@ export function useEthGasPreflight(
     if (gasPriceWei === null || haveWei === null) {
       return { ...EMPTY, isChecking };
     }
-    const safetyMultiplier = 10_000n + BigInt(safetyBps);
+    const gasCostWei = computeBufferedGasCostWei({
+      gasUnits: estimatedGasUnits,
+      gasPriceWei,
+      safetyBps,
+    });
     const requiredWei =
-      (estimatedGasUnits * gasPriceWei * safetyMultiplier) / 10_000n;
+      gasCostWei + (additionalRequiredWei > 0n ? additionalRequiredWei : 0n);
     const sufficient = haveWei >= requiredWei;
     const shortfallWei = sufficient ? 0n : requiredWei - haveWei;
     return {
       sufficient,
       haveWei,
+      gasCostWei,
       requiredWei,
       shortfallWei,
       isChecking: false,
     };
-  }, [balanceData?.value, enabled, estimatedGasUnits, gasPriceWei, isFetchingGasPrice, safetyBps]);
+  }, [
+    additionalRequiredWei,
+    balanceData?.value,
+    enabled,
+    estimatedGasUnits,
+    gasPriceWei,
+    isFetchingGasPrice,
+    safetyBps,
+  ]);
 }

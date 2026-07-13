@@ -1,6 +1,14 @@
 import { Result, Ok, Err } from "ts-results";
 
-import { formatUnits, erc20Abi, maxUint256, formatEther, parseAbi } from "viem";
+import {
+  formatUnits,
+  erc20Abi,
+  maxUint256,
+  formatEther,
+  parseAbi,
+  type Address,
+  type Hash,
+} from "viem";
 import { useContracts } from "./useContracts";
 import { useEffect, useState } from "react";
 import { publicClient } from "@/web3/web3/clients/publicClient";
@@ -17,6 +25,18 @@ import {
   isSmartAccountBlocked,
   SMART_ACCOUNT_UNSUPPORTED_MESSAGE,
 } from "@/web3/web3/utils/detectSmartAccount";
+import {
+  assertWalletClientAccount,
+  assertWalletClientForOrder,
+  assertWalletClientOnExpectedChain,
+  getExpectedChain,
+} from "@/lib/wallet-chain";
+import {
+  getTransactionOperationCancellation,
+  type AssertTransactionActive,
+} from "@/lib/transaction-operation";
+import { sumErc20TransfersTo } from "@/lib/transaction-receipts";
+import { synchronizePrerequisiteBalance } from "@/lib/prerequisite-balance";
 
 if (!process.env.NEXT_PUBLIC_CHAIN_ID) {
   throw new Error("NEXT_PUBLIC_CHAIN_ID is not set");
@@ -39,6 +59,11 @@ export enum USDGRedemptionError {
   CONTRACT_NOT_AVAILABLE = "Contract not available",
   SIGNER_NOT_AVAILABLE = "Signer not available",
   UNKNOWN_ERROR = "Unknown error",
+}
+
+export interface USDGRedemptionSuccess {
+  txHash: `0x${string}`;
+  usdcReceived: bigint;
 }
 
 // Utility to extract the most useful revert reason from an ethers error object
@@ -119,11 +144,27 @@ export function useUSDGRedemption() {
    * @param amountUSDG Amount of USDG to redeem (BigNumber, 6 decimals)
    */
   async function redeemUSDGForUSDC(
-    amountUSDG: bigint
-  ): Promise<Result<boolean, USDGRedemptionError | string>> {
+    amountUSDG: bigint,
+    options?: {
+      expectedAccount?: Address;
+      prerequisiteTxHashes?: Hash[];
+      assertTransactionActive?: AssertTransactionActive;
+    },
+  ): Promise<Result<USDGRedemptionSuccess, USDGRedemptionError | string>> {
     try {
+      const assertTransactionActive = options?.assertTransactionActive;
+      assertTransactionActive?.();
       if (!walletClient)
         return new Err(USDGRedemptionError.SIGNER_NOT_AVAILABLE);
+      assertWalletClientOnExpectedChain(walletClient);
+      if (options?.expectedAccount) {
+        assertWalletClientAccount(walletClient, options.expectedAccount);
+      }
+      await assertWalletClientForOrder(
+        walletClient,
+        options?.expectedAccount,
+      );
+      assertTransactionActive?.();
 
       if (!usdg) return new Err("USDG contract not available");
 
@@ -135,23 +176,53 @@ export function useUSDGRedemption() {
           walletClient,
           getBytecode: publicClient.getBytecode,
         });
+        assertTransactionActive?.();
         if (isSmartAccountBlocked(smartStatus)) {
           return new Err(SMART_ACCOUNT_UNSUPPORTED_MESSAGE);
         }
       } catch {
         // best-effort guard only
       }
+      assertTransactionActive?.();
+
+      const prerequisiteTxHashes = options?.prerequisiteTxHashes ?? [];
+      if (prerequisiteTxHashes.length > 0) {
+        const synchronizedBalance = await synchronizePrerequisiteBalance({
+          prerequisiteTxHashes,
+          waitForReceipt: (hash) =>
+            publicClient.waitForTransactionReceipt({
+              hash,
+              confirmations: 1,
+              retryCount: 8,
+              retryDelay: 1_000,
+            }),
+          minimumBalance: amountUSDG,
+          readBalance: () => usdg.balanceOf(owner),
+          assertTransactionActive,
+        });
+        assertTransactionActive?.();
+        if (synchronizedBalance < amountUSDG) {
+          return new Err(
+            "The confirmed GLOW swap is not visible to the redemption RPC yet.",
+          );
+        }
+      }
+
       const allowance: bigint = await usdg.allowance(
         owner,
         USDG_REDEMPTION_ADDRESS
       );
+      assertTransactionActive?.();
 
       if (allowance < amountUSDG) {
         try {
           const approveTx = await usdg.approve(
             USDG_REDEMPTION_ADDRESS,
-            maxUint256
+            maxUint256,
+            options?.expectedAccount,
+            assertTransactionActive,
           );
+          assertTransactionActive?.();
           // Use standard ethers wait with timeout
           await Promise.race([
             approveTx.wait(),
@@ -165,7 +236,13 @@ export function useUSDGRedemption() {
               )
             ),
           ]);
+          assertTransactionActive?.();
         } catch (approveError) {
+          const cancellation = getTransactionOperationCancellation(
+            approveError,
+            assertTransactionActive,
+          );
+          if (cancellation) throw cancellation;
           return new Err(
             parseEthersError(approveError) || "USDG approval failed"
           );
@@ -181,21 +258,55 @@ export function useUSDGRedemption() {
           functionName: "exchange",
           args: [amountUSDG],
         });
+        assertTransactionActive?.();
       } catch (staticError) {
+        const cancellation = getTransactionOperationCancellation(
+          staticError,
+          assertTransactionActive,
+        );
+        if (cancellation) throw cancellation;
         return new Err(parseEthersError(staticError));
       }
 
+      assertWalletClientOnExpectedChain(walletClient);
+      if (options?.expectedAccount) {
+        assertWalletClientAccount(walletClient, options.expectedAccount);
+      }
+      await assertWalletClientForOrder(
+        walletClient,
+        options?.expectedAccount,
+      );
+      assertTransactionActive?.();
       const rawHash = await walletClient.writeContract({
         address: USDG_REDEMPTION_ADDRESS,
         abi: USDG_REDEMPTION_ABI,
         functionName: "exchange",
         args: [amountUSDG],
+        chain: getExpectedChain(),
+        account: walletClient.account,
       });
+      assertTransactionActive?.();
       const hash = normalizeTxHash(rawHash);
-      await waitForTransactionReceipt(hash);
+      const receipt = await waitForTransactionReceipt(hash);
+      assertTransactionActive?.();
+      const usdcReceived = sumErc20TransfersTo({
+        logs: receipt.logs,
+        token: USDC_ADDRESS,
+        recipient: owner,
+      });
+      if (usdcReceived < amountUSDG) {
+        return new Err(
+          "The confirmed redemption returned less USDC than this order required.",
+        );
+      }
 
-      return new Ok(true);
+      return new Ok({ txHash: hash, usdcReceived });
     } catch (txError: any) {
+      const cancellation = getTransactionOperationCancellation(
+        txError,
+        options?.assertTransactionActive,
+      );
+      if (cancellation) throw cancellation;
       return new Err(parseEthersError(txError));
     }
   }

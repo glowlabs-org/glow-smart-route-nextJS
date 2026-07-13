@@ -2,7 +2,7 @@ import {
   TransactionDialog,
   type TransactionDetail,
 } from "@/components/dialogs/transaction-dialog";
-import { ArrowLeftRight, Check, Loader2, Info, ArrowDown } from "lucide-react";
+import { ArrowLeftRight, Check, Loader2, ArrowDown } from "lucide-react";
 import { waitingToSuccessVariants } from "@/animations/variants";
 import { motion } from "framer-motion";
 import React, { FC, useEffect } from "react";
@@ -12,14 +12,15 @@ import { toast } from "sonner";
 import { Button } from "./ui/button";
 import { useSwap } from "@/hooks/useSwap";
 
-import { toFixedTruncate } from "@/utils/toFixedTruncate";
-
 import { useUSDGRedemption } from "@/hooks/useUSDGRedemption";
 import { useEthGasPreflight } from "@/hooks/useEthGasPreflight";
 import { useSmartAccountCheck } from "@/hooks/useSmartAccountCheck";
 import { addresses } from "@/web3/constants/addresses";
-import { formatUnits, parseUnits } from "viem";
+import { formatUnits, parseUnits, type Address } from "viem";
 import { useLang, type Strings } from "@/lib/i18n";
+import { estimateSwapGasUnits } from "@/lib/transaction-gas";
+import { useTransactionOperationGuard } from "@/hooks/useTransactionOperationGuard";
+import { getTransactionOperationCancellation } from "@/lib/transaction-operation";
 
 type SwapLabels = Strings["swap"];
 
@@ -95,21 +96,6 @@ const buildPendingStatesUsdc = (s: SwapLabels): PendingState[] => [
   },
 ];
 
-// Upper-bound gas units per leg of the multi-step flow. Used by the pre-flight
-// gas check to warn users with too little ETH BEFORE they sign, so they don't
-// successfully pay for step 1 and then get stranded on step 2 with a
-// `insufficient funds for gas * price + value` from the node.
-//
-// Full GLW -> USDC: approve GLW + swap GLW->USDG + approve USDG + redeem USDG
-// Full GLW -> USDG: approve GLW + swap GLW->USDG
-// Preflight assumes approvals already exist. Constants reflect observed
-// mainnet averages with a small buffer. The hook adds its own safety
-// margin on top.
-const UNISWAP_SWAP_GAS = 120_000n;
-const USDG_REDEEM_GAS = 80_000n;
-const GLOW_TO_USDG_GAS_UNITS = UNISWAP_SWAP_GAS;
-const GLOW_TO_USDC_GAS_UNITS = UNISWAP_SWAP_GAS + USDG_REDEEM_GAS;
-
 type PendingState = {
   code: string;
   message: string;
@@ -140,7 +126,10 @@ export const GlowToUsdcDialog: FC<{
   isOpen: boolean;
   amountToSell: string;
   estimatedOutputAmount: string;
-  slippageTolerance: string;
+  minimumUsdgOut: bigint;
+  slippageBps: bigint;
+  quoteExpiresAt: number;
+  expectedAccount: Address;
   targetToken?: "USDC" | "USDG";
   onOpenChange: (open: boolean) => void;
 }> = ({
@@ -148,7 +137,10 @@ export const GlowToUsdcDialog: FC<{
   onOpenChange,
   amountToSell,
   estimatedOutputAmount,
-  slippageTolerance,
+  minimumUsdgOut,
+  slippageBps,
+  quoteExpiresAt,
+  expectedAccount,
   targetToken = "USDC",
 }) => {
   const { t } = useLang();
@@ -167,12 +159,14 @@ export const GlowToUsdcDialog: FC<{
     React.useState<GlowToUsdcState>("NONE");
   const [intermediateUsdgAmount, setIntermediateUsdgAmount] =
     React.useState<string>("");
+  const [actualOutputAmount, setActualOutputAmount] =
+    React.useState<string>("");
+  const beginTransactionOperation = useTransactionOperationGuard(isOpen);
 
   const {
     swapGlowToUSDG,
     uniswapPurchaseState,
     resetUniswapPurchaseState,
-    estimateGlowToUSDG,
   } = useSwap({
     tokenA_address: addresses.glow,
     tokenB_address: addresses.usdg,
@@ -184,10 +178,13 @@ export const GlowToUsdcDialog: FC<{
   // they sign anything. Budgeting just the first leg strands users on the
   // second (USDG approve + redeem) when they paid enough for approve + swap
   // but nothing more.
-  const totalGasUnits =
-    targetToken === "USDG" ? GLOW_TO_USDG_GAS_UNITS : GLOW_TO_USDC_GAS_UNITS;
+  const totalGasUnits = estimateSwapGasUnits({
+    sellToken: "GLOW",
+    buyToken: targetToken,
+  });
   const gasPreflight = useEthGasPreflight({
     estimatedGasUnits: totalGasUnits,
+    safetyBps: 1_500,
     enabled: isOpen && !isPending && !isSuccess,
   });
   const hasInsufficientGas = gasPreflight.sufficient === false;
@@ -226,6 +223,10 @@ export const GlowToUsdcDialog: FC<{
       toast.error(msg);
       return;
     }
+    const operation = beginTransactionOperation();
+    if (!operation) return;
+    const { assertActive: assertTransactionActive } = operation;
+
     setIsPending(true);
     setIsError(false);
     setIsSuccess(false);
@@ -233,29 +234,20 @@ export const GlowToUsdcDialog: FC<{
     setCurrentState("NONE");
 
     try {
-      const amountIn = parseUnits(amountToSell, 18); // GLOW has 18 decimals
-
-      // First, estimate the USDG output
-      const estimateRes = await estimateGlowToUSDG({ amountIn });
-      if (!estimateRes.ok) {
-        setCurrentState("ERROR");
-        setIsError(true);
-        setErrorMessage(s.failedEstimateUsdg);
-        toast.error(s.failedEstimateUsdg);
-        setIsPending(false);
-        return;
+      if (Date.now() > quoteExpiresAt) {
+        throw new Error("This quote expired. Close the dialog to refresh it.");
       }
-
-      const estimatedUsdgAmount = formatUnits(estimateRes.val, 6);
-      setIntermediateUsdgAmount(estimatedUsdgAmount);
+      const amountIn = parseUnits(amountToSell, 18); // GLOW has 18 decimals
 
       // Step 1: Swap GLOW to USDG
       const swapRes = await swapGlowToUSDG({
         amount: amountIn,
-        slippagePercentTenThousandDenominator: BigInt(
-          Number(slippageTolerance) * 100
-        ),
+        slippagePercentTenThousandDenominator: slippageBps,
+        minimumAmountOut: minimumUsdgOut,
+        expectedAccount,
+        assertTransactionActive,
       });
+      assertTransactionActive();
 
       if (!swapRes.ok) {
         setCurrentState("ERROR");
@@ -266,8 +258,13 @@ export const GlowToUsdcDialog: FC<{
         return;
       }
 
+      setTxHash(swapRes.val.txHash);
+      const actualUsdgAmount = formatUnits(swapRes.val.usdgReceived, 6);
+      setIntermediateUsdgAmount(actualUsdgAmount);
+
       // If target is USDG, we're done
       if (targetToken === "USDG") {
+        setActualOutputAmount(actualUsdgAmount);
         setCurrentState("DONE");
         updatePendingStates("DONE");
         setIsPending(false);
@@ -281,7 +278,7 @@ export const GlowToUsdcDialog: FC<{
       updatePendingStates("REQUESTING_USDG_APPROVAL");
 
       // Step 2: Redeem USDG for USDC
-      const usdgAmount = parseUnits(estimatedUsdgAmount, 6);
+      const usdgAmount = swapRes.val.usdgReceived;
 
       // The approval is handled inside redeemUSDGForUSDC
       setCurrentState("APPROVING_USDG");
@@ -290,11 +287,19 @@ export const GlowToUsdcDialog: FC<{
       setCurrentState("REDEEMING_USDG_FOR_USDC");
       updatePendingStates("REDEEMING_USDG_FOR_USDC");
 
-      const redeemRes = await redeemUSDGForUSDC(usdgAmount);
+      const redeemRes = await redeemUSDGForUSDC(usdgAmount, {
+        expectedAccount,
+        prerequisiteTxHashes: [swapRes.val.txHash],
+        assertTransactionActive,
+      });
+      assertTransactionActive();
 
       if (redeemRes.ok) {
+        const actualUsdcAmount = formatUnits(redeemRes.val.usdcReceived, 6);
         setCurrentState("DONE");
         updatePendingStates("DONE");
+        setActualOutputAmount(actualUsdcAmount);
+        setTxHash(redeemRes.val.txHash);
         setIsSuccess(true);
       } else {
         setCurrentState("ERROR");
@@ -305,6 +310,11 @@ export const GlowToUsdcDialog: FC<{
 
       setIsPending(false);
     } catch (error: any) {
+      if (
+        getTransactionOperationCancellation(error, assertTransactionActive)
+      ) {
+        return;
+      }
       setCurrentState("ERROR");
       setIsPending(false);
       setIsError(true);
@@ -377,6 +387,7 @@ export const GlowToUsdcDialog: FC<{
       setPendingStates(getDefaultPendingStates(targetToken, s));
       setCurrentState("NONE");
       setIntermediateUsdgAmount("");
+      setActualOutputAmount("");
       resetUniswapPurchaseState();
       setIsPending(false);
       setIsSuccess(false);
@@ -394,7 +405,7 @@ export const GlowToUsdcDialog: FC<{
     if (isOpen) {
       setPendingStates(getDefaultPendingStates(targetToken, s));
     }
-  }, [isOpen, targetToken]);
+  }, [isOpen, s, targetToken]);
 
   const visibleStates = pendingStates.filter((state) => {
     const stateIndex = pendingStates.findIndex((s) => s.code === state.code);
@@ -415,6 +426,7 @@ export const GlowToUsdcDialog: FC<{
 
   // Calculate if transaction is successful
   const isTransactionSuccessful = isSuccess || currentState === "DONE";
+  const successAmount = actualOutputAmount || estimatedOutputAmount;
 
   // Transaction details for review
   const transactionDetails: TransactionDetail[] = [
@@ -458,7 +470,7 @@ export const GlowToUsdcDialog: FC<{
       label: s.receivedLabel,
       value: (
         <span className="text-[#4ADE80] font-mono font-medium">
-          {formatPrice(estimatedOutputAmount, 6)}
+          {formatPrice(successAmount, 6)}
         </span>
       ),
       unit: targetToken,
@@ -563,28 +575,16 @@ export const GlowToUsdcDialog: FC<{
     </div>
   );
 
-  // Custom footer with retry button for errors
+  // A failed multi-leg flow may already have confirmed an earlier leg. Do not
+  // offer a blind retry that could repeat it; closing forces a fresh quote.
   const customFooter = isError ? (
-    <div className="flex gap-3">
+    <div className="flex">
       <Button
         variant="outline"
         onClick={() => onOpenChange(false)}
-        className="flex-1"
+        className="w-full"
       >
-        {s.cancel}
-      </Button>
-      <Button
-        onClick={() => {
-          setPendingStates(getDefaultPendingStates(targetToken, s));
-          setCurrentState("NONE");
-          resetUniswapPurchaseState();
-          setIsError(false);
-          setErrorMessage(null);
-          handleSwapGlowToTarget();
-        }}
-        className="flex-1"
-      >
-        {s.tryAgain}
+        {s.close}
       </Button>
     </div>
   ) : !isPending && !isTransactionSuccessful ? (
@@ -636,7 +636,7 @@ export const GlowToUsdcDialog: FC<{
       isSuccess={isTransactionSuccessful}
       isError={isError}
       title={s.reviewSwap}
-      successTitle={`+${Number(estimatedOutputAmount).toLocaleString("en-US", {
+      successTitle={`+${Number(successAmount).toLocaleString("en-US", {
         maximumFractionDigits: 6,
       })} ${targetToken}`}
       errorTitle={s.swapFailed}

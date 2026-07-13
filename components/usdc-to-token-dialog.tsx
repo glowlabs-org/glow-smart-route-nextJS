@@ -14,11 +14,14 @@ import { toast } from "sonner";
 import { Button } from "./ui/button";
 import { useSwap } from "@/hooks/useSwap";
 import { Result } from "ts-results";
-import { SwapUSDCToUSDGError } from "@/hooks/useSwapUSDCToUSDG";
+import {
+  SwapUSDCToUSDGError,
+  type SwapUSDCToUSDGSuccess,
+} from "@/hooks/useSwapUSDCToUSDG";
 import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
 import { Token } from "@/app/buy/constants";
 
-import { formatUnits, parseUnits } from "viem";
+import { formatUnits, parseUnits, type Address, type Hash } from "viem";
 import { addresses } from "@/web3/constants/addresses";
 import { useChainId } from "wagmi";
 import {
@@ -29,45 +32,19 @@ import {
 import { useEthGasPreflight } from "@/hooks/useEthGasPreflight";
 import { useSmartAccountCheck } from "@/hooks/useSmartAccountCheck";
 import { useLang } from "@/lib/i18n";
-
-// Per-leg gas for the preflight. These must match the constants the
-// swap-interface estimator uses (hooks/useSwapUSDCToUSDG.ts and
-// hooks/useSwap.ts) so the "Estimated Network Fee" and the preflight's
-// "you need X ETH" decision agree. Preflight is intentionally OPTIMISTIC:
-// it assumes approvals already exist. useEthGasPreflight adds its own
-// 15% safety margin on top, which covers one-off approval gas if it
-// actually turns out to be needed. Better to let the wallet's own
-// prompt surface an insufficient-gas failure at approval time than to
-// block users pre-emptively while they have enough ETH for the swap.
-const USDC_TO_USDG_GAS = 85_000n;
-const UNISWAP_SWAP_GAS = 130_000n;
-const ETH_TO_USDC_SWAP_GAS = 130_000n;
-const USDG_TO_GLOW_GAS = 130_000n;
-
-function estimateTotalGasUnits(
-  selectedTokenSell: Token,
-  selectedTokenBuy: Token,
-): bigint {
-  const sell = selectedTokenSell.label;
-  const buy = selectedTokenBuy.label;
-  if (sell === "ETH" && buy === "GLOW") {
-    return (
-      ETH_TO_USDC_SWAP_GAS +
-      USDC_TO_USDG_GAS +
-      USDG_TO_GLOW_GAS
-    );
-  }
-  if (sell === "USDC" && buy === "USDG") {
-    return USDC_TO_USDG_GAS;
-  }
-  if (sell === "USDC" && buy === "GLOW") {
-    return USDC_TO_USDG_GAS + USDG_TO_GLOW_GAS;
-  }
-  if (sell === "USDG" && buy === "GLOW") {
-    return USDG_TO_GLOW_GAS;
-  }
-  return 300_000n; // conservative fallback
-}
+import { estimateSwapGasUnits } from "@/lib/transaction-gas";
+import { validateSmartBalancingQuote } from "@/lib/swap-quote";
+import { BONDING_CURVE_QUOTE_CHANGED_MESSAGE } from "@/lib/bonding-curve-budget";
+import {
+  computeAmountOutMin,
+  computeGuaranteedGlowRouteMinimum,
+  enforceConfirmedGlowRouteMinimum,
+} from "@/lib/swap-slippage";
+import { useTransactionOperationGuard } from "@/hooks/useTransactionOperationGuard";
+import {
+  getTransactionOperationCancellation,
+  type AssertTransactionActive,
+} from "@/lib/transaction-operation";
 
 function buildInitialSteps(
   selectedTokenSell: Token,
@@ -170,13 +147,18 @@ export const UsdcToTokenDialog: FC<{
   selectedTokenSell: Token;
   selectedTokenBuy: Token;
   slippagePointsTenThousandths: bigint;
+  quoteExpiresAt: number;
+  expectedAccount: Address;
+  minimumAmountOut: bigint;
+  ethToUsdcMinimum?: bigint;
   swapUSDCToUSDG: (
-    amount: bigint
-  ) => Promise<Result<boolean, SwapUSDCToUSDGError | string>>;
-  // Ref to the most recent USDC->USDG wrap tx hash. Used so the USDG->GLW
-  // swap can wait for that wrap to be indexed by the simulation RPC before
-  // simulating; otherwise the sim can revert with TRANSFER_FROM_FAILED.
-  lastWrapTxHashRef?: React.RefObject<`0x${string}` | null>;
+    amount: bigint,
+    options?: {
+      expectedAccount?: Address;
+      prerequisiteTxHashes?: Hash[];
+      assertTransactionActive?: AssertTransactionActive;
+    },
+  ) => Promise<Result<SwapUSDCToUSDGSuccess, SwapUSDCToUSDGError | string>>;
   onOpenChange: (open: boolean) => void;
 }> = ({
   isOpen,
@@ -186,9 +168,12 @@ export const UsdcToTokenDialog: FC<{
   selectedTokenBuy,
   smartBalancingAmounts,
   swapUSDCToUSDG,
-  lastWrapTxHashRef,
   selectedTokenSell,
   slippagePointsTenThousandths,
+  quoteExpiresAt,
+  expectedAccount,
+  minimumAmountOut,
+  ethToUsdcMinimum,
 }) => {
   const { t } = useLang();
   const s = t.swap;
@@ -198,22 +183,23 @@ export const UsdcToTokenDialog: FC<{
   const [isError, setIsError] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [txHash, setTxHash] = React.useState<string | null>(null);
+  const [confirmedAmountOut, setConfirmedAmountOut] = React.useState<
+    string | null
+  >(null);
   const [networkCostUSD, setNetworkCostUSD] = React.useState<string>("");
   const [isNetworkCostLoading, setIsNetworkCostLoading] = React.useState(false);
-  const [isImpactPowerPointsBuySuccess, setIsImpactPowerPointsBuySuccess] =
-    React.useState(false);
-
   // Transaction stepper state
   const [transactionSteps, setTransactionSteps] = React.useState<
     TransactionStep[]
   >([]);
   const stepsRef = React.useRef<TransactionStep[]>([]);
+  const beginTransactionOperation = useTransactionOperationGuard(isOpen);
 
   const {
     purchaseGlowEarlyLiquidity,
-    glowPurchaseState,
     resetGlowPurchaseState,
     getSmartBalancingAmounts,
+    getGlowQuoteEarlyLiquidity,
     lastTxHashRef: glowLastTxHashRef,
   } = usePurchaseGlow();
 
@@ -221,7 +207,6 @@ export const UsdcToTokenDialog: FC<{
 
   const {
     swap,
-    uniswapPurchaseState,
     resetUniswapPurchaseState,
     lastTxHashRef: uniswapLastTxHashRef,
   } = useSwap({
@@ -238,12 +223,32 @@ export const UsdcToTokenDialog: FC<{
   // detection catches MetaMask's "pay gas with USDC" feature that silently
   // converts EOAs to contract accounts, which can't interact with our
   // contracts.
-  const totalGasUnits = React.useMemo(
-    () => estimateTotalGasUnits(selectedTokenSell, selectedTokenBuy),
-    [selectedTokenSell, selectedTokenBuy],
+  const hasBondingAllocation = Boolean(
+    (selectedTokenSell.label === "ETH" && selectedTokenBuy.label === "GLOW") ||
+      (smartBalancingAmounts &&
+        smartBalancingAmounts.amount_in_glow_bonding_curve > 0n),
   );
+  const totalGasUnits = React.useMemo(
+    () =>
+      estimateSwapGasUnits({
+        sellToken: selectedTokenSell.label,
+        buyToken: selectedTokenBuy.label,
+        hasBondingAllocation,
+      }),
+    [hasBondingAllocation, selectedTokenBuy.label, selectedTokenSell.label],
+  );
+  const ethValueWei = React.useMemo(() => {
+    if (selectedTokenSell.label !== "ETH") return 0n;
+    try {
+      return parseUnits(amountToSell, 18);
+    } catch {
+      return 0n;
+    }
+  }, [amountToSell, selectedTokenSell.label]);
   const gasPreflight = useEthGasPreflight({
     estimatedGasUnits: totalGasUnits,
+    additionalRequiredWei: ethValueWei,
+    safetyBps: 1_500,
     enabled: isOpen && !isPending && !isSuccess,
   });
   const smartAccountCheck = useSmartAccountCheck({
@@ -289,10 +294,15 @@ export const UsdcToTokenDialog: FC<{
   );
 
   const handlePurchaseGlow = async () => {
+    const operation = beginTransactionOperation();
+    if (!operation) return;
+    const { assertActive: assertTransactionActive } = operation;
+
     setIsPending(true);
     setIsError(false);
     setIsSuccess(false);
     setErrorMessage(null);
+    setConfirmedAmountOut(null);
 
     // Build initial steps
     const initialSteps = buildInitialSteps(
@@ -308,6 +318,67 @@ export const UsdcToTokenDialog: FC<{
         selectedTokenSell.label === "ETH" && selectedTokenBuy.label === "GLOW";
       let effectiveSmartBalancingAmounts: SmartBalancingAmounts | undefined =
         smartBalancingAmounts;
+      let routeBudgetAtomic: bigint | undefined;
+      let prerequisiteWrapTxHash: `0x${string}` | undefined;
+      let validatedBondingIncrements: number | null = null;
+      let confirmedUniswapGlwReceived = 0n;
+      let confirmedBondingGlwReceived = 0n;
+
+      if (Date.now() > quoteExpiresAt) {
+        throw new Error("This quote expired. Close the dialog to refresh it.");
+      }
+
+      const validateBondingPurchaseBudget = async (
+        amounts: SmartBalancingAmounts | undefined,
+      ) => {
+        if (!amounts || amounts.amount_in_glow_bonding_curve <= 0n) return null;
+        const output = Number(amounts.amount_out_glow);
+        const increments = Math.floor(output * 100);
+        if (!Number.isFinite(output) || output <= 0 || increments <= 0) {
+          throw new Error(BONDING_CURVE_QUOTE_CHANGED_MESSAGE);
+        }
+        const freshQuote = await getGlowQuoteEarlyLiquidity(increments);
+        assertTransactionActive();
+        if (!freshQuote.ok) throw new Error(String(freshQuote.val));
+        if (freshQuote.val > amounts.amount_in_glow_bonding_curve) {
+          throw new Error(BONDING_CURVE_QUOTE_CHANGED_MESSAGE);
+        }
+        return increments;
+      };
+
+      const assertRouteGuaranteesReviewedMinimum = (
+        amounts: SmartBalancingAmounts,
+        bondingIncrements: number | null,
+      ) => {
+        const guaranteedMinimum = computeGuaranteedGlowRouteMinimum({
+          uniswapQuotedAmountOut:
+            amounts.amount_in_uni > 0n
+              ? parseUnits(amounts.amount_out_uni, 18)
+              : 0n,
+          slippageBps: slippagePointsTenThousandths,
+          bondingIncrements,
+        });
+        if (guaranteedMinimum < minimumAmountOut) {
+          throw new Error(
+            "This route cannot guarantee the minimum amount you reviewed.",
+          );
+        }
+      };
+
+      if (selectedTokenBuy.label === "GLOW") {
+        if (!isEthFlow) routeBudgetAtomic = parseUnits(amountToSell, 6);
+        const quoteValidation = validateSmartBalancingQuote({
+          quote: effectiveSmartBalancingAmounts,
+          budgetAtomic: routeBudgetAtomic,
+        });
+        if (!quoteValidation.ok) throw new Error(quoteValidation.error);
+        validatedBondingIncrements =
+          await validateBondingPurchaseBudget(effectiveSmartBalancingAmounts);
+        assertRouteGuaranteesReviewedMinimum(
+          effectiveSmartBalancingAmounts!,
+          validatedBondingIncrements,
+        );
+      }
 
       // If we're swapping USDC to USDG only (not continuing to GLOW)
       if (
@@ -318,8 +389,10 @@ export const UsdcToTokenDialog: FC<{
         updateStepStatus("SWAP_USDC_TO_USDG", "confirming");
 
         const swapUSDCtoUSDGRes = await swapUSDCToUSDG(
-          parseUnits(amountToSell, 6)
+          parseUnits(amountToSell, 6),
+          { expectedAccount, assertTransactionActive },
         );
+        assertTransactionActive();
 
         if (!swapUSDCtoUSDGRes.ok) {
           updateStepStatus("SWAP_USDC_TO_USDG", "error", {
@@ -331,6 +404,7 @@ export const UsdcToTokenDialog: FC<{
           toast.error(swapUSDCtoUSDGRes.val);
           return;
         }
+        prerequisiteWrapTxHash = swapUSDCtoUSDGRes.val.txHash;
 
         updateStepStatus("SWAP_USDC_TO_USDG", "completed");
         setIsPending(false);
@@ -347,8 +421,10 @@ export const UsdcToTokenDialog: FC<{
         updateStepStatus("SWAP_USDC_TO_USDG", "confirming");
 
         const swapUSDCtoUSDGRes = await swapUSDCToUSDG(
-          parseUnits(amountToSell, 6)
+          parseUnits(amountToSell, 6),
+          { expectedAccount, assertTransactionActive },
         );
+        assertTransactionActive();
 
         if (!swapUSDCtoUSDGRes.ok) {
           updateStepStatus("SWAP_USDC_TO_USDG", "error", {
@@ -360,6 +436,7 @@ export const UsdcToTokenDialog: FC<{
           toast.error(swapUSDCtoUSDGRes.val);
           return;
         }
+        prerequisiteWrapTxHash = swapUSDCtoUSDGRes.val.txHash;
 
         updateStepStatus("SWAP_USDC_TO_USDG", "completed");
       } else if (isEthFlow) {
@@ -383,8 +460,12 @@ export const UsdcToTokenDialog: FC<{
 
         const swapEthRes = await swapEthToUsdc({
           amountInWei: ethWei,
-          slippageBps: BigInt(100),
+          slippageBps: slippagePointsTenThousandths,
+          minimumAmountOutUsdc: ethToUsdcMinimum,
+          expectedAccount,
+          assertTransactionActive,
         });
+        assertTransactionActive();
         if (!swapEthRes.ok) {
           updateStepStatus("SWAP_ETH_TO_USDC", "error", {
             errorMessage: String(swapEthRes.val),
@@ -400,86 +481,108 @@ export const UsdcToTokenDialog: FC<{
           txHash: swapEthRes.val.txHash,
         });
 
-        // USDC -> USDG
-        updateStepStatus("SWAP_USDC_TO_USDG", "waiting_signature");
-        updateStepStatus("SWAP_USDC_TO_USDG", "confirming");
-
-        const swapUSDCtoUSDGRes = await swapUSDCToUSDG(
-          swapEthRes.val.usdcReceived
-        );
-        if (!swapUSDCtoUSDGRes.ok) {
-          updateStepStatus("SWAP_USDC_TO_USDG", "error", {
-            errorMessage: String(swapUSDCtoUSDGRes.val),
-          });
-          setIsPending(false);
-          setIsError(true);
-          setErrorMessage(String(swapUSDCtoUSDGRes.val));
-          toast.error(String(swapUSDCtoUSDGRes.val));
-          return;
-        }
-
-        updateStepStatus("SWAP_USDC_TO_USDG", "completed");
+        routeBudgetAtomic = swapEthRes.val.usdcReceived;
 
         // Recompute smart balancing amounts based on actual USDC received
         const priceCandidate = Number(
           effectiveSmartBalancingAmounts?.earlyLiquidityCurrentPrice ?? 0
         );
-        if (priceCandidate > 0) {
-          const usdgEquivalent = formatUnits(swapEthRes.val.usdcReceived, 6);
-          const recomputeRes = await getSmartBalancingAmounts({
-            amountUsdgIn: usdgEquivalent,
-            earlyLiquidityCurrentPrice: priceCandidate,
-            useEarlyLiquidity: false,
-          });
-          if (recomputeRes.ok) {
-            effectiveSmartBalancingAmounts = recomputeRes.val;
+        if (priceCandidate <= 0) throw new Error("The route quote is unavailable.");
+        const usdgEquivalent = formatUnits(swapEthRes.val.usdcReceived, 6);
+        const recomputeRes = await getSmartBalancingAmounts({
+          amountUsdgIn: usdgEquivalent,
+          earlyLiquidityCurrentPrice: priceCandidate,
+          useEarlyLiquidity: false,
+        });
+        assertTransactionActive();
+        if (!recomputeRes.ok) throw new Error(String(recomputeRes.val));
+        effectiveSmartBalancingAmounts = recomputeRes.val;
+        const quoteValidation = validateSmartBalancingQuote({
+          quote: effectiveSmartBalancingAmounts,
+          budgetAtomic: routeBudgetAtomic,
+        });
+        if (!quoteValidation.ok) throw new Error(quoteValidation.error);
+        const recomputedTotalGlow =
+          parseUnits(effectiveSmartBalancingAmounts.amount_out_uni, 18) +
+          parseUnits(effectiveSmartBalancingAmounts.amount_out_glow, 18);
+        if (recomputedTotalGlow < minimumAmountOut) {
+          throw new Error("The updated route is below the minimum you reviewed.");
+        }
+        validatedBondingIncrements =
+          await validateBondingPurchaseBudget(effectiveSmartBalancingAmounts);
+        assertRouteGuaranteesReviewedMinimum(
+          effectiveSmartBalancingAmounts,
+          validatedBondingIncrements,
+        );
 
-            // Update steps based on new smart balancing amounts
-            const hasUniswap =
-              Number(
-                formatUnits(recomputeRes.val.amount_in_uni as bigint, 6)
-              ) > 0;
-            const hasBonding = Number(recomputeRes.val.amount_out_glow) > 0;
+        // Update steps based on new smart balancing amounts
+        const hasUniswap =
+          Number(formatUnits(recomputeRes.val.amount_in_uni as bigint, 6)) > 0;
+        const hasBonding = Number(recomputeRes.val.amount_out_glow) > 0;
 
-            setTransactionSteps((prev) => {
-              let updated = [...prev];
-              const hasUniswapStep = updated.some(
-                (s) => s.id === "SWAP_USDG_TO_GLOW_UNISWAP"
-              );
-              const hasBondingStep = updated.some(
-                (s) => s.id === "PURCHASE_GLOW_BONDING"
-              );
+        setTransactionSteps((prev) => {
+          const updated = [...prev];
+          const hasUniswapStep = updated.some(
+            (step) => step.id === "SWAP_USDG_TO_GLOW_UNISWAP",
+          );
+          const hasBondingStep = updated.some(
+            (step) => step.id === "PURCHASE_GLOW_BONDING",
+          );
 
-              if (hasUniswap && !hasUniswapStep) {
-                const insertIndex = updated.findIndex(
-                  (s) => s.id === "PURCHASE_GLOW_BONDING"
-                );
-                updated.splice(insertIndex === -1 ? updated.length : insertIndex, 0, {
-                  id: "SWAP_USDG_TO_GLOW_UNISWAP",
-                  title: "Swap USDG → GLW (Uniswap)",
-                  description: "Converting USDG to GLW via Uniswap",
-                  tokenFrom: "USDG",
-                  tokenTo: "GLW",
-                  status: "idle",
-                });
-              }
-
-              if (hasBonding && !hasBondingStep) {
-                updated.push({
-                  id: "PURCHASE_GLOW_BONDING",
-                  title: "Purchase GLW (Bonding Curve)",
-                  description: "Purchasing GLW from bonding curve",
-                  tokenFrom: "USDG",
-                  tokenTo: "GLW",
-                  status: "idle",
-                });
-              }
-
-              stepsRef.current = updated;
-              return updated;
+          if (hasUniswap && !hasUniswapStep) {
+            const insertIndex = updated.findIndex(
+              (step) => step.id === "PURCHASE_GLOW_BONDING",
+            );
+            updated.splice(insertIndex === -1 ? updated.length : insertIndex, 0, {
+              id: "SWAP_USDG_TO_GLOW_UNISWAP",
+              title: "Swap USDG → GLW (Uniswap)",
+              description: "Converting USDG to GLW via Uniswap",
+              tokenFrom: "USDG",
+              tokenTo: "GLW",
+              status: "idle",
             });
           }
+
+          if (hasBonding && !hasBondingStep) {
+            updated.push({
+              id: "PURCHASE_GLOW_BONDING",
+              title: "Purchase GLW (Bonding Curve)",
+              description: "Purchasing GLW from bonding curve",
+              tokenFrom: "USDG",
+              tokenTo: "GLW",
+              status: "idle",
+            });
+          }
+
+          stepsRef.current = updated;
+          return updated;
+        });
+
+        // Only wrap the received USDC after the replacement route is valid.
+        updateStepStatus("SWAP_USDC_TO_USDG", "waiting_signature");
+        updateStepStatus("SWAP_USDC_TO_USDG", "confirming");
+        const swapUSDCtoUSDGRes = await swapUSDCToUSDG(
+          swapEthRes.val.usdcReceived,
+          {
+            expectedAccount,
+            prerequisiteTxHashes: [swapEthRes.val.txHash],
+            assertTransactionActive,
+          },
+        );
+        assertTransactionActive();
+        if (!swapUSDCtoUSDGRes.ok) {
+          throw new Error(String(swapUSDCtoUSDGRes.val));
         }
+        prerequisiteWrapTxHash = swapUSDCtoUSDGRes.val.txHash;
+        updateStepStatus("SWAP_USDC_TO_USDG", "completed");
+      }
+
+      if (selectedTokenBuy.label === "GLOW") {
+        const quoteValidation = validateSmartBalancingQuote({
+          quote: effectiveSmartBalancingAmounts,
+          budgetAtomic: routeBudgetAtomic,
+        });
+        if (!quoteValidation.ok) throw new Error(quoteValidation.error);
       }
 
       const isUniswapElligible =
@@ -502,10 +605,17 @@ export const UsdcToTokenDialog: FC<{
         const purchaseGlowFromUniswap = await swap({
           amount: effectiveSmartBalancingAmounts!.amount_in_uni as any,
           slippagePercentTenThousandDenominator: slippagePointsTenThousandths,
-          prerequisiteTxHashes: lastWrapTxHashRef?.current
-            ? [lastWrapTxHashRef.current]
+          minimumAmountOut: computeAmountOutMin(
+            parseUnits(effectiveSmartBalancingAmounts!.amount_out_uni, 18),
+            slippagePointsTenThousandths,
+          ),
+          expectedAccount,
+          prerequisiteTxHashes: prerequisiteWrapTxHash
+            ? [prerequisiteWrapTxHash]
             : undefined,
+          assertTransactionActive,
         });
+        assertTransactionActive();
         if (!purchaseGlowFromUniswap.ok) {
           updateStepStatus("SWAP_USDG_TO_GLOW_UNISWAP", "error", {
             errorMessage: String(purchaseGlowFromUniswap.val),
@@ -516,6 +626,8 @@ export const UsdcToTokenDialog: FC<{
           toast.error(purchaseGlowFromUniswap.val);
           return;
         }
+        confirmedUniswapGlwReceived +=
+          purchaseGlowFromUniswap.val.amountReceived;
         if (uniswapLastTxHashRef.current) {
           setTxHash(uniswapLastTxHashRef.current);
           updateStepStatus("SWAP_USDG_TO_GLOW_UNISWAP", "completed", {
@@ -531,14 +643,24 @@ export const UsdcToTokenDialog: FC<{
         updateStepStatus("PURCHASE_GLOW_BONDING", "waiting_signature");
         updateStepStatus("PURCHASE_GLOW_BONDING", "confirming");
 
-        const incrementsToPurchase = Math.floor(
-          Number(effectiveSmartBalancingAmounts?.amount_out_glow) * 100
-        );
+        const incrementsToPurchase = validatedBondingIncrements;
+        if (!incrementsToPurchase) {
+          throw new Error(BONDING_CURVE_QUOTE_CHANGED_MESSAGE);
+        }
 
         const purchaseGlowEarlyLiquidityRes = await purchaseGlowEarlyLiquidity({
           incrementsToPurchase,
           slippagePointsTenThousandths: slippagePointsTenThousandths,
+          maxUsdgToSpend:
+            effectiveSmartBalancingAmounts!.amount_in_glow_bonding_curve,
+          allowUsdcTopUp: false,
+          prerequisiteTxHashes: prerequisiteWrapTxHash
+            ? [prerequisiteWrapTxHash]
+            : undefined,
+          expectedAccount,
+          assertTransactionActive,
         });
+        assertTransactionActive();
 
         if (!purchaseGlowEarlyLiquidityRes.ok) {
           updateStepStatus("PURCHASE_GLOW_BONDING", "error", {
@@ -550,6 +672,8 @@ export const UsdcToTokenDialog: FC<{
           toast.error(purchaseGlowEarlyLiquidityRes.val);
           return;
         }
+        confirmedBondingGlwReceived +=
+          purchaseGlowEarlyLiquidityRes.val.glowReceived;
         if (glowLastTxHashRef.current) {
           setTxHash(glowLastTxHashRef.current);
           updateStepStatus("PURCHASE_GLOW_BONDING", "completed", {
@@ -565,6 +689,17 @@ export const UsdcToTokenDialog: FC<{
         glowLastTxHashRef.current ?? uniswapLastTxHashRef.current ?? txHash;
       if (finalGlwTxHash) setTxHash(finalGlwTxHash);
 
+      if (selectedTokenBuy.label === "GLOW") {
+        const confirmedGlwReceived = enforceConfirmedGlowRouteMinimum({
+          uniswapReceived: confirmedUniswapGlwReceived,
+          bondingReceived: confirmedBondingGlwReceived,
+          reviewedMinimum: minimumAmountOut,
+        });
+        setConfirmedAmountOut(formatUnits(confirmedGlwReceived, 18));
+      } else {
+        setConfirmedAmountOut(amount);
+      }
+
       // Mark all steps as completed
       setTransactionSteps((prev) =>
         prev.map((state) => ({ ...state, pending: false, status: "completed" as StepStatus }))
@@ -573,6 +708,11 @@ export const UsdcToTokenDialog: FC<{
       setIsPending(false);
       setIsSuccess(true);
     } catch (error: any) {
+      if (
+        getTransactionOperationCancellation(error, assertTransactionActive)
+      ) {
+        return;
+      }
       console.error("Error in handlePurchaseGlow:", error);
 
       // Find the active step and mark it as error
@@ -623,9 +763,9 @@ export const UsdcToTokenDialog: FC<{
       setIsError(false);
       setErrorMessage(null);
       setTxHash(null);
+      setConfirmedAmountOut(null);
       setNetworkCostUSD("");
       setIsNetworkCostLoading(false);
-      setIsImpactPowerPointsBuySuccess(false);
       setTransactionSteps([]);
       stepsRef.current = [];
     }
@@ -650,12 +790,9 @@ export const UsdcToTokenDialog: FC<{
     handlePurchaseGlow();
   };
 
-  // Calculate if transaction is successful
-  const isTransactionSuccessful =
-    isSuccess ||
-    isImpactPowerPointsBuySuccess ||
-    glowPurchaseState === "DONE" ||
-    uniswapPurchaseState === "DONE";
+  // Only the orchestrator can declare success after every required leg completes.
+  const isTransactionSuccessful = isSuccess;
+  const displayedAmountOut = confirmedAmountOut ?? amount;
 
   // Transaction details for review
   const transactionDetails: TransactionDetail[] = [
@@ -668,7 +805,7 @@ export const UsdcToTokenDialog: FC<{
     },
     {
       label: s.youReceiveLabel,
-      value: Number(amount) ? formatPrice(amount, 4) : "0.00",
+      value: Number(displayedAmountOut) ? formatPrice(displayedAmountOut, 4) : "0.00",
       unit: selectedTokenBuy.label,
     },
   ];
@@ -686,7 +823,7 @@ export const UsdcToTokenDialog: FC<{
       label: s.receivedLabel,
       value: (
         <span className="text-[#4ADE80] font-mono font-medium">
-          {Number(amount).toLocaleString("en-US", {
+          {Number(displayedAmountOut).toLocaleString("en-US", {
             maximumFractionDigits: 4,
           })}
         </span>
@@ -730,7 +867,7 @@ export const UsdcToTokenDialog: FC<{
                 {s.youReceive}
               </div>
               <div className="text-2xl font-semibold">
-                {Number(amount) ? formatPrice(amount, 4) : "0.00"}{" "}
+                {Number(displayedAmountOut) ? formatPrice(displayedAmountOut, 4) : "0.00"}{" "}
                 <span className="text-lg font-medium text-muted-foreground">
                   {selectedTokenBuy.label}
                 </span>
@@ -749,32 +886,16 @@ export const UsdcToTokenDialog: FC<{
     </div>
   );
 
-  // Custom footer with retry button for errors
+  // A failed multi-leg transaction must be reviewed before a new order starts;
+  // never replay the entire flow from an in-dialog retry button.
   const customFooter = isError ? (
-    <div className="flex gap-3">
-      <Button
-        variant="outline"
-        onClick={() => onOpenChange(false)}
-        className="flex-1"
-      >
-        {s.cancel}
-      </Button>
-      <Button
-        onClick={() => {
-          resetGlowPurchaseState();
-          resetUniswapPurchaseState();
-          setTransactionSteps([]);
-          stepsRef.current = [];
-          setIsImpactPowerPointsBuySuccess(false);
-          setIsError(false);
-          setErrorMessage(null);
-          handleDispatchBuy();
-        }}
-        className="flex-1"
-      >
-        {s.tryAgain}
-      </Button>
-    </div>
+    <Button
+      variant="outline"
+      onClick={() => onOpenChange(false)}
+      className="w-full"
+    >
+      {s.close}
+    </Button>
   ) : !isPending && !isTransactionSuccessful ? (
     <div className="flex flex-col gap-2">
       {isSmartAccount && (
@@ -832,7 +953,7 @@ export const UsdcToTokenDialog: FC<{
       contentClassName="sm:max-w-[520px]"
       bodyClassName="px-6 py-8 sm:px-7 sm:py-9"
       title={s.reviewSwap}
-      successTitle={`+${Number(amount).toLocaleString("en-US", {
+      successTitle={`+${Number(displayedAmountOut).toLocaleString("en-US", {
         maximumFractionDigits: 4,
       })} ${selectedTokenBuy.label}`}
       errorTitle={s.swapFailed}

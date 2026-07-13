@@ -2,7 +2,14 @@ import { useContracts } from "./useContracts";
 import { Ok, Err, Result } from "ts-results";
 import { useState, useRef, useCallback } from "react";
 import { estimateGlowFromUSDG } from "@/utils/math/estimateGlowFromUSDG";
-import { formatEther, formatUnits, parseAbi, parseUnits } from "viem";
+import {
+  formatEther,
+  formatUnits,
+  parseAbi,
+  parseUnits,
+  type Address,
+  type Hash,
+} from "viem";
 import { getOptimalUSDGAmounts } from "@/utils/glowSmartBalancing";
 import { getAmountOut } from "@/utils/uniswapv2/getAmountOut";
 import { getReserves } from "@/utils/uniswapv2/getReserves";
@@ -11,6 +18,13 @@ import { publicClient } from "@/web3/web3/clients/publicClient";
 import { useEthersSigner } from "./useEthersSigner";
 import Decimal from "decimal.js";
 import { waitForTransactionReceipt } from "@/lib/wait-for-transaction-receipt";
+import { computeBoundedPurchaseSpend } from "@/lib/bonding-curve-budget";
+import { sumErc20TransfersTo } from "@/lib/transaction-receipts";
+import {
+  getTransactionOperationCancellation,
+  type AssertTransactionActive,
+} from "@/lib/transaction-operation";
+import { synchronizePrerequisiteBalance } from "@/lib/prerequisite-balance";
 
 const UNISWAP_V2_FACTORY_ABI = parseAbi([
   "function getPair(address tokenA, address tokenB) external view returns (address pair)",
@@ -44,6 +58,11 @@ export type PurchaseGlowState =
   | "PURCHASING_GLOW"
   | "DONE"
   | "ERROR";
+
+export interface PurchaseGlowSuccess {
+  txHash: `0x${string}`;
+  glowReceived: bigint;
+}
 
 export const purchaseGlowStateMessages = {
   NONE: "None",
@@ -140,17 +159,28 @@ export function usePurchaseGlow() {
   async function purchaseGlowEarlyLiquidity({
     incrementsToPurchase,
     slippagePointsTenThousandths = BigInt(0), // 0%
+    maxUsdgToSpend,
+    allowUsdcTopUp = true,
+    prerequisiteTxHashes,
+    expectedAccount,
+    assertTransactionActive,
   }: {
     incrementsToPurchase: number;
     slippagePointsTenThousandths: bigint;
-  }): Promise<Result<boolean, string>> {
+    maxUsdgToSpend?: bigint;
+    allowUsdcTopUp?: boolean;
+    prerequisiteTxHashes?: Hash[];
+    expectedAccount?: Address;
+    assertTransactionActive?: AssertTransactionActive;
+  }): Promise<Result<PurchaseGlowSuccess, string>> {
     if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") {
-      return new Ok(false);
+      return new Err("Early Liquidity is not available on this network");
     }
     if (!earlyLiquidity) return new Err("Early Liquidity not available");
     if (!usdc) return new Err("USDC not available");
     if (!usdg) return new Err("USDG not available");
     if (!glow) return new Err("Glow not available");
+    assertTransactionActive?.();
 
     setGlowPurchaseState("QUOTING");
     // commented for now
@@ -159,37 +189,82 @@ export function usePurchaseGlow() {
     //   (1 - slippagePointsTenThousandths.toNumber() / 10000);
     const priceResult: Result<bigint, string> =
       await getGlowQuoteEarlyLiquidity(incrementsToPurchase);
+    assertTransactionActive?.();
     if (!priceResult.ok) return new Err(priceResult.val);
     const price: bigint = priceResult.val;
-    const priceTimesSlippage: bigint =
-      (price * slippagePointsTenThousandths) / DENOMINATOR;
-    const usdgNeeded: bigint = price + priceTimesSlippage;
+    const boundedSpend = computeBoundedPurchaseSpend({
+      quotedPrice: price,
+      slippageBps: slippagePointsTenThousandths,
+      maxBudget: maxUsdgToSpend,
+    });
+    if (!boundedSpend.ok) {
+      setGlowPurchaseState("ERROR");
+      return new Err(boundedSpend.error);
+    }
+    const usdgNeeded = boundedSpend.maxSpend;
 
-    const signerAddress = await usdc.signer.getAddress();
-    const udsgBalance = await usdg.balanceOf(signerAddress);
+    const signerAddress = await usdc.signer.getAddress(expectedAccount);
+    assertTransactionActive?.();
+    const confirmedPrerequisiteHashes =
+      prerequisiteTxHashes?.filter(Boolean) ?? [];
+    let udsgBalance =
+      confirmedPrerequisiteHashes.length > 0
+        ? await synchronizePrerequisiteBalance({
+            prerequisiteTxHashes: confirmedPrerequisiteHashes,
+            waitForReceipt: (hash) =>
+              publicClient.waitForTransactionReceipt({
+                hash,
+                confirmations: 1,
+                retryCount: 8,
+                retryDelay: 1_000,
+              }),
+            minimumBalance: usdgNeeded,
+            readBalance: () => usdg.balanceOf(signerAddress),
+            assertTransactionActive,
+          })
+        : await usdg.balanceOf(signerAddress);
+    assertTransactionActive?.();
 
     //If we don't have enough USDG, try obtaining more by swapping USDC
 
     if (udsgBalance < usdgNeeded) {
+      if (!allowUsdcTopUp) {
+        setGlowPurchaseState("ERROR");
+        return new Err(
+          "This order does not have enough USDG within its approved budget.",
+        );
+      }
       const usdcBalance = await usdc.balanceOf(signerAddress);
+      assertTransactionActive?.();
       const usdcNeeded = usdgNeeded - udsgBalance;
-      console.log("usdcNeeded", usdcNeeded.toString());
-      console.log("usdcBalance", usdcBalance.toString());
       if (usdcNeeded > usdcBalance) {
         setGlowPurchaseState("ERROR");
         return new Err("Insufficient USDG and USDC Balance");
       }
       const usdcAllowance = await usdc.allowance(signerAddress, usdg.address);
+      assertTransactionActive?.();
       if (usdcAllowance < usdcNeeded) {
         setGlowPurchaseState("REQUESTING_USDC_APPROVAL_TO_OBTAIN_USDG");
 
         try {
-          const approveTx = await usdc.approve(usdg.address, MAX_UINT256);
+          const approveTx = await usdc.approve(
+            usdg.address,
+            MAX_UINT256,
+            expectedAccount,
+            assertTransactionActive,
+          );
+          assertTransactionActive?.();
           lastTxHashRef.current = approveTx.hash as `0x${string}`;
           setLastTxHash(approveTx.hash as `0x${string}`);
           setGlowPurchaseState("APPROVING_USDC_TO_OBTAIN_USDG");
           await waitForTransactionReceipt(approveTx.hash as `0x${string}`);
+          assertTransactionActive?.();
         } catch (e) {
+          const cancellation = getTransactionOperationCancellation(
+            e,
+            assertTransactionActive,
+          );
+          if (cancellation) throw cancellation;
           setGlowPurchaseState("ERROR");
           return new Err("Error approving USDC to obtain USDG");
         }
@@ -197,12 +272,43 @@ export function usePurchaseGlow() {
 
       setGlowPurchaseState("PURCHASING_USDG");
       try {
-        const swapTx = await usdg.swap(signerAddress, usdcNeeded);
+        const swapTx = await usdg.swap(
+          signerAddress,
+          usdcNeeded,
+          expectedAccount,
+          assertTransactionActive,
+        );
+        assertTransactionActive?.();
         lastTxHashRef.current = swapTx.hash as `0x${string}`;
         setLastTxHash(swapTx.hash as `0x${string}`);
         await waitForTransactionReceipt(swapTx.hash as `0x${string}`);
+        assertTransactionActive?.();
+        udsgBalance = await synchronizePrerequisiteBalance({
+          prerequisiteTxHashes: [swapTx.hash as `0x${string}`],
+          waitForReceipt: (hash) =>
+            publicClient.waitForTransactionReceipt({
+              hash,
+              confirmations: 1,
+              retryCount: 8,
+              retryDelay: 1_000,
+            }),
+          minimumBalance: usdgNeeded,
+          readBalance: () => usdg.balanceOf(signerAddress),
+          assertTransactionActive,
+        });
+        assertTransactionActive?.();
+        if (udsgBalance < usdgNeeded) {
+          throw new Error(
+            "The confirmed USDC swap is not visible to the bonding RPC yet.",
+          );
+        }
         setGlowPurchaseState("SUCCESSFULLY_OBTAINED_USDG");
       } catch (e) {
+        const cancellation = getTransactionOperationCancellation(
+          e,
+          assertTransactionActive,
+        );
+        if (cancellation) throw cancellation;
         setGlowPurchaseState("ERROR");
         return new Err("Error swapping USDC for USDG");
       }
@@ -213,17 +319,27 @@ export function usePurchaseGlow() {
       signerAddress,
       earlyLiquidity.address
     );
+    assertTransactionActive?.();
     if (usdgAllowance < usdgNeeded) {
       try {
         const approveTx = await usdg.approve(
           earlyLiquidity.address,
-          MAX_UINT256
+          MAX_UINT256,
+          expectedAccount,
+          assertTransactionActive,
         );
+        assertTransactionActive?.();
         lastTxHashRef.current = approveTx.hash as `0x${string}`;
         setLastTxHash(approveTx.hash as `0x${string}`);
         setGlowPurchaseState("APPROVING_USDG_TO_OBTAIN_GLOW");
         await waitForTransactionReceipt(approveTx.hash as `0x${string}`);
+        assertTransactionActive?.();
       } catch (e) {
+        const cancellation = getTransactionOperationCancellation(
+          e,
+          assertTransactionActive,
+        );
+        if (cancellation) throw cancellation;
         setGlowPurchaseState("ERROR");
         return new Err("Error approving USDG to obtain Glow");
       }
@@ -235,17 +351,43 @@ export function usePurchaseGlow() {
     try {
       const purchaseTx = await earlyLiquidity.buy(
         incrementsToPurchase,
-        usdgNeeded
+        usdgNeeded,
+        expectedAccount,
+        assertTransactionActive,
       );
+      assertTransactionActive?.();
       lastTxHashRef.current = purchaseTx.hash as `0x${string}`;
       setLastTxHash(purchaseTx.hash as `0x${string}`);
-      await waitForTransactionReceipt(purchaseTx.hash as `0x${string}`);
+      const receipt = await waitForTransactionReceipt(
+        purchaseTx.hash as `0x${string}`,
+      );
+      assertTransactionActive?.();
+      const glowReceived = sumErc20TransfersTo({
+        logs: receipt.logs,
+        token: glow.address,
+        recipient: signerAddress,
+      });
+      const expectedGlow = BigInt(incrementsToPurchase) * 10n ** 16n;
+      if (glowReceived < expectedGlow) {
+        setGlowPurchaseState("ERROR");
+        return new Err(
+          "The confirmed bonding-curve purchase returned less GLOW than expected.",
+        );
+      }
+      setGlowPurchaseState("DONE");
+      return new Ok({
+        txHash: purchaseTx.hash as `0x${string}`,
+        glowReceived,
+      });
     } catch (e) {
+      const cancellation = getTransactionOperationCancellation(
+        e,
+        assertTransactionActive,
+      );
+      if (cancellation) throw cancellation;
       setGlowPurchaseState("ERROR");
       return new Err("Error purchasing Glow");
     }
-    setGlowPurchaseState("DONE");
-    return new Ok(true);
   }
 
   /**

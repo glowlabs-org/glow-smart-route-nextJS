@@ -198,13 +198,23 @@ export function TransactionDialog({
   );
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen && isSubmitting) return;
+        onOpenChange(nextOpen);
+      }}
+    >
       <DialogContent
         className={cn(
           "bg-card rounded-[24px] p-0 sm:max-w-sm w-full border border-border/40 overflow-hidden gap-0",
           contentClassName
         )}
+        showCloseButton={!isSubmitting}
         onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => {
+          if (isSubmitting) e.preventDefault();
+        }}
       >
         <DialogHeader className="sr-only">
           <DialogTitle>
