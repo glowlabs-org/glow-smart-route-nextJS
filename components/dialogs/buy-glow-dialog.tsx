@@ -440,6 +440,34 @@ export function BuyGlowDialog({
     if (!open) setIsSmartAccountWarningOpen(false);
   }, [open]);
 
+  const refreshPurchaseQueries = React.useCallback(() => {
+    if (!address) return;
+
+    void Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: ["wallet-token-balances", chainId, address],
+      }),
+      queryClient.invalidateQueries({
+        queryKey: ["wallet-swaps", chainId, address],
+      }),
+      queryClient.invalidateQueries({
+        queryKey: ["unclaimed-glw-rewards", address],
+      }),
+      queryClient.invalidateQueries({
+        queryKey: ["impact-glow-score", address],
+      }),
+      queryClient.invalidateQueries({
+        queryKey: ["impact-leaderboard"],
+      }),
+      queryClient.invalidateQueries({
+        queryKey: ["impact-score-breakdown"],
+      }),
+      queryClient.invalidateQueries({
+        queryKey: ["impact-glow-worth"],
+      }),
+    ]).catch(() => {});
+  }, [address, chainId, queryClient]);
+
   const checkSmartAccountBeforeBuy = React.useCallback(
     async (
       assertTransactionActive?: AssertTransactionActive,
@@ -877,6 +905,7 @@ export function BuyGlowDialog({
       setPhase("success");
       await refetchEvergreen?.();
       assertTransactionActive();
+      refreshPurchaseQueries();
       onSuccess?.();
     } catch (error) {
       if (
@@ -924,6 +953,7 @@ export function BuyGlowDialog({
     expectedMinerPaymentToken,
     connectorClient,
     beginTransactionOperation,
+    refreshPurchaseQueries,
   ]);
 
   // USDG only buys GLW; if it's selected when switching to the miner option,
@@ -2006,6 +2036,7 @@ export function BuyGlowDialog({
         referral_code:
           getStoredReferralAttribution()?.referralCode ?? null,
       });
+      refreshPurchaseQueries();
       onSuccess?.();
     } catch (error: any) {
       if (
@@ -2090,39 +2121,12 @@ export function BuyGlowDialog({
     assertFullFlowEthBudget,
     t.swap,
     beginTransactionOperation,
+    refreshPurchaseQueries,
   ]);
 
   const handleClose = React.useCallback(() => {
     cancelEstimate();
-    if (address) {
-      void (async () => {
-        try {
-          await Promise.all([
-            queryClient.invalidateQueries({
-              queryKey: ["wallet-token-balances", chainId, address],
-            }),
-            queryClient.invalidateQueries({
-              queryKey: ["wallet-swaps", chainId, address],
-            }),
-            queryClient.invalidateQueries({
-              queryKey: ["unclaimed-glw-rewards", address],
-            }),
-            queryClient.invalidateQueries({
-              queryKey: ["impact-glow-score", address],
-            }),
-            queryClient.invalidateQueries({
-              queryKey: ["impact-leaderboard"],
-            }),
-            queryClient.invalidateQueries({
-              queryKey: ["impact-score-breakdown"],
-            }),
-            queryClient.invalidateQueries({
-              queryKey: ["impact-glow-worth"],
-            }),
-          ]);
-        } catch {}
-      })();
-    }
+    refreshPurchaseQueries();
 
     onOpenChange(false);
     hasPrefilledForOpenRef.current = false;
@@ -2155,11 +2159,9 @@ export function BuyGlowDialog({
     resetGlowPurchaseState();
     resetUniswapPurchaseState();
   }, [
-    address,
     cancelEstimate,
-    chainId,
     onOpenChange,
-    queryClient,
+    refreshPurchaseQueries,
     resetGlowLastTxHash,
     resetGlowPurchaseState,
     resetUniswapLastTxHash,

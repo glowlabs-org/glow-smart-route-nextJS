@@ -217,6 +217,7 @@ export function useWalletPortfolio(params: {
   const impactUnclaimedGlwRewards = React.useMemo(() => {
     return parseGlwFromWei(impactGlowWorth?.unclaimedGlwRewardsWei);
   }, [impactGlowWorth?.unclaimedGlwRewardsWei]);
+  const currentLiquidGlw = glwBalance == null ? impactLiquidGlw : liquidGlw;
 
   const MOCK_GLOW_WORTH = 125_420;
   const MOCK_WEEKLY_ACCUMULATED = 1_250;
@@ -228,16 +229,19 @@ export function useWalletPortfolio(params: {
     }));
   }, []);
 
-  const glowWorthGlw = React.useMemo(() => {
-    if (!hasWallet) return MOCK_GLOW_WORTH;
-    return parseGlwFromWei(impactGlowWorth?.glowWorthWei);
-  }, [hasWallet, impactGlowWorth?.glowWorthWei]);
+  const glowWorthGlw = hasWallet
+    ? currentLiquidGlw +
+      impactDelegatedActiveGlw +
+      impactPendingDelegatedGlw +
+      impactPendingRecoveredGlw +
+      impactUnclaimedGlwRewards
+    : MOCK_GLOW_WORTH;
 
   const glowWorthBreakdown = React.useMemo(() => {
     if (!hasWallet) return null;
     return {
       glowWorthGlw,
-      liquidGlw: impactLiquidGlw,
+      liquidGlw: currentLiquidGlw,
       delegatedActiveGlw: impactDelegatedActiveGlw,
       pendingDelegatedGlw: impactPendingDelegatedGlw,
       pendingRecoveredGlw: impactPendingRecoveredGlw,
@@ -249,7 +253,7 @@ export function useWalletPortfolio(params: {
     impactDelegatedActiveGlw,
     impactPendingDelegatedGlw,
     impactPendingRecoveredGlw,
-    impactLiquidGlw,
+    currentLiquidGlw,
     impactUnclaimedGlwRewards,
   ]);
 
@@ -306,13 +310,12 @@ export function useWalletPortfolio(params: {
     const weekly = impactScore?.weekly ?? [];
     if (weekly.length === 0) {
       const currentWeek = getCurrentWeekNumber();
-      const currentGlw = parseGlwFromWei(impactGlowWorth?.glowWorthWei);
       return [
         {
-          glw: currentGlw,
+          glw: glowWorthGlw,
           week: currentWeek,
           isCurrent: true,
-          liquidGlw: impactLiquidGlw,
+          liquidGlw: currentLiquidGlw,
           delegatedActiveGlw: impactDelegatedActiveGlw,
           pendingDelegatedGlw: impactPendingDelegatedGlw,
           pendingRecoveredGlw: impactPendingRecoveredGlw,
@@ -324,11 +327,10 @@ export function useWalletPortfolio(params: {
     return weekly.map((row, idx) => {
       const isCurrent = idx === weekly.length - 1;
       const fallbackGlw = parseGlwFromWei(row.glowWorthGlwWei);
-      const currentGlw = parseGlwFromWei(impactGlowWorth?.glowWorthWei);
-      const glw = isCurrent ? currentGlw : fallbackGlw;
+      const glw = isCurrent ? glowWorthGlw : fallbackGlw;
 
       // Breakdown is only available for current week
-      const liquidGlw = isCurrent ? impactLiquidGlw : undefined;
+      const liquidGlw = isCurrent ? currentLiquidGlw : undefined;
       const delegatedActiveGlw = isCurrent
         ? impactDelegatedActiveGlw
         : undefined;
@@ -357,8 +359,8 @@ export function useWalletPortfolio(params: {
     hasWallet,
     MOCK_CHART_DATA,
     impactScore?.weekly,
-    impactGlowWorth?.glowWorthWei,
-    impactLiquidGlw,
+    glowWorthGlw,
+    currentLiquidGlw,
     impactDelegatedActiveGlw,
     impactPendingDelegatedGlw,
     impactPendingRecoveredGlw,
