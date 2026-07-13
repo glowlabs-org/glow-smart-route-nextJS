@@ -25,6 +25,15 @@ import {
   type AssertTransactionActive,
 } from "@/lib/transaction-operation";
 import { synchronizePrerequisiteBalance } from "@/lib/prerequisite-balance";
+import {
+  WALLET_INTERACTION_TIMEOUT_MESSAGE,
+  isWalletInteractionTimeoutError,
+} from "@/lib/rpc-error-utils";
+import {
+  withWalletRequestAction,
+  type WalletRequestObserver,
+  type WalletWriteInstrumentation,
+} from "@/lib/wallet-request";
 
 const UNISWAP_V2_FACTORY_ABI = parseAbi([
   "function getPair(address tokenA, address tokenB) external view returns (address pair)",
@@ -83,6 +92,13 @@ export const purchaseGlowStateMessages = {
 export const purchaseGlowStateToMessage = (state: PurchaseGlowState) => {
   return purchaseGlowStateMessages[state];
 };
+
+function getPurchaseErrorMessage(error: unknown, fallback: string): string {
+  return isWalletInteractionTimeoutError(error)
+    ? WALLET_INTERACTION_TIMEOUT_MESSAGE
+    : fallback;
+}
+
 export function usePurchaseGlow() {
   const DENOMINATOR = BigInt(10_000);
   const { signer } = useEthersSigner();
@@ -96,6 +112,23 @@ export function usePurchaseGlow() {
     lastTxHashRef.current = null;
     setLastTxHash(null);
   }, []);
+
+  function withPurchaseStateLifecycle(
+    observer: WalletRequestObserver | undefined,
+    action: string,
+    onEvent: (phase: "dispatched" | "resolved") => void,
+  ): WalletWriteInstrumentation {
+    const instrumentation = withWalletRequestAction(observer, action);
+    return {
+      ...instrumentation,
+      onEvent: (event) => {
+        instrumentation.onEvent?.(event);
+        if (event.phase === "dispatched" || event.phase === "resolved") {
+          onEvent(event.phase);
+        }
+      },
+    };
+  }
 
   function resetGlowPurchaseState() {
     setGlowPurchaseState("NONE");
@@ -164,6 +197,7 @@ export function usePurchaseGlow() {
     prerequisiteTxHashes,
     expectedAccount,
     assertTransactionActive,
+    walletRequest,
   }: {
     incrementsToPurchase: number;
     slippagePointsTenThousandths: bigint;
@@ -172,6 +206,7 @@ export function usePurchaseGlow() {
     prerequisiteTxHashes?: Hash[];
     expectedAccount?: Address;
     assertTransactionActive?: AssertTransactionActive;
+    walletRequest?: WalletRequestObserver;
   }): Promise<Result<PurchaseGlowSuccess, string>> {
     if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") {
       return new Err("Early Liquidity is not available on this network");
@@ -207,9 +242,9 @@ export function usePurchaseGlow() {
     assertTransactionActive?.();
     const confirmedPrerequisiteHashes =
       prerequisiteTxHashes?.filter(Boolean) ?? [];
-    let udsgBalance =
+    const usdgBalancePromise =
       confirmedPrerequisiteHashes.length > 0
-        ? await synchronizePrerequisiteBalance({
+        ? synchronizePrerequisiteBalance({
             prerequisiteTxHashes: confirmedPrerequisiteHashes,
             waitForReceipt: (hash) =>
               publicClient.waitForTransactionReceipt({
@@ -222,7 +257,16 @@ export function usePurchaseGlow() {
             readBalance: () => usdg.balanceOf(signerAddress),
             assertTransactionActive,
           })
-        : await usdg.balanceOf(signerAddress);
+        : usdg.balanceOf(signerAddress);
+    const usdgAllowancePromise = usdg.allowance(
+      signerAddress,
+      earlyLiquidity.address,
+    );
+    const [initialUsdgBalance, usdgAllowance] = await Promise.all([
+      usdgBalancePromise,
+      usdgAllowancePromise,
+    ]);
+    let udsgBalance = initialUsdgBalance;
     assertTransactionActive?.();
 
     //If we don't have enough USDG, try obtaining more by swapping USDC
@@ -234,29 +278,37 @@ export function usePurchaseGlow() {
           "This order does not have enough USDG within its approved budget.",
         );
       }
-      const usdcBalance = await usdc.balanceOf(signerAddress);
+      const [usdcBalance, usdcAllowance] = await Promise.all([
+        usdc.balanceOf(signerAddress),
+        usdc.allowance(signerAddress, usdg.address),
+      ]);
       assertTransactionActive?.();
       const usdcNeeded = usdgNeeded - udsgBalance;
       if (usdcNeeded > usdcBalance) {
         setGlowPurchaseState("ERROR");
         return new Err("Insufficient USDG and USDC Balance");
       }
-      const usdcAllowance = await usdc.allowance(signerAddress, usdg.address);
-      assertTransactionActive?.();
       if (usdcAllowance < usdcNeeded) {
-        setGlowPurchaseState("REQUESTING_USDC_APPROVAL_TO_OBTAIN_USDG");
-
         try {
           const approveTx = await usdc.approve(
             usdg.address,
             MAX_UINT256,
             expectedAccount,
             assertTransactionActive,
+            withPurchaseStateLifecycle(
+              walletRequest,
+              "approve_usdc_for_usdg",
+              (phase) =>
+                setGlowPurchaseState(
+                  phase === "dispatched"
+                    ? "REQUESTING_USDC_APPROVAL_TO_OBTAIN_USDG"
+                    : "APPROVING_USDC_TO_OBTAIN_USDG",
+                ),
+            ),
           );
           assertTransactionActive?.();
           lastTxHashRef.current = approveTx.hash as `0x${string}`;
           setLastTxHash(approveTx.hash as `0x${string}`);
-          setGlowPurchaseState("APPROVING_USDC_TO_OBTAIN_USDG");
           await waitForTransactionReceipt(approveTx.hash as `0x${string}`);
           assertTransactionActive?.();
         } catch (e) {
@@ -266,17 +318,30 @@ export function usePurchaseGlow() {
           );
           if (cancellation) throw cancellation;
           setGlowPurchaseState("ERROR");
-          return new Err("Error approving USDC to obtain USDG");
+          return new Err(
+            getPurchaseErrorMessage(
+              e,
+              "Error approving USDC to obtain USDG",
+            ),
+          );
         }
       }
 
-      setGlowPurchaseState("PURCHASING_USDG");
       try {
         const swapTx = await usdg.swap(
           signerAddress,
           usdcNeeded,
           expectedAccount,
           assertTransactionActive,
+          withPurchaseStateLifecycle(
+            walletRequest,
+            "swap_usdc_to_usdg",
+            (phase) => {
+              if (phase === "dispatched") {
+                setGlowPurchaseState("PURCHASING_USDG");
+              }
+            },
+          ),
         );
         assertTransactionActive?.();
         lastTxHashRef.current = swapTx.hash as `0x${string}`;
@@ -310,15 +375,13 @@ export function usePurchaseGlow() {
         );
         if (cancellation) throw cancellation;
         setGlowPurchaseState("ERROR");
-        return new Err("Error swapping USDC for USDG");
+        return new Err(
+          getPurchaseErrorMessage(e, "Error swapping USDC for USDG"),
+        );
       }
     }
 
     //Now we can approve USDG to be used by early liquidity
-    const usdgAllowance = await usdg.allowance(
-      signerAddress,
-      earlyLiquidity.address
-    );
     assertTransactionActive?.();
     if (usdgAllowance < usdgNeeded) {
       try {
@@ -327,11 +390,20 @@ export function usePurchaseGlow() {
           MAX_UINT256,
           expectedAccount,
           assertTransactionActive,
+          withPurchaseStateLifecycle(
+            walletRequest,
+            "approve_usdg_for_glw",
+            (phase) =>
+              setGlowPurchaseState(
+                phase === "dispatched"
+                  ? "REQUESTING_USDG_APPROVAL_TO_OBTAIN_GLOW"
+                  : "APPROVING_USDG_TO_OBTAIN_GLOW",
+              ),
+          ),
         );
         assertTransactionActive?.();
         lastTxHashRef.current = approveTx.hash as `0x${string}`;
         setLastTxHash(approveTx.hash as `0x${string}`);
-        setGlowPurchaseState("APPROVING_USDG_TO_OBTAIN_GLOW");
         await waitForTransactionReceipt(approveTx.hash as `0x${string}`);
         assertTransactionActive?.();
       } catch (e) {
@@ -341,19 +413,28 @@ export function usePurchaseGlow() {
         );
         if (cancellation) throw cancellation;
         setGlowPurchaseState("ERROR");
-        return new Err("Error approving USDG to obtain Glow");
+        return new Err(
+          getPurchaseErrorMessage(e, "Error approving USDG to obtain Glow"),
+        );
       }
     }
 
     //Now we can purchase the glow
-    setGlowPurchaseState("PURCHASING_GLOW");
-
     try {
       const purchaseTx = await earlyLiquidity.buy(
         incrementsToPurchase,
         usdgNeeded,
         expectedAccount,
         assertTransactionActive,
+        withPurchaseStateLifecycle(
+          walletRequest,
+          "buy_glw_bonding",
+          (phase) => {
+            if (phase === "dispatched") {
+              setGlowPurchaseState("PURCHASING_GLOW");
+            }
+          },
+        ),
       );
       assertTransactionActive?.();
       lastTxHashRef.current = purchaseTx.hash as `0x${string}`;
@@ -386,7 +467,7 @@ export function usePurchaseGlow() {
       );
       if (cancellation) throw cancellation;
       setGlowPurchaseState("ERROR");
-      return new Err("Error purchasing Glow");
+      return new Err(getPurchaseErrorMessage(e, "Error purchasing Glow"));
     }
   }
 

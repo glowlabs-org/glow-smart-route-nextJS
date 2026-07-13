@@ -16,12 +16,13 @@ import { useSwap } from "@/hooks/useSwap";
 import { Result } from "ts-results";
 import {
   SwapUSDCToUSDGError,
+  type SwapUSDCToUSDGOptions,
   type SwapUSDCToUSDGSuccess,
 } from "@/hooks/useSwapUSDCToUSDG";
 import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
 import { Token } from "@/app/buy/constants";
 
-import { formatUnits, parseUnits, type Address, type Hash } from "viem";
+import { formatUnits, parseUnits, type Address } from "viem";
 import { addresses } from "@/web3/constants/addresses";
 import { useChainId } from "wagmi";
 import {
@@ -45,6 +46,9 @@ import {
   getTransactionOperationCancellation,
   type AssertTransactionActive,
 } from "@/lib/transaction-operation";
+import { trackEvent } from "@/lib/telemetry";
+import type { WalletRequestObserver } from "@/lib/wallet-request";
+import type { SmartAccountPreflight } from "@/web3/web3/utils/detectSmartAccount";
 
 function buildInitialSteps(
   selectedTokenSell: Token,
@@ -151,13 +155,10 @@ export const UsdcToTokenDialog: FC<{
   expectedAccount: Address;
   minimumAmountOut: bigint;
   ethToUsdcMinimum?: bigint;
+  smartAccountPreflight?: SmartAccountPreflight;
   swapUSDCToUSDG: (
     amount: bigint,
-    options?: {
-      expectedAccount?: Address;
-      prerequisiteTxHashes?: Hash[];
-      assertTransactionActive?: AssertTransactionActive;
-    },
+    options?: SwapUSDCToUSDGOptions,
   ) => Promise<Result<SwapUSDCToUSDGSuccess, SwapUSDCToUSDGError | string>>;
   onOpenChange: (open: boolean) => void;
 }> = ({
@@ -174,6 +175,7 @@ export const UsdcToTokenDialog: FC<{
   expectedAccount,
   minimumAmountOut,
   ethToUsdcMinimum,
+  smartAccountPreflight,
 }) => {
   const { t } = useLang();
   const s = t.swap;
@@ -253,6 +255,7 @@ export const UsdcToTokenDialog: FC<{
   });
   const smartAccountCheck = useSmartAccountCheck({
     enabled: isOpen && !isPending && !isSuccess,
+    preflight: smartAccountPreflight,
   });
   const hasInsufficientGas = gasPreflight.sufficient === false;
   const isSmartAccount = smartAccountCheck.isBlocked;
@@ -291,6 +294,35 @@ export const UsdcToTokenDialog: FC<{
       });
     },
     []
+  );
+
+  const createWalletRequestObserver = React.useCallback(
+    (
+      stepId: string,
+      assertTransactionActive: AssertTransactionActive,
+    ): WalletRequestObserver => ({
+      onEvent: (event) => {
+        assertTransactionActive();
+        if (event.phase === "dispatched") {
+          updateStepStatus(stepId, "waiting_signature");
+        } else if (event.phase === "resolved") {
+          updateStepStatus(stepId, "confirming");
+        }
+
+        trackEvent("wallet_request_lifecycle", {
+          flow: "swap_dialog",
+          step: stepId,
+          action: event.action ?? null,
+          request_phase: event.phase,
+          wallet_method: event.method,
+          request_id: event.requestId,
+          elapsed_ms: event.elapsedMs,
+          sell_token: selectedTokenSell.label,
+          buy_token: selectedTokenBuy.label,
+        });
+      },
+    }),
+    [selectedTokenBuy.label, selectedTokenSell.label, updateStepStatus],
   );
 
   const handlePurchaseGlow = async () => {
@@ -385,12 +417,17 @@ export const UsdcToTokenDialog: FC<{
         selectedTokenSell.label === "USDC" &&
         selectedTokenBuy.label === "USDG"
       ) {
-        updateStepStatus("SWAP_USDC_TO_USDG", "waiting_signature");
-        updateStepStatus("SWAP_USDC_TO_USDG", "confirming");
-
         const swapUSDCtoUSDGRes = await swapUSDCToUSDG(
           parseUnits(amountToSell, 6),
-          { expectedAccount, assertTransactionActive },
+          {
+            expectedAccount,
+            assertTransactionActive,
+            smartAccountPreflight: smartAccountCheck.preflight ?? undefined,
+            walletRequest: createWalletRequestObserver(
+              "SWAP_USDC_TO_USDG",
+              assertTransactionActive,
+            ),
+          },
         );
         assertTransactionActive();
 
@@ -417,12 +454,17 @@ export const UsdcToTokenDialog: FC<{
         selectedTokenSell.label === "USDC" &&
         selectedTokenBuy.label === "GLOW"
       ) {
-        updateStepStatus("SWAP_USDC_TO_USDG", "waiting_signature");
-        updateStepStatus("SWAP_USDC_TO_USDG", "confirming");
-
         const swapUSDCtoUSDGRes = await swapUSDCToUSDG(
           parseUnits(amountToSell, 6),
-          { expectedAccount, assertTransactionActive },
+          {
+            expectedAccount,
+            assertTransactionActive,
+            smartAccountPreflight: smartAccountCheck.preflight ?? undefined,
+            walletRequest: createWalletRequestObserver(
+              "SWAP_USDC_TO_USDG",
+              assertTransactionActive,
+            ),
+          },
         );
         assertTransactionActive();
 
@@ -441,9 +483,6 @@ export const UsdcToTokenDialog: FC<{
         updateStepStatus("SWAP_USDC_TO_USDG", "completed");
       } else if (isEthFlow) {
         // ETH -> USDC -> USDG -> GLOW
-        updateStepStatus("SWAP_ETH_TO_USDC", "waiting_signature");
-        updateStepStatus("SWAP_ETH_TO_USDC", "confirming");
-
         let ethWei: bigint;
         try {
           ethWei = parseUnits(amountToSell, 18);
@@ -464,6 +503,10 @@ export const UsdcToTokenDialog: FC<{
           minimumAmountOutUsdc: ethToUsdcMinimum,
           expectedAccount,
           assertTransactionActive,
+          walletRequest: createWalletRequestObserver(
+            "SWAP_ETH_TO_USDC",
+            assertTransactionActive,
+          ),
         });
         assertTransactionActive();
         if (!swapEthRes.ok) {
@@ -559,14 +602,17 @@ export const UsdcToTokenDialog: FC<{
         });
 
         // Only wrap the received USDC after the replacement route is valid.
-        updateStepStatus("SWAP_USDC_TO_USDG", "waiting_signature");
-        updateStepStatus("SWAP_USDC_TO_USDG", "confirming");
         const swapUSDCtoUSDGRes = await swapUSDCToUSDG(
           swapEthRes.val.usdcReceived,
           {
             expectedAccount,
             prerequisiteTxHashes: [swapEthRes.val.txHash],
             assertTransactionActive,
+            smartAccountPreflight: smartAccountCheck.preflight ?? undefined,
+            walletRequest: createWalletRequestObserver(
+              "SWAP_USDC_TO_USDG",
+              assertTransactionActive,
+            ),
           },
         );
         assertTransactionActive();
@@ -599,9 +645,6 @@ export const UsdcToTokenDialog: FC<{
 
       // Buy GLOW with Uniswap
       if (isUniswapElligible) {
-        updateStepStatus("SWAP_USDG_TO_GLOW_UNISWAP", "waiting_signature");
-        updateStepStatus("SWAP_USDG_TO_GLOW_UNISWAP", "confirming");
-
         const purchaseGlowFromUniswap = await swap({
           amount: effectiveSmartBalancingAmounts!.amount_in_uni as any,
           slippagePercentTenThousandDenominator: slippagePointsTenThousandths,
@@ -614,6 +657,10 @@ export const UsdcToTokenDialog: FC<{
             ? [prerequisiteWrapTxHash]
             : undefined,
           assertTransactionActive,
+          walletRequest: createWalletRequestObserver(
+            "SWAP_USDG_TO_GLOW_UNISWAP",
+            assertTransactionActive,
+          ),
         });
         assertTransactionActive();
         if (!purchaseGlowFromUniswap.ok) {
@@ -640,9 +687,6 @@ export const UsdcToTokenDialog: FC<{
 
       // Buy GLOW with bonding curve
       if (isBondingCurveElligible) {
-        updateStepStatus("PURCHASE_GLOW_BONDING", "waiting_signature");
-        updateStepStatus("PURCHASE_GLOW_BONDING", "confirming");
-
         const incrementsToPurchase = validatedBondingIncrements;
         if (!incrementsToPurchase) {
           throw new Error(BONDING_CURVE_QUOTE_CHANGED_MESSAGE);
@@ -659,6 +703,10 @@ export const UsdcToTokenDialog: FC<{
             : undefined,
           expectedAccount,
           assertTransactionActive,
+          walletRequest: createWalletRequestObserver(
+            "PURCHASE_GLOW_BONDING",
+            assertTransactionActive,
+          ),
         });
         assertTransactionActive();
 
@@ -724,6 +772,13 @@ export const UsdcToTokenDialog: FC<{
         updateStepStatus(activeStep.id, "error", {
           errorMessage: error?.message || s.transactionFailed,
         });
+      } else {
+        const firstIdleStep = currentSteps.find((step) => step.status === "idle");
+        if (firstIdleStep) {
+          updateStepStatus(firstIdleStep.id, "error", {
+            errorMessage: error?.message || s.transactionFailed,
+          });
+        }
       }
 
       setIsPending(false);

@@ -1,4 +1,4 @@
-import { isHex, getAddress } from "viem";
+import { isHex, getAddress, numberToHex, type Address } from "viem";
 
 export interface SmartAccountDetectionParams {
   address?: `0x${string}`;
@@ -17,46 +17,57 @@ export interface SmartAccountStatus {
   eip7702Implementation?: `0x${string}`;
 }
 
+export interface SmartAccountPreflight {
+  address: Address;
+  chainId?: number;
+  checkedAt: number;
+  status: SmartAccountStatus;
+}
+
+export const SMART_ACCOUNT_PREFLIGHT_MAX_AGE_MS = 60_000;
+
 export const SMART_ACCOUNT_UNSUPPORTED_MESSAGE =
   "Smart account mode is enabled for this wallet. This swap flow requires a regular account (EOA). Disable Smart Account in MetaMask and try again.";
 
-function getWalletRequests(walletClient: any) {
-  const requests: Array<(args: any) => Promise<any>> = [];
+function getWalletRequest(walletClient: any) {
   const wcAny = walletClient as any;
   if (wcAny?.transport && typeof wcAny.transport.request === "function") {
-    requests.push(wcAny.transport.request as (args: any) => Promise<any>);
+    return wcAny.transport.request.bind(wcAny.transport) as (
+      args: any,
+    ) => Promise<any>;
   }
   if (typeof window !== "undefined") {
     const eth: any = (window as any).ethereum;
     if (eth && typeof eth.request === "function") {
-      requests.push(eth.request.bind(eth) as (args: any) => Promise<any>);
+      return eth.request.bind(eth) as (args: any) => Promise<any>;
     }
   }
-  return requests;
+  return null;
 }
 
 async function requestWalletCapabilities(params: {
   address?: `0x${string}`;
-  requests: Array<(args: any) => Promise<any>>;
+  chainId?: number;
+  request: ((args: any) => Promise<any>) | null;
 }) {
-  const { address, requests } = params;
-  if (!requests.length) return null;
+  const { address, chainId, request } = params;
+  if (!request) return null;
 
-  for (const request of requests) {
-    try {
-      return await request({
-        method: "wallet_getCapabilities",
-        params: address ? [address] : [],
-      });
-    } catch {
-      try {
-        return await request({ method: "wallet_getCapabilities" });
-      } catch {
-        continue;
-      }
-    }
+  try {
+    const capabilityParams = address
+      ? chainId === undefined
+        ? [address]
+        : [address, [numberToHex(chainId)]]
+      : [];
+    return await request({
+      method: "wallet_getCapabilities",
+      params: capabilityParams,
+    });
+  } catch {
+    // Capability discovery is a best-effort guard. Do not fan out duplicate
+    // requests to the same injected provider when a wallet does not support it.
+    return null;
   }
-  return null;
 }
 
 const CHAIN_ID_KEY_PATTERN = /^(0x[0-9a-f]+|\d+)$/i;
@@ -228,22 +239,27 @@ function parseEip7702Delegation(code?: `0x${string}` | null) {
 export async function getSmartAccountStatus(
   params: SmartAccountDetectionParams
 ): Promise<SmartAccountStatus> {
-  const requests = getWalletRequests(params.walletClient);
-  const caps = await requestWalletCapabilities({
+  const request = getWalletRequest(params.walletClient);
+  const capabilitiesPromise = requestWalletCapabilities({
     address: params.address,
-    requests,
+    chainId: params.chainId,
+    request,
   });
-  const hasWalletAABatching = hasSmartCapabilitySignals(caps, params.chainId);
-
-  let bytecode: `0x${string}` | null | undefined = undefined;
-  try {
-    bytecode =
-      params.address && params.getBytecode
+  const bytecodePromise = (async () => {
+    try {
+      return params.address && params.getBytecode
         ? await params.getBytecode({ address: params.address })
         : undefined;
-  } catch {
-    bytecode = undefined;
-  }
+    } catch {
+      return undefined;
+    }
+  })();
+
+  const [caps, bytecode] = await Promise.all([
+    capabilitiesPromise,
+    bytecodePromise,
+  ]);
+  const hasWalletAABatching = hasSmartCapabilitySignals(caps, params.chainId);
 
   const isContractWallet = Boolean(bytecode && bytecode !== "0x");
   const parsed = parseEip7702Delegation(bytecode as `0x${string}` | null);
@@ -255,6 +271,43 @@ export async function getSmartAccountStatus(
     rawCapabilities: caps ?? undefined,
     eip7702Implementation: (parsed as any).implementation,
   };
+}
+
+export async function getSmartAccountPreflight(
+  params: SmartAccountDetectionParams & { address: Address },
+): Promise<SmartAccountPreflight> {
+  const address = getAddress(params.address);
+  const status = await getSmartAccountStatus({ ...params, address });
+  return {
+    address,
+    chainId: params.chainId,
+    checkedAt: Date.now(),
+    status,
+  };
+}
+
+export function isSmartAccountPreflightReusable(params: {
+  preflight?: SmartAccountPreflight | null;
+  address: Address;
+  chainId?: number;
+  now?: number;
+  maxAgeMs?: number;
+}): boolean {
+  const {
+    preflight,
+    address,
+    chainId,
+    now = Date.now(),
+    maxAgeMs = SMART_ACCOUNT_PREFLIGHT_MAX_AGE_MS,
+  } = params;
+  if (!preflight) return false;
+
+  return (
+    getAddress(preflight.address) === getAddress(address) &&
+    preflight.chainId === chainId &&
+    now >= preflight.checkedAt &&
+    now - preflight.checkedAt <= maxAgeMs
+  );
 }
 
 export function isSmartAccountBlocked(

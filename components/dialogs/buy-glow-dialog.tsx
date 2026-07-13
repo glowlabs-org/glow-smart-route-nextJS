@@ -85,7 +85,11 @@ import {
   type StepStatus,
 } from "@/components/transaction-stepper";
 import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-warning-dialog";
-import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
+import {
+  getSmartAccountPreflight,
+  isSmartAccountBlocked,
+  type SmartAccountPreflight,
+} from "@/web3/web3/utils/detectSmartAccount";
 import {
   useConnectWallet,
   useFundWallet,
@@ -119,6 +123,7 @@ import {
   isTransactionOperationCancelled,
   type AssertTransactionActive,
 } from "@/lib/transaction-operation";
+import type { WalletRequestObserver } from "@/lib/wallet-request";
 
 const ONE_E18 = 1_000_000_000_000_000_000n;
 const POINTS_PER_GLW_WORTH_SCALED6 = 1_000n;
@@ -471,32 +476,25 @@ export function BuyGlowDialog({
   const checkSmartAccountBeforeBuy = React.useCallback(
     async (
       assertTransactionActive?: AssertTransactionActive,
-    ): Promise<boolean> => {
-      if (!address || !walletClient) return false;
+    ): Promise<SmartAccountPreflight | null> => {
+      if (!address || !walletClient) return null;
 
       try {
-        const status = await getSmartAccountStatus({
+        const preflight = await getSmartAccountPreflight({
           address: address as `0x${string}`,
           chainId: expectedChainId,
           walletClient,
           getBytecode: publicClient?.getBytecode,
         });
         assertTransactionActive?.();
-
-        const isSmartAccount =
-          status &&
-          (status.isContractWallet ||
-            status.isEip7702Delegated ||
-            status.hasWalletAABatching);
-
-        return Boolean(isSmartAccount);
+        return preflight;
       } catch (error) {
         if (isTransactionOperationCancelled(error)) throw error;
         // If the operation was invalidated while the detector failed, do not
         // log or update anything for the stale dialog generation.
         assertTransactionActive?.();
         console.error("Smart account check failed:", error);
-        return false;
+        return null;
       }
     },
     [address, expectedChainId, walletClient, publicClient?.getBytecode],
@@ -669,6 +667,40 @@ export function BuyGlowDialog({
     [],
   );
 
+  const createWalletRequestObserver = React.useCallback(
+    (
+      stepForAction: string | ((action?: string) => string),
+      assertTransactionActive: AssertTransactionActive,
+      flow: "buy_glw" | "buy_miner",
+    ): WalletRequestObserver => ({
+      onEvent: (event) => {
+        assertTransactionActive();
+        const stepId =
+          typeof stepForAction === "string"
+            ? stepForAction
+            : stepForAction(event.action);
+
+        if (event.phase === "dispatched") {
+          updateStepStatus(stepId, "waiting_signature");
+        } else if (event.phase === "resolved") {
+          updateStepStatus(stepId, "confirming");
+        }
+
+        trackEvent("wallet_request_lifecycle", {
+          flow,
+          step: stepId,
+          action: event.action ?? null,
+          request_phase: event.phase,
+          wallet_method: event.method,
+          request_id: event.requestId,
+          elapsed_ms: event.elapsedMs,
+          source,
+        });
+      },
+    }),
+    [source, updateStepStatus],
+  );
+
   const handleBuyMiner = React.useCallback(async () => {
     if (!isConnected || !address) {
       openConnectModal();
@@ -824,14 +856,17 @@ export function BuyGlowDialog({
       setPhase("processing");
 
       if (payingWithEth && ethAmountInWei !== null) {
-        updateStepStatus("SWAP_ETH_TO_USDC", "waiting_signature");
-        updateStepStatus("SWAP_ETH_TO_USDC", "confirming");
         const swapRes = await swapEthToUsdc({
           amountInWei: ethAmountInWei,
           slippageBps: 100n,
           minimumAmountOutUsdc: requiredUsdc,
           expectedAccount,
           assertTransactionActive,
+          walletRequest: createWalletRequestObserver(
+            "SWAP_ETH_TO_USDC",
+            assertTransactionActive,
+            "buy_miner",
+          ),
         });
         assertTransactionActive();
         if (!swapRes.ok) throw new Error(String(swapRes.val));
@@ -865,17 +900,20 @@ export function BuyGlowDialog({
             ? [prerequisiteUsdcTxHash]
             : undefined,
           assertTransactionActive,
+          walletRequest: createWalletRequestObserver(
+            (action) =>
+              action?.startsWith("approve_") ? "APPROVE_USDC" : "BUY_MINER",
+            assertTransactionActive,
+            "buy_miner",
+          ),
           // Drive the Approve + Purchase steps. "approving"/"approved" only fire
           // when an approval is actually needed; "purchasing" always fires (and
           // marks Approve done if it was skipped because allowance sufficed).
           onPhase: (phase) => {
-            if (phase === "approving") {
-              updateStepStatus("APPROVE_USDC", "waiting_signature");
-            } else if (phase === "approved") {
+            if (phase === "approved") {
               updateStepStatus("APPROVE_USDC", "completed");
             } else if (phase === "purchasing") {
               updateStepStatus("APPROVE_USDC", "completed");
-              updateStepStatus("BUY_MINER", "waiting_signature");
             }
           },
         },
@@ -918,7 +956,18 @@ export function BuyGlowDialog({
       const active = stepsRef.current.find(
         (s) => s.status === "waiting_signature" || s.status === "confirming",
       );
-      if (active) updateStepStatus(active.id, "error", { errorMessage: message });
+      if (active) {
+        updateStepStatus(active.id, "error", { errorMessage: message });
+      } else {
+        const firstIdleStep = stepsRef.current.find(
+          (step) => step.status === "idle",
+        );
+        if (firstIdleStep) {
+          updateStepStatus(firstIdleStep.id, "error", {
+            errorMessage: message,
+          });
+        }
+      }
       setErrorMessage(message);
       setPhase("error");
       toast.error(message);
@@ -944,6 +993,7 @@ export function BuyGlowDialog({
     swapEthToUsdc,
     assertFullFlowEthBudget,
     updateStepStatus,
+    createWalletRequestObserver,
     minerWeeklyGlwRewards,
     minerPointsPerUsd,
     onSuccess,
@@ -1605,11 +1655,11 @@ export function BuyGlowDialog({
     setIsPreparingPurchase(true);
 
     try {
-      const isBlocked = await checkSmartAccountBeforeBuy(
+      const smartAccountPreflight = await checkSmartAccountBeforeBuy(
         assertTransactionActive,
       );
       assertTransactionActive();
-      if (isBlocked) {
+      if (isSmartAccountBlocked(smartAccountPreflight?.status)) {
         setIsSmartAccountWarningOpen(true);
         trackEvent("buy_glw_smart_account_blocked", { source });
         operation.finish();
@@ -1785,13 +1835,17 @@ export function BuyGlowDialog({
         if (!isEthPayEnabled)
           throw new Error(t.buyGlow.errorEthPayNotSupported);
 
-        updateStepStatus("SWAP_ETH_TO_USDC", "waiting_signature");
         const swapEthRes = await swapEthToUsdc({
           amountInWei: parseUnits(inputAmount, 18),
           slippageBps: BigInt(100),
           minimumAmountOutUsdc: lastEthToUsdcMinimum,
           expectedAccount,
           assertTransactionActive,
+          walletRequest: createWalletRequestObserver(
+            "SWAP_ETH_TO_USDC",
+            assertTransactionActive,
+            "buy_glw",
+          ),
         });
         assertTransactionActive();
         if (!swapEthRes.ok) {
@@ -1883,14 +1937,18 @@ export function BuyGlowDialog({
       }
 
       if (usdcAmountToSwapToUsdg && usdcAmountToSwapToUsdg > 0n) {
-        updateStepStatus("SWAP_USDC_TO_USDG", "waiting_signature");
-        updateStepStatus("SWAP_USDC_TO_USDG", "confirming");
         const swapUsdcResult = await swapUSDCToUSDG(usdcAmountToSwapToUsdg, {
           expectedAccount,
           prerequisiteTxHashes: prerequisiteUsdcTxHash
             ? [prerequisiteUsdcTxHash]
             : undefined,
           assertTransactionActive,
+          smartAccountPreflight: smartAccountPreflight ?? undefined,
+          walletRequest: createWalletRequestObserver(
+            "SWAP_USDC_TO_USDG",
+            assertTransactionActive,
+            "buy_glw",
+          ),
         });
         assertTransactionActive();
         if (!swapUsdcResult.ok) {
@@ -1924,8 +1982,6 @@ export function BuyGlowDialog({
       const hasUniswapAllocation =
         effectiveSmartAmounts.amount_in_uni > BigInt(0);
       if (hasUniswapAllocation) {
-        updateStepStatus("SWAP_USDG_TO_GLOW_ON_UNISWAP", "waiting_signature");
-        updateStepStatus("SWAP_USDG_TO_GLOW_ON_UNISWAP", "confirming");
         const uniswapResult = await swapUsdGToGlow({
           amount: effectiveSmartAmounts.amount_in_uni,
           slippagePercentTenThousandDenominator: BigInt(100),
@@ -1938,6 +1994,11 @@ export function BuyGlowDialog({
             : undefined,
           expectedAccount,
           assertTransactionActive,
+          walletRequest: createWalletRequestObserver(
+            "SWAP_USDG_TO_GLOW_ON_UNISWAP",
+            assertTransactionActive,
+            "buy_glw",
+          ),
         });
         assertTransactionActive();
         if (!uniswapResult.ok) {
@@ -1963,8 +2024,6 @@ export function BuyGlowDialog({
       }
 
       if (hasBondingOutput) {
-        updateStepStatus("PURCHASING_GLOW", "waiting_signature");
-        updateStepStatus("PURCHASING_GLOW", "confirming");
         if (!validatedBondingPurchase) {
           trackEvent("buy_glw_step_result", {
             step: "purchase_glw_bonding",
@@ -1984,6 +2043,11 @@ export function BuyGlowDialog({
             : undefined,
           expectedAccount,
           assertTransactionActive,
+          walletRequest: createWalletRequestObserver(
+            "PURCHASING_GLOW",
+            assertTransactionActive,
+            "buy_glw",
+          ),
         });
         assertTransactionActive();
         if (!purchaseResult.ok) {
@@ -2014,7 +2078,6 @@ export function BuyGlowDialog({
       const finalConfirmedGlw = formatUnits(confirmedGlwReceived, 18);
       setEstimatedGlw(finalConfirmedGlw);
 
-      updateStepStatus("DONE", "confirming");
       updateStepStatus("DONE", "completed");
 
       setPhase("success");
@@ -2098,6 +2161,7 @@ export function BuyGlowDialog({
     purchaseGlowEarlyLiquidity,
     getValidatedBondingPurchase,
     updateStepStatus,
+    createWalletRequestObserver,
     onSuccess,
     usdcBalanceFormatted,
     usdgBalanceFormatted,

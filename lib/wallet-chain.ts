@@ -43,7 +43,14 @@ export async function assertWalletClientForOrder(
   expectedAccount?: Address,
 ): Promise<void> {
   assertWalletClientOnExpectedChain(walletClient);
-  const activeChainId = await walletClient.getChainId();
+  if (expectedAccount) {
+    assertWalletClientAccount(walletClient, expectedAccount);
+  }
+
+  const [activeChainId, activeAddresses] = await Promise.all([
+    walletClient.getChainId(),
+    expectedAccount ? walletClient.getAddresses() : Promise.resolve(undefined),
+  ]);
   const expectedChainId = getExpectedChainId();
   if (activeChainId !== expectedChainId) {
     throw new Error(
@@ -52,8 +59,7 @@ export async function assertWalletClientForOrder(
   }
 
   if (expectedAccount) {
-    assertWalletClientAccount(walletClient, expectedAccount);
-    const [activeAccount] = await walletClient.getAddresses();
+    const activeAccount = activeAddresses?.[0];
     if (
       !activeAccount ||
       getAddress(activeAccount) !== getAddress(expectedAccount)

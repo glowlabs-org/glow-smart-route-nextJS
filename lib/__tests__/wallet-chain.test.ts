@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Address, WalletClient } from "viem";
 
 import {
@@ -41,5 +41,37 @@ describe("assertWalletClientForOrder", () => {
     await expect(
       assertWalletClientForOrder(wallet(expected, otherChainId), expected),
     ).rejects.toThrow("Wrong network");
+  });
+
+  it("starts live chain and account reads in parallel", async () => {
+    let resolveChain: ((value: number) => void) | undefined;
+    let resolveAddresses: ((value: Address[]) => void) | undefined;
+    const getChainId = vi.fn(
+      () =>
+        new Promise<number>((resolve) => {
+          resolveChain = resolve;
+        }),
+    );
+    const getAddresses = vi.fn(
+      () =>
+        new Promise<Address[]>((resolve) => {
+          resolveAddresses = resolve;
+        }),
+    );
+    const client = {
+      account: { address: expected },
+      chain: { id: expectedChainId },
+      getChainId,
+      getAddresses,
+    } as unknown as WalletClient;
+
+    const pending = assertWalletClientForOrder(client, expected);
+
+    expect(getChainId).toHaveBeenCalledOnce();
+    expect(getAddresses).toHaveBeenCalledOnce();
+
+    resolveChain?.(expectedChainId);
+    resolveAddresses?.([expected]);
+    await expect(pending).resolves.toBeUndefined();
   });
 });

@@ -1,5 +1,5 @@
 export const WALLET_INTERACTION_TIMEOUT_MESSAGE =
-  "Wallet interaction timed out. Reopen your wallet and try again.";
+  "Wallet response timed out. The request may still be queued. Open your wallet or tap its account button; do not submit this transaction again.";
 export const INSUFFICIENT_GAS_ERROR_MESSAGE =
   "Insufficient ETH for gas. Add more ETH to your wallet and try again.";
 export const NONCE_TOO_LOW_ERROR_MESSAGE =
@@ -75,8 +75,45 @@ export function getRpcErrorCode(error: unknown): number | undefined {
 }
 
 export function isWalletInteractionTimeoutError(error: unknown): boolean {
-  const message = getRpcErrorMessage(error).toLowerCase();
-  return message.includes("interaction timeout");
+  const queue: unknown[] = [error];
+  const seen = new Set<object>();
+  let inspected = 0;
+
+  while (queue.length && inspected < 20) {
+    const current = queue.shift();
+    inspected += 1;
+    if (typeof current === "string") {
+      const message = current.toLowerCase();
+      if (
+        message.includes("interaction timeout") ||
+        message.includes("wallet response timed out")
+      ) {
+        return true;
+      }
+      continue;
+    }
+    if (!current || typeof current !== "object" || seen.has(current)) {
+      continue;
+    }
+    seen.add(current);
+
+    const candidate = current as Record<string, unknown>;
+    if (
+      candidate.code === "WALLET_RESPONSE_TIMEOUT" ||
+      candidate.name === "WalletResponseTimeoutError"
+    ) {
+      return true;
+    }
+    queue.push(
+      candidate.message,
+      candidate.shortMessage,
+      candidate.cause,
+      candidate.error,
+      candidate.data,
+    );
+  }
+
+  return false;
 }
 
 export function isInsufficientGasError(error: unknown): boolean {
@@ -192,7 +229,9 @@ export async function withInternalRpcRetry<T>(
       // them inside a TransactionExecutionError so isInternalRpcError() would
       // otherwise loop on them.
       const isDeterministic =
-        isInsufficientGasError(error) || isNonceTooLowError(error);
+        isInsufficientGasError(error) ||
+        isNonceTooLowError(error) ||
+        isWalletInteractionTimeoutError(error);
       if (isLastAttempt || isDeterministic || !isInternalRpcError(error)) {
         throw error;
       }

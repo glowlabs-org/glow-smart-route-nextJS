@@ -16,6 +16,10 @@ import {
   getExpectedChain,
 } from "@/lib/wallet-chain";
 import type { AssertTransactionActive } from "@/lib/transaction-operation";
+import {
+  writeContractWithWalletLifecycle,
+  type WalletWriteInstrumentation,
+} from "@/lib/wallet-request";
 
 const erc20Abi = parseAbi([
   "function balanceOf(address owner) view returns (uint256)",
@@ -114,20 +118,25 @@ export function useContracts(_signer: any) {
           amount: bigint,
           expectedAccount?: Address,
           assertTransactionActive?: AssertTransactionActive,
+          walletRequest?: WalletWriteInstrumentation,
         ) => {
           console.log("approve", spender, amount);
           assertTransactionActive?.();
           const wc = getWalletClientOrThrow(expectedAccount);
           await assertWalletClientForOrder(wc, expectedAccount);
           assertTransactionActive?.();
-          const hash = await wc.writeContract({
-            address,
-            abi: erc20Abi,
-            functionName: "approve",
-            args: [spender, amount],
-            chain: getExpectedChain(),
-            account: wc.account,
-          });
+          const hash = await writeContractWithWalletLifecycle(
+            wc,
+            {
+              address,
+              abi: erc20Abi,
+              functionName: "approve",
+              args: [spender, amount],
+              chain: getExpectedChain(),
+              account: wc.account,
+            },
+            walletRequest ?? { action: "approve_erc20" },
+          );
           assertTransactionActive?.();
           return makeTx(hash);
         },
@@ -136,19 +145,24 @@ export function useContracts(_signer: any) {
           amount: bigint,
           expectedAccount?: Address,
           assertTransactionActive?: AssertTransactionActive,
+          walletRequest?: WalletWriteInstrumentation,
         ) => {
           assertTransactionActive?.();
           const wc = getWalletClientOrThrow(expectedAccount);
           await assertWalletClientForOrder(wc, expectedAccount);
           assertTransactionActive?.();
-          const hash = await wc.writeContract({
-            address,
-            abi: erc20Abi,
-            functionName: "transfer",
-            args: [to, amount],
-            chain: getExpectedChain(),
-            account: wc.account,
-          });
+          const hash = await writeContractWithWalletLifecycle(
+            wc,
+            {
+              address,
+              abi: erc20Abi,
+              functionName: "transfer",
+              args: [to, amount],
+              chain: getExpectedChain(),
+              account: wc.account,
+            },
+            walletRequest ?? { action: "transfer_erc20" },
+          );
           assertTransactionActive?.();
           return makeTx(hash);
         },
@@ -179,19 +193,24 @@ export function useContracts(_signer: any) {
         usdgMaxToSpend: bigint,
         expectedAccount?: Address,
         assertTransactionActive?: AssertTransactionActive,
+        walletRequest?: WalletWriteInstrumentation,
       ) => {
         assertTransactionActive?.();
         const wc = getWalletClientOrThrow(expectedAccount);
         await assertWalletClientForOrder(wc, expectedAccount);
         assertTransactionActive?.();
-        const hash = await wc.writeContract({
-          address: EARLY_LIQUIDITY_ADDRESS,
-          abi: EarlyLiquidityABI,
-          functionName: "buy",
-          args: [BigInt(increments), usdgMaxToSpend],
-          chain: getExpectedChain(),
-          account: wc.account,
-        });
+        const hash = await writeContractWithWalletLifecycle(
+          wc,
+          {
+            address: EARLY_LIQUIDITY_ADDRESS,
+            abi: EarlyLiquidityABI,
+            functionName: "buy",
+            args: [BigInt(increments), usdgMaxToSpend],
+            chain: getExpectedChain(),
+            account: wc.account,
+          },
+          walletRequest ?? { action: "buy_early_liquidity" },
+        );
         assertTransactionActive?.();
         return makeTx(hash);
       },
@@ -206,6 +225,7 @@ export function useContracts(_signer: any) {
         usdcAmount: bigint,
         expectedAccount?: Address,
         assertTransactionActive?: AssertTransactionActive,
+        walletRequest?: WalletWriteInstrumentation,
       ) => {
         assertTransactionActive?.();
         const wc = getWalletClientOrThrow(expectedAccount);
@@ -217,14 +237,18 @@ export function useContracts(_signer: any) {
         ) {
           throw new Error("USDG recipient does not match this order's wallet.");
         }
-        const hash = await wc.writeContract({
-          address: USDG_ADDRESS,
-          abi: USDGABI,
-          functionName: "swap",
-          args: [recipient, usdcAmount],
-          chain: getExpectedChain(),
-          account: wc.account,
-        });
+        const hash = await writeContractWithWalletLifecycle(
+          wc,
+          {
+            address: USDG_ADDRESS,
+            abi: USDGABI,
+            functionName: "swap",
+            args: [recipient, usdcAmount],
+            chain: getExpectedChain(),
+            account: wc.account,
+          },
+          walletRequest ?? { action: "swap_usdc_to_usdg" },
+        );
         assertTransactionActive?.();
         return makeTx(hash);
       },

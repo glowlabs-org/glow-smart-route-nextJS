@@ -4,15 +4,19 @@ import * as React from "react";
 import { useAccount, useChainId, usePublicClient, useWalletClient } from "wagmi";
 
 import {
-  getSmartAccountStatus,
+  getSmartAccountPreflight,
+  isSmartAccountPreflightReusable,
   isSmartAccountBlocked,
   SMART_ACCOUNT_UNSUPPORTED_MESSAGE,
+  type SmartAccountPreflight,
   type SmartAccountStatus,
 } from "@/web3/web3/utils/detectSmartAccount";
 
 export interface UseSmartAccountCheckOptions {
   /** skip the check entirely (eg. dialog not open) */
   enabled?: boolean;
+  /** reuse a recent account-and-chain-bound check from the parent flow */
+  preflight?: SmartAccountPreflight | null;
 }
 
 export interface SmartAccountCheckResult {
@@ -24,6 +28,8 @@ export interface SmartAccountCheckResult {
   reason: string | null;
   /** raw detection result for debugging */
   status: SmartAccountStatus | null;
+  /** reusable account-and-chain-bound result */
+  preflight: SmartAccountPreflight | null;
 }
 
 /**
@@ -36,34 +42,48 @@ export interface SmartAccountCheckResult {
 export function useSmartAccountCheck(
   options: UseSmartAccountCheckOptions = {},
 ): SmartAccountCheckResult {
-  const { enabled = true } = options;
+  const { enabled = true, preflight: suppliedPreflight } = options;
   const { address } = useAccount();
   const chainId = useChainId();
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
 
-  const [status, setStatus] = React.useState<SmartAccountStatus | null>(null);
+  const [preflight, setPreflight] =
+    React.useState<SmartAccountPreflight | null>(null);
   const [isChecking, setIsChecking] = React.useState(false);
 
   React.useEffect(() => {
     if (!enabled || !address || !publicClient) {
-      setStatus(null);
+      setPreflight(null);
       setIsChecking(false);
       return;
     }
+
+    if (
+      isSmartAccountPreflightReusable({
+        preflight: suppliedPreflight,
+        address,
+        chainId,
+      })
+    ) {
+      setPreflight(suppliedPreflight ?? null);
+      setIsChecking(false);
+      return;
+    }
+
     let cancelled = false;
     setIsChecking(true);
     (async () => {
       try {
-        const next = await getSmartAccountStatus({
+        const next = await getSmartAccountPreflight({
           address,
           chainId,
           walletClient,
           getBytecode: (args) => publicClient.getBytecode(args),
         });
-        if (!cancelled) setStatus(next);
+        if (!cancelled) setPreflight(next);
       } catch {
-        if (!cancelled) setStatus(null);
+        if (!cancelled) setPreflight(null);
       } finally {
         if (!cancelled) setIsChecking(false);
       }
@@ -71,15 +91,24 @@ export function useSmartAccountCheck(
     return () => {
       cancelled = true;
     };
-  }, [enabled, address, chainId, publicClient, walletClient]);
+  }, [
+    enabled,
+    address,
+    chainId,
+    publicClient,
+    walletClient,
+    suppliedPreflight,
+  ]);
 
   return React.useMemo<SmartAccountCheckResult>(() => {
+    const status = preflight?.status ?? null;
     const blocked = isSmartAccountBlocked(status);
     return {
       isBlocked: blocked,
       isChecking,
       reason: blocked ? SMART_ACCOUNT_UNSUPPORTED_MESSAGE : null,
       status,
+      preflight,
     };
-  }, [status, isChecking]);
+  }, [preflight, isChecking]);
 }

@@ -74,8 +74,9 @@ import * as Sentry from "@sentry/nextjs";
 import { StatsSidebar } from "./stats-sidebar";
 import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-warning-dialog";
 import {
-  getSmartAccountStatus,
+  getSmartAccountPreflight,
   isSmartAccountBlocked,
+  type SmartAccountPreflight,
 } from "@/web3/web3/utils/detectSmartAccount";
 import { trackEvent } from "@/lib/telemetry";
 import { useLang } from "@/lib/i18n";
@@ -122,6 +123,7 @@ import {
   type AssertTransactionActive,
   type TransactionOperation,
 } from "@/lib/transaction-operation";
+import type { WalletRequestObserver } from "@/lib/wallet-request";
 
 const defaultTokensEstimate = {
   GLOW: "",
@@ -161,6 +163,7 @@ interface SwapDialogQuoteSnapshot {
   expectedAccount: Address;
   minimumAmountOut: bigint;
   ethToUsdcMinimum?: bigint;
+  smartAccountPreflight?: SmartAccountPreflight;
 }
 
 interface GlowExitQuoteSnapshot {
@@ -171,12 +174,14 @@ interface GlowExitQuoteSnapshot {
   quoteExpiresAt: number;
   targetToken: "USDC" | "USDG";
   expectedAccount: Address;
+  smartAccountPreflight?: SmartAccountPreflight;
 }
 
 interface RedemptionQuoteSnapshot {
   amountToRedeem: string;
   quoteExpiresAt: number;
   expectedAccount: Address;
+  smartAccountPreflight?: SmartAccountPreflight;
 }
 
 function isSwapTokenLabel(value: string): value is SwapTokenLabel {
@@ -515,34 +520,51 @@ export function SwapInterface({
   // Smart account check function
   const checkSmartAccountBeforeSwap = async (
     assertTransactionActive?: AssertTransactionActive,
-  ): Promise<boolean> => {
+  ): Promise<SmartAccountPreflight | null> => {
     const restrictedTokens = new Set(["USDG", "GLOW"]);
     const flowTouchesRestrictedToken =
       restrictedTokens.has(selectedTokenSell.label) ||
       restrictedTokens.has(selectedTokenBuy.label);
 
     if (!flowTouchesRestrictedToken) {
-      return false;
+      return null;
     }
-    if (!address || !walletClient) return false;
+    if (!address || !walletClient) return null;
 
     try {
-      const status = await getSmartAccountStatus({
+      const preflight = await getSmartAccountPreflight({
         address: address as `0x${string}`,
         chainId,
         walletClient,
         getBytecode: publicClient?.getBytecode,
       });
       assertTransactionActive?.();
-
-      return isSmartAccountBlocked(status);
+      return preflight;
     } catch (error) {
       if (isTransactionOperationCancelled(error)) throw error;
       assertTransactionActive?.();
       console.error("Smart account check failed:", error);
-      return false; // Allow the swap if check fails
+      return null; // Allow the swap if check fails
     }
   };
+
+  const createPageWalletRequestObserver = (
+    assertTransactionActive: AssertTransactionActive,
+  ): WalletRequestObserver => ({
+    onEvent: (event) => {
+      assertTransactionActive();
+      trackEvent("wallet_request_lifecycle", {
+        flow: "swap_page",
+        action: event.action ?? null,
+        request_phase: event.phase,
+        wallet_method: event.method,
+        request_id: event.requestId,
+        elapsed_ms: event.elapsedMs,
+        sell_token: selectedTokenSell.label,
+        buy_token: selectedTokenBuy.label,
+      });
+    },
+  });
 
   const {
     getSmartBalancingAmounts,
@@ -764,7 +786,9 @@ export function SwapInterface({
         )} per GLW would require Early Liquidity, which is disabled right now.`
       : null;
 
-  const openCurrentQuoteDialog = () => {
+  const openCurrentQuoteDialog = (
+    smartAccountPreflight?: SmartAccountPreflight,
+  ) => {
     const quoteIsCurrent = isCurrentSwapQuote({
       quote: committedQuote,
       expectedKey: currentQuoteKey,
@@ -829,6 +853,7 @@ export function SwapInterface({
         ethToUsdcMinimumQuote?.key === currentQuoteKey
           ? ethToUsdcMinimumQuote.amountOutMinUsdc
           : undefined,
+      smartAccountPreflight,
     });
     setIsDialogOpen(true);
     return true;
@@ -840,11 +865,11 @@ export function SwapInterface({
     const { assertActive: assertTransactionActive } = operation;
     setPendingTx(true);
     try {
-      const isSmartAccount = await checkSmartAccountBeforeSwap(
+      const smartAccountPreflight = await checkSmartAccountBeforeSwap(
         assertTransactionActive,
       );
       assertTransactionActive();
-      if (isSmartAccount) {
+      if (isSmartAccountBlocked(smartAccountPreflight?.status)) {
         setIsSmartAccountWarningOpen(true);
         trackEvent("buy_swap_blocked_smart_account", {
           sell_token: selectedTokenSell.label,
@@ -856,7 +881,7 @@ export function SwapInterface({
         sell_token: selectedTokenSell.label,
         buy_token: selectedTokenBuy.label,
       });
-      openCurrentQuoteDialog();
+      openCurrentQuoteDialog(smartAccountPreflight ?? undefined);
     } catch (error) {
       if (
         getTransactionOperationCancellation(error, assertTransactionActive)
@@ -965,11 +990,7 @@ export function SwapInterface({
                 cancel: {
                   label: t.swap.toastNo,
                   onClick: () => {
-                    trackEvent("buy_usdc_to_token_dialog_open", {
-                      sell_token: selectedTokenSell.label,
-                      buy_token: selectedTokenBuy.label,
-                    });
-                    openCurrentQuoteDialog();
+                    void openQuotedDialogAfterSmartAccountCheck();
                     toast.dismiss();
                   },
                 },
@@ -1143,11 +1164,11 @@ export function SwapInterface({
     try {
       // This check crosses an RPC boundary, so it must belong to the same
       // operation generation as every write that follows it.
-      const isSmartAccount = await checkSmartAccountBeforeSwap(
+      const smartAccountPreflight = await checkSmartAccountBeforeSwap(
         assertTransactionActive,
       );
       assertTransactionActive();
-      if (isSmartAccount) {
+      if (isSmartAccountBlocked(smartAccountPreflight?.status)) {
         setIsSmartAccountWarningOpen(true);
         trackEvent("buy_swap_blocked_smart_account", {
           sell_token: selectedTokenSell.label,
@@ -1184,7 +1205,7 @@ export function SwapInterface({
       ) {
         // Multi-leg GLW purchases must always run through the snapshotted
         // orchestrator so a failure cannot be retried from the middle.
-        openCurrentQuoteDialog();
+        openCurrentQuoteDialog(smartAccountPreflight ?? undefined);
         return;
       } else if (
         selectedTokenBuy.label === "USDG" &&
@@ -1193,6 +1214,10 @@ export function SwapInterface({
         const swapUSDCToUSDGRes = await swapUSDCToUSDG(amountIn, {
           expectedAccount: address,
           assertTransactionActive,
+          smartAccountPreflight: smartAccountPreflight ?? undefined,
+          walletRequest: createPageWalletRequestObserver(
+            assertTransactionActive,
+          ),
         });
         assertTransactionActive();
         handleResponseMessage(swapUSDCToUSDGRes);
@@ -1210,6 +1235,7 @@ export function SwapInterface({
           amountToRedeem: amountToSell,
           quoteExpiresAt,
           expectedAccount: address,
+          smartAccountPreflight: smartAccountPreflight ?? undefined,
         });
         setIsUsdgToUsdcRedemptionDialogOpen(true);
         return;
@@ -1232,6 +1258,7 @@ export function SwapInterface({
           quoteExpiresAt,
           targetToken: selectedTokenBuy.label,
           expectedAccount: address,
+          smartAccountPreflight: smartAccountPreflight ?? undefined,
         });
         setIsGlowToUsdcDialogOpen(true);
         return;
@@ -1245,6 +1272,9 @@ export function SwapInterface({
           minimumAmountOutUsdc: reviewedMinimumOut,
           expectedAccount: address,
           assertTransactionActive,
+          walletRequest: createPageWalletRequestObserver(
+            assertTransactionActive,
+          ),
         });
         assertTransactionActive();
         handleResponseMessage(swapEthToUsdcRes);
@@ -1254,6 +1284,9 @@ export function SwapInterface({
           minimumAmountOut: reviewedMinimumOut,
           expectedAccount: address,
           assertTransactionActive,
+          walletRequest: createPageWalletRequestObserver(
+            assertTransactionActive,
+          ),
         });
         assertTransactionActive();
         handleResponseMessage(swapRes);
@@ -2680,6 +2713,7 @@ export function SwapInterface({
           expectedAccount={dialogQuote.expectedAccount}
           minimumAmountOut={dialogQuote.minimumAmountOut}
           ethToUsdcMinimum={dialogQuote.ethToUsdcMinimum}
+          smartAccountPreflight={dialogQuote.smartAccountPreflight}
           onOpenChange={async (open) => {
             const refreshOperation = beginPostDialogRefreshOperation();
             setIsDialogOpen(open);
@@ -2711,6 +2745,7 @@ export function SwapInterface({
           slippageBps={glowExitQuote.slippageBps}
           quoteExpiresAt={glowExitQuote.quoteExpiresAt}
           expectedAccount={glowExitQuote.expectedAccount}
+          smartAccountPreflight={glowExitQuote.smartAccountPreflight}
           targetToken={glowExitQuote.targetToken}
           onOpenChange={async (open) => {
             const refreshOperation = beginPostDialogRefreshOperation();
@@ -2737,6 +2772,7 @@ export function SwapInterface({
           amountToRedeem={redemptionQuote.amountToRedeem}
           quoteExpiresAt={redemptionQuote.quoteExpiresAt}
           expectedAccount={redemptionQuote.expectedAccount}
+          smartAccountPreflight={redemptionQuote.smartAccountPreflight}
           onOpenChange={async (open) => {
             const refreshOperation = beginPostDialogRefreshOperation();
             setIsUsdgToUsdcRedemptionDialogOpen(open);

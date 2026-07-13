@@ -24,6 +24,15 @@ import {
 } from "@/lib/transaction-operation";
 import { validateFractionPurchaseTerms } from "@/lib/fraction-order";
 import { synchronizePrerequisiteBalance } from "@/lib/prerequisite-balance";
+import {
+  WALLET_INTERACTION_TIMEOUT_MESSAGE,
+  isWalletInteractionTimeoutError,
+} from "@/lib/rpc-error-utils";
+import {
+  withWalletRequestAction,
+  writeContractWithWalletLifecycle,
+  type WalletRequestObserver,
+} from "@/lib/wallet-request";
 
 const ERC20_APPROVAL_ABI = [
   {
@@ -53,8 +62,10 @@ interface ExpectedFractionPurchaseTerms {
 
 function toErrorWithCause(error: unknown, extras?: { txHash?: string }): Error {
   const message =
-    parseViemError(error) ||
-    (error instanceof Error ? error.message : "Unknown error");
+    isWalletInteractionTimeoutError(error)
+      ? WALLET_INTERACTION_TIMEOUT_MESSAGE
+      : parseViemError(error) ||
+        (error instanceof Error ? error.message : "Unknown error");
   const wrapped = new Error(message, error instanceof Error ? { cause: error } : undefined);
 
   if (error && typeof error === "object" && typeof (error as { name?: unknown }).name === "string") {
@@ -146,6 +157,7 @@ export function usePatchedOffchainFractions(
       expectedRequiredAmount?: bigint;
       prerequisiteTxHashes?: Hash[];
       assertTransactionActive?: AssertTransactionActive;
+      walletRequest?: WalletRequestObserver;
     },
   ): Promise<string> {
     const approvalBufferAtomic = options?.approvalBufferAtomic ?? 10_000_000n;
@@ -163,10 +175,6 @@ export function usePatchedOffchainFractions(
     if (options?.expectedAccount) {
       assertWalletClientAccount(activeWalletClient, options.expectedAccount);
     }
-    await assertWalletClientForOrder(
-      activeWalletClient,
-      options?.expectedAccount,
-    );
     assertTransactionActive?.();
     if (!publicClient) {
       throw new Error("Public client not available");
@@ -220,9 +228,9 @@ export function usePatchedOffchainFractions(
       const owner = activeWalletClient.account.address;
 
       const prerequisiteTxHashes = options?.prerequisiteTxHashes ?? [];
-      const balance =
+      const balancePromise =
         prerequisiteTxHashes.length > 0
-          ? await synchronizePrerequisiteBalance({
+          ? synchronizePrerequisiteBalance({
               prerequisiteTxHashes,
               waitForReceipt: (hash) =>
                 publicClient.waitForTransactionReceipt({
@@ -236,14 +244,21 @@ export function usePatchedOffchainFractions(
                 sdk.checkTokenBalance(owner, fractionData.token),
               assertTransactionActive,
             })
-          : await sdk.checkTokenBalance(owner, fractionData.token);
+          : sdk.checkTokenBalance(owner, fractionData.token);
+      const allowancePromise = sdk.checkTokenAllowance(
+        owner,
+        fractionData.token,
+      );
+      const [balance, initialAllowance] = await Promise.all([
+        balancePromise,
+        allowancePromise,
+      ]);
       assertTransactionActive?.();
       if (balance < requiredAmount) {
         throw new Error(OffchainFractionsError.INSUFFICIENT_BALANCE);
       }
 
-      let allowance = await sdk.checkTokenAllowance(owner, fractionData.token);
-      assertTransactionActive?.();
+      let allowance = initialAllowance;
       if (allowance < requiredAmount) {
         onPhase?.("approving");
         const approvalAmount = requiredAmount + approvalBufferAtomic;
@@ -256,14 +271,21 @@ export function usePatchedOffchainFractions(
           options?.expectedAccount,
         );
         assertTransactionActive?.();
-        const approveHash = await activeWalletClient.writeContract({
-          address: fractionData.token as Address,
-          abi: ERC20_APPROVAL_ABI,
-          functionName: "approve",
-          args: [sdk.addresses.OFFCHAIN_FRACTIONS as Address, approvalAmount],
-          chain: getExpectedChain(),
-          account: activeWalletClient.account,
-        });
+        const approveHash = await writeContractWithWalletLifecycle(
+          activeWalletClient,
+          {
+            address: fractionData.token as Address,
+            abi: ERC20_APPROVAL_ABI,
+            functionName: "approve",
+            args: [sdk.addresses.OFFCHAIN_FRACTIONS as Address, approvalAmount],
+            chain: getExpectedChain(),
+            account: activeWalletClient.account,
+          },
+          withWalletRequestAction(
+            options?.walletRequest,
+            "approve_fraction_payment",
+          ),
+        );
         assertTransactionActive?.();
 
         await waitForTransactionReceipt(approveHash);
@@ -318,11 +340,15 @@ export function usePatchedOffchainFractions(
         options?.expectedAccount,
       );
       assertTransactionActive?.();
-      const hash = await activeWalletClient.writeContract({
-        ...request,
-        chain: getExpectedChain(),
-        account: activeWalletClient.account,
-      });
+      const hash = await writeContractWithWalletLifecycle(
+        activeWalletClient,
+        {
+          ...request,
+          chain: getExpectedChain(),
+          account: activeWalletClient.account,
+        },
+        withWalletRequestAction(options?.walletRequest, "buy_fractions"),
+      );
       assertTransactionActive?.();
 
       try {

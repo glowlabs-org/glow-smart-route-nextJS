@@ -21,6 +21,9 @@ import { useLang, type Strings } from "@/lib/i18n";
 import { estimateSwapGasUnits } from "@/lib/transaction-gas";
 import { useTransactionOperationGuard } from "@/hooks/useTransactionOperationGuard";
 import { getTransactionOperationCancellation } from "@/lib/transaction-operation";
+import { trackEvent } from "@/lib/telemetry";
+import type { WalletRequestObserver } from "@/lib/wallet-request";
+import type { SmartAccountPreflight } from "@/web3/web3/utils/detectSmartAccount";
 
 type SwapLabels = Strings["swap"];
 
@@ -130,6 +133,7 @@ export const GlowToUsdcDialog: FC<{
   slippageBps: bigint;
   quoteExpiresAt: number;
   expectedAccount: Address;
+  smartAccountPreflight?: SmartAccountPreflight;
   targetToken?: "USDC" | "USDG";
   onOpenChange: (open: boolean) => void;
 }> = ({
@@ -141,6 +145,7 @@ export const GlowToUsdcDialog: FC<{
   slippageBps,
   quoteExpiresAt,
   expectedAccount,
+  smartAccountPreflight,
   targetToken = "USDC",
 }) => {
   const { t } = useLang();
@@ -199,6 +204,7 @@ export const GlowToUsdcDialog: FC<{
   // EOA signer. Detect early and show a clear fix path.
   const smartAccountCheck = useSmartAccountCheck({
     enabled: isOpen && !isPending && !isSuccess,
+    preflight: smartAccountPreflight,
   });
   const isSmartAccount = smartAccountCheck.isBlocked;
 
@@ -233,6 +239,55 @@ export const GlowToUsdcDialog: FC<{
     setErrorMessage(null);
     setCurrentState("NONE");
 
+    const walletRequest: WalletRequestObserver = {
+      onEvent: (event) => {
+        assertTransactionActive();
+        const action = event.action ?? "";
+        let nextState: GlowToUsdcState | null = null;
+
+        if (action === "approve_glw") {
+          nextState =
+            event.phase === "dispatched"
+              ? "REQUESTING_GLOW_APPROVAL"
+              : event.phase === "resolved"
+                ? "APPROVING_GLOW"
+                : null;
+        } else if (
+          action === "swap_glw_to_usdg" &&
+          (event.phase === "dispatched" || event.phase === "resolved")
+        ) {
+          nextState = "SWAPPING_GLOW_TO_USDG";
+        } else if (action === "approve_usdg") {
+          nextState =
+            event.phase === "dispatched"
+              ? "REQUESTING_USDG_APPROVAL"
+              : event.phase === "resolved"
+                ? "APPROVING_USDG"
+                : null;
+        } else if (
+          action === "redeem_usdg_for_usdc" &&
+          (event.phase === "dispatched" || event.phase === "resolved")
+        ) {
+          nextState = "REDEEMING_USDG_FOR_USDC";
+        }
+
+        if (nextState) {
+          setCurrentState(nextState);
+          updatePendingStates(nextState);
+        }
+        trackEvent("wallet_request_lifecycle", {
+          flow: "glow_exit_dialog",
+          action: event.action ?? null,
+          request_phase: event.phase,
+          wallet_method: event.method,
+          request_id: event.requestId,
+          elapsed_ms: event.elapsedMs,
+          sell_token: "GLOW",
+          buy_token: targetToken,
+        });
+      },
+    };
+
     try {
       if (Date.now() > quoteExpiresAt) {
         throw new Error("This quote expired. Close the dialog to refresh it.");
@@ -246,6 +301,8 @@ export const GlowToUsdcDialog: FC<{
         minimumAmountOut: minimumUsdgOut,
         expectedAccount,
         assertTransactionActive,
+        smartAccountPreflight: smartAccountCheck.preflight ?? undefined,
+        walletRequest,
       });
       assertTransactionActive();
 
@@ -272,25 +329,15 @@ export const GlowToUsdcDialog: FC<{
         return;
       }
 
-      // If target is USDC, continue with redemption
-      // Update state for USDG approval/redemption
-      setCurrentState("REQUESTING_USDG_APPROVAL");
-      updatePendingStates("REQUESTING_USDG_APPROVAL");
-
       // Step 2: Redeem USDG for USDC
       const usdgAmount = swapRes.val.usdgReceived;
-
-      // The approval is handled inside redeemUSDGForUSDC
-      setCurrentState("APPROVING_USDG");
-      updatePendingStates("APPROVING_USDG");
-
-      setCurrentState("REDEEMING_USDG_FOR_USDC");
-      updatePendingStates("REDEEMING_USDG_FOR_USDC");
 
       const redeemRes = await redeemUSDGForUSDC(usdgAmount, {
         expectedAccount,
         prerequisiteTxHashes: [swapRes.val.txHash],
         assertTransactionActive,
+        smartAccountPreflight: smartAccountCheck.preflight ?? undefined,
+        walletRequest,
       });
       assertTransactionActive();
 

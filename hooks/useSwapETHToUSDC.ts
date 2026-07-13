@@ -24,6 +24,15 @@ import {
   getTransactionOperationCancellation,
   type AssertTransactionActive,
 } from "@/lib/transaction-operation";
+import {
+  withWalletRequestAction,
+  writeContractWithWalletLifecycle,
+  type WalletRequestObserver,
+} from "@/lib/wallet-request";
+import {
+  WALLET_INTERACTION_TIMEOUT_MESSAGE,
+  isWalletInteractionTimeoutError,
+} from "@/lib/rpc-error-utils";
 
 const UNISWAP_V2_ROUTER_ABI = parseAbi([
   "function WETH() external pure returns (address)",
@@ -210,12 +219,14 @@ export function useSwapETHToUSDC() {
       minimumAmountOutUsdc,
       expectedAccount,
       assertTransactionActive,
+      walletRequest,
     }: {
       amountInWei: bigint;
       slippageBps?: bigint;
       minimumAmountOutUsdc?: bigint;
       expectedAccount?: Address;
       assertTransactionActive?: AssertTransactionActive;
+      walletRequest?: WalletRequestObserver;
     }): Promise<Result<SwapEthToUsdcSuccess, string>> => {
       assertTransactionActive?.();
       const chainOk = ensureEthPayChain();
@@ -229,7 +240,6 @@ export function useSwapETHToUSDC() {
         if (expectedAccount) {
           assertWalletClientAccount(walletClient, expectedAccount);
         }
-        await assertWalletClientForOrder(walletClient, expectedAccount);
       } catch (error) {
         const cancellation = getTransactionOperationCancellation(
           error,
@@ -273,44 +283,52 @@ export function useSwapETHToUSDC() {
           const fee = 3000;
           const sqrtPriceLimitX96 = BigInt(0); // No price limit
 
-          const rawHash = await walletClient.writeContract({
-            address: router,
-            abi: UNISWAP_V3_SWAP_ROUTER_ABI,
-            functionName: "exactInputSingle",
-            args: [
-              {
-                tokenIn: weth,
-                tokenOut: usdc,
-                fee,
-                recipient,
-                amountIn: amountInWei,
-                amountOutMinimum: enforcedAmountOutMinUsdc,
-                sqrtPriceLimitX96,
-              },
-            ],
-            value: amountInWei, // Send ETH which will be wrapped
-            chain: getExpectedChain(),
-            account: walletClient.account,
-          });
+          const rawHash = await writeContractWithWalletLifecycle(
+            walletClient,
+            {
+              address: router,
+              abi: UNISWAP_V3_SWAP_ROUTER_ABI,
+              functionName: "exactInputSingle",
+              args: [
+                {
+                  tokenIn: weth,
+                  tokenOut: usdc,
+                  fee,
+                  recipient,
+                  amountIn: amountInWei,
+                  amountOutMinimum: enforcedAmountOutMinUsdc,
+                  sqrtPriceLimitX96,
+                },
+              ],
+              value: amountInWei, // Send ETH which will be wrapped
+              chain: getExpectedChain(),
+              account: walletClient.account,
+            },
+            withWalletRequestAction(walletRequest, "swap_eth_to_usdc"),
+          );
           assertTransactionActive?.();
           txHash = normalizeTxHash(rawHash);
         } else {
           // V2 swap on mainnet
           const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 20);
-          const rawHash = await walletClient.writeContract({
-            address: router,
-            abi: UNISWAP_V2_ROUTER_ABI,
-            functionName: "swapExactETHForTokens",
-            args: [
-              enforcedAmountOutMinUsdc,
-              [weth, usdc],
-              recipient,
-              deadline,
-            ],
-            value: amountInWei,
-            chain: getExpectedChain(),
-            account: walletClient.account,
-          });
+          const rawHash = await writeContractWithWalletLifecycle(
+            walletClient,
+            {
+              address: router,
+              abi: UNISWAP_V2_ROUTER_ABI,
+              functionName: "swapExactETHForTokens",
+              args: [
+                enforcedAmountOutMinUsdc,
+                [weth, usdc],
+                recipient,
+                deadline,
+              ],
+              value: amountInWei,
+              chain: getExpectedChain(),
+              account: walletClient.account,
+            },
+            withWalletRequestAction(walletRequest, "swap_eth_to_usdc"),
+          );
           assertTransactionActive?.();
           txHash = normalizeTxHash(rawHash);
         }
@@ -340,6 +358,9 @@ export function useSwapETHToUSDC() {
           assertTransactionActive,
         );
         if (cancellation) throw cancellation;
+        if (isWalletInteractionTimeoutError(e)) {
+          return new Err(WALLET_INTERACTION_TIMEOUT_MESSAGE);
+        }
         if (
           isInvalidWalletTxResponseError(e) ||
           isInvalidWalletTxResponseError(e?.message)

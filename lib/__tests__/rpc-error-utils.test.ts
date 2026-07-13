@@ -11,6 +11,7 @@ import {
   SLIPPAGE_EXCEEDED_ERROR_MESSAGE,
   withInternalRpcRetry,
 } from "../rpc-error-utils";
+import { WalletResponseTimeoutError } from "../wallet-request";
 
 describe("rpc-error-utils", () => {
   it("returns raw string error messages", () => {
@@ -44,6 +45,11 @@ describe("rpc-error-utils", () => {
     );
     expect(isWalletInteractionTimeoutError(error)).toBe(true);
     expect(isInternalRpcError(error)).toBe(true);
+
+    const wrapped = new Error("Contract write failed", {
+      cause: new WalletResponseTimeoutError("eth_sendTransaction", "request-1"),
+    });
+    expect(isWalletInteractionTimeoutError(wrapped)).toBe(true);
   });
 
   it("does not classify user rejection as an internal RPC error", () => {
@@ -96,24 +102,24 @@ describe("rpc-error-utils", () => {
     );
   });
 
-  it("retries once on wallet interaction timeout", async () => {
-    let attempts = 0;
+  it("never retries a wallet response timeout", async () => {
+    const operation = vi.fn(async () => {
+      throw new WalletResponseTimeoutError(
+        "eth_sendTransaction",
+        "request-1",
+      );
+    });
     const onRetry = vi.fn();
 
-    const result = await withInternalRpcRetry(
-      async () => {
-        attempts += 1;
-        if (attempts === 1) {
-          throw new Error(
-            "The contract function reverted with the following reason: Error: Interaction timeout"
-          );
-        }
-        return "ok";
-      },
-      { maxRetries: 1, delayMs: 1, onRetry }
-    );
+    await expect(
+      withInternalRpcRetry(operation, {
+        maxRetries: 1,
+        delayMs: 1,
+        onRetry,
+      }),
+    ).rejects.toBeInstanceOf(WalletResponseTimeoutError);
 
-    expect(result).toBe("ok");
-    expect(onRetry).toHaveBeenCalledWith(1);
+    expect(operation).toHaveBeenCalledOnce();
+    expect(onRetry).not.toHaveBeenCalled();
   });
 });

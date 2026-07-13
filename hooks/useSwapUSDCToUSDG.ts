@@ -8,8 +8,11 @@ import { useWalletClient } from "wagmi";
 import { publicClient } from "@/web3/web3/clients/publicClient";
 import {
   getSmartAccountStatus,
+  isSmartAccountPreflightReusable,
   isSmartAccountBlocked,
   SMART_ACCOUNT_UNSUPPORTED_MESSAGE,
+  type SmartAccountPreflight,
+  type SmartAccountStatus,
 } from "@/web3/web3/utils/detectSmartAccount";
 import {
   getTransactionOperationCancellation,
@@ -17,6 +20,14 @@ import {
 } from "@/lib/transaction-operation";
 import { isDeterministicAllowanceResetError } from "@/lib/erc20-approval";
 import { synchronizePrerequisiteBalance } from "@/lib/prerequisite-balance";
+import {
+  WALLET_INTERACTION_TIMEOUT_MESSAGE,
+  isWalletInteractionTimeoutError,
+} from "@/lib/rpc-error-utils";
+import {
+  withWalletRequestAction,
+  type WalletRequestObserver,
+} from "@/lib/wallet-request";
 
 const MAX_UINT256 = (BigInt(1) << BigInt(256)) - BigInt(1);
 
@@ -33,8 +44,21 @@ export enum SwapUSDCToUSDGError {
 export interface SwapUSDCToUSDGSuccess {
   txHash: `0x${string}`;
 }
+
+export interface SwapUSDCToUSDGOptions {
+  expectedAccount?: Address;
+  prerequisiteTxHashes?: Hash[];
+  assertTransactionActive?: AssertTransactionActive;
+  smartAccountPreflight?: SmartAccountPreflight;
+  walletRequest?: WalletRequestObserver;
+}
+
 // Helper function to parse errors
 function parseSwapError(error: any): string {
+  if (isWalletInteractionTimeoutError(error)) {
+    return WALLET_INTERACTION_TIMEOUT_MESSAGE;
+  }
+
   // Check for user rejection
   if (
     error?.code === 4001 ||
@@ -105,22 +129,21 @@ export const useSwapUSDCToUSDG = () => {
       if (!usdc || !usdg)
         return new Err(SwapUSDCToUSDGError.CONTRACTS_NOT_AVAILABLE);
       if (!signer) return new Err(SwapUSDCToUSDGError.SIGNER_NOT_AVAILABLE);
+      if (amount <= BigInt(0)) return new Err("Amount must be greater than 0");
       const signerAddress = await signer.getAddress();
-      try {
-        const smartStatus = await getSmartAccountStatus({
+      const [smartStatus, usdcGasPrice, allowance] = await Promise.all([
+        getSmartAccountStatus({
           address: signerAddress as `0x${string}`,
+          chainId: walletClient?.chain?.id,
           walletClient,
           getBytecode: publicClient.getBytecode,
-        });
-        if (isSmartAccountBlocked(smartStatus)) {
-          return new Err(SMART_ACCOUNT_UNSUPPORTED_MESSAGE);
-        }
-      } catch {
-        // best-effort guard only
+        }).catch(() => null),
+        usdc.provider.getGasPrice(),
+        usdc.allowance(signerAddress, usdg.address),
+      ]);
+      if (isSmartAccountBlocked(smartStatus)) {
+        return new Err(SMART_ACCOUNT_UNSUPPORTED_MESSAGE);
       }
-      const usdcGasPrice = await usdc.provider.getGasPrice();
-
-      const allowance = await usdc.allowance(signerAddress, usdg.address);
       let totalEstimatedGas = BigInt(0);
       if (allowance < amount) {
         const estimatedGas = await usdc.estimateGas.approve(
@@ -158,16 +181,15 @@ export const useSwapUSDCToUSDG = () => {
 
   const swapUSDCToUSDG = async (
     amount: bigint,
-    options?: {
-      expectedAccount?: Address;
-      prerequisiteTxHashes?: Hash[];
-      assertTransactionActive?: AssertTransactionActive;
-    },
+    options?: SwapUSDCToUSDGOptions,
   ): Promise<Result<SwapUSDCToUSDGSuccess, SwapUSDCToUSDGError | string>> => {
     try {
       if (!usdc || !usdg || !isReady)
         return new Err(SwapUSDCToUSDGError.CONTRACTS_NOT_AVAILABLE);
       if (!signer) return new Err(SwapUSDCToUSDGError.SIGNER_NOT_AVAILABLE);
+      if (amount <= BigInt(0)) {
+        return new Err("Amount must be greater than 0");
+      }
 
       const expectedAccount = options?.expectedAccount;
       const assertTransactionActive = options?.assertTransactionActive;
@@ -180,31 +202,24 @@ export const useSwapUSDCToUSDG = () => {
       ) {
         return new Err("Wallet account changed during this order.");
       }
-      try {
-        const smartStatus = await getSmartAccountStatus({
-          address: signerAddress as `0x${string}`,
-          walletClient,
-          getBytecode: publicClient.getBytecode,
-        });
-        assertTransactionActive?.();
-        if (isSmartAccountBlocked(smartStatus)) {
-          return new Err(SMART_ACCOUNT_UNSUPPORTED_MESSAGE);
-        }
-      } catch {
-        // best-effort guard only
-      }
-      assertTransactionActive?.();
-
-      // Validate amount
-      if (amount <= BigInt(0)) {
-        return new Err("Amount must be greater than 0");
-      }
-
-      // Check USDC balance before attempting swap
       const prerequisiteTxHashes = options?.prerequisiteTxHashes ?? [];
-      const usdcBalance =
+      const chainId = walletClient?.chain?.id;
+      const smartStatusPromise: Promise<SmartAccountStatus | null> =
+        isSmartAccountPreflightReusable({
+          preflight: options?.smartAccountPreflight,
+          address: signerAddress as Address,
+          chainId,
+        })
+          ? Promise.resolve(options?.smartAccountPreflight?.status ?? null)
+          : getSmartAccountStatus({
+              address: signerAddress as `0x${string}`,
+              chainId,
+              walletClient,
+              getBytecode: publicClient.getBytecode,
+            }).catch(() => null);
+      const usdcBalancePromise =
         prerequisiteTxHashes.length > 0
-          ? await synchronizePrerequisiteBalance({
+          ? synchronizePrerequisiteBalance({
               prerequisiteTxHashes,
               waitForReceipt: (hash) =>
                 publicClient.waitForTransactionReceipt({
@@ -217,16 +232,22 @@ export const useSwapUSDCToUSDG = () => {
               readBalance: () => usdc.balanceOf(signerAddress),
               assertTransactionActive,
             })
-          : await usdc.balanceOf(signerAddress);
+          : usdc.balanceOf(signerAddress);
+      const allowancePromise = usdc.allowance(signerAddress, usdg.address);
+      const [smartStatus, usdcBalance, allowance] = await Promise.all([
+        smartStatusPromise,
+        usdcBalancePromise,
+        allowancePromise,
+      ]);
       assertTransactionActive?.();
+
+      if (isSmartAccountBlocked(smartStatus)) {
+        return new Err(SMART_ACCOUNT_UNSUPPORTED_MESSAGE);
+      }
 
       if (usdcBalance < amount) {
         return new Err(SwapUSDCToUSDGError.INSUFFICIENT_USDC_BALANCE);
       }
-
-      // Check and handle allowance
-      const allowance = await usdc.allowance(signerAddress, usdg.address);
-      assertTransactionActive?.();
 
       if (allowance < amount) {
         try {
@@ -236,6 +257,10 @@ export const useSwapUSDCToUSDG = () => {
               MAX_UINT256,
               expectedAccount,
               assertTransactionActive,
+              withWalletRequestAction(
+                options?.walletRequest,
+                "approve_usdc",
+              ),
             );
             assertTransactionActive?.();
             lastTxHashRef.current = tx.hash as `0x${string}`;
@@ -255,6 +280,10 @@ export const useSwapUSDCToUSDG = () => {
                 BigInt(0),
                 expectedAccount,
                 assertTransactionActive,
+                withWalletRequestAction(
+                  options?.walletRequest,
+                  "reset_usdc_approval",
+                ),
               );
               assertTransactionActive?.();
               lastTxHashRef.current = resetTx.hash as `0x${string}`;
@@ -267,6 +296,10 @@ export const useSwapUSDCToUSDG = () => {
                 MAX_UINT256,
                 expectedAccount,
                 assertTransactionActive,
+                withWalletRequestAction(
+                  options?.walletRequest,
+                  "approve_usdc_after_reset",
+                ),
               );
               assertTransactionActive?.();
               lastTxHashRef.current = tx.hash as `0x${string}`;
@@ -294,6 +327,7 @@ export const useSwapUSDCToUSDG = () => {
           amount,
           expectedAccount,
           assertTransactionActive,
+          withWalletRequestAction(options?.walletRequest, "swap_usdc_to_usdg"),
         );
         assertTransactionActive?.();
 
@@ -314,6 +348,9 @@ export const useSwapUSDCToUSDG = () => {
           assertTransactionActive,
         );
         if (cancellation) throw cancellation;
+        if (isWalletInteractionTimeoutError(swapError)) {
+          return new Err(WALLET_INTERACTION_TIMEOUT_MESSAGE);
+        }
         // Check if it's a timeout error
         if (
           swapError?.message?.includes("timeout") ||

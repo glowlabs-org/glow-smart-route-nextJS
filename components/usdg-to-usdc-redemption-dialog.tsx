@@ -21,6 +21,9 @@ import { useSmartAccountCheck } from "@/hooks/useSmartAccountCheck";
 import { estimateSwapGasUnits } from "@/lib/transaction-gas";
 import { useTransactionOperationGuard } from "@/hooks/useTransactionOperationGuard";
 import { getTransactionOperationCancellation } from "@/lib/transaction-operation";
+import { trackEvent } from "@/lib/telemetry";
+import type { WalletRequestObserver } from "@/lib/wallet-request";
+import type { SmartAccountPreflight } from "@/web3/web3/utils/detectSmartAccount";
 
 type SwapLabels = Strings["swap"];
 
@@ -63,6 +66,7 @@ export const UsdgToUsdcRedemptionDialog: FC<{
   amountToRedeem: string;
   quoteExpiresAt: number;
   expectedAccount: Address;
+  smartAccountPreflight?: SmartAccountPreflight;
   onOpenChange: (open: boolean) => void;
 }> = ({
   isOpen,
@@ -70,6 +74,7 @@ export const UsdgToUsdcRedemptionDialog: FC<{
   amountToRedeem,
   quoteExpiresAt,
   expectedAccount,
+  smartAccountPreflight,
 }) => {
   const { t } = useLang();
   const s = t.swap;
@@ -103,6 +108,7 @@ export const UsdgToUsdcRedemptionDialog: FC<{
   });
   const smartAccountCheck = useSmartAccountCheck({
     enabled: isOpen && !isPending && !isTransactionSuccessful,
+    preflight: smartAccountPreflight,
   });
   const hasInsufficientGas = gasPreflight.sufficient === false;
   const isPreflightChecking =
@@ -134,26 +140,48 @@ export const UsdgToUsdcRedemptionDialog: FC<{
     setCurrentState("NONE");
     setErrorMessage(null);
 
+    const walletRequest: WalletRequestObserver = {
+      onEvent: (event) => {
+        assertTransactionActive();
+        if (event.action === "approve_usdg") {
+          if (event.phase === "dispatched") {
+            setCurrentState("REQUESTING_USDG_APPROVAL");
+            updatePendingStates(0);
+          } else if (event.phase === "resolved") {
+            setCurrentState("APPROVING_USDG");
+            updatePendingStates(1);
+          }
+        } else if (
+          event.action === "redeem_usdg_for_usdc" &&
+          (event.phase === "dispatched" || event.phase === "resolved")
+        ) {
+          setCurrentState("REDEEMING_USDG_FOR_USDC");
+          updatePendingStates(2);
+        }
+        trackEvent("wallet_request_lifecycle", {
+          flow: "usdg_redemption_dialog",
+          action: event.action ?? null,
+          request_phase: event.phase,
+          wallet_method: event.method,
+          request_id: event.requestId,
+          elapsed_ms: event.elapsedMs,
+          sell_token: "USDG",
+          buy_token: "USDC",
+        });
+      },
+    };
+
     try {
       if (Date.now() > quoteExpiresAt) {
         throw new Error("This quote expired. Close the dialog to refresh it.");
       }
       const amountUSDG = parseUnits(amountToRedeem, 6);
 
-      // Update state for approval
-      setCurrentState("REQUESTING_USDG_APPROVAL");
-      updatePendingStates(0);
-
-      // The approval is handled inside redeemUSDGForUSDC
-      setCurrentState("APPROVING_USDG");
-      updatePendingStates(1);
-
-      setCurrentState("REDEEMING_USDG_FOR_USDC");
-      updatePendingStates(2);
-
       const redeemRes = await redeemUSDGForUSDC(amountUSDG, {
         expectedAccount,
         assertTransactionActive,
+        smartAccountPreflight: smartAccountCheck.preflight ?? undefined,
+        walletRequest,
       });
       assertTransactionActive();
 

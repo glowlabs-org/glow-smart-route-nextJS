@@ -197,6 +197,17 @@ All events below follow `snake_case` and use `dashboard_*` (dashboard surface ar
   - `buy_glw_max_click`: "max" button clicked
     - props: `pay_token`, `pay_balance`, `source`
     - emitted by: `components/dialogs/buy-glow-dialog.tsx`
+  - `wallet_request_lifecycle`: wallet transaction request reached or completed
+    the provider boundary
+    - props: `flow`, `step` (when applicable), `action`, `request_phase`
+      (`dispatched|resolved|rejected|timed_out`), `wallet_method`, `request_id`,
+      `elapsed_ms`, `source` (when applicable), `sell_token` (when applicable),
+      `buy_token` (when applicable)
+    - emitted by: `app/buy/swap-interface.tsx`,
+      `components/dialogs/buy-glow-dialog.tsx`,
+      `components/usdc-to-token-dialog.tsx`,
+      `components/glow-to-usdc-dialog.tsx`,
+      `components/usdg-to-usdc-redemption-dialog.tsx`
 
 - **Reward claiming**
   - `wallet_claim_week_click`: user clicked claim button for specific week

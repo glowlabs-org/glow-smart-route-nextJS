@@ -22,8 +22,11 @@ import {
 } from "@/lib/normalize-tx-hash";
 import {
   getSmartAccountStatus,
+  isSmartAccountPreflightReusable,
   isSmartAccountBlocked,
   SMART_ACCOUNT_UNSUPPORTED_MESSAGE,
+  type SmartAccountPreflight,
+  type SmartAccountStatus,
 } from "@/web3/web3/utils/detectSmartAccount";
 import {
   assertWalletClientAccount,
@@ -37,6 +40,15 @@ import {
 } from "@/lib/transaction-operation";
 import { sumErc20TransfersTo } from "@/lib/transaction-receipts";
 import { synchronizePrerequisiteBalance } from "@/lib/prerequisite-balance";
+import {
+  WALLET_INTERACTION_TIMEOUT_MESSAGE,
+  isWalletInteractionTimeoutError,
+} from "@/lib/rpc-error-utils";
+import {
+  withWalletRequestAction,
+  writeContractWithWalletLifecycle,
+  type WalletRequestObserver,
+} from "@/lib/wallet-request";
 
 if (!process.env.NEXT_PUBLIC_CHAIN_ID) {
   throw new Error("NEXT_PUBLIC_CHAIN_ID is not set");
@@ -69,6 +81,9 @@ export interface USDGRedemptionSuccess {
 // Utility to extract the most useful revert reason from an ethers error object
 function parseEthersError(error: unknown): string {
   if (!error) return "Unknown error";
+  if (isWalletInteractionTimeoutError(error)) {
+    return WALLET_INTERACTION_TIMEOUT_MESSAGE;
+  }
   if (
     isInvalidWalletTxResponseError(error) ||
     isInvalidWalletTxResponseError((error as any)?.message)
@@ -149,70 +164,76 @@ export function useUSDGRedemption() {
       expectedAccount?: Address;
       prerequisiteTxHashes?: Hash[];
       assertTransactionActive?: AssertTransactionActive;
+      smartAccountPreflight?: SmartAccountPreflight;
+      walletRequest?: WalletRequestObserver;
     },
   ): Promise<Result<USDGRedemptionSuccess, USDGRedemptionError | string>> {
     try {
       const assertTransactionActive = options?.assertTransactionActive;
       assertTransactionActive?.();
+      if (amountUSDG <= 0n) return new Err("Amount must be greater than 0");
       if (!walletClient)
         return new Err(USDGRedemptionError.SIGNER_NOT_AVAILABLE);
       assertWalletClientOnExpectedChain(walletClient);
       if (options?.expectedAccount) {
         assertWalletClientAccount(walletClient, options.expectedAccount);
       }
-      await assertWalletClientForOrder(
-        walletClient,
-        options?.expectedAccount,
-      );
       assertTransactionActive?.();
 
       if (!usdg) return new Err("USDG contract not available");
 
       const owner = walletClient.account?.address as `0x${string}` | undefined;
       if (!owner) return new Err(USDGRedemptionError.SIGNER_NOT_AVAILABLE);
-      try {
-        const smartStatus = await getSmartAccountStatus({
-          address: owner,
-          walletClient,
-          getBytecode: publicClient.getBytecode,
-        });
-        assertTransactionActive?.();
-        if (isSmartAccountBlocked(smartStatus)) {
-          return new Err(SMART_ACCOUNT_UNSUPPORTED_MESSAGE);
-        }
-      } catch {
-        // best-effort guard only
-      }
-      assertTransactionActive?.();
-
       const prerequisiteTxHashes = options?.prerequisiteTxHashes ?? [];
-      if (prerequisiteTxHashes.length > 0) {
-        const synchronizedBalance = await synchronizePrerequisiteBalance({
-          prerequisiteTxHashes,
-          waitForReceipt: (hash) =>
-            publicClient.waitForTransactionReceipt({
-              hash,
-              confirmations: 1,
-              retryCount: 8,
-              retryDelay: 1_000,
-            }),
-          minimumBalance: amountUSDG,
-          readBalance: () => usdg.balanceOf(owner),
-          assertTransactionActive,
-        });
-        assertTransactionActive?.();
-        if (synchronizedBalance < amountUSDG) {
-          return new Err(
-            "The confirmed GLOW swap is not visible to the redemption RPC yet.",
-          );
-        }
-      }
-
-      const allowance: bigint = await usdg.allowance(
-        owner,
-        USDG_REDEMPTION_ADDRESS
-      );
+      const chainId = walletClient.chain?.id;
+      const smartStatusPromise: Promise<SmartAccountStatus | null> =
+        isSmartAccountPreflightReusable({
+          preflight: options?.smartAccountPreflight,
+          address: owner,
+          chainId,
+        })
+          ? Promise.resolve(options?.smartAccountPreflight?.status ?? null)
+          : getSmartAccountStatus({
+              address: owner,
+              chainId,
+              walletClient,
+              getBytecode: publicClient.getBytecode,
+            }).catch(() => null);
+      const synchronizedBalancePromise =
+        prerequisiteTxHashes.length > 0
+          ? synchronizePrerequisiteBalance({
+              prerequisiteTxHashes,
+              waitForReceipt: (hash) =>
+                publicClient.waitForTransactionReceipt({
+                  hash,
+                  confirmations: 1,
+                  retryCount: 8,
+                  retryDelay: 1_000,
+                }),
+              minimumBalance: amountUSDG,
+              readBalance: () => usdg.balanceOf(owner),
+              assertTransactionActive,
+            })
+          : Promise.resolve<bigint | null>(null);
+      const allowancePromise = usdg.allowance(owner, USDG_REDEMPTION_ADDRESS);
+      const [smartStatus, synchronizedBalance, allowance] = await Promise.all([
+        smartStatusPromise,
+        synchronizedBalancePromise,
+        allowancePromise,
+      ]);
       assertTransactionActive?.();
+
+      if (isSmartAccountBlocked(smartStatus)) {
+        return new Err(SMART_ACCOUNT_UNSUPPORTED_MESSAGE);
+      }
+      if (
+        synchronizedBalance !== null &&
+        synchronizedBalance < amountUSDG
+      ) {
+        return new Err(
+          "The confirmed GLOW swap is not visible to the redemption RPC yet.",
+        );
+      }
 
       if (allowance < amountUSDG) {
         try {
@@ -221,6 +242,7 @@ export function useUSDGRedemption() {
             maxUint256,
             options?.expectedAccount,
             assertTransactionActive,
+            withWalletRequestAction(options?.walletRequest, "approve_usdg"),
           );
           assertTransactionActive?.();
           // Use standard ethers wait with timeout
@@ -277,14 +299,18 @@ export function useUSDGRedemption() {
         options?.expectedAccount,
       );
       assertTransactionActive?.();
-      const rawHash = await walletClient.writeContract({
-        address: USDG_REDEMPTION_ADDRESS,
-        abi: USDG_REDEMPTION_ABI,
-        functionName: "exchange",
-        args: [amountUSDG],
-        chain: getExpectedChain(),
-        account: walletClient.account,
-      });
+      const rawHash = await writeContractWithWalletLifecycle(
+        walletClient,
+        {
+          address: USDG_REDEMPTION_ADDRESS,
+          abi: USDG_REDEMPTION_ABI,
+          functionName: "exchange",
+          args: [amountUSDG],
+          chain: getExpectedChain(),
+          account: walletClient.account,
+        },
+        withWalletRequestAction(options?.walletRequest, "redeem_usdg_for_usdc"),
+      );
       assertTransactionActive?.();
       const hash = normalizeTxHash(rawHash);
       const receipt = await waitForTransactionReceipt(hash);
