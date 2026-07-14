@@ -111,7 +111,7 @@ const ONE_HOUR_MS = 60 * 60 * 1000;
 // new batch of listings (cron lag, cache warm-up). Keep polling within this
 // window instead of immediately advancing the countdown to next week.
 const LAUNCHPAD_PUBLISHING_GRACE_MS = 5 * 60 * 1000;
-const LAUNCHPAD_PUBLISHING_POLL_MS = 10 * 1000;
+const LAUNCHPAD_PUBLISHING_POLL_MS = 5 * 1000;
 
 function formatUsdPrice(value: number) {
   if (!Number.isFinite(value) || value <= 0) return "$—";
@@ -1491,44 +1491,40 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
         )}
       </div>
 
-      {/* V2 early access: opt-in unlock banner for entitled wallets — only
-          while listings are still being revealed early (hidden once public). */}
-      {activeMinerEntitlement && hasEarlyAccessReveal ? (
+      {/* V2 early access: opt-in UNLOCK prompt for entitled wallets that have
+          not signed yet — only while listings are still being revealed early
+          (hidden once public). Once unlocked we show NO badge (removed by
+          request); the revealed listings themselves are the signal. */}
+      {activeMinerEntitlement &&
+      hasEarlyAccessReveal &&
+      !minerEarlyAccess.isUnlocked ? (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[color:var(--color-miner)]/30 bg-[color:var(--color-miner)]/10 px-4 py-3">
           <div className="flex items-center gap-2.5">
             <Sparkles className="h-4 w-4 shrink-0 text-[color:var(--color-miner-contrast)]" />
             <span className="text-sm text-foreground">
-              {minerEarlyAccess.isUnlocked
-                ? t.widgets.launchpadStatus.earlyAccessActive(
-                    earlyAccessMinutes,
-                  )
-                : t.widgets.launchpadStatus.earlyAccessAvailable(
-                    earlyAccessMinutes,
-                  )}
+              {t.widgets.launchpadStatus.earlyAccessAvailable(earlyAccessMinutes)}
             </span>
           </div>
-          {!minerEarlyAccess.isUnlocked ? (
-            <Button
-              type="button"
-              size="sm"
-              disabled={minerEarlyAccess.isSigning}
-              onClick={async () => {
-                const ok = await minerEarlyAccess.unlock();
-                if (ok) {
-                  trackEvent("early_access_used", {
-                    source,
-                    wallet_connected: isConnected,
-                    wallet_address: walletAddress,
-                    early_access_minutes: earlyAccessMinutes,
-                  });
-                }
-              }}
-            >
-              {minerEarlyAccess.isSigning
-                ? t.widgets.launchpadStatus.earlyAccessUnlocking
-                : t.widgets.launchpadStatus.earlyAccessUnlock}
-            </Button>
-          ) : null}
+          <Button
+            type="button"
+            size="sm"
+            disabled={minerEarlyAccess.isSigning}
+            onClick={async () => {
+              const ok = await minerEarlyAccess.unlock();
+              if (ok) {
+                trackEvent("early_access_used", {
+                  source,
+                  wallet_connected: isConnected,
+                  wallet_address: walletAddress,
+                  early_access_minutes: earlyAccessMinutes,
+                });
+              }
+            }}
+          >
+            {minerEarlyAccess.isSigning
+              ? t.widgets.launchpadStatus.earlyAccessUnlocking
+              : t.widgets.launchpadStatus.earlyAccessUnlock}
+          </Button>
         </div>
       ) : null}
 
@@ -1699,15 +1695,16 @@ export default function LaunchpadStatusWidget({
       ? nextBatchAtMs - earlyAccessMinutes * 60_000
       : nextBatchAtMs;
 
-  const earlyAccessIndicator = activeEntitlement ? (
-    <div className="flex flex-wrap items-center justify-center gap-2.5 rounded-full border border-[color:var(--color-miner)]/30 bg-[color:var(--color-miner)]/10 px-4 py-2">
-      <Sparkles className="h-4 w-4 shrink-0 text-[color:var(--color-miner-contrast)]" />
-      <span className="text-sm font-medium text-foreground">
-        {earlyAccess.isUnlocked
-          ? t.widgets.launchpadStatus.earlyAccessActive(earlyAccessMinutes)
-          : t.widgets.launchpadStatus.earlyAccessAvailable(earlyAccessMinutes)}
-      </span>
-      {!earlyAccess.isUnlocked ? (
+  // Only an UNLOCK prompt for entitled wallets that have not signed yet. Once
+  // unlocked we show NO badge (removed by request) — the early countdown target
+  // shift + the revealed listings are the signal.
+  const earlyAccessIndicator =
+    activeEntitlement && !earlyAccess.isUnlocked ? (
+      <div className="flex flex-wrap items-center justify-center gap-2.5 rounded-full border border-[color:var(--color-miner)]/30 bg-[color:var(--color-miner)]/10 px-4 py-2">
+        <Sparkles className="h-4 w-4 shrink-0 text-[color:var(--color-miner-contrast)]" />
+        <span className="text-sm font-medium text-foreground">
+          {t.widgets.launchpadStatus.earlyAccessAvailable(earlyAccessMinutes)}
+        </span>
         <Button
           type="button"
           size="sm"
@@ -1728,9 +1725,8 @@ export default function LaunchpadStatusWidget({
             ? t.widgets.launchpadStatus.earlyAccessUnlocking
             : t.widgets.launchpadStatus.earlyAccessUnlock}
         </Button>
-      ) : null}
-    </div>
-  ) : null;
+      </div>
+    ) : null;
 
   const internalIsApproaching = React.useMemo(() => {
     if (isLive) return false;
