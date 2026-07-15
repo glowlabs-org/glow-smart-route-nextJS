@@ -1384,7 +1384,7 @@ export default function SolarCollectorWidget({
                       className="h-7 inline-flex items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-medium border border-border/40 text-muted-foreground hover:text-[#22D3EE] hover:border-[#22D3EE] transition-colors"
                     >
                       <TrendingUp className="h-3 w-3" />
-                      {t.widgets.gctlHeatmap.mintGctl}
+                      {t.widgets.gctlHeatmap.manageGctl}
                     </button>
                   ) : null}
                 </div>

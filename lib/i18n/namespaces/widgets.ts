@@ -353,7 +353,7 @@ export interface WidgetStrings {
     gamificationHook: string;
     gamificationPoints: string;
     mintAndStake: string;
-    mintGctl: string;
+    manageGctl: string;
     myHoldings: string;
     freeToStake: string;
     liquidSuffix: string;
@@ -1067,7 +1067,7 @@ const en: WidgetStrings = {
     gamificationHook: "Earn",
     gamificationPoints: "Points from sGCTL delegation",
     mintAndStake: "Mint & Stake GCTL",
-    mintGctl: "Mint GCTL",
+    manageGctl: "Manage GCTL",
     myHoldings: "My Holdings",
     freeToStake: "Free to stake",
     liquidSuffix: "Liquid",
@@ -1794,7 +1794,7 @@ const ko: WidgetStrings = {
     gamificationHook: "획득:",
     gamificationPoints: "sGCTL 위임 포인트",
     mintAndStake: "GCTL 발행 및 스테이킹",
-    mintGctl: "GCTL 발행",
+    manageGctl: "GCTL 관리",
     myHoldings: "내 보유량",
     freeToStake: "스테이킹 가능",
     liquidSuffix: "유동",
@@ -2515,7 +2515,7 @@ const zh: WidgetStrings = {
     gamificationHook: "赚取",
     gamificationPoints: "来自 sGCTL 委托的积分",
     mintAndStake: "铸造并质押 GCTL",
-    mintGctl: "铸造 GCTL",
+    manageGctl: "管理 GCTL",
     myHoldings: "我的持仓",
     freeToStake: "可质押",
     liquidSuffix: "流动",
