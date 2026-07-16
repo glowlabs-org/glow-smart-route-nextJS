@@ -28,6 +28,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   POL_GCTL_ENDOWMENT_WALLET,
+  estimatePolGctlMint,
   shortenHash,
 } from "@/lib/pol-gctl";
 import {
@@ -212,6 +213,17 @@ export function GctlMintDashboard() {
   const [usdgAmount, setUsdgAmount] = React.useState("");
   const [resumeTxHash, setResumeTxHash] = React.useState("");
   const [acknowledged, setAcknowledged] = React.useState(false);
+  const glwReserveRaw = workflow.pool?.glwReserveRaw;
+  const usdgReserveRaw = workflow.pool?.usdgReserveRaw;
+  const estimate = React.useMemo(() => {
+    if (glwReserveRaw == null || usdgReserveRaw == null) return null;
+    return estimatePolGctlMint({
+      glw: glwAmount,
+      usdg: usdgAmount,
+      glwReserveRaw,
+      usdgReserveRaw,
+    });
+  }, [glwAmount, glwReserveRaw, usdgAmount, usdgReserveRaw]);
 
   const handleMatchPoolRatio = React.useCallback(() => {
     const suggested = workflow.suggestedGlwForUsdg(usdgAmount);
@@ -370,6 +382,60 @@ export function GctlMintDashboard() {
                 )}
                 Match current pool ratio
               </Button>
+
+              <div
+                className="rounded-2xl bg-foreground p-5 text-background"
+                aria-live="polite"
+              >
+                <div className="text-[10px] font-mono uppercase tracking-widest opacity-55">
+                  Estimated result
+                </div>
+                <div className="mt-4 grid gap-5 sm:grid-cols-2">
+                  <div>
+                    <div className="text-xs opacity-60">
+                      Liquidity value
+                    </div>
+                    <div className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">
+                      {estimate
+                        ? `$${formatDecimal(estimate.liquidityUsd, 6)}`
+                        : "—"}
+                    </div>
+                    <div className="mt-1 text-[11px] opacity-50">
+                      GLW + USDG at current pool spot
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs opacity-60">GCTL minted</div>
+                    <div className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">
+                      {estimate
+                        ? formatDecimal(estimate.gctlMinted, 6)
+                        : "—"}
+                    </div>
+                    <div className="mt-1 text-[11px] opacity-50">
+                      Estimated GCTL
+                    </div>
+                  </div>
+                </div>
+                {estimate ? (
+                  <div className="mt-4 border-t border-background/15 pt-4 text-[11px] leading-relaxed opacity-60">
+                    Expected pool contribution:{" "}
+                    {formatDecimal(estimate.usedGlw, 6)} GLW +{" "}
+                    {formatDecimal(estimate.usedUsdg, 6)} USDG · GCTL price $
+                    {formatDecimal(estimate.gctlPriceUsd, 6)}.
+                    {!estimate.usesFullInput
+                      ? " Inputs are off-ratio, so Uniswap is expected to leave part of one token in the wallet."
+                      : ""}
+                  </div>
+                ) : (
+                  <div className="mt-4 border-t border-background/15 pt-4 text-[11px] opacity-50">
+                    Enter both amounts to preview the mint.
+                  </div>
+                )}
+                <div className="mt-2 text-[10px] leading-relaxed opacity-45">
+                  Estimate only. The exact GCTL amount is calculated from the
+                  mined LP donation transaction.
+                </div>
+              </div>
 
               <div className="rounded-2xl border border-border/20 bg-muted/20 p-4">
                 <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">

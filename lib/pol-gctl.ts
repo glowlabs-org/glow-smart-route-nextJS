@@ -44,11 +44,79 @@ export interface PolGctlMintResult extends PolGctlPreview {
   notificationSent: boolean;
 }
 
+export interface PolGctlEstimate {
+  usedGlw: string;
+  usedUsdg: string;
+  liquidityUsd: string;
+  gctlPriceUsd: string;
+  gctlMinted: string;
+  usesFullInput: boolean;
+}
+
 export function applyBpsFloor(amount: bigint, bps: number): bigint {
   if (!Number.isInteger(bps) || bps < 0 || bps > 10_000) {
     throw new Error("Basis points must be between 0 and 10,000");
   }
   return (amount * BigInt(10_000 - bps)) / 10_000n;
+}
+
+function parsePositiveDecimal(value: string, decimals: number) {
+  const trimmed = value.trim();
+  if (!/^(?:\d+\.?\d*|\.\d+)$/.test(trimmed)) return null;
+
+  const decimal = new Decimal(trimmed);
+  if (!decimal.isFinite() || decimal.lte(0)) return null;
+  return decimal.toDecimalPlaces(decimals, Decimal.ROUND_DOWN);
+}
+
+export function estimatePolGctlMint(args: {
+  glw: string;
+  usdg: string;
+  glwReserveRaw: bigint;
+  usdgReserveRaw: bigint;
+}): PolGctlEstimate | null {
+  const desiredGlw = parsePositiveDecimal(args.glw, 18);
+  const desiredUsdg = parsePositiveDecimal(args.usdg, 6);
+  if (
+    !desiredGlw ||
+    !desiredUsdg ||
+    args.glwReserveRaw <= 0n ||
+    args.usdgReserveRaw <= 0n
+  ) {
+    return null;
+  }
+
+  const glwReserve = new Decimal(args.glwReserveRaw.toString()).div("1e18");
+  const usdgReserve = new Decimal(args.usdgReserveRaw.toString()).div(1e6);
+  const glwSpotPriceUsd = usdgReserve.div(glwReserve);
+  const optimalUsdgForGlw = desiredGlw.mul(glwSpotPriceUsd);
+
+  let usedGlw: Decimal;
+  let usedUsdg: Decimal;
+  if (optimalUsdgForGlw.lte(desiredUsdg)) {
+    usedGlw = desiredGlw;
+    usedUsdg = optimalUsdgForGlw.toDecimalPlaces(6, Decimal.ROUND_DOWN);
+  } else {
+    usedUsdg = desiredUsdg;
+    usedGlw = desiredUsdg
+      .div(glwSpotPriceUsd)
+      .toDecimalPlaces(18, Decimal.ROUND_DOWN);
+  }
+
+  const liquidityUsd = usedUsdg.plus(usedGlw.mul(glwSpotPriceUsd));
+  const gctlPriceUsd = glwSpotPriceUsd.sqrt();
+  const gctlMinted = liquidityUsd.div(gctlPriceUsd);
+
+  return {
+    usedGlw: usedGlw.toFixed(18),
+    usedUsdg: usedUsdg.toFixed(6),
+    liquidityUsd: liquidityUsd.toFixed(6, Decimal.ROUND_DOWN),
+    gctlPriceUsd: gctlPriceUsd.toFixed(18, Decimal.ROUND_DOWN),
+    gctlMinted: gctlMinted.toFixed(6, Decimal.ROUND_DOWN),
+    usesFullInput:
+      desiredGlw.sub(usedGlw).lte("1e-18") &&
+      desiredUsdg.sub(usedUsdg).lte("0.000001"),
+  };
 }
 
 export function quoteGlwForUsdg(args: {

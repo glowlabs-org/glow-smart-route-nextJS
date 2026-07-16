@@ -9,6 +9,7 @@ import {
   POL_GCTL_ENDOWMENT_WALLET,
   POL_GCTL_LP_TOKEN,
   applyBpsFloor,
+  estimatePolGctlMint,
   findMintedLpAmount,
   quoteGlwForUsdg,
 } from "@/lib/pol-gctl";
@@ -28,6 +29,41 @@ describe("POL GCTL helpers", () => {
 
   it("applies slippage with bigint flooring", () => {
     expect(applyBpsFloor(1_000_001n, 100)).toBe(990_000n);
+  });
+
+  it("estimates liquidity value and GCTL from balanced inputs", () => {
+    expect(
+      estimatePolGctlMint({
+        glw: "10000",
+        usdg: "2500",
+        glwReserveRaw: 200_000n * 10n ** 18n,
+        usdgReserveRaw: 50_000n * 10n ** 6n,
+      }),
+    ).toEqual({
+      usedGlw: "10000.000000000000000000",
+      usedUsdg: "2500.000000",
+      liquidityUsd: "5000.000000",
+      gctlPriceUsd: "0.500000000000000000",
+      gctlMinted: "10000.000000",
+      usesFullInput: true,
+    });
+  });
+
+  it("estimates only the pool-ratio portion Uniswap will consume", () => {
+    expect(
+      estimatePolGctlMint({
+        glw: "20000",
+        usdg: "2500",
+        glwReserveRaw: 200_000n * 10n ** 18n,
+        usdgReserveRaw: 50_000n * 10n ** 6n,
+      }),
+    ).toMatchObject({
+      usedGlw: "10000.000000000000000000",
+      usedUsdg: "2500.000000",
+      liquidityUsd: "5000.000000",
+      gctlMinted: "10000.000000",
+      usesFullInput: false,
+    });
   });
 
   it("extracts only zero-address LP mints to the connected wallet", () => {
