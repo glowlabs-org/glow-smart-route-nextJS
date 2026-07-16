@@ -28,7 +28,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   POL_GCTL_ENDOWMENT_WALLET,
-  POL_GCTL_MINTER_WALLET,
   shortenHash,
 } from "@/lib/pol-gctl";
 import {
@@ -45,7 +44,7 @@ const PHASES: Array<{
   {
     phase: "checking-wallet",
     label: "Verify wallet",
-    description: "Confirm the Foundation miner wallet and mainnet.",
+    description: "Confirm the connected wallet and mainnet.",
   },
   {
     phase: "approving-glw",
@@ -255,7 +254,6 @@ export function GctlMintDashboard() {
 
   const canMint =
     workflow.isConnected &&
-    workflow.isAuthorizedWallet &&
     glwAmount.trim().length > 0 &&
     usdgAmount.trim().length > 0 &&
     acknowledged &&
@@ -292,19 +290,7 @@ export function GctlMintDashboard() {
         <Card>
           <CardContent className="flex items-center gap-3 py-2 text-sm text-muted-foreground">
             <ShieldCheck className="h-5 w-5 text-muted-foreground/60" />
-            Connect the Foundation miner wallet to begin.
-          </CardContent>
-        </Card>
-      ) : !workflow.isAuthorizedWallet ? (
-        <Card className="border-destructive/30">
-          <CardContent className="space-y-2 py-2">
-            <div className="text-sm font-medium text-destructive">
-              Unauthorized wallet
-            </div>
-            <div className="text-xs text-muted-foreground">
-              Expected{" "}
-              <span className="font-mono">{POL_GCTL_MINTER_WALLET}</span>
-            </div>
+            Connect a wallet to begin.
           </CardContent>
         </Card>
       ) : null}
@@ -456,7 +442,7 @@ export function GctlMintDashboard() {
                 className="h-11 rounded-xl transition-transform duration-150 ease-out active:scale-[0.96]"
                 onClick={handleResume}
                 disabled={
-                  !workflow.isAuthorizedWallet ||
+                  !workflow.isConnected ||
                   !resumeTxHash.trim() ||
                   workflow.isProcessing
                 }

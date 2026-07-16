@@ -8,23 +8,14 @@ import {
 import {
   POL_GCTL_ENDOWMENT_WALLET,
   POL_GCTL_LP_TOKEN,
-  POL_GCTL_MINTER_WALLET,
   applyBpsFloor,
   findMintedLpAmount,
-  isPolGctlMinterWallet,
   quoteGlwForUsdg,
 } from "@/lib/pol-gctl";
 
-describe("POL GCTL helpers", () => {
-  it("matches only David's configured minter wallet", () => {
-    expect(isPolGctlMinterWallet(POL_GCTL_MINTER_WALLET.toLowerCase())).toBe(
-      true,
-    );
-    expect(
-      isPolGctlMinterWallet("0x1111111111111111111111111111111111111111"),
-    ).toBe(false);
-  });
+const TEST_WALLET = "0x6972B05A0c80064fBE8a10CBc2a2FBCF6fb47D6a";
 
+describe("POL GCTL helpers", () => {
   it("quotes the matching GLW amount without using floating point", () => {
     expect(
       quoteGlwForUsdg({
@@ -55,13 +46,13 @@ describe("POL GCTL helpers", () => {
       eventName: "Transfer",
       args: {
         from: "0x0000000000000000000000000000000000000000",
-        to: POL_GCTL_MINTER_WALLET,
+        to: TEST_WALLET,
       },
     });
     const data = encodeAbiParameters(parseAbiParameters("uint256"), [123n]);
 
     const amount = findMintedLpAmount({
-      recipient: POL_GCTL_MINTER_WALLET,
+      recipient: TEST_WALLET,
       logs: [
         {
           address: POL_GCTL_LP_TOKEN,

@@ -8,8 +8,6 @@ import {
   type Log,
 } from "viem";
 
-export const POL_GCTL_MINTER_WALLET =
-  "0x6972B05A0c80064fBE8a10CBc2a2FBCF6fb47D6a" as const;
 export const POL_GCTL_ENDOWMENT_WALLET =
   "0x868D99B4a6e81b4683D10ea5665f13579A9d1607" as const;
 export const POL_GCTL_LP_TOKEN =
@@ -44,12 +42,6 @@ export interface PolGctlPreview {
 export interface PolGctlMintResult extends PolGctlPreview {
   alreadyProcessed: boolean;
   notificationSent: boolean;
-}
-
-export function isPolGctlMinterWallet(
-  wallet: string | null | undefined,
-): boolean {
-  return wallet?.toLowerCase() === POL_GCTL_MINTER_WALLET.toLowerCase();
 }
 
 export function applyBpsFloor(amount: bigint, bps: number): bigint {

@@ -19,14 +19,12 @@ import {
 } from "wagmi";
 import { getAddresses } from "@glowlabs-org/utils/browser";
 import { publicClient } from "@/web3/web3/clients/publicClient";
-import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
 import { normalizeTxHash } from "@/lib/normalize-tx-hash";
 import {
   POL_GCTL_ENDOWMENT_WALLET,
   POL_GCTL_LP_TOKEN,
   applyBpsFloor,
   findMintedLpAmount,
-  isPolGctlMinterWallet,
   quoteGlwForUsdg,
   type PolGctlMintResult,
   type PolGctlPreview,
@@ -267,34 +265,14 @@ export function usePolGctlMint() {
     refetchInterval: 20_000,
   });
 
-  const ensureCorrectWalletAndChain = React.useCallback(async () => {
-    if (!address || !walletClient) throw new Error("Connect David's wallet");
-    if (!isPolGctlMinterWallet(address)) {
-      throw new Error(
-        "This tool is restricted to the Foundation miner wallet",
-      );
-    }
+  const ensureWalletAndChain = React.useCallback(async () => {
+    if (!address || !walletClient) throw new Error("Connect a wallet");
     if (chainId !== MAINNET_CHAIN_ID) {
       updateProgress({ phase: "switching-chain" });
       await switchChainAsync({ chainId: MAINNET_CHAIN_ID });
     }
 
     updateProgress({ phase: "checking-wallet" });
-    const status = await getSmartAccountStatus({
-      address,
-      chainId: MAINNET_CHAIN_ID,
-      walletClient,
-      getBytecode: publicClient.getBytecode,
-    });
-    if (
-      status.isEip7702Delegated ||
-      status.hasWalletAABatching ||
-      status.isContractWallet
-    ) {
-      throw new Error(
-        "Disable Smart Account/EIP-7702 before adding GLW/USDG liquidity",
-      );
-    }
     return address as Address;
   }, [
     address,
@@ -400,7 +378,7 @@ export function usePolGctlMint() {
     mutationFn: async (args: { glw: string; usdg: string }) => {
       if (!walletClient) throw new Error("Wallet client is unavailable");
       setProgress(INITIAL_PROGRESS);
-      const owner = await ensureCorrectWalletAndChain();
+      const owner = await ensureWalletAndChain();
       const glwRaw = parsePositiveUnits(args.glw, 18, "GLW");
       const usdgRaw = parsePositiveUnits(args.usdg, 6, "USDG");
       const balances = await Promise.all([
@@ -500,7 +478,7 @@ export function usePolGctlMint() {
       if (!TX_HASH_PATTERN.test(normalized)) {
         throw new Error("Enter a valid Ethereum transaction hash");
       }
-      await ensureCorrectWalletAndChain();
+      await ensureWalletAndChain();
       return submitDonationForMint(normalized);
     },
   });
@@ -527,7 +505,6 @@ export function usePolGctlMint() {
   return {
     address: address ?? null,
     isConnected,
-    isAuthorizedWallet: isPolGctlMinterWallet(address),
     chainId,
     pool: poolQuery.data ?? null,
     isPoolLoading: poolQuery.isLoading,
