@@ -24,6 +24,7 @@ import {
   POL_GCTL_ENDOWMENT_WALLET,
   POL_GCTL_LP_TOKEN,
   applyBpsFloor,
+  computeExpectedAddLiquidityAmounts,
   findMintedLpAmount,
   quoteGlwForUsdg,
   type PolGctlMintResult,
@@ -412,23 +413,41 @@ export function usePolGctlMint() {
       });
 
       updateProgress({ phase: "adding-liquidity" });
-      const deadline = BigInt(Math.floor(Date.now() / 1000) + 20 * 60);
-      const { request } = await publicClient.simulateContract({
-        address: UNISWAP_ROUTER,
-        abi: ROUTER_ABI,
-        functionName: "addLiquidity",
-        args: [
-          GLW_ADDRESS,
-          USDG_ADDRESS,
-          glwRaw,
-          usdgRaw,
-          applyBpsFloor(glwRaw, SLIPPAGE_BPS),
-          applyBpsFloor(usdgRaw, SLIPPAGE_BPS),
-          owner,
-          deadline,
-        ],
-        account: owner,
+      const pool = await fetchPoolState();
+      const expectedFill = computeExpectedAddLiquidityAmounts({
+        glwDesiredRaw: glwRaw,
+        usdgDesiredRaw: usdgRaw,
+        glwReserveRaw: pool.glwReserveRaw,
+        usdgReserveRaw: pool.usdgReserveRaw,
       });
+      const deadline = BigInt(Math.floor(Date.now() / 1000) + 20 * 60);
+      let request;
+      try {
+        ({ request } = await publicClient.simulateContract({
+          address: UNISWAP_ROUTER,
+          abi: ROUTER_ABI,
+          functionName: "addLiquidity",
+          args: [
+            GLW_ADDRESS,
+            USDG_ADDRESS,
+            glwRaw,
+            usdgRaw,
+            applyBpsFloor(expectedFill.glwRaw, SLIPPAGE_BPS),
+            applyBpsFloor(expectedFill.usdgRaw, SLIPPAGE_BPS),
+            owner,
+            deadline,
+          ],
+          account: owner,
+        }));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "";
+        if (/INSUFFICIENT_[AB]_AMOUNT/.test(message)) {
+          throw new Error(
+            "The pool price moved beyond the 1% slippage allowance. Retry the mint.",
+          );
+        }
+        throw error;
+      }
       const addLiquidityTxHash = normalizeTxHash(
         await walletClient.writeContract(request),
       );

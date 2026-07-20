@@ -119,6 +119,30 @@ export function estimatePolGctlMint(args: {
   };
 }
 
+// Mirrors UniswapV2Router02._addLiquidity: the router fills at the live pool
+// ratio, using at most the desired amounts. Slippage mins must be derived from
+// this expected fill, not from the raw desired inputs, or any >slippage drift
+// between the entered ratio and the pool ratio reverts with
+// INSUFFICIENT_A_AMOUNT / INSUFFICIENT_B_AMOUNT.
+export function computeExpectedAddLiquidityAmounts(args: {
+  glwDesiredRaw: bigint;
+  usdgDesiredRaw: bigint;
+  glwReserveRaw: bigint;
+  usdgReserveRaw: bigint;
+}): { glwRaw: bigint; usdgRaw: bigint } {
+  if (args.glwReserveRaw <= 0n || args.usdgReserveRaw <= 0n) {
+    return { glwRaw: args.glwDesiredRaw, usdgRaw: args.usdgDesiredRaw };
+  }
+  const usdgOptimal =
+    (args.glwDesiredRaw * args.usdgReserveRaw) / args.glwReserveRaw;
+  if (usdgOptimal <= args.usdgDesiredRaw) {
+    return { glwRaw: args.glwDesiredRaw, usdgRaw: usdgOptimal };
+  }
+  const glwOptimal =
+    (args.usdgDesiredRaw * args.glwReserveRaw) / args.usdgReserveRaw;
+  return { glwRaw: glwOptimal, usdgRaw: args.usdgDesiredRaw };
+}
+
 export function quoteGlwForUsdg(args: {
   usdg: string;
   glwReserveRaw: bigint;
