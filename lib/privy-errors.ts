@@ -18,6 +18,8 @@ const BENIGN_PRIVY_ERROR_CODES = new Set([
   "exited_link_flow",
   "must_be_authenticated",
   "generic_connect_wallet_error",
+  "user_exited_funding_flow",
+  "exited_funding_flow",
 ]);
 
 function getPrivyErrorCode(error: unknown): string {
@@ -34,7 +36,7 @@ function getPrivyErrorCode(error: unknown): string {
 
 export function capturePrivyWalletError(
   error: unknown,
-  stage: "connect" | "card_buy_login" | "fund_wallet"
+  stage: "connect" | "card_buy_login" | "fund_wallet" | "card_onramp"
 ): void {
   const code = getPrivyErrorCode(error);
   if (BENIGN_PRIVY_ERROR_CODES.has(code)) return;

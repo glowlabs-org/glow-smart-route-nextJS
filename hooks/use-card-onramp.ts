@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useFiatOnramp } from "@privy-io/react-auth";
+import { capturePrivyWalletError } from "@/lib/privy-errors";
 
 // Mainnet USDC — same destination the legacy card flow funded.
 const MAINNET_USDC_ADDRESS = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
@@ -30,8 +31,10 @@ export function useCardOnramp() {
   const triggerCardFund = React.useCallback(
     (target: { address: `0x${string}`; amount: string }) => {
       setIsCardOnrampActive(true);
-      // fund() rejects on user exit as well as real errors; swallow so a
-      // closed modal doesn't surface as an unhandled rejection.
+      // fund() rejects on user exit as well as real errors — never rethrow
+      // (a closed modal must not surface as an unhandled rejection), but log
+      // and Sentry-capture so real provider failures are debuggable. Privy's
+      // own modal only shows a generic "Something went wrong".
       void fund({
         source: { defaultAsset: "usd" },
         destination: {
@@ -41,7 +44,10 @@ export function useCardOnramp() {
         },
         defaultAmount: target.amount,
       })
-        .catch(() => {})
+        .catch((error) => {
+          console.error("[card-onramp] fund failed", error);
+          capturePrivyWalletError(error, "card_onramp");
+        })
         .finally(() => setIsCardOnrampActive(false));
     },
     [fund],
