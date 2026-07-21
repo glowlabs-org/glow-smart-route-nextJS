@@ -327,7 +327,7 @@ export function SwapInterface({
     address: `0x${string}`;
     amount: string;
   } | null>(null);
-  const triggerCardFund = useCardOnramp();
+  const { triggerCardFund } = useCardOnramp();
   const { login: privyLogin } = useLogin({
     onComplete: () => {
       const pending = pendingCardFundRef.current;

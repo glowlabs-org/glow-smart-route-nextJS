@@ -1080,7 +1080,7 @@ export function BuyGlowDialog({
     address: `0x${string}`;
     amount: string;
   } | null>(null);
-  const triggerCardFund = useCardOnramp();
+  const { triggerCardFund, isCardOnrampActive } = useCardOnramp();
   const { login: privyLogin } = useLogin({
     onComplete: () => {
       const pending = pendingCardFundRef.current;
@@ -3266,6 +3266,9 @@ export function BuyGlowDialog({
   return (
     <Dialog
       open={open}
+      // Non-modal while the Privy onramp modal is up: our focus trap would
+      // otherwise steal focus from its inputs (see useCardOnramp).
+      modal={!isCardOnrampActive}
       onOpenChange={(nextOpen) => {
         if (
           nextOpen ||

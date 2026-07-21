@@ -347,7 +347,7 @@ export function DepositDialog({
     address: `0x${string}`;
     amount: string;
   } | null>(null);
-  const triggerCardFund = useCardOnramp();
+  const { triggerCardFund, isCardOnrampActive } = useCardOnramp();
   const { login: privyLogin } = useLogin({
     onComplete: () => {
       const pending = pendingCardFundRef.current;
@@ -2705,7 +2705,13 @@ export function DepositDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog
+      open={open}
+      onOpenChange={handleClose}
+      // Non-modal while the Privy onramp modal is up: our focus trap would
+      // otherwise steal focus from its inputs (see useCardOnramp).
+      modal={!isCardOnrampActive}
+    >
       <DialogContent
         className="sm:max-w-md p-0 gap-0 overflow-hidden bg-card border border-border/40 text-foreground max-h-[90vh] overflow-y-auto overflow-x-hidden rounded-[24px]"
         onInteractOutside={(e) => e.preventDefault()}

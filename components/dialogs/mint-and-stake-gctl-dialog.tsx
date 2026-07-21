@@ -304,7 +304,7 @@ export function MintAndStakeGctlDialog({
     address: `0x${string}`;
     amount: string;
   } | null>(null);
-  const triggerCardFund = useCardOnramp();
+  const { triggerCardFund, isCardOnrampActive } = useCardOnramp();
   const { login: privyLogin } = useLogin({
     onComplete: () => {
       const pending = pendingCardFundRef.current;
@@ -1551,10 +1551,21 @@ export function MintAndStakeGctlDialog({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={handleDialogOpenChange}>
+      <Dialog
+        open={open}
+        onOpenChange={handleDialogOpenChange}
+        // Non-modal while the Privy onramp modal is up: our focus trap would
+        // otherwise steal focus from its inputs (see useCardOnramp).
+        modal={!isCardOnrampActive}
+      >
         <DialogContent
           showCloseButton={false}
           className="bg-card rounded-2xl p-0 sm:max-w-md w-full border border-border/40 overflow-hidden flex flex-col gap-0 max-h-[calc(100dvh-2rem)]"
+          // While non-modal for the Privy onramp, interactions inside the
+          // Privy modal are "outside" this dialog — don't let them close it.
+          onInteractOutside={(e) => {
+            if (isCardOnrampActive) e.preventDefault();
+          }}
         >
           {/* Header */}
           {step === 4 ? (

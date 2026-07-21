@@ -16,11 +16,20 @@ const MAINNET_CAIP2 = "eip155:1";
  * useFundWallet card flow, which could only pin MoonPay/Coinbase and never
  * surfaces Stripe. Requires @stripe/crypto to be installed for the Stripe
  * embedded flow (US-only, excl. NY; other regions fall back automatically).
+ *
+ * `isCardOnrampActive` is true while the Privy funding modal is open. Radix
+ * dialogs hosting the trigger MUST pass `modal={!isCardOnrampActive}`: the
+ * Privy modal portals to <body>, and a modal Radix dialog's focus trap keeps
+ * pulling focus back, making Privy's inputs (e.g. date of birth) untypeable.
+ * The legacy flow escaped this by opening a popup window; the embedded flow
+ * renders in-page.
  */
 export function useCardOnramp() {
   const { fund } = useFiatOnramp();
-  return React.useCallback(
+  const [isCardOnrampActive, setIsCardOnrampActive] = React.useState(false);
+  const triggerCardFund = React.useCallback(
     (target: { address: `0x${string}`; amount: string }) => {
+      setIsCardOnrampActive(true);
       // fund() rejects on user exit as well as real errors; swallow so a
       // closed modal doesn't surface as an unhandled rejection.
       void fund({
@@ -31,8 +40,11 @@ export function useCardOnramp() {
           address: target.address,
         },
         defaultAmount: target.amount,
-      }).catch(() => {});
+      })
+        .catch(() => {})
+        .finally(() => setIsCardOnrampActive(false));
     },
     [fund],
   );
+  return { triggerCardFund, isCardOnrampActive };
 }
