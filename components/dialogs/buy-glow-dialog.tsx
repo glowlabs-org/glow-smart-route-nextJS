@@ -92,10 +92,10 @@ import {
 } from "@/web3/web3/utils/detectSmartAccount";
 import {
   useConnectWallet,
-  useFundWallet,
   useLogin,
   usePrivy,
 } from "@privy-io/react-auth";
+import { useCardOnramp } from "@/hooks/use-card-onramp";
 import { capturePrivyWalletError } from "@/lib/privy-errors";
 import { useLang } from "@/lib/i18n";
 import { NetworkRequirementBanner } from "@/components/dialogs/network-requirement-banner";
@@ -1080,22 +1080,7 @@ export function BuyGlowDialog({
     address: `0x${string}`;
     amount: string;
   } | null>(null);
-  const { fundWallet: privyFundWallet } = useFundWallet();
-  const triggerCardFund = React.useCallback(
-    (target: { address: `0x${string}`; amount: string }) => {
-      void privyFundWallet({
-        address: target.address,
-        options: {
-          asset: "USDC",
-          amount: target.amount,
-          chain: mainnet,
-          defaultFundingMethod: "card",
-          card: { preferredProvider: "moonpay" },
-        },
-      });
-    },
-    [privyFundWallet]
-  );
+  const triggerCardFund = useCardOnramp();
   const { login: privyLogin } = useLogin({
     onComplete: () => {
       const pending = pendingCardFundRef.current;

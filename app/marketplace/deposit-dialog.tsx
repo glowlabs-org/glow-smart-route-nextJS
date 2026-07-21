@@ -17,12 +17,12 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { PointsIcon } from "@/components/impact-icons";
-import { mainnet, sepolia } from "wagmi/chains";
+import { sepolia } from "wagmi/chains";
 import {
-  useFundWallet,
   useLogin,
   usePrivy,
 } from "@privy-io/react-auth";
+import { useCardOnramp } from "@/hooks/use-card-onramp";
 import { capturePrivyWalletError } from "@/lib/privy-errors";
 import { GlowSymbol } from "@/components/glow-symbol";
 import { cn } from "@/lib/utils";
@@ -347,22 +347,7 @@ export function DepositDialog({
     address: `0x${string}`;
     amount: string;
   } | null>(null);
-  const { fundWallet: privyFundWallet } = useFundWallet();
-  const triggerCardFund = React.useCallback(
-    (target: { address: `0x${string}`; amount: string }) => {
-      void privyFundWallet({
-        address: target.address,
-        options: {
-          asset: "USDC",
-          amount: target.amount,
-          chain: mainnet,
-          defaultFundingMethod: "card",
-          card: { preferredProvider: "moonpay" },
-        },
-      });
-    },
-    [privyFundWallet],
-  );
+  const triggerCardFund = useCardOnramp();
   const { login: privyLogin } = useLogin({
     onComplete: () => {
       const pending = pendingCardFundRef.current;

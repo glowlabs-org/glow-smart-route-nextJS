@@ -6,12 +6,12 @@ import { formatUnits, parseUnits } from "viem";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { useAccount, useBalance, useChainId } from "wagmi";
-import { mainnet, sepolia } from "wagmi/chains";
+import { sepolia } from "wagmi/chains";
 import {
-  useFundWallet,
   useLogin,
   usePrivy,
 } from "@privy-io/react-auth";
+import { useCardOnramp } from "@/hooks/use-card-onramp";
 import {
   Sun,
   X,
@@ -304,22 +304,7 @@ export function MintAndStakeGctlDialog({
     address: `0x${string}`;
     amount: string;
   } | null>(null);
-  const { fundWallet: privyFundWallet } = useFundWallet();
-  const triggerCardFund = React.useCallback(
-    (target: { address: `0x${string}`; amount: string }) => {
-      void privyFundWallet({
-        address: target.address,
-        options: {
-          asset: "USDC",
-          amount: target.amount,
-          chain: mainnet,
-          defaultFundingMethod: "card",
-          card: { preferredProvider: "moonpay" },
-        },
-      });
-    },
-    [privyFundWallet]
-  );
+  const triggerCardFund = useCardOnramp();
   const { login: privyLogin } = useLogin({
     onComplete: () => {
       const pending = pendingCardFundRef.current;

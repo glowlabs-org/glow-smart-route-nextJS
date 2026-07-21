@@ -37,10 +37,10 @@ import {
 import { formatUnits, parseUnits, type Address } from "viem";
 import { mainnet, sepolia } from "wagmi/chains";
 import {
-  useFundWallet,
   useLogin,
   usePrivy,
 } from "@privy-io/react-auth";
+import { useCardOnramp } from "@/hooks/use-card-onramp";
 import { capturePrivyWalletError } from "@/lib/privy-errors";
 import { AlertTriangle, ArrowDownUp, CreditCard, Info, Settings } from "lucide-react";
 import { useSwapUSDCToUSDG } from "@/hooks/useSwapUSDCToUSDG";
@@ -327,22 +327,7 @@ export function SwapInterface({
     address: `0x${string}`;
     amount: string;
   } | null>(null);
-  const { fundWallet: privyFundWallet } = useFundWallet();
-  const triggerCardFund = React.useCallback(
-    (target: { address: `0x${string}`; amount: string }) => {
-      void privyFundWallet({
-        address: target.address,
-        options: {
-          asset: "USDC",
-          amount: target.amount,
-          chain: mainnet,
-          defaultFundingMethod: "card",
-          card: { preferredProvider: "moonpay" },
-        },
-      });
-    },
-    [privyFundWallet]
-  );
+  const triggerCardFund = useCardOnramp();
   const { login: privyLogin } = useLogin({
     onComplete: () => {
       const pending = pendingCardFundRef.current;
