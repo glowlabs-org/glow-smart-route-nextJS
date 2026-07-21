@@ -3161,9 +3161,7 @@ export function BuyGlowDialog({
                 ).toFixed(2);
                 const isMinimumApplied = roundedTarget < MIN_CARD_FUND_USDC;
                 return (
-                  // Hidden on mobile: in-app dApp browsers silently block
-                  // the on-ramp popup; card flow stays desktop-only.
-                  <div className="hidden lg:block space-y-1">
+                  <div className="space-y-1">
                     <Button
                       type="button"
                       variant="outline"
@@ -3184,74 +3182,80 @@ export function BuyGlowDialog({
               })()}
             </div>
           ) : (
-            <div className="space-y-2">
-              <Button
-                className="w-full h-12 rounded-xl text-base font-medium"
-                onClick={handleBuyGlow}
-                disabled={
-                  !inputAmount ||
-                  Number(inputAmount) <= 0 ||
-                  Number(inputAmount) > Number(availablePayBalanceFormatted) ||
-                  !estimatedGlw ||
-                  isEstimating ||
-                  isPreparingPurchase ||
-                  fullFlowGasPreflight.isChecking ||
-                  hasInsufficientFullFlowGas ||
-                  !hasCurrentBuyGlowQuote
-                }
-              >
-                {(isEstimating ||
-                  isPreparingPurchase ||
-                  fullFlowGasPreflight.isChecking) && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                {t.buyGlow.buyGlw}
-              </Button>
-              {(() => {
-                if (payToken !== "USDC") return null;
-                const usdcBalanceUsd =
-                  usdcBalance != null
-                    ? Number(formatUnits(usdcBalance, 6))
-                    : 0;
-                const desiredUsdc = Number(inputAmount);
-                if (!Number.isFinite(desiredUsdc) || desiredUsdc <= 0)
-                  return null;
-                // Always offered: fund the shortfall when the balance partly
-                // covers the buy, else the full entered amount (card instead
-                // of balance).
-                const deficitUsd = desiredUsdc - usdcBalanceUsd;
-                const targetUsd = deficitUsd > 0 ? deficitUsd : desiredUsdc;
-                // Floor at $20 to clear MoonPay/Coinbase Onramp minimums.
-                // Surplus stays in the user's wallet as USDC.
-                const MIN_CARD_FUND_USDC = 20;
-                const roundedTarget = Math.ceil(targetUsd * 100) / 100;
-                const cardFundAmount = Math.max(
-                  MIN_CARD_FUND_USDC,
-                  roundedTarget
-                ).toFixed(2);
-                const isMinimumApplied = roundedTarget < MIN_CARD_FUND_USDC;
-                return (
-                  // Hidden on mobile: in-app dApp browsers silently block
-                  // the on-ramp popup; card flow stays desktop-only.
-                  <div className="hidden lg:block space-y-1">
+            (() => {
+              const usdcBalanceUsd =
+                usdcBalance != null ? Number(formatUnits(usdcBalance, 6)) : 0;
+              const desiredUsdc = Number(inputAmount);
+              const hasValidAmount =
+                Number.isFinite(desiredUsdc) && desiredUsdc > 0;
+              const showCardOption = payToken === "USDC" && hasValidAmount;
+              // When USDC can't cover the entered amount, the Buy GLW CTA
+              // would just sit disabled — hide it and let the card onramp
+              // (which funds the shortfall) be the single action.
+              const insufficientUsdc =
+                showCardOption && desiredUsdc > usdcBalanceUsd;
+              // Fund the shortfall when the balance partly covers the buy,
+              // else the full entered amount (card instead of balance).
+              const targetUsd = insufficientUsdc
+                ? desiredUsdc - usdcBalanceUsd
+                : desiredUsdc;
+              // Floor at $20 to clear MoonPay/Coinbase Onramp minimums.
+              // Surplus stays in the user's wallet as USDC.
+              const MIN_CARD_FUND_USDC = 20;
+              const roundedTarget = Math.ceil(targetUsd * 100) / 100;
+              const cardFundAmount = Math.max(
+                MIN_CARD_FUND_USDC,
+                roundedTarget
+              ).toFixed(2);
+              const isMinimumApplied = roundedTarget < MIN_CARD_FUND_USDC;
+              return (
+                <div className="space-y-2">
+                  {!insufficientUsdc && (
                     <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => handleBuyWithCard(cardFundAmount)}
-                      className="w-full h-11 gap-2 font-medium rounded-xl"
+                      className="w-full h-12 rounded-xl text-base font-medium"
+                      onClick={handleBuyGlow}
+                      disabled={
+                        !inputAmount ||
+                        Number(inputAmount) <= 0 ||
+                        Number(inputAmount) >
+                          Number(availablePayBalanceFormatted) ||
+                        !estimatedGlw ||
+                        isEstimating ||
+                        isPreparingPurchase ||
+                        fullFlowGasPreflight.isChecking ||
+                        hasInsufficientFullFlowGas ||
+                        !hasCurrentBuyGlowQuote
+                      }
                     >
-                      <CreditCard className="h-4 w-4" />
-                      {t.wallet.buyAmountUsdcWithCard(cardFundAmount)}
+                      {(isEstimating ||
+                        isPreparingPurchase ||
+                        fullFlowGasPreflight.isChecking) && (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      )}
+                      {t.buyGlow.buyGlw}
                     </Button>
-                    {isMinimumApplied && (
-                      <p className="text-xs text-muted-foreground text-center">
-                        {t.wallet.cardOnRampMinNotice}
-                      </p>
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
+                  )}
+                  {showCardOption && (
+                    <div className="space-y-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => handleBuyWithCard(cardFundAmount)}
+                        className="w-full h-11 gap-2 font-medium rounded-xl"
+                      >
+                        <CreditCard className="h-4 w-4" />
+                        {t.wallet.buyAmountUsdcWithCard(cardFundAmount)}
+                      </Button>
+                      {isMinimumApplied && (
+                        <p className="text-xs text-muted-foreground text-center">
+                          {t.wallet.cardOnRampMinNotice}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()
           )}
         </div>
         {isConnected && !isWrongNetwork && hasInsufficientFullFlowGas && (
