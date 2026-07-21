@@ -3172,17 +3172,20 @@ export function BuyGlowDialog({
                 const desiredUsdc = Number(inputAmount);
                 if (!Number.isFinite(desiredUsdc) || desiredUsdc <= 0)
                   return null;
-                if (desiredUsdc <= usdcBalanceUsd) return null;
+                // Always offered: fund the shortfall when the balance partly
+                // covers the buy, else the full entered amount (card instead
+                // of balance).
                 const deficitUsd = desiredUsdc - usdcBalanceUsd;
+                const targetUsd = deficitUsd > 0 ? deficitUsd : desiredUsdc;
                 // Floor at $20 to clear MoonPay/Coinbase Onramp minimums.
                 // Surplus stays in the user's wallet as USDC.
                 const MIN_CARD_FUND_USDC = 20;
-                const roundedDeficit = Math.ceil(deficitUsd * 100) / 100;
+                const roundedTarget = Math.ceil(targetUsd * 100) / 100;
                 const cardFundAmount = Math.max(
                   MIN_CARD_FUND_USDC,
-                  roundedDeficit
+                  roundedTarget
                 ).toFixed(2);
-                const isMinimumApplied = roundedDeficit < MIN_CARD_FUND_USDC;
+                const isMinimumApplied = roundedTarget < MIN_CARD_FUND_USDC;
                 return (
                   // Hidden on mobile: in-app dApp browsers silently block
                   // the on-ramp popup; card flow stays desktop-only.
