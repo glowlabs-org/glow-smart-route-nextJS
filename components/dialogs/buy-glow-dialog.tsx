@@ -3121,24 +3121,68 @@ export function BuyGlowDialog({
               </Button>
             </div>
           ) : mode === "miner" ? (
-            <Button
-              className="w-full h-12 rounded-xl text-base font-medium"
-              onClick={handleBuyMiner}
-              disabled={
-                minerBusy ||
-                fullFlowGasPreflight.isChecking ||
-                hasInsufficientFullFlowGas ||
-                !selectedMinerFraction ||
-                minerRemaining < 1
-              }
-            >
-              {(minerBusy || fullFlowGasPreflight.isChecking) && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              {`Buy ${minerClampedQty} miner${
-                minerClampedQty > 1 ? "s" : ""
-              } · ${formatUsdAmount(minerTotalUsd)}`}
-            </Button>
+            <div className="space-y-2">
+              <Button
+                className="w-full h-12 rounded-xl text-base font-medium"
+                onClick={handleBuyMiner}
+                disabled={
+                  minerBusy ||
+                  fullFlowGasPreflight.isChecking ||
+                  hasInsufficientFullFlowGas ||
+                  !selectedMinerFraction ||
+                  minerRemaining < 1
+                }
+              >
+                {(minerBusy || fullFlowGasPreflight.isChecking) && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                {`Buy ${minerClampedQty} miner${
+                  minerClampedQty > 1 ? "s" : ""
+                } · ${formatUsdAmount(minerTotalUsd)}`}
+              </Button>
+              {(() => {
+                if (payToken !== "USDC") return null;
+                if (!(minerTotalUsd > 0)) return null;
+                const usdcBalanceUsd =
+                  usdcBalance != null
+                    ? Number(formatUnits(usdcBalance, 6))
+                    : 0;
+                // Same rule as the GLW footer: fund the shortfall when the
+                // balance partly covers the checkout, else the full total.
+                const deficitUsd = minerTotalUsd - usdcBalanceUsd;
+                const targetUsd = deficitUsd > 0 ? deficitUsd : minerTotalUsd;
+                // Floor at $20 to clear MoonPay/Coinbase Onramp minimums.
+                // Surplus stays in the user's wallet as USDC.
+                const MIN_CARD_FUND_USDC = 20;
+                const roundedTarget = Math.ceil(targetUsd * 100) / 100;
+                const cardFundAmount = Math.max(
+                  MIN_CARD_FUND_USDC,
+                  roundedTarget
+                ).toFixed(2);
+                const isMinimumApplied = roundedTarget < MIN_CARD_FUND_USDC;
+                return (
+                  // Hidden on mobile: in-app dApp browsers silently block
+                  // the on-ramp popup; card flow stays desktop-only.
+                  <div className="hidden lg:block space-y-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => handleBuyWithCard(cardFundAmount)}
+                      disabled={minerBusy}
+                      className="w-full h-11 gap-2 font-medium rounded-xl"
+                    >
+                      <CreditCard className="h-4 w-4" />
+                      {t.wallet.buyAmountUsdcWithCard(cardFundAmount)}
+                    </Button>
+                    {isMinimumApplied && (
+                      <p className="text-xs text-muted-foreground text-center">
+                        {t.wallet.cardOnRampMinNotice}
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
           ) : (
             <div className="space-y-2">
               <Button
