@@ -40,18 +40,30 @@ import {
 function detectWalletBrand(
   walletClient: ReturnType<typeof useWalletClient>["data"]
 ):
-  | { brand: "metamask"; isMetaMask: true }
-  | { brand: "unknown"; isMetaMask: false } {
+  | { brand: "metamask"; isMetaMask: true; isCoinbase: false }
+  | { brand: "coinbase"; isMetaMask: false; isCoinbase: true }
+  | { brand: "unknown"; isMetaMask: false; isCoinbase: false } {
   // Try to infer brand from provider flags
   const eth =
     typeof window !== "undefined" ? (window as any).ethereum : undefined;
-  if (
-    eth?.isMetaMask ||
-    (walletClient as any)?.transport?.name?.toLowerCase?.().includes("metamask")
-  ) {
-    return { brand: "metamask", isMetaMask: true };
+  const transportName: string =
+    (walletClient as any)?.transport?.name?.toLowerCase?.() ?? "";
+  if (eth?.isCoinbaseWallet || transportName.includes("coinbase")) {
+    return { brand: "coinbase", isMetaMask: false, isCoinbase: true };
   }
-  return { brand: "unknown", isMetaMask: false };
+  if (eth?.isMetaMask || transportName.includes("metamask")) {
+    return { brand: "metamask", isMetaMask: true, isCoinbase: false };
+  }
+  return { brand: "unknown", isMetaMask: false, isCoinbase: false };
+}
+
+interface DialogContentShape {
+  title: string;
+  description: string;
+  why: string[];
+  directivesMetaMask: string[];
+  directivesGeneric: string[];
+  directivesCoinbase?: string[];
 }
 
 // ---------- props ----------
@@ -131,7 +143,7 @@ export function SmartAccountWarningDialog({
   }, [triggerCheck, isConnected, address, chainId]);
 
   // ---------- derived content ----------
-  function getDialogContent() {
+  function getDialogContent(): DialogContentShape {
     if (smartAccountStatus?.isEip7702Delegated) {
       return {
         title: "Incompatible wallet detected",
@@ -139,7 +151,8 @@ export function SmartAccountWarningDialog({
           "Delegated (smart) accounts cannot interact with Glow contracts.",
         why: [
           "Delegation changes how transactions are authorized and can break on-chain assumptions.",
-          "Some calls require a plain EOA signer; delegation introduces a contract-based dispatcher.",
+          "Glow's GLW and USDG contracts reject any transfer to an address that has contract code attached, and a delegated account always does.",
+          "Your funds, miners, and pending rewards are safe. Removing the delegation restores full access.",
         ],
         directivesMetaMask: [
           "Open MetaMask and click on your account name",
@@ -154,6 +167,14 @@ export function SmartAccountWarningDialog({
           "Disable these features for your current address",
           "Save the changes and reconnect your wallet",
           "Return here and click 'Recheck Now' to verify",
+        ],
+        directivesCoinbase: [
+          "Coinbase Wallet upgraded your address to a smart account, and there is no way to turn this off inside Coinbase Wallet itself. The delegation can only be removed from a wallet app that supports it.",
+          "Export your recovery phrase from Coinbase Wallet (Settings > Show recovery phrase)",
+          "Import it into MetaMask or Ambire. Your address, miners, and funds stay exactly the same.",
+          "In MetaMask: open Account details and toggle the smart account switch OFF, then confirm the transaction on Ethereum mainnet. In Ambire: use the built-in option to revert your Smart EOA.",
+          "Verify on Etherscan that your address no longer shows a delegated address. It must be fully cleared; a delegation pointed at a burn address does NOT fix this.",
+          "Reconnect to Glow with the same address and click 'Recheck Wallet'",
         ],
       };
     }
@@ -272,6 +293,11 @@ export function SmartAccountWarningDialog({
   if (!open) return null;
 
   const showMetaMaskPath = walletBrand.isMetaMask;
+  const showCoinbasePath =
+    walletBrand.isCoinbase && !!content.directivesCoinbase;
+  const etherscanAddressUrl = address
+    ? `https://etherscan.io/address/${address}`
+    : "https://etherscan.io";
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -325,7 +351,67 @@ export function SmartAccountWarningDialog({
                 Resolution Steps
               </h4>
 
-              {showMetaMaskPath ? (
+              {showCoinbasePath ? (
+                <div className="rounded-xl border border-border/30 dark:border-border/40 bg-card overflow-hidden">
+                  <div className="p-5 space-y-4">
+                    <div className="flex items-start gap-4">
+                      <div className="flex-1">
+                        <h4 className="text-base font-medium text-foreground mb-4">
+                          Remove the delegation (Coinbase Wallet)
+                        </h4>
+                        <ol className="space-y-4">
+                          {content.directivesCoinbase!.map((step, i) => (
+                            <li
+                              key={i}
+                              className="flex gap-3 text-sm text-muted-foreground"
+                            >
+                              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs font-medium text-foreground">
+                                {i + 1}
+                              </span>
+                              <span className="pt-0.5 leading-relaxed">
+                                {step}
+                              </span>
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    </div>
+
+                    <div className="pt-4 flex flex-col sm:flex-row gap-3">
+                      <Button
+                        variant="outline"
+                        size="default"
+                        className="flex-1"
+                        onClick={() =>
+                          window.open(
+                            metamaskDocsUrl,
+                            "_blank",
+                            "noopener,noreferrer"
+                          )
+                        }
+                      >
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Open MetaMask Guide
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="default"
+                        className="flex-1"
+                        onClick={() =>
+                          window.open(
+                            etherscanAddressUrl,
+                            "_blank",
+                            "noopener,noreferrer"
+                          )
+                        }
+                      >
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Check Address on Etherscan
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : showMetaMaskPath ? (
                 <div className="rounded-xl border border-border/30 dark:border-border/40 bg-card overflow-hidden">
                   <div className="p-5 space-y-4">
                     <div className="flex items-start gap-4">
