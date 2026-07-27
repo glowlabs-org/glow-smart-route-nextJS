@@ -22,6 +22,7 @@ export const KOL_WALLETS: readonly string[] = [
   "0xc3af61653fdf78f6309542f943093b9f75fb9514", // Andy (yourfriendandy)
   "0x56eb8023691b4a86eaa96287151654474611b076", // Nhuelz
   "0x87fc83f37b6762a6ce87e1d5c3333b1d7b6cc832", // TheCrypticWolf (@lironieeth)
+  "0xe7b77727915658a3faf85b0995d0f97d67feaa8f", // Maverick
 ] as const;
 
 const KOL_SET = new Set(KOL_WALLETS);
