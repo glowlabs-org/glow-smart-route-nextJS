@@ -1144,6 +1144,22 @@ export function initializeTransactionSteps(
       status: "idle",
     });
   } else {
+    // Paying from unclaimed rewards claims on-chain BEFORE delegating, in one
+    // or more separate transactions. Without a step of its own, a claim
+    // failure had no active step to attach to and got painted onto "Delegate
+    // GLW" — telling users the delegation failed when nothing had been
+    // delegated yet, and logging `failed_step: null` so the whole failure
+    // class was invisible in telemetry.
+    if (selectedPaymentMethod === "UNCLAIMED_REWARDS") {
+      steps.push({
+        id: "CLAIM_REWARDS",
+        title: "Claim your rewards",
+        description: "Claiming your unclaimed GLW so it can be delegated",
+        tokenTo: "GLW",
+        status: "idle",
+      });
+    }
+
     steps.push({
       id: "BUY_FRACTIONS",
       title: selectedCurrency === "USDC" ? "Purchase Miners" : "Delegate GLW",

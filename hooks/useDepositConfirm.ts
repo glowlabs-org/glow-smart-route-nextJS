@@ -20,6 +20,7 @@ import { bucketUsd } from "@/lib/telemetry-buckets";
 import { getStoredReferralAttribution } from "@/lib/referral-attribution";
 import { useLang } from "@/lib/i18n";
 import { type StepStatus } from "@/components/transaction-stepper";
+import { CLAIM_CANCELLED_REASON } from "@/hooks/useRewardsKernelWrapper";
 import {
   useSponsorApplication,
   type AuctionApplication,
@@ -631,6 +632,10 @@ export function useDepositConfirm(deps: UseDepositConfirmDeps) {
         // We should now have enough GLW.
         updateStepStatus("DELEGATE_GLW", "waiting_signature");
       } else if (isUnclaimedRewardsPayment) {
+        // Own the claim step for the whole claim phase, so any failure below
+        // is attributed here rather than to the delegation that never ran.
+        updateStepStatus("CLAIM_REWARDS", "waiting_signature");
+
         if (claimSetSelection.shortfallGlwWei > 0n) {
           throw new Error(
             "Not enough unclaimed GLW to fund this delegation. Lower the amount or pick another payment method.",
@@ -688,6 +693,26 @@ export function useDepositConfirm(deps: UseDepositConfirmDeps) {
             pdResult.txHash != null ||
             pdResult.alreadyClaimedWeeks.length === pdWeeklyData.length;
           if (!pdEffectiveCovered) {
+            // Report what actually went wrong. This used to be a fixed string,
+            // which meant a wallet that simply lacked ETH for gas — or a user
+            // who pressed reject — was shown "Failed to claim protocol deposit
+            // rewards" and had no idea what to do about it.
+            if (pdResult.failureReason === CLAIM_CANCELLED_REASON) {
+              // Phrased so the existing rejection detection below (which
+              // matches on the message) treats this as a cancel, not an error.
+              throw new Error("User rejected the claim transaction");
+            }
+            if (pdResult.failureReason) {
+              throw new Error(pdResult.failureReason);
+            }
+            // No send was attempted and nothing was already claimed: every
+            // selected week was skipped because the kernel does not consider
+            // it claimable yet.
+            if (pdResult.skippedWeeks.length > 0) {
+              throw new Error(
+                `Protocol deposit rewards for week(s) ${pdResult.skippedWeeks.join(", ")} are not claimable yet. They finalize on-chain a few days after the week closes — try again shortly, or pay with your GLW balance instead.`,
+              );
+            }
             throw new Error("Failed to claim protocol deposit rewards");
           }
         }
@@ -727,6 +752,7 @@ export function useDepositConfirm(deps: UseDepositConfirmDeps) {
         await refetchBalances();
         unclaimedGlw.refetch();
 
+        updateStepStatus("CLAIM_REWARDS", "completed");
         updateStepStatus("BUY_FRACTIONS", "waiting_signature");
       } else {
         updateStepStatus("BUY_FRACTIONS", "waiting_signature");
