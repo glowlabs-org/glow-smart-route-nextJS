@@ -26,7 +26,7 @@
     "@aws-sdk/s3-request-presigner": "3.859.0",
     "@coinbase/wallet-sdk": "4.3.7",
     "@glowlabs-org/guarded-launch-abis": "0.0.2",
-    "@glowlabs-org/utils": "0.2.181",
+    "@glowlabs-org/utils": "0.2.183",
     "@hookform/resolvers": "3.10.0",
     "@privy-io/react-auth": "3.35.1",
     "@privy-io/wagmi": "4.0.6",
