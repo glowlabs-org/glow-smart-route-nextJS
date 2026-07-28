@@ -395,3 +395,55 @@ describe("isSwapDelegate detection", () => {
     expect(ethSteps.map((s) => s.id)).not.toContain("DELEGATE_GLW");
   });
 });
+
+// ============================================================================
+// Paying from unclaimed rewards
+// ============================================================================
+
+describe("unclaimed-rewards delegation steps", () => {
+  it("adds a dedicated claim step before the delegation", () => {
+    const steps = initializeTransactionSteps("GLW", "UNCLAIMED_REWARDS");
+
+    expect(steps.map((s) => s.id)).toEqual([
+      "CLAIM_REWARDS",
+      "BUY_FRACTIONS",
+      "CONFIRM_TX",
+    ]);
+  });
+
+  it("claims before delegating, never after", () => {
+    const ids = initializeTransactionSteps("GLW", "UNCLAIMED_REWARDS").map(
+      (s) => s.id,
+    );
+
+    expect(ids.indexOf("CLAIM_REWARDS")).toBeLessThan(
+      ids.indexOf("BUY_FRACTIONS"),
+    );
+  });
+
+  it("is not treated as a swap delegate", () => {
+    // The reward GLW is claimed then delegated; showing USDC->USDG->GLW swap
+    // steps here would not match what actually executes.
+    const ids = initializeTransactionSteps("GLW", "UNCLAIMED_REWARDS").map(
+      (s) => s.id,
+    );
+
+    expect(ids).not.toContain("SWAP_USDC_TO_USDG");
+    expect(ids).not.toContain("SWAP_USDG_TO_GLOW");
+    expect(ids).not.toContain("DELEGATE_GLW");
+  });
+
+  it("does NOT add the claim step for other payment methods", () => {
+    // A claim failure must have its own step to attach to, but only on the
+    // path that actually claims.
+    for (const method of ["GLW", "USDC", "ETH"] as const) {
+      const ids = initializeTransactionSteps("GLW", method).map((s) => s.id);
+      expect(ids).not.toContain("CLAIM_REWARDS");
+    }
+  });
+
+  it("all steps start idle", () => {
+    const steps = initializeTransactionSteps("GLW", "UNCLAIMED_REWARDS");
+    for (const step of steps) expect(step.status).toBe("idle");
+  });
+});

@@ -6,7 +6,12 @@ import { useWalletClient, usePublicClient } from "wagmi";
 import { mainnet, sepolia } from "wagmi/chains";
 import { useWallets as usePrivyWallets } from "@privy-io/react-auth";
 import { toast } from "sonner";
-import { getContract, createWalletClient, custom } from "viem";
+import {
+  getContract,
+  createWalletClient,
+  custom,
+  encodeFunctionData,
+} from "viem";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   // Not a React hook despite the name — a plain factory that binds claim
@@ -17,6 +22,7 @@ import {
   type TokenAndAmount,
   RewardsKernelError,
   getAddresses,
+  REWARDS_KERNEL_ABI,
 } from "@glowlabs-org/utils/browser";
 import { MinerPoolAndGCAABI } from "@glowlabs-org/guarded-launch-abis";
 import { addresses } from "@/web3/constants/addresses";
@@ -100,9 +106,17 @@ export interface ProtocolDepositMulticallWeek {
 // "this week is now in the claimed state" and apply their optimistic UI
 // update accordingly — that way a retry after a dropped modal still
 // reconciles the UI even though the indexer has not caught up yet.
+//
+// `skippedWeeks` covers weeks the kernel refused to include (not finalized
+// on-chain yet, or no on-chain assets on the leaf) and `failureReason` is set
+// when the send itself failed. Both exist so a caller can tell "nothing to do"
+// and "the wallet could not pay" apart from a genuine defect, instead of
+// collapsing every non-tx outcome into one generic error.
 export interface ClaimAllProtocolDepositsResult {
   txHash: string | null;
   alreadyClaimedWeeks: number[];
+  skippedWeeks: number[];
+  failureReason?: string;
 }
 
 type ClaimAttemptResult =
@@ -174,6 +188,10 @@ export interface UseRewardsKernelWrapperResult {
 function asLowerHexAddress(value: `0x${string}`): `0x${string}` {
   return value.toLowerCase() as `0x${string}`;
 }
+
+// Sentinel `failureReason` for "the user chose to stop". Callers check this to
+// avoid escalating a deliberate cancel into an error dialog.
+export const CLAIM_CANCELLED_REASON = "cancelled";
 
 function isUserRejectedMessage(message?: string | null): boolean {
   if (!message) return false;
@@ -1108,19 +1126,23 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
     async (
       weeklyData: ProtocolDepositMulticallWeek[],
     ): Promise<ClaimAllProtocolDepositsResult> => {
-      const empty: ClaimAllProtocolDepositsResult = {
+      const failed = (
+        failureReason: string,
+      ): ClaimAllProtocolDepositsResult => ({
         txHash: null,
         alreadyClaimedWeeks: [],
-      };
+        skippedWeeks: [],
+        failureReason,
+      });
 
       if (!walletClient?.account?.address) {
         toast.error("Please connect your wallet");
-        return empty;
+        return failed("Wallet not connected");
       }
 
       if (!weeklyData.length) {
         toast.info("No protocol deposit rewards available to claim");
-        return empty;
+        return { txHash: null, alreadyClaimedWeeks: [], skippedWeeks: [] };
       }
 
       setIsClaimingAll(true);
@@ -1175,7 +1197,68 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           } else {
             toast.info("No protocol deposit rewards available to claim");
           }
-          return { txHash: null, alreadyClaimedWeeks };
+          return { txHash: null, alreadyClaimedWeeks, skippedWeeks };
+        }
+
+        // Preflight the gas cost. `simulateContract` is an eth_call and does
+        // NOT check the sender's ETH balance, so a wallet with no gas money
+        // sails through simulation and only fails at the wallet send — where
+        // the provider's "insufficient funds" text used to get flattened away
+        // and reported as a generic claim failure. Checking here means the
+        // user is told to add ETH before a popup ever opens.
+        if (publicClient) {
+          try {
+            // Mirrors the calldata the SDK builds for the same multicall.
+            const callData = claims.map((claim) =>
+              encodeFunctionData({
+                abi: REWARDS_KERNEL_ABI,
+                functionName: "claimPayout",
+                args: [
+                  claim.nonce,
+                  claim.proof as `0x${string}`[],
+                  claim.tokensAndAmounts as readonly {
+                    token: `0x${string}`;
+                    amount: bigint;
+                  }[],
+                  claim.from as `0x${string}`,
+                  claim.to as `0x${string}`,
+                  claim.isGuardedToken,
+                  claim.toCounterfactual,
+                ],
+              }),
+            );
+
+            const [gasLimit, fees, balance] = await Promise.all([
+              publicClient.estimateContractGas({
+                address: SDKAddresses.REWARDS_KERNEL as `0x${string}`,
+                abi: REWARDS_KERNEL_ABI,
+                functionName: "multicall",
+                args: [callData],
+                account: userAddress,
+              }),
+              publicClient.estimateFeesPerGas(),
+              publicClient.getBalance({ address: userAddress }),
+            ]);
+
+            const maxFeePerGas =
+              fees.maxFeePerGas ?? fees.gasPrice ?? BigInt(0);
+            // 20% headroom: the wallet re-estimates at send time and a fee
+            // bump between our read and their popup should not surface as a
+            // confusing mid-flow failure.
+            const requiredWei = (gasLimit * maxFeePerGas * BigInt(120)) / BigInt(100);
+
+            if (balance < requiredWei) {
+              toast.error(INSUFFICIENT_GAS_ERROR_MESSAGE);
+              return failed(INSUFFICIENT_GAS_ERROR_MESSAGE);
+            }
+          } catch (preflightError) {
+            // Never block the claim on a preflight failure — the estimate is
+            // advisory. The send path still classifies the real error.
+            console.warn(
+              "Gas preflight for protocol deposit claim failed; continuing",
+              preflightError,
+            );
+          }
         }
 
         // Send through the active wallet's own provider (resolved fresh at
@@ -1213,7 +1296,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           },
         );
 
-        return { txHash, alreadyClaimedWeeks };
+        return { txHash, alreadyClaimedWeeks, skippedWeeks };
       } catch (error: any) {
         console.error("Claim all protocol deposits error:", error);
         const errorMessage =
@@ -1225,19 +1308,22 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
 
         if (isTransientWalletError(error)) {
           toast.error(error.message);
-        } else if (errorMessage.includes("User rejected")) {
+          return failed(error.message);
+        } else if (isUserRejectedMessage(errorMessage)) {
           toast.info("Transaction cancelled");
+          return failed(CLAIM_CANCELLED_REASON);
         } else if (isInsufficientGasError(error)) {
           toast.error(INSUFFICIENT_GAS_ERROR_MESSAGE);
+          return failed(INSUFFICIENT_GAS_ERROR_MESSAGE);
         } else if (isNonceTooLowError(error)) {
           toast.error(NONCE_TOO_LOW_ERROR_MESSAGE);
-        } else {
-          toast.error("Failed to claim all protocol deposits", {
-            description: errorMessage,
-          });
+          return failed(NONCE_TOO_LOW_ERROR_MESSAGE);
         }
 
-        return empty;
+        toast.error("Failed to claim all protocol deposits", {
+          description: errorMessage,
+        });
+        return failed(errorMessage);
       } finally {
         setIsClaimingAll(false);
       }
