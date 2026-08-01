@@ -33,6 +33,7 @@ import {
 import { useEthGasPreflight } from "@/hooks/useEthGasPreflight";
 import { useSmartAccountCheck } from "@/hooks/useSmartAccountCheck";
 import { useLang } from "@/lib/i18n";
+import { captureSwapDialogFailure } from "@/lib/swap-error-reporting";
 import { estimateSwapGasUnits } from "@/lib/transaction-gas";
 import { validateSmartBalancingQuote } from "@/lib/swap-quote";
 import { BONDING_CURVE_QUOTE_CHANGED_MESSAGE } from "@/lib/bonding-curve-budget";
@@ -771,6 +772,18 @@ export const UsdcToTokenDialog: FC<{
       const activeStep = currentSteps.find(
         (s) => s.status === "waiting_signature" || s.status === "confirming"
       );
+
+      captureSwapDialogFailure({
+        error,
+        fallbackMessage: s.transactionFailed,
+        sellToken: selectedTokenSell.label,
+        buyToken: selectedTokenBuy.label,
+        failedStep: activeStep?.id ?? null,
+        amountToSell,
+        reviewedMinimumOut: minimumAmountOut,
+        slippageBps: slippagePointsTenThousandths,
+        quote: smartBalancingAmounts,
+      });
       if (activeStep) {
         updateStepStatus(activeStep.id, "error", {
           errorMessage: error?.message || s.transactionFailed,

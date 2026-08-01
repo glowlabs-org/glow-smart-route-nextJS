@@ -54,6 +54,32 @@ Additional tags and context for ToS errors:
 | `swapStage: "glow_approval"` | GLW approval failed |
 | `swapStage: "glow_swap"` | GLW swap failed |
 
+### Swap Dialogs (`components/usdc-to-token-dialog.tsx`, `components/dialogs/buy-glow-dialog.tsx`)
+
+Emitted through the shared `captureSwapDialogFailure()` in `lib/swap-error-reporting.ts`.
+
+| Stage Tag | Description |
+|-----------|-------------|
+| `swapStage: "dialog_execute"` | A multi-leg GLW route failed inside the confirmation dialog |
+
+Additional tags: `sellToken`, `buyToken`, `failedStep` (the transaction-stepper
+step that was active, or `none`).
+
+Extra fields: `amountToSell`, `errorMessage`, `errorCode`, `errorReason`,
+`slippageBps`, `reviewedMinimumOut`, `quotedAmountInUni`,
+`quotedAmountInBonding`, `quotedAmountOutUni`, `quotedAmountOutBonding`.
+
+The quoted route legs are included because the minimum-out guards compare
+against them; a `This route cannot guarantee the minimum amount you reviewed`
+event is only diagnosable with the legs and the reviewed floor side by side.
+All bigints are stringified — Sentry serialises `extra` as JSON, which throws on
+a raw bigint and would drop the event.
+
+Note: these dialogs previously swallowed every throw into local UI state, so
+route-level failures were invisible in Sentry regardless of how many users hit
+them. User rejections are filtered out (code `4001`/`ACTION_REJECTED`, or a
+case-insensitive `user rejected`/`user denied` message).
+
 ### Rewards Claiming (`hooks/useRewardsKernelWrapper.ts`)
 
 | Stage Tag | Description |

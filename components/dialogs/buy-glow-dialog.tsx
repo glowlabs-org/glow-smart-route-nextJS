@@ -108,6 +108,7 @@ import {
 } from "@/lib/transaction-gas";
 import { getExpectedChainId } from "@/lib/wallet-chain";
 import { BONDING_CURVE_QUOTE_CHANGED_MESSAGE } from "@/lib/bonding-curve-budget";
+import { captureSwapDialogFailure } from "@/lib/swap-error-reporting";
 import {
   SWAP_QUOTE_MAX_AGE_MS,
   validateSmartBalancingQuote,
@@ -1642,6 +1643,9 @@ export function BuyGlowDialog({
     const purchaseLockToken = Symbol("glow-purchase");
     purchaseLockRef.current = purchaseLockToken;
     setIsPreparingPurchase(true);
+    // Declared outside the try so the catch can report the floor the route was
+    // measured against; it stays null if we failed before computing it.
+    let reviewedMinimumGlw: bigint | null = null;
 
     try {
       const smartAccountPreflight = await checkSmartAccountBeforeBuy(
@@ -1669,7 +1673,7 @@ export function BuyGlowDialog({
       // sum rendered with `toString()`, which drifts ~1 ulp from the per-leg
       // strings the guard parses, and the bonding leg only clears in whole
       // 0.01 GLW increments.
-      const reviewedMinimumGlw = computeGuaranteedGlowRouteMinimum({
+      const reviewedMinimum = computeGuaranteedGlowRouteMinimum({
         uniswapQuotedAmountOut:
           smartAmounts.amount_in_uni > 0n
             ? parseUnits(smartAmounts.amount_out_uni, 18)
@@ -1680,6 +1684,7 @@ export function BuyGlowDialog({
           bondingAllocation: smartAmounts.amount_in_glow_bonding_curve,
         }),
       });
+      reviewedMinimumGlw = reviewedMinimum;
       const assertRouteGuaranteesReviewedMinimum = (
         amounts: SmartBalancingAmounts,
         bondingIncrements: number | null,
@@ -1692,7 +1697,7 @@ export function BuyGlowDialog({
           slippageBps: 100n,
           bondingIncrements,
         });
-        if (guaranteedMinimum < reviewedMinimumGlw) {
+        if (guaranteedMinimum < reviewedMinimum) {
           throw new Error(
             "This route cannot guarantee the minimum amount you reviewed.",
           );
@@ -1889,7 +1894,7 @@ export function BuyGlowDialog({
         const replacementTotalGlow =
           parseUnits(effectiveSmartAmounts.amount_out_uni, 18) +
           parseUnits(effectiveSmartAmounts.amount_out_glow, 18);
-        if (replacementTotalGlow < reviewedMinimumGlw) {
+        if (replacementTotalGlow < reviewedMinimum) {
           throw new Error("The updated route is below the minimum you reviewed.");
         }
         validatedBondingPurchase =
@@ -2073,7 +2078,7 @@ export function BuyGlowDialog({
       const confirmedGlwReceived = enforceConfirmedGlowRouteMinimum({
         uniswapReceived: confirmedUniswapGlwReceived,
         bondingReceived: confirmedBondingGlwReceived,
-        reviewedMinimum: reviewedMinimumGlw,
+        reviewedMinimum,
       });
       const finalConfirmedGlw = formatUnits(confirmedGlwReceived, 18);
       setEstimatedGlw(finalConfirmedGlw);
@@ -2126,6 +2131,18 @@ export function BuyGlowDialog({
 
       setPhase("error");
       setErrorMessage(msg);
+
+      captureSwapDialogFailure({
+        error,
+        fallbackMessage: t.buyGlow.toastTransactionFailed,
+        sellToken: payToken,
+        buyToken: "GLOW",
+        failedStep: activeStep?.id ?? null,
+        amountToSell: inputAmount,
+        reviewedMinimumOut: reviewedMinimumGlw,
+        slippageBps: 100n,
+        quote: smartAmounts,
+      });
 
       const isUserRejected =
         msg.includes("User rejected") || msg.includes("user rejected");
