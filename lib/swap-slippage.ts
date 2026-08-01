@@ -83,6 +83,24 @@ export function enforceReviewedAmountOutMinimum(
   return safeReviewed > safeCurrent ? safeReviewed : safeCurrent;
 }
 
+// The bonding curve only sells whole 0.01 GLW increments, so a quote's bonding
+// leg is worth `floor(amount_out_glow * 100)` increments and no more. Both the
+// reviewed floor and the execution-time guard must derive it the same way, or
+// they disagree about an unchanged route.
+export function computeQuotedBondingIncrements({
+  amountOutGlow,
+  bondingAllocation,
+}: {
+  amountOutGlow: string | null | undefined;
+  bondingAllocation: bigint | null | undefined;
+}): number | null {
+  if (bondingAllocation == null || bondingAllocation <= 0n) return null;
+  const output = Number(amountOutGlow ?? "0");
+  if (!Number.isFinite(output) || output <= 0) return null;
+  const increments = Math.floor(output * 100);
+  return Number.isSafeInteger(increments) && increments > 0 ? increments : null;
+}
+
 export function computeGuaranteedGlowRouteMinimum({
   uniswapQuotedAmountOut,
   slippageBps,

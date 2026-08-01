@@ -100,6 +100,8 @@ import {
   parseSlippageTolerance,
   slippagePctToBps,
   computeAmountOutMin,
+  computeGuaranteedGlowRouteMinimum,
+  computeQuotedBondingIncrements,
 } from "@/lib/swap-slippage";
 import { NetworkRequirementBanner } from "@/components/dialogs/network-requirement-banner";
 import { chainIdToName, resolveWalletChainId } from "@/lib/tos-chain";
@@ -792,6 +794,7 @@ export function SwapInterface({
       return false;
     }
 
+    let minimumAmountOut: bigint;
     if (selectedTokenBuy.label === "GLOW") {
       let budgetAtomic: bigint | undefined;
       if (selectedTokenSell.label !== "ETH") {
@@ -806,21 +809,41 @@ export function SwapInterface({
         quote: smartBalancingAmounts,
         budgetAtomic,
       });
-      if (!validation.ok) {
-        toast.error(validation.error);
+      if (!validation.ok || !smartBalancingAmounts) {
+        toast.error(validation.ok ? t.swap.quoteRefreshing : validation.error);
         return false;
       }
-    }
-
-    let minimumAmountOut: bigint;
-    try {
-      minimumAmountOut = computeAmountOutMin(
-        parseUnits(currentTokenEstimatedOutputAmount, selectedTokenBuy.decimals),
-        slippageBps,
-      );
-    } catch {
-      toast.error(t.swap.quoteRefreshing);
-      return false;
+      // Derive the reviewed floor from the same route legs the execution-time
+      // guard recomputes. The display estimate is a float sum rendered with
+      // `toString()` while `amount_out_uni` is rendered with `toFixed(18)`; the
+      // two disagree by ~1 ulp, which was enough to make the guard reject an
+      // otherwise unchanged route.
+      try {
+        minimumAmountOut = computeGuaranteedGlowRouteMinimum({
+          uniswapQuotedAmountOut:
+            smartBalancingAmounts.amount_in_uni > 0n
+              ? parseUnits(smartBalancingAmounts.amount_out_uni, 18)
+              : 0n,
+          slippageBps,
+          bondingIncrements: computeQuotedBondingIncrements({
+            amountOutGlow: smartBalancingAmounts.amount_out_glow,
+            bondingAllocation: smartBalancingAmounts.amount_in_glow_bonding_curve,
+          }),
+        });
+      } catch {
+        toast.error(t.swap.quoteRefreshing);
+        return false;
+      }
+    } else {
+      try {
+        minimumAmountOut = computeAmountOutMin(
+          parseUnits(currentTokenEstimatedOutputAmount, selectedTokenBuy.decimals),
+          slippageBps,
+        );
+      } catch {
+        toast.error(t.swap.quoteRefreshing);
+        return false;
+      }
     }
 
     cancelPostDialogRefresh();

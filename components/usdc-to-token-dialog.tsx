@@ -39,6 +39,7 @@ import { BONDING_CURVE_QUOTE_CHANGED_MESSAGE } from "@/lib/bonding-curve-budget"
 import {
   computeAmountOutMin,
   computeGuaranteedGlowRouteMinimum,
+  computeQuotedBondingIncrements,
   enforceConfirmedGlowRouteMinimum,
 } from "@/lib/swap-slippage";
 import { useTransactionOperationGuard } from "@/hooks/useTransactionOperationGuard";
@@ -364,9 +365,11 @@ export const UsdcToTokenDialog: FC<{
         amounts: SmartBalancingAmounts | undefined,
       ) => {
         if (!amounts || amounts.amount_in_glow_bonding_curve <= 0n) return null;
-        const output = Number(amounts.amount_out_glow);
-        const increments = Math.floor(output * 100);
-        if (!Number.isFinite(output) || output <= 0 || increments <= 0) {
+        const increments = computeQuotedBondingIncrements({
+          amountOutGlow: amounts.amount_out_glow,
+          bondingAllocation: amounts.amount_in_glow_bonding_curve,
+        });
+        if (increments == null) {
           throw new Error(BONDING_CURVE_QUOTE_CHANGED_MESSAGE);
         }
         const freshQuote = await getGlowQuoteEarlyLiquidity(increments);

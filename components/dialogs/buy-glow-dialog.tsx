@@ -115,6 +115,7 @@ import {
 import {
   computeAmountOutMin,
   computeGuaranteedGlowRouteMinimum,
+  computeQuotedBondingIncrements,
   enforceConfirmedGlowRouteMinimum,
 } from "@/lib/swap-slippage";
 import { useTransactionOperationGuard } from "@/hooks/useTransactionOperationGuard";
@@ -1582,8 +1583,11 @@ export function BuyGlowDialog({
       const output = Number(amounts.amount_out_glow || "0");
       if (allocation <= 0n || !Number.isFinite(output) || output <= 0) return null;
 
-      const incrementsToPurchase = Math.floor(output * 100);
-      if (incrementsToPurchase <= 0) {
+      const incrementsToPurchase = computeQuotedBondingIncrements({
+        amountOutGlow: amounts.amount_out_glow,
+        bondingAllocation: allocation,
+      });
+      if (incrementsToPurchase == null) {
         throw new Error(BONDING_CURVE_QUOTE_CHANGED_MESSAGE);
       }
       const quoteResult = await getGlowQuoteEarlyLiquidity(incrementsToPurchase);
@@ -1661,10 +1665,21 @@ export function BuyGlowDialog({
       let prerequisiteWrapTxHash: `0x${string}` | undefined;
       let confirmedUniswapGlwReceived = 0n;
       let confirmedBondingGlwReceived = 0n;
-      const reviewedMinimumGlw = computeAmountOutMin(
-        parseUnits(estimatedGlw, 18),
-        100n,
-      );
+      // Same basis as the execution-time guard below: `estimatedGlw` is a float
+      // sum rendered with `toString()`, which drifts ~1 ulp from the per-leg
+      // strings the guard parses, and the bonding leg only clears in whole
+      // 0.01 GLW increments.
+      const reviewedMinimumGlw = computeGuaranteedGlowRouteMinimum({
+        uniswapQuotedAmountOut:
+          smartAmounts.amount_in_uni > 0n
+            ? parseUnits(smartAmounts.amount_out_uni, 18)
+            : 0n,
+        slippageBps: 100n,
+        bondingIncrements: computeQuotedBondingIncrements({
+          amountOutGlow: smartAmounts.amount_out_glow,
+          bondingAllocation: smartAmounts.amount_in_glow_bonding_curve,
+        }),
+      });
       const assertRouteGuaranteesReviewedMinimum = (
         amounts: SmartBalancingAmounts,
         bondingIncrements: number | null,
@@ -2134,7 +2149,6 @@ export function BuyGlowDialog({
     earlyLiquidityCurrentPrice,
     getSmartBalancingAmounts,
     inputAmount,
-    estimatedGlw,
     smartAmounts,
     lastEstimatedAt,
     lastEthToUsdcMinimum,
