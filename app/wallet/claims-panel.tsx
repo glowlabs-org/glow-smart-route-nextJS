@@ -2416,6 +2416,62 @@ export function ClaimsPanel({
     [weeklyBreakdown, getWeekClaimState, clockMs]
   );
 
+  // Per-currency totals for the weeks still in the pipeline. Mirrors
+  // `actualClaimableTotals` (skip streams already claimed) but over the
+  // not-yet-claimable weeks. Without this the hero renders a bare "0" directly
+  // above a breakdown listing hundreds of GLW, which reads as a bug.
+  const pendingTotals = React.useMemo(() => {
+    const totals: Record<string, number> = {};
+
+    pendingWeeks.forEach((weekData) => {
+      const { glwClaimed, protocolClaimed } = getWeekClaimState(weekData);
+
+      weekData.rewards.forEach((reward) => {
+        const isInflation = reward.type === "glowInflation";
+        if (isInflation ? glwClaimed : protocolClaimed) return;
+
+        const amount = parseFloat(reward.amount);
+        if (!isNaN(amount)) {
+          totals[reward.currency] = (totals[reward.currency] || 0) + amount;
+        }
+      });
+    });
+
+    return totals;
+  }, [pendingWeeks, getWeekClaimState]);
+
+  // "N GLW finalizing · first unlocks <date>" — null when nothing is pending.
+  const pendingSummaryLabel = React.useMemo(() => {
+    const entries = Object.entries(pendingTotals)
+      .filter(([, amount]) => amount > 0)
+      .sort((a, b) => {
+        if (a[0] === "GLW") return -1;
+        if (b[0] === "GLW") return 1;
+        return b[1] - a[1];
+      });
+    if (entries.length === 0 || pendingWeeks.length === 0) return null;
+
+    const firstUnlockMs = pendingWeeks.reduce(
+      (earliest, weekData) => Math.min(earliest, weekData.unlockMs),
+      pendingWeeks[0].unlockMs
+    );
+    const amounts = entries
+      .map(
+        ([currency, amount]) =>
+          `${formatCompactAmount(amount)} ${heroCurrencyLabel(currency)}`
+      )
+      .join(" · ");
+
+    return t.claims.heroPendingAmount(
+      amounts,
+      formatRewardPipelineDate(firstUnlockMs, {
+        month: "short",
+        day: "numeric",
+        locale: getBcp47(lang),
+      })
+    );
+  }, [pendingTotals, pendingWeeks, t.claims, lang]);
+
   const isDialog = variant === "dialog";
 
   // Loading state
@@ -2688,13 +2744,23 @@ export function ClaimsPanel({
                         <div className="text-sm font-medium text-foreground md:text-base">
                           {t.claims.weekLabel(weekData.week)}
                         </div>
+                        {/* This date is the week's UNLOCK date, not the week's
+                            own calendar date. Unlabelled it read as the latter,
+                            which made a future date under an elapsed week
+                            number look wrong (and the 3-vs-4 epoch wait for
+                            inflation-only vs PD weeks look like a skipped
+                            week). */}
                         <div className="text-[10px] font-mono text-muted-foreground/50 dark:text-muted-foreground/70">
-                          {formatRewardPipelineDate(weekData.unlockMs, {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                            locale: getBcp47(lang),
-                          })}
+                          {(clockMs >= weekData.unlockMs
+                            ? t.claims.rowUnlockedOn
+                            : t.claims.rowUnlocksOn)(
+                            formatRewardPipelineDate(weekData.unlockMs, {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                              locale: getBcp47(lang),
+                            })
+                          )}
                         </div>
                       </div>
                       <Badge
@@ -2842,6 +2908,11 @@ export function ClaimsPanel({
                           {heroCurrencyLabel(currency)}
                         </span>
                       ))}
+                    </div>
+                  )}
+                  {pendingSummaryLabel && (
+                    <div className="text-sm font-mono tabular-nums text-muted-foreground/70">
+                      {pendingSummaryLabel}
                     </div>
                   )}
                 </>
