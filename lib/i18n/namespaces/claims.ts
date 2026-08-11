@@ -41,11 +41,12 @@ export interface ClaimsStrings {
   readyToClaim: string;
   emissionsClaimed: string;
   finalizing: string;
-  // The date under a week row is its UNLOCK date, not the week's own calendar
-  // date — label it so a future date under a past week number stops reading
-  // like a bug.
-  rowUnlocksOn: (date: string) => string;
-  rowUnlockedOn: (date: string) => string;
+  // The date under a week row is the date the rewards become available, not
+  // the week's own calendar date — label it so a future date under a past week
+  // number stops reading like a bug. Plain wording on purpose: no "unlock",
+  // "finalize", or "epoch" in anything a user reads.
+  rowAvailableOn: (date: string) => string;
+  rowAvailableSince: (date: string) => string;
 
   // Reward rows
   emissionRewards: string;
@@ -167,8 +168,8 @@ const en: ClaimsStrings = {
   readyToClaim: "Ready to Claim",
   emissionsClaimed: "Emissions Claimed",
   finalizing: "Finalizing",
-  rowUnlocksOn: (date) => `Unlocks ${date}`,
-  rowUnlockedOn: (date) => `Unlocked ${date}`,
+  rowAvailableOn: (date) => `Available ${date}`,
+  rowAvailableSince: (date) => `Available since ${date}`,
 
   emissionRewards: "Emission Rewards",
   protocolDepositRewardsShort: "Protocol Deposit Rewards",
@@ -185,7 +186,7 @@ const en: ClaimsStrings = {
   pendingNoticeBody: (date) =>
     `These rewards are still moving through review and finalization. Your next claim should open around ${date}.`,
   heroPendingAmount: (amounts, date) =>
-    `${amounts} finalizing · first unlocks ${date}`,
+    `${amounts} on the way · first available ${date}`,
 
   inflationReassuranceTitle: "Emissions rewards claim status",
   inflationReassuranceBody:
@@ -285,8 +286,8 @@ const ko: ClaimsStrings = {
   readyToClaim: "클레임 가능",
   emissionsClaimed: "발행분 클레임 완료",
   finalizing: "확정 중",
-  rowUnlocksOn: (date) => `${date} 잠금 해제`,
-  rowUnlockedOn: (date) => `${date} 잠금 해제됨`,
+  rowAvailableOn: (date) => `${date} 수령 가능`,
+  rowAvailableSince: (date) => `${date}부터 수령 가능`,
 
   emissionRewards: "발행분 리워드",
   protocolDepositRewardsShort: "프로토콜 디포짓 리워드",
@@ -303,7 +304,7 @@ const ko: ClaimsStrings = {
   pendingNoticeBody: (date) =>
     `검토 및 확정 과정을 진행 중입니다. 다음 클레임은 ${date} 전후에 열립니다.`,
   heroPendingAmount: (amounts, date) =>
-    `${amounts} 확정 중 · 최초 잠금 해제 ${date}`,
+    `${amounts} 준비 중 · 최초 수령 ${date}`,
 
   inflationReassuranceTitle: "발행분 리워드 클레임 상태",
   inflationReassuranceBody:
@@ -403,8 +404,8 @@ const zh: ClaimsStrings = {
   readyToClaim: "可领取",
   emissionsClaimed: "发行奖励已领取",
   finalizing: "确认中",
-  rowUnlocksOn: (date) => `${date} 解锁`,
-  rowUnlockedOn: (date) => `${date} 已解锁`,
+  rowAvailableOn: (date) => `${date} 可领取`,
+  rowAvailableSince: (date) => `${date} 起可领取`,
 
   emissionRewards: "发行奖励",
   protocolDepositRewardsShort: "协议存款奖励",
@@ -421,7 +422,7 @@ const zh: ClaimsStrings = {
   pendingNoticeBody: (date) =>
     `这些奖励正在审核与最终确认中。下次领取预计将于 ${date} 前后开放。`,
   heroPendingAmount: (amounts, date) =>
-    `${amounts} 确认中 · 最早 ${date} 解锁`,
+    `${amounts} 正在路上 · 最早 ${date} 可领取`,
 
   inflationReassuranceTitle: "发行奖励领取状态",
   inflationReassuranceBody:

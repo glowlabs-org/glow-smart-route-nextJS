@@ -2744,16 +2744,16 @@ export function ClaimsPanel({
                         <div className="text-sm font-medium text-foreground md:text-base">
                           {t.claims.weekLabel(weekData.week)}
                         </div>
-                        {/* This date is the week's UNLOCK date, not the week's
-                            own calendar date. Unlabelled it read as the latter,
-                            which made a future date under an elapsed week
-                            number look wrong (and the 3-vs-4 epoch wait for
-                            inflation-only vs PD weeks look like a skipped
-                            week). */}
+                        {/* This date is when the week's rewards become
+                            available, not the week's own calendar date.
+                            Unlabelled it read as the latter, which made a
+                            future date under an elapsed week number look wrong
+                            (and the 3-vs-4 epoch wait for inflation-only vs PD
+                            weeks look like a skipped week). */}
                         <div className="text-[10px] font-mono text-muted-foreground/50 dark:text-muted-foreground/70">
                           {(clockMs >= weekData.unlockMs
-                            ? t.claims.rowUnlockedOn
-                            : t.claims.rowUnlocksOn)(
+                            ? t.claims.rowAvailableSince
+                            : t.claims.rowAvailableOn)(
                             formatRewardPipelineDate(weekData.unlockMs, {
                               month: "short",
                               day: "numeric",
