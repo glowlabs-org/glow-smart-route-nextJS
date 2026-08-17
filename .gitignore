@@ -36,3 +36,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Agent / assistant tool directories. Local session state, never shipped — and
+# .kimi-code/mcp.json holds a GitHub PAT, so an unignored one turns `git add -A`
+# into a credential leak (caught 2026-08-17 by scripts/verify-before-push.sh).
+.agents/
+.kimi-code/
+.claude/
+.codex-worktrees/

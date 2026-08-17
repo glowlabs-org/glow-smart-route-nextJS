@@ -424,3 +424,13 @@ This frontend calls the two backends; when a task touches rewards/points/watts/d
 - **Backend maps & router indexes** — `gca-crm-backend/src/README.md` + `src/routers/README.md` (user dashboard, points/watts/referral, shop, quotes) and `glow-control-backend/src/README.md` + `src/routers/README.md` (GCTL/sGCTL, reward splits, regions). Each links per-router READMEs with a "when to use" hook.
 - Cross-repo ground truth + token scaling (GLW 1e18 wei, GCTL 1e6 atomic, points scaled6 1e6 — never `Number()` a wei value): the workspace-root `CLAUDE.md`.
 - Frontend-specific router/component docs are not yet generated (TODO); use this file + the perf/design conventions above meanwhile.
+
+## Imported Claude Code memory (2026-07-18)
+
+# Project Memory
+
+## MCP Servers Installed
+
+- **GitHub MCP** (`@modelcontextprotocol/server-github`) - Available for GitHub operations. Use `ToolSearch` to load `mcp__github__*` tools before use.
+
+Topic files for the entries above live in `.agents/memory/`.

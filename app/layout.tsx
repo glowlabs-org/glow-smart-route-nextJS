@@ -123,8 +123,12 @@ export default async function RootLayout({
   }
 
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" translate="no" suppressHydrationWarning>
       <head>
+        {/* Disable page translation (Google Translate / Chrome). Translators
+            rewrite text nodes out from under React, causing NotFoundError
+            insertBefore crashes in the commit phase (Sentry APP-GLOW-ORG-6S). */}
+        <meta name="google" content="notranslate" />
         {/* JSON-LD Structured Data */}
         <script
           type="application/ld+json"
