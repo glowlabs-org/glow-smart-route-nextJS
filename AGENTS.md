@@ -418,6 +418,20 @@ When creating or modifying UI:
 6. **Spacing**: Is there enough breathing room?
 7. **Typography**: Are numbers prominent and labels quiet?
 
+## Performance (build and runtime)
+
+Apply these rules when you add or change a widget, a page, or the Next.js config:
+
+- Add heavy packages to `optimizePackageImports` in `next.config.js`.
+- Give `useCallback`, `useMemo`, and `useEffect` correct dependency arrays.
+- Hoist static data (constant arrays, option lists, config objects) to module scope.
+- Use the functional form of `setState` when the next value depends on the previous one.
+- Wrap every widget in `<WidgetErrorBoundary>`.
+- Never pass an inline object or array literal as a JSX prop.
+
+If a Vercel build runs out of memory, set Sentry's `widenClientFileUpload: true` first. That is the
+highest-value lever.
+
 ## Docs & Retrieval (backend context this frontend depends on)
 This frontend calls the two backends; when a task touches rewards/points/watts/delegation/quotes data, read the backend docs to understand the contract and the scaling:
 - **Cross-service flows** — `gca-crm-backend/docs/flows/` traces features end to end across this frontend + the backends (delegation→points/watts, miner purchase, referral, region lifecycle, sGCTL presale). Read the relevant flow BEFORE wiring or changing a data-dependent UI.
