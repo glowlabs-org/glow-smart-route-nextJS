@@ -89,15 +89,17 @@ describe("selectClaimSetForGlwDelegation - PD-only paths", () => {
     expect(result.txCount).toBe(1);
   });
 
-  it("never overshoots target with PD subset alone", () => {
+  it("overshoots only once no under-target combination funds the target", () => {
+    // Best subset under 100 is 50+45=95, which leaves the delegation 5 short
+    // and there is no inflation to top it up. Claiming is all-or-nothing per
+    // week, so covering with 60+45=105 funds it and parks 5 in the wallet.
     const target = glw(100);
     const items = [pd(100, 60), pd(101, 50), pd(102, 45), pd(103, 30)];
     const result = selectClaimSetForGlwDelegation(items, target);
-    const pdSum = result.pdWeeks.reduce(
-      (acc, w) => acc + w.glwAmountWei,
-      0n
-    );
-    expect(pdSum <= target).toBe(true);
+    expect(result.pdWeeks.map((w) => w.week).sort()).toEqual([100, 102]);
+    expect(result.totalGlwWei).toBe(glw(105));
+    expect(result.shortfallGlwWei).toBe(0n);
+    expect(result.txCount).toBe(1);
   });
 
   it("returns single PD item when it exactly matches target", () => {
@@ -112,15 +114,60 @@ describe("selectClaimSetForGlwDelegation - PD-only paths", () => {
     expect(result.txCount).toBe(1);
   });
 
-  it("skips a single PD item that exceeds target alone", () => {
+  it("claims one oversized PD week rather than failing the delegation", () => {
+    // Week 101 alone (30) is short of 40, so the only way to fund the
+    // delegation is week 100, whose 100 exceeds the target.
     const target = glw(40);
     const result = selectClaimSetForGlwDelegation(
       [pd(100, 100), pd(101, 30)],
       target
     );
+    expect(result.pdWeeks.map((w) => w.week)).toEqual([100]);
+    expect(result.totalGlwWei).toBe(glw(100));
+    expect(result.shortfallGlwWei).toBe(0n);
+    expect(result.txCount).toBe(1);
+  });
+
+  it("prefers the smallest covering PD week when several would cover", () => {
+    const target = glw(40);
+    const result = selectClaimSetForGlwDelegation(
+      [pd(100, 100), pd(101, 45), pd(102, 70)],
+      target
+    );
     expect(result.pdWeeks.map((w) => w.week)).toEqual([101]);
-    expect(result.totalGlwWei).toBe(glw(30));
-    expect(result.shortfallGlwWei).toBe(glw(10));
+    expect(result.totalGlwWei).toBe(glw(45));
+    expect(result.shortfallGlwWei).toBe(0n);
+  });
+
+  it("funds a delegation from a single PD week larger than it", () => {
+    // Vik's wallet, 2026-08-25: one unclaimed PD week of 2,848.341974 GLW and
+    // a 1,881.0662 GLW delegation. This returned a full shortfall and the
+    // dialog reported "Total: 0 GLW" against an advertised balance.
+    const target = 1_881_066_200_000_000_000_000n;
+    const result = selectClaimSetForGlwDelegation(
+      [
+        {
+          week: 140,
+          source: "protocolDeposit" as const,
+          glwAmountWei: 2_848_341_974_000_000_000_000n,
+        },
+      ],
+      target
+    );
+    expect(result.pdWeeks.map((w) => w.week)).toEqual([140]);
+    expect(result.totalGlwWei).toBe(2_848_341_974_000_000_000_000n);
+    expect(result.shortfallGlwWei).toBe(0n);
+    expect(result.txCount).toBe(1);
+  });
+
+  it("still reports a shortfall when the whole pool cannot cover", () => {
+    const target = glw(100);
+    const result = selectClaimSetForGlwDelegation(
+      [pd(100, 30), pd(101, 25)],
+      target
+    );
+    expect(result.totalGlwWei).toBe(glw(55));
+    expect(result.shortfallGlwWei).toBe(glw(45));
   });
 });
 
@@ -244,8 +291,10 @@ describe("selectClaimSetForGlwDelegation - mixed source ordering", () => {
     const target = glw(100);
     const items = [pd(100, 60), pd(101, 50)];
     const result = selectClaimSetForGlwDelegation(items, target);
-    expect(result.pdWeeks).toHaveLength(1); // best subset under 100 = single 60 (other choices: 50)
-    expect(result.totalGlwWei).toBe(glw(60));
+    // No subset stays under 100 and funds it, so both weeks are claimed.
+    expect(result.pdWeeks).toHaveLength(2);
+    expect(result.totalGlwWei).toBe(glw(110));
+    expect(result.shortfallGlwWei).toBe(0n);
   });
 
   it("preserves item identity in returned subsets", () => {

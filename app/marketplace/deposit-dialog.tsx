@@ -2445,6 +2445,7 @@ export function DepositDialog({
                   {selectedPaymentMethod === "UNCLAIMED_REWARDS" && (
                     <UnclaimedRewardsBreakdown
                       selection={claimSetSelection}
+                      targetGlwWei={targetGlwForUnclaimed}
                     />
                   )}
                 </>
@@ -2796,13 +2797,20 @@ function PaymentOption({
 
 function UnclaimedRewardsBreakdown({
   selection,
+  targetGlwWei,
 }: {
   selection: ClaimSetSelection;
+  targetGlwWei: bigint;
 }) {
   const { pdWeeks, inflationWeeks, totalGlwWei, shortfallGlwWei, txCount } =
     selection;
   const totalGlw = parseFloat(formatUnits(totalGlwWei, 18));
   const hasAny = pdWeeks.length > 0 || inflationWeeks.length > 0;
+  // A week is claimed whole or not at all, so covering the delegation can pull
+  // in more than it needs. Name the difference instead of leaving the reader to
+  // work out why the total exceeds what they are delegating.
+  const surplusGlwWei =
+    totalGlwWei > targetGlwWei ? totalGlwWei - targetGlwWei : 0n;
 
   if (!hasAny && shortfallGlwWei === 0n) {
     return null;
@@ -2827,6 +2835,14 @@ function UnclaimedRewardsBreakdown({
         GLW, {txCount} signature{txCount === 1 ? "" : "s"}
         {" + 1 delegation tx"}
       </div>
+      {surplusGlwWei > 0n && (
+        <div>
+          {parseFloat(formatUnits(surplusGlwWei, 18)).toLocaleString(undefined, {
+            maximumFractionDigits: 4,
+          })}{" "}
+          GLW above the delegation stays in your wallet.
+        </div>
+      )}
       {shortfallGlwWei > 0n && (
         <div className="text-red-500">
           Short by{" "}

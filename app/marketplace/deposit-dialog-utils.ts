@@ -1578,6 +1578,12 @@ const CLAIM_SET_BRUTE_FORCE_THRESHOLD = 20;
  * PD-in-GLW weeks first (one multicall, free to add), then inflation weeks
  * (one tx each) chosen with minimum cardinality covering the deficit and
  * minimum overshoot as tiebreaker.
+ *
+ * PD weeks stay under the target while that still funds the delegation, which
+ * leaves the rest of the pool unclaimed for later. Once no such combination
+ * reaches the target, an oversized PD week is claimed anyway rather than
+ * failing: a claim takes the whole week or nothing, so the surplus lands in
+ * the wallet the same way an oversized inflation week's already does.
  */
 export function selectClaimSetForGlwDelegation(
   unclaimed: ClaimableGlwItem[],
@@ -1624,13 +1630,40 @@ export function selectClaimSetForGlwDelegation(
   );
   const inflationSum = sumGlwAmount(inflationSubset);
   const total = pdSum + inflationSum;
-  const shortfall = total >= targetGlwWei ? 0n : targetGlwWei - total;
+
+  if (total >= targetGlwWei) {
+    return {
+      pdWeeks: pdSubset,
+      inflationWeeks: inflationSubset,
+      totalGlwWei: total,
+      shortfallGlwWei: 0n,
+      txCount: (pdSubset.length > 0 ? 1 : 0) + inflationSubset.length,
+    };
+  }
+
+  // Nothing that stays under the target can fund the delegation. Claims are
+  // all-or-nothing per week, so a PD week larger than the target is still
+  // spendable: the surplus lands in the wallet, exactly as it already does for
+  // an oversized inflation week (inflationSubsetCoveringDeficit covers the
+  // deficit and overshoots freely). Without this fallback a wallet whose only
+  // unclaimed PD week exceeds its delegation is told the amount is unfundable
+  // while the dialog advertises that very balance as available.
+  const pdCovering = subsetCoveringTarget(pdItems, targetGlwWei);
+  if (pdCovering) {
+    return {
+      pdWeeks: pdCovering,
+      inflationWeeks: [],
+      totalGlwWei: sumGlwAmount(pdCovering),
+      shortfallGlwWei: 0n,
+      txCount: 1,
+    };
+  }
 
   return {
     pdWeeks: pdSubset,
     inflationWeeks: inflationSubset,
     totalGlwWei: total,
-    shortfallGlwWei: shortfall,
+    shortfallGlwWei: targetGlwWei - total,
     txCount: (pdSubset.length > 0 ? 1 : 0) + inflationSubset.length,
   };
 }
@@ -1692,8 +1725,25 @@ function inflationSubsetCoveringDeficit(
 ): ClaimableGlwItem[] {
   if (deficit <= 0n) return [];
   if (items.length === 0) return [];
+  // A pool that cannot cover the deficit returns everything as a best effort,
+  // leaving the caller to surface the shortfall.
+  return subsetCoveringTarget(items, deficit) ?? [...items];
+}
+
+/**
+ * The fewest weeks whose sum reaches `target`, smallest overshoot as the
+ * tiebreaker. Returns null when the pool cannot reach the target at all, so a
+ * caller can tell "covered, with overshoot" apart from "not enough".
+ */
+function subsetCoveringTarget(
+  items: ClaimableGlwItem[],
+  target: bigint
+): ClaimableGlwItem[] | null {
+  if (target <= 0n) return [];
+  if (items.length === 0) return null;
   if (items.length > CLAIM_SET_BRUTE_FORCE_THRESHOLD) {
-    return greedyInflationSubset(items, deficit);
+    const greedy = greedySubsetCoveringTarget(items, target);
+    return sumGlwAmount(greedy) >= target ? greedy : null;
   }
 
   const n = items.length;
@@ -1710,7 +1760,7 @@ function inflationSubsetCoveringDeficit(
         card++;
       }
     }
-    if (sum < deficit) continue;
+    if (sum < target) continue;
     if (
       bestMask < 0 ||
       card < bestCard ||
@@ -1722,17 +1772,12 @@ function inflationSubsetCoveringDeficit(
     }
   }
 
-  if (bestMask < 0) {
-    // Pool cannot cover the deficit; return everything as a best effort and
-    // let the caller surface the shortfall.
-    return [...items];
-  }
-  return collectMaskedItems(items, bestMask);
+  return bestMask < 0 ? null : collectMaskedItems(items, bestMask);
 }
 
-function greedyInflationSubset(
+function greedySubsetCoveringTarget(
   items: ClaimableGlwItem[],
-  deficit: bigint
+  target: bigint
 ): ClaimableGlwItem[] {
   const sorted = [...items].sort((a, b) =>
     compareBigintDesc(a.glwAmountWei, b.glwAmountWei)
@@ -1740,7 +1785,7 @@ function greedyInflationSubset(
   const subset: ClaimableGlwItem[] = [];
   let sum = 0n;
   for (const item of sorted) {
-    if (sum >= deficit) break;
+    if (sum >= target) break;
     subset.push(item);
     sum += item.glwAmountWei;
   }
