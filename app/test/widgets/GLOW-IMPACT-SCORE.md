@@ -1,5 +1,7 @@
 # Glow Impact Score
 
+> **Superseded by Points V2.** See the consolidated spec at [POINTS-V2-SPEC.md](../../../../gca-crm-backend-merged/src/routers/impact-router/POINTS-V2-SPEC.md). The document below describes the V1 scoring system (emissions / steering / vault bonus / GLW-Worth streams with weekly multipliers) and is kept for historical reference.
+
 Glow Impact Score is a points system designed to reward the actions that most directly grow onchain climate impact—especially **steering via staked GCTL (sGCTL)**.
 
 ## Point rules

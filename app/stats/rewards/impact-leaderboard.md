@@ -1,5 +1,7 @@
 # Glow Impact Leaderboard (Impact tab) — Implementation Notes
 
+> **Scoring sections superseded by Points V2.** See the consolidated spec at [POINTS-V2-SPEC.md](../../../../gca-crm-backend-merged/src/routers/impact-router/POINTS-V2-SPEC.md) (Part 1 is the plain-English design, Part 2 is the technical spec). The "Impact Router contract" and "Concepts" sections below describe the V1 four-stream scoring model. The frontend UX rules (rank display, percentile math, ENS handling, pagination via `nuqs`) remain authoritative for both V1 and V2. A frontend migration against the V2 API surface (see POINTS-V2-SPEC.md §8 Compatibility) is tracked separately.
+
 This doc captures the **current behavior, constraints, and design decisions** for the **Glow Impact Leaderboard** implemented in `app/stats/rewards/impact-view.tsx`, with Impact Router data fetching centralized in `hooks/hub-impact.ts`, and the shared breakdown dialog in `components/dialogs/impact-score-breakdown-dialog.tsx`.
 
 ## What this feature is

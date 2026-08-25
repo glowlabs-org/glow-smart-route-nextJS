@@ -1,5 +1,7 @@
 # Impact Leaderboard Computation
 
+> **Historical reference only.** This document describes the V1 scoring pipeline (point-in-time accuracy fixes, per-week loops, claim-timestamp inference) which is superseded by Points V2. See the consolidated spec at [POINTS-V2-SPEC.md](../../gca-crm-backend-merged/src/routers/impact-router/POINTS-V2-SPEC.md). V2 is event-driven rather than week-indexed and does not require the historical-unclaimed infrastructure documented below. Kept because the infrastructure and Ponder integration described here remain useful for auditing V1-era leaderboards and informing any V2 analogues.
+
 This document explains the optimization and historical accuracy fixes implemented for the Glow Impact Leaderboard.
 
 ## Initial Problem
