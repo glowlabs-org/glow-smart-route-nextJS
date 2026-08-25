@@ -8,6 +8,10 @@ export const GENERIC_SWAP_FAILURE_MESSAGE =
   "Transaction failed. This could be due to insufficient liquidity, slippage tolerance exceeded, or contract revert. Please try again with a smaller amount or adjust your slippage tolerance.";
 export const SLIPPAGE_EXCEEDED_ERROR_MESSAGE =
   "Slippage tolerance exceeded. Refresh the quote and try again, or increase slippage tolerance.";
+export const APPROVAL_NOT_VISIBLE_ERROR_MESSAGE =
+  "Your token approval has not reached the network yet. Wait a few seconds and try again.";
+export const TRANSFER_FROM_FAILED_ERROR_MESSAGE =
+  "The swap could not move your tokens. Check that your balance and token approval both cover this amount, then try again.";
 
 export function getRpcErrorMessage(error: unknown): string {
   if (!error) return "Unknown error";
@@ -146,6 +150,36 @@ export function isNonceTooLowError(error: unknown): boolean {
   );
 }
 
+/**
+ * Uniswap V2's TransferHelper wraps `transferFrom`; it reverts with this when
+ * the router cannot pull the input token, meaning balance or allowance.
+ *
+ * Walks the cause chain because viem nests the node's revert reason several
+ * levels below the top-level ContractFunctionExecutionError.
+ */
+export function isTransferFromFailedError(error: unknown): boolean {
+  if (typeof error === "string") return /TRANSFER_FROM_FAILED/i.test(error);
+
+  const queue: unknown[] = [error];
+  const seen = new Set<object>();
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current || typeof current !== "object") continue;
+    if (seen.has(current)) continue;
+    seen.add(current);
+
+    const candidate = current as Record<string, unknown>;
+    for (const key of ["shortMessage", "message", "details", "reason"]) {
+      const value = candidate[key];
+      if (typeof value === "string" && /TRANSFER_FROM_FAILED/i.test(value)) {
+        return true;
+      }
+    }
+    queue.push(candidate.cause, candidate.error);
+  }
+  return false;
+}
+
 export function normalizeSwapFailureMessage(errorMessage: string): string {
   const normalized = errorMessage.toLowerCase();
 
@@ -178,6 +212,14 @@ export function normalizeSwapFailureMessage(errorMessage: string): string {
     normalized.includes("excessive_input_amount")
   ) {
     return SLIPPAGE_EXCEEDED_ERROR_MESSAGE;
+  }
+
+  // Uniswap's TransferHelper reverts with this when the router cannot pull the
+  // input token, which means balance or allowance. Callers that can read those
+  // two values say which one; this is the net for everyone else, because the
+  // raw revert string tells a user nothing they can act on.
+  if (normalized.includes("transfer_from_failed")) {
+    return TRANSFER_FROM_FAILED_ERROR_MESSAGE;
   }
 
   if (

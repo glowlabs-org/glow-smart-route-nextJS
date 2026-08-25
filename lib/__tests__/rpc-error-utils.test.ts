@@ -7,8 +7,10 @@ import {
   isInsufficientGasError,
   isNonceTooLowError,
   isWalletInteractionTimeoutError,
+  isTransferFromFailedError,
   normalizeSwapFailureMessage,
   SLIPPAGE_EXCEEDED_ERROR_MESSAGE,
+  TRANSFER_FROM_FAILED_ERROR_MESSAGE,
   withInternalRpcRetry,
 } from "../rpc-error-utils";
 import { WalletResponseTimeoutError } from "../wallet-request";
@@ -121,5 +123,68 @@ describe("rpc-error-utils", () => {
 
     expect(operation).toHaveBeenCalledOnce();
     expect(onRetry).not.toHaveBeenCalled();
+  });
+});
+
+describe("isTransferFromFailedError", () => {
+  // Shape viem actually produces: the node's revert reason sits several
+  // levels down the cause chain, not on the top-level error.
+  const viemShaped = Object.assign(
+    new Error("The contract function \"swapExactTokensForTokens\" reverted."),
+    {
+      name: "ContractFunctionExecutionError",
+      shortMessage: "Execution reverted.",
+      cause: Object.assign(new Error("RPC Request failed."), {
+        name: "RpcRequestError",
+        details: "execution reverted: TransferHelper: TRANSFER_FROM_FAILED",
+      }),
+    }
+  );
+
+  it("detects the revert through viem's nested cause chain", () => {
+    expect(isTransferFromFailedError(viemShaped)).toBe(true);
+  });
+
+  it("detects it on a flat error or a bare string", () => {
+    expect(
+      isTransferFromFailedError(
+        new Error("execution reverted: TransferHelper: TRANSFER_FROM_FAILED")
+      )
+    ).toBe(true);
+    expect(
+      isTransferFromFailedError("TransferHelper: TRANSFER_FROM_FAILED")
+    ).toBe(true);
+  });
+
+  it("does not fire on unrelated swap reverts", () => {
+    expect(
+      isTransferFromFailedError(
+        new Error("UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT")
+      )
+    ).toBe(false);
+    expect(isTransferFromFailedError(null)).toBe(false);
+    expect(isTransferFromFailedError(undefined)).toBe(false);
+  });
+
+  it("terminates on a self-referencing cause chain", () => {
+    const looped: any = new Error("boom");
+    looped.cause = looped;
+    expect(isTransferFromFailedError(looped)).toBe(false);
+  });
+});
+
+describe("normalizeSwapFailureMessage - TRANSFER_FROM_FAILED", () => {
+  it("replaces the raw revert with something the user can act on", () => {
+    expect(
+      normalizeSwapFailureMessage(
+        "execution reverted: TransferHelper: TRANSFER_FROM_FAILED"
+      )
+    ).toBe(TRANSFER_FROM_FAILED_ERROR_MESSAGE);
+  });
+
+  it("leaves slippage reverts on their own message", () => {
+    expect(
+      normalizeSwapFailureMessage("UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT")
+    ).toBe(SLIPPAGE_EXCEEDED_ERROR_MESSAGE);
   });
 });

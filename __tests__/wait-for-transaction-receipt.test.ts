@@ -53,6 +53,7 @@ describe("waitForTransactionReceipt", () => {
       clients: [client],
       timeoutMs: 60_000,
       pollIntervalMs: 1_000,
+      readClient: null,
     });
 
     expect(receipt).toBe(successReceipt);
@@ -70,6 +71,7 @@ describe("waitForTransactionReceipt", () => {
       ],
       timeoutMs: 60_000,
       pollIntervalMs: 1_000,
+      readClient: null,
     });
 
     const receipt = await promise;
@@ -93,6 +95,7 @@ describe("waitForTransactionReceipt", () => {
       ],
       timeoutMs: 60_000,
       pollIntervalMs: 1_000,
+      readClient: null,
     });
 
     expect(receipt).toBe(successReceipt);
@@ -109,6 +112,7 @@ describe("waitForTransactionReceipt", () => {
         clients: [client],
         timeoutMs: 60_000,
         pollIntervalMs: 1_000,
+      readClient: null,
       })
     ).rejects.toThrow(/was reverted on-chain/);
   });
@@ -125,6 +129,7 @@ describe("waitForTransactionReceipt", () => {
       clients: [client],
       timeoutMs: 5_000,
       pollIntervalMs: 1_000,
+      readClient: null,
     });
     // Attach a no-op rejection handler immediately so the failure surfaces
     // through `caught` below rather than as an unhandled rejection while we
@@ -162,6 +167,7 @@ describe("waitForTransactionReceipt", () => {
       clients: [client],
       timeoutMs: 2_000,
       pollIntervalMs: 1_000,
+      readClient: null,
     });
 
     for (let i = 0; i < 4; i++) {
@@ -178,7 +184,129 @@ describe("waitForTransactionReceipt", () => {
       waitForTransactionReceipt(TX_HASH, {
         clients: [],
         timeoutMs: 1_000,
+        readClient: null,
       })
     ).rejects.toThrow(/no polling clients configured/);
+  });
+});
+
+describe("waitForTransactionReceipt read-client catch-up", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const receiptAtBlock10: TransactionReceipt = {
+    status: "success",
+    blockNumber: 10n,
+  } as unknown as TransactionReceipt;
+
+  function makeReadClient(heads: (bigint | Error)[]): {
+    client: PublicClient;
+    calls: () => number;
+  } {
+    let index = 0;
+    const getBlockNumber = vi.fn(async () => {
+      const head = heads[Math.min(index, heads.length - 1)];
+      index++;
+      if (head instanceof Error) throw head;
+      return head;
+    });
+    return {
+      client: { getBlockNumber } as unknown as PublicClient,
+      calls: () => getBlockNumber.mock.calls.length,
+    };
+  }
+
+  it("holds the receipt until the read client has the receipt's block", async () => {
+    // The whole point: a receipt confirmed on one RPC must not be handed back
+    // while the RPC the caller reads from is still behind it, or the next read
+    // (an allowance, a balance) answers from before the transaction.
+    const { client: readClient, calls } = makeReadClient([8n, 9n, 10n]);
+    const promise = waitForTransactionReceipt(TX_HASH, {
+      clients: [makeClient({ getTransactionReceipt: async () => receiptAtBlock10 })],
+      timeoutMs: 60_000,
+      pollIntervalMs: 1_000,
+      readClient,
+    });
+
+    let settled = false;
+    const tracked = promise.then(receipt => {
+      settled = true;
+      return receipt;
+    });
+
+    await vi.advanceTimersByTimeAsync(500);
+    expect(settled).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(await tracked).toBe(receiptAtBlock10);
+    expect(calls()).toBe(3);
+  });
+
+  it("returns immediately when the read client is already past the block", async () => {
+    const { client: readClient, calls } = makeReadClient([11n]);
+    const receipt = await waitForTransactionReceipt(TX_HASH, {
+      clients: [makeClient({ getTransactionReceipt: async () => receiptAtBlock10 })],
+      timeoutMs: 60_000,
+      pollIntervalMs: 1_000,
+      readClient,
+    });
+
+    expect(receipt).toBe(receiptAtBlock10);
+    expect(calls()).toBe(1);
+  });
+
+  it("fails open when the read client never catches up", async () => {
+    // A lagging RPC delays the caller; it must never strand a transaction that
+    // is already on-chain.
+    const { client: readClient } = makeReadClient([1n]);
+    const promise = waitForTransactionReceipt(TX_HASH, {
+      clients: [makeClient({ getTransactionReceipt: async () => receiptAtBlock10 })],
+      timeoutMs: 60_000,
+      pollIntervalMs: 1_000,
+      readClient,
+      readCatchUpTimeoutMs: 2_000,
+    });
+
+    for (let i = 0; i < 6; i++) {
+      await vi.advanceTimersByTimeAsync(500);
+    }
+
+    expect(await promise).toBe(receiptAtBlock10);
+  });
+
+  it("fails open when the read client throws", async () => {
+    const { client: readClient, calls } = makeReadClient([new Error("rpc down")]);
+    const receipt = await waitForTransactionReceipt(TX_HASH, {
+      clients: [makeClient({ getTransactionReceipt: async () => receiptAtBlock10 })],
+      timeoutMs: 60_000,
+      pollIntervalMs: 1_000,
+      readClient,
+    });
+
+    expect(receipt).toBe(receiptAtBlock10);
+    expect(calls()).toBe(1);
+  });
+
+  it("throws on a reverted receipt without waiting on the read client", async () => {
+    const { client: readClient, calls } = makeReadClient([1n]);
+    await expect(
+      waitForTransactionReceipt(TX_HASH, {
+        clients: [
+          makeClient({
+            getTransactionReceipt: async () =>
+              ({ status: "reverted", blockNumber: 10n }) as unknown as TransactionReceipt,
+          }),
+        ],
+        timeoutMs: 60_000,
+        pollIntervalMs: 1_000,
+        readClient,
+      })
+    ).rejects.toThrow(/was reverted on-chain/);
+    expect(calls()).toBe(0);
   });
 });

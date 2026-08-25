@@ -54,6 +54,16 @@ Additional tags and context for ToS errors:
 | `swapStage: "glow_approval"` | GLW approval failed |
 | `swapStage: "glow_swap"` | GLW swap failed |
 
+#### RPC error attribution
+
+`instrumentedFallback()` in `lib/viem-rpc-logging.ts` tags each fallback leg's failures with the URL
+that produced them, so `extra.rpc_url` names the provider that actually failed. Before that tagging
+every fallback error was filed against the first configured URL.
+
+A `TransferHelper: TRANSFER_FROM_FAILED` revert on a swap simulation means the router could not pull
+the input token: balance or allowance. `simulateSwapExactTokensForTokens()` re-reads both and reports
+which one is short. Historically this reached users as "RPC Request failed" (APP-GLOW-ORG-FC).
+
 ### Swap Dialogs (`components/usdc-to-token-dialog.tsx`, `components/dialogs/buy-glow-dialog.tsx`)
 
 Emitted through the shared `captureSwapDialogFailure()` in `lib/swap-error-reporting.ts`.

@@ -180,6 +180,46 @@ export const instrumentedHttp = (
   };
 };
 
+// The fallback transport does not say which URL produced the error it throws,
+// so each leg stamps its own failures. Without this every fallback error was
+// filed against urls[0] whatever actually failed, which sends anyone reading
+// Sentry to the wrong provider.
+const RPC_URL_TAG = Symbol.for("glow.rpcUrl");
+
+const tagErrorsWithUrl = (url: string, config?: HttpConfig) => {
+  const base = http(url, config);
+  return (params: Parameters<typeof base>[0]) => {
+    const transport = base(params);
+    const request: typeof transport.request = async (
+      requestParams,
+      requestOptions
+    ) => {
+      try {
+        return await transport.request(requestParams, requestOptions);
+      } catch (error) {
+        if (error && typeof error === "object" && !(RPC_URL_TAG in error)) {
+          try {
+            Object.defineProperty(error, RPC_URL_TAG, {
+              value: url,
+              enumerable: false,
+            });
+          } catch {
+            // Frozen error object; the fallback URL below still applies.
+          }
+        }
+        throw error;
+      }
+    };
+    return { ...transport, request };
+  };
+};
+
+const readTaggedUrl = (error: unknown): string | undefined => {
+  if (!error || typeof error !== "object") return undefined;
+  const tagged = (error as Record<symbol, unknown>)[RPC_URL_TAG];
+  return typeof tagged === "string" ? tagged : undefined;
+};
+
 export const instrumentedFallback = (
   urls: string[],
   config?: HttpConfig,
@@ -190,7 +230,7 @@ export const instrumentedFallback = (
     throw new Error("instrumentedFallback requires at least one URL");
   }
 
-  const base = fallback(validUrls.map(url => http(url, config)));
+  const base = fallback(validUrls.map(url => tagErrorsWithUrl(url, config)));
 
   return (params: Parameters<typeof base>[0]) => {
     const transport = base(params);
@@ -207,7 +247,7 @@ export const instrumentedFallback = (
           method: requestParams.method,
           params: requestParams.params,
           chainId,
-          url: validUrls[0],
+          url: readTaggedUrl(error) ?? validUrls[0],
           source: options?.source,
         });
         throw error;

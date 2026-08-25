@@ -18,9 +18,12 @@ import {
   normalizeTxHash,
 } from "@/lib/normalize-tx-hash";
 import {
+  APPROVAL_NOT_VISIBLE_ERROR_MESSAGE,
   getReadableRpcErrorMessage,
+  isTransferFromFailedError,
   isWalletInteractionTimeoutError,
   normalizeSwapFailureMessage,
+  TRANSFER_FROM_FAILED_ERROR_MESSAGE,
   WALLET_INTERACTION_TIMEOUT_MESSAGE,
 } from "@/lib/rpc-error-utils";
 import {
@@ -396,13 +399,66 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     to: `0x${string}`;
     deadline: bigint;
   }) {
-    await publicClient.simulateContract({
-      address: UNISWAP_V2_ROUTER_ADDRESS,
-      abi: UNISWAP_V2_ROUTER_ABI,
-      functionName: "swapExactTokensForTokens",
-      args: [amountIn, amountOutMin, path, to, deadline],
-      account: walletClient?.account?.address ?? to,
-    });
+    const account = walletClient?.account?.address ?? to;
+    const run = () =>
+      publicClient.simulateContract({
+        address: UNISWAP_V2_ROUTER_ADDRESS,
+        abi: UNISWAP_V2_ROUTER_ABI,
+        functionName: "swapExactTokensForTokens",
+        args: [amountIn, amountOutMin, path, to, deadline],
+        account,
+      });
+
+    try {
+      await run();
+      return;
+    } catch (error) {
+      if (!isTransferFromFailedError(error)) throw error;
+
+      // TRANSFER_FROM_FAILED means the router could not pull the input token.
+      // Read the two values that decide it, on the same client that just
+      // reverted, and report which one is actually short instead of handing
+      // the user a raw revert string.
+      const owner = getAddress(account);
+      const tokenIn = path[0];
+      let balance: bigint;
+      let allowance: bigint;
+      try {
+        [balance, allowance] = await Promise.all([
+          publicClient.readContract({
+            address: tokenIn,
+            abi: parseAbi(["function balanceOf(address) view returns (uint256)"]),
+            functionName: "balanceOf",
+            args: [owner],
+          }) as Promise<bigint>,
+          publicClient.readContract({
+            address: tokenIn,
+            abi: parseAbi([
+              "function allowance(address owner, address spender) view returns (uint256)",
+            ]),
+            functionName: "allowance",
+            args: [owner, UNISWAP_V2_ROUTER_ADDRESS],
+          }) as Promise<bigint>,
+        ]);
+      } catch {
+        throw new Error(TRANSFER_FROM_FAILED_ERROR_MESSAGE);
+      }
+
+      if (balance < amountIn) {
+        throw new Error(SwapError.INSUFFICIENT_TOKEN_A_BALANCE);
+      }
+
+      // Balance covers it and the allowance now reads through, so the node was
+      // simply behind the approval when the first attempt ran. It has caught
+      // up; run the simulation once more rather than failing a swap that is
+      // fully funded.
+      if (allowance >= amountIn) {
+        await run();
+        return;
+      }
+
+      throw new Error(APPROVAL_NOT_VISIBLE_ERROR_MESSAGE);
+    }
   }
 
   async function writeApproval({
