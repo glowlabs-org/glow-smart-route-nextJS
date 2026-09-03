@@ -95,6 +95,13 @@ export interface ActiveFractionSgctlLeg {
   remainingUnits: number;
   unitAtomic: string;
   splitBonusPercent: string | null;
+  /**
+   * True once this listing's Foundation backstop has used every retry and its
+   * `failed_fraction_operations` row is `failed`. Nothing will fill the leg
+   * automatically any more, so the organic-buy freeze lifts and the sGCTL tile
+   * comes back. Optional so the UI keeps working during the deploy gap.
+   */
+  backstopAbandoned?: boolean;
 }
 
 export interface ActiveFraction {
@@ -272,6 +279,10 @@ export const SGCTL_BACKSTOP_GRACE_PERIOD_MS = 60 * 60 * 1000; // 1 hour
  * just open a dialog that the server rejects (the backend FREEZE,
  * isSgctlOrganicRegistrationFrozen / the /delegate-sgctl reject_frozen gate).
  *
+ * The one exception is `sgctl.backstopAbandoned`: when the backstop has given
+ * up for good the server reopens the leg to ordinary buyers, so the tile must
+ * come back too.
+ *
  * NOTE: the grace is anchored to the listing's `visibleAt`. For an early-access
  * wallet the API returns that wallet's earlier effective visible-at, so the tile
  * may hide slightly sooner than the server's public-anchored freeze — the safe
@@ -285,6 +296,7 @@ export function isSgctlOrganicLegFrozen(
         | "visibleAt"
         | "marketplaceVisibleAt"
         | "glw"
+        | "sgctl"
         | "remainingSteps"
         | "totalSteps"
         | "splitsSold"
@@ -295,6 +307,12 @@ export function isSgctlOrganicLegFrozen(
 ): boolean {
   if (!fraction) return false;
   if (resolveGlwRemainingSteps(fraction) > 0) return false;
+  // ESCAPE HATCH: the freeze only holds the remainder for the Foundation
+  // backstop. Once that backstop has used every retry nothing will fill the
+  // leg, and a GLW-complete listing is never expired, so the listing would sit
+  // visible and unbuyable for the rest of its 4 weeks. Mirror the server and
+  // reopen the tile.
+  if (fraction.sgctl?.backstopAbandoned === true) return false;
 
   const effectiveVisibleAt = fraction.visibleAt ?? fraction.marketplaceVisibleAt;
   // No visible-at known: GLW is sold out and we can't time the grace, so fall

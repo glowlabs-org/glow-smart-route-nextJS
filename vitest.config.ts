@@ -21,6 +21,10 @@ export default defineConfig({
   },
   test: {
     include: ["**/__tests__/**/*.test.{ts,tsx}"],
+    // `.claude/worktrees/**` holds throwaway git worktrees of this repo. Their
+    // test files are stale copies that pass or fail against code nobody is
+    // editing, so vitest must not collect them.
+    exclude: ["**/node_modules/**", "**/dist/**", "**/.claude/worktrees/**"],
     globals: true,
     // happy-dom enables renderHook / DOM APIs for component-level tests while
     // staying lightweight enough for our existing pure-logic tests.

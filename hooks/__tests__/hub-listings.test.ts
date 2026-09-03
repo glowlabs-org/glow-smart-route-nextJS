@@ -305,4 +305,52 @@ describe("isSgctlOrganicLegFrozen (hide sGCTL tile after GLW sold out + 1h grace
   it("returns false for a null fraction", () => {
     expect(isSgctlOrganicLegFrozen(null, graceEndMs)).toBe(false);
   });
+
+  // A listing can carry for up to 4 weeks. If its Foundation backstop uses
+  // every retry, nothing fills the sGCTL remainder and the expiry sweep never
+  // closes a GLW-complete listing, so the tile must come back for real buyers.
+  it("a 3-week-old carried listing stays frozen while the backstop can still retry", () => {
+    const threeWeeksLater = visibleAtMs + 21 * 24 * 60 * 60 * 1000;
+    const stillRetrying = createFraction({
+      visibleAt: VISIBLE_AT,
+      glw: { remainingSteps: 0, stepWei: "1000000000000000000" },
+      sgctl: {
+        remainingUnits: 5,
+        unitAtomic: "1000000",
+        splitBonusPercent: "8",
+        backstopAbandoned: false,
+      },
+    });
+    expect(isSgctlOrganicLegFrozen(stillRetrying, threeWeeksLater)).toBe(true);
+  });
+
+  it("the same listing unfreezes once the backstop has given up for good", () => {
+    const threeWeeksLater = visibleAtMs + 21 * 24 * 60 * 60 * 1000;
+    const abandoned = createFraction({
+      visibleAt: VISIBLE_AT,
+      glw: { remainingSteps: 0, stepWei: "1000000000000000000" },
+      sgctl: {
+        remainingUnits: 5,
+        unitAtomic: "1000000",
+        splitBonusPercent: "8",
+        backstopAbandoned: true,
+      },
+    });
+    expect(isSgctlOrganicLegFrozen(abandoned, threeWeeksLater)).toBe(false);
+  });
+
+  it("an abandoned backstop reopens the tile even with no visible-at known", () => {
+    const abandonedNoVisible = createFraction({
+      visibleAt: null,
+      marketplaceVisibleAt: null,
+      glw: { remainingSteps: 0, stepWei: "1000000000000000000" },
+      sgctl: {
+        remainingUnits: 5,
+        unitAtomic: "1000000",
+        splitBonusPercent: null,
+        backstopAbandoned: true,
+      },
+    });
+    expect(isSgctlOrganicLegFrozen(abandonedNoVisible, graceEndMs)).toBe(false);
+  });
 });
