@@ -21,6 +21,7 @@ import {
 } from "@/utils/claim-unlock";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { QUERY_CONFIG } from "@/hooks/query-config";
+import { isEmissionClaimPaused } from "@/lib/rewards/paused-emission-weeks";
 
 export type {
   MigrationAmountResponse,
@@ -558,6 +559,10 @@ export interface WeeklyClaimableRewards {
   // predicate across the claims panel and dashboard widgets.
   unlockMs: number;
   weeksUntilClaimable: number;
+  // GLW emissions earned this week that cannot be claimed on the current
+  // contracts (see lib/rewards/paused-emission-weeks.ts). Kept out of
+  // `rewards` and every claimable total so no flow tries to claim them.
+  pausedEmissionGlw?: string;
 }
 
 export interface AggregatedTotals {
@@ -634,7 +639,9 @@ export function useClaimableRewards(
     rewardsData.rewards.forEach((reward: WeeklyReward) => {
       if (reward.weekNumber > endWeek || reward.weekNumber < 97) return;
 
-      const weekData = weeklyMap.get(reward.weekNumber) || {
+      const weekData: WeeklyClaimableRewards = weeklyMap.get(
+        reward.weekNumber,
+      ) || {
         week: reward.weekNumber,
         rewards: [],
         totalGlw: "0",
@@ -647,7 +654,22 @@ export function useClaimableRewards(
       const isGlwFinalized = reward.weekNumber <= glwFinalizedThresholdWeek;
       const isPdFinalized = reward.weekNumber <= pdFinalizedThresholdWeek;
 
-      if (reward.glowInflationTotal && reward.glowInflationTotal !== "0") {
+      if (
+        reward.glowInflationTotal &&
+        reward.glowInflationTotal !== "0" &&
+        isEmissionClaimPaused(reward.weekNumber)
+      ) {
+        weekData.pausedEmissionGlw = new Decimal(
+          weekData.pausedEmissionGlw || "0",
+        )
+          .plus(
+            formatUnits(BigInt(reward.glowInflationTotal), DECIMALS_BY_TOKEN.GLW),
+          )
+          .toString();
+      } else if (
+        reward.glowInflationTotal &&
+        reward.glowInflationTotal !== "0"
+      ) {
         const glwAmount = formatUnits(
           BigInt(reward.glowInflationTotal),
           DECIMALS_BY_TOKEN.GLW,

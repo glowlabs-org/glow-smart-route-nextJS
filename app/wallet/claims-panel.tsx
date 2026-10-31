@@ -607,6 +607,17 @@ function ClaimButtonsWrapper({
     );
   }
 
+  if (fullyClaimed && weekData.pausedEmissionGlw) {
+    return (
+      <div className="w-full md:ml-4 md:w-44">
+        <Button size="default" className="w-full" variant="outline" disabled>
+          <Clock className="w-4 h-4 mr-2 text-amber-500" />
+          {t.claims.emissionsOnHold}
+        </Button>
+      </div>
+    );
+  }
+
   if (fullyClaimed) {
     return (
       <div className="w-full md:ml-4 md:w-44">
@@ -964,6 +975,49 @@ function WeekRewardsContent({
           </div>
         );
       })}
+      {weekData.pausedEmissionGlw && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 md:p-4 rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 gap-3">
+          <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
+            <div
+              className={cn(
+                "p-1.5 md:p-2 rounded-lg bg-muted/50 flex-shrink-0",
+                CURRENCY_CONFIG.GLW.color
+              )}
+            >
+              {CURRENCY_CONFIG.GLW.icon}
+            </div>
+            <div className="space-y-0.5 min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-sm font-medium text-foreground truncate">
+                  {CURRENCY_CONFIG.GLW.label}
+                </div>
+                <div className="text-sm md:text-base font-semibold font-mono tabular-nums flex-shrink-0 sm:hidden text-muted-foreground">
+                  {parseFloat(weekData.pausedEmissionGlw).toLocaleString(
+                    undefined,
+                    { minimumFractionDigits: 2, maximumFractionDigits: 6 }
+                  )}
+                </div>
+              </div>
+              <div className="text-[10px] font-mono text-muted-foreground/70">
+                {t.claims.emissionRewards} · {t.claims.emissionsOnHold}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {t.claims.emissionsOnHoldRowNote}
+              </div>
+            </div>
+            <div className="text-sm md:text-base font-semibold font-mono tabular-nums flex-shrink-0 hidden sm:block text-muted-foreground">
+              {parseFloat(weekData.pausedEmissionGlw).toLocaleString(
+                undefined,
+                { minimumFractionDigits: 2, maximumFractionDigits: 6 }
+              )}
+            </div>
+          </div>
+          <Badge variant="outline" className="w-fit text-xs">
+            <Clock className="mr-1 h-3 w-3 text-amber-500" />
+            {t.claims.emissionsOnHold}
+          </Badge>
+        </div>
+      )}
     </div>
   );
 }
@@ -1169,6 +1223,46 @@ function PendingRewardsNotice({
           <div className="text-sm font-medium text-foreground">{pendingLabel}</div>
           <div className="text-sm text-foreground/80 dark:text-foreground/70">
             {t.claims.pendingNoticeBody(dateLabel)}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Weeks whose emissions are earned but blocked on-chain (see
+// lib/rewards/paused-emission-weeks.ts). Explains why there is no claim button
+// for them and when they become claimable.
+function EmissionsOnHoldNotice({
+  weeks,
+}: {
+  weeks: WeeklyClaimableRewards[];
+}) {
+  const { t } = useLang();
+  if (weeks.length === 0) return null;
+
+  const weeksLabel = weeks.map((w) => t.claims.weekLabel(w.week)).join(", ");
+  const totalGlw = weeks.reduce(
+    (sum, w) => sum + parseFloat(w.pausedEmissionGlw || "0"),
+    0
+  );
+  const amountLabel = `${totalGlw.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} GLW`;
+
+  return (
+    <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
+      <div className="flex items-start gap-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-background border border-border/40 shrink-0">
+          <Clock className="h-4 w-4 text-amber-500" />
+        </div>
+        <div className="space-y-1">
+          <div className="text-sm font-medium text-foreground">
+            {t.claims.emissionsOnHoldTitle(weeksLabel)}
+          </div>
+          <div className="text-sm text-foreground/80 dark:text-foreground/70">
+            {t.claims.emissionsOnHoldBody(amountLabel)}
           </div>
         </div>
       </div>
@@ -2601,6 +2695,9 @@ export function ClaimsPanel({
   // "Everything claimed" only when there is nothing claimable now AND nothing
   // still in the pipeline — otherwise the hero would falsely read "All rewards
   // have been claimed" next to weeks that are still finalizing/locked.
+  const emissionsOnHoldWeeks = weeklyBreakdown.filter((weekData) =>
+    Boolean(weekData.pausedEmissionGlw)
+  );
   const isEverythingClaimed =
     !hasClaimableRewards && pendingWeeks.length === 0;
   const isBulkClaiming = isClaimingAll || isPreparingClaimAll;
@@ -2683,6 +2780,7 @@ export function ClaimsPanel({
       </div>
 
       <PendingRewardsNotice pendingWeeks={pendingWeeks} />
+      <EmissionsOnHoldNotice weeks={emissionsOnHoldWeeks} />
       <InflationClaimReassuranceNotice
         show={shouldShowInflationClaimReassurance}
       />
@@ -2706,6 +2804,10 @@ export function ClaimsPanel({
             const isWeekFullyUnlocked =
               weekData.isFinalized && clockMs >= weekData.unlockMs;
             const isClaimable = !isClaimed && isWeekFullyUnlocked;
+            const pausedEmissionGlw = parseFloat(
+              weekData.pausedEmissionGlw || "0"
+            );
+            const isOnHold = isClaimed && pausedEmissionGlw > 0;
 
             // GLW total = inflation + GLW-denominated protocol deposit. Non-GLW
             // protocol deposits (sGCTL, USDC, USDG) get their own badges and are
@@ -2734,7 +2836,7 @@ export function ClaimsPanel({
                 defaultOpen={false}
                 className={cn(
                   "rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50",
-                  isClaimed && "opacity-60"
+                  isClaimed && !isOnHold && "opacity-60"
                 )}
               >
                 <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:gap-0">
@@ -2765,7 +2867,9 @@ export function ClaimsPanel({
                       </div>
                       <Badge
                         variant={
-                          isClaimed
+                          isOnHold
+                            ? "outline"
+                            : isClaimed
                             ? "secondary"
                             : isWeekFullyUnlocked
                             ? "default"
@@ -2773,7 +2877,12 @@ export function ClaimsPanel({
                         }
                         className="text-xs"
                       >
-                        {isClaimed ? (
+                        {isOnHold ? (
+                          <>
+                            <Clock className="mr-1 h-3 w-3 text-amber-500" />
+                            {t.claims.emissionsOnHold}
+                          </>
+                        ) : isClaimed ? (
                           <>
                             <CheckCircle className="mr-1 h-3 w-3" />
                             {t.claims.claimed}
@@ -2806,6 +2915,17 @@ export function ClaimsPanel({
                           className="text-xs font-mono tabular-nums"
                         >
                           {totalGlw.toFixed(2)} GLW
+                        </Badge>
+                      )}
+                      {pausedEmissionGlw > 0 && (
+                        <Badge
+                          variant="outline"
+                          className="text-xs font-mono tabular-nums text-muted-foreground"
+                        >
+                          <Clock className="mr-1 h-3 w-3 text-amber-500" />
+                          {t.claims.emissionsOnHoldChip(
+                            `${pausedEmissionGlw.toFixed(2)} GLW`
+                          )}
                         </Badge>
                       )}
                       {otherCurrencyTotals.map((entry) => (
