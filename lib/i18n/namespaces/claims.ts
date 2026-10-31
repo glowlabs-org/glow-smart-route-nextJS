@@ -71,6 +71,15 @@ export interface ClaimsStrings {
   inflationReassuranceTitle: string;
   inflationReassuranceBody: string;
 
+  // Emissions on hold: a week whose on-chain record blocks the GLW claim until
+  // the Glow V2 contracts are redeployed. `weeks` is already formatted
+  // ("Week 149"), `amount` is "359.18 GLW".
+  emissionsOnHoldTitle: (weeks: string) => string;
+  emissionsOnHoldBody: (amount: string) => string;
+  emissionsOnHold: string;
+  emissionsOnHoldChip: (amount: string) => string;
+  emissionsOnHoldRowNote: string;
+
   // Claim dialog (TransactionDialog chrome)
   reviewClaimTitle: string;
   claimCompleteTitle: string;
@@ -192,6 +201,14 @@ const en: ClaimsStrings = {
   inflationReassuranceBody:
     "Some of your emission rewards appear claimed. They were distributed previously.",
 
+  emissionsOnHoldTitle: (weeks) => `${weeks} emission rewards are on hold`,
+  emissionsOnHoldBody: (amount) =>
+    `A mistake in this week's on-chain record blocks the emissions claim for everyone. Your ${amount} is recorded and becomes claimable after the Glow V2 contracts are redeployed. Date to be announced. Protocol deposit rewards and all other weeks claim as usual.`,
+  emissionsOnHold: "On hold",
+  emissionsOnHoldChip: (amount) => `${amount} on hold`,
+  emissionsOnHoldRowNote:
+    "Claimable after the Glow V2 contracts are redeployed. Date to be announced.",
+
   reviewClaimTitle: "Review Claim",
   claimCompleteTitle: "Claim Complete",
   claimFailedTitle: "Claim Failed",
@@ -310,6 +327,14 @@ const ko: ClaimsStrings = {
   inflationReassuranceBody:
     "일부 발행분 리워드가 이미 클레임 완료된 것으로 보입니다. 이전에 분배된 리워드입니다.",
 
+  emissionsOnHoldTitle: (weeks) => `${weeks} 발행분 리워드가 보류 중입니다`,
+  emissionsOnHoldBody: (amount) =>
+    `이번 주차의 온체인 기록에 오류가 있어 모든 사용자의 발행분 리워드 클레임이 막혀 있습니다. 회원님의 ${amount}는 기록되어 있으며, Glow V2 컨트랙트가 재배포된 후 클레임할 수 있습니다. 일정은 추후 공지됩니다. 프로토콜 예치 리워드와 다른 주차는 평소처럼 클레임할 수 있습니다.`,
+  emissionsOnHold: "보류 중",
+  emissionsOnHoldChip: (amount) => `${amount} 보류 중`,
+  emissionsOnHoldRowNote:
+    "Glow V2 컨트랙트 재배포 후 클레임할 수 있습니다. 일정은 추후 공지됩니다.",
+
   reviewClaimTitle: "클레임 검토",
   claimCompleteTitle: "클레임 완료",
   claimFailedTitle: "클레임 실패",
@@ -427,6 +452,13 @@ const zh: ClaimsStrings = {
   inflationReassuranceTitle: "发行奖励领取状态",
   inflationReassuranceBody:
     "您的部分发行奖励显示已领取。这些奖励此前已完成发放。",
+
+  emissionsOnHoldTitle: (weeks) => `${weeks}的发行奖励暂缓领取`,
+  emissionsOnHoldBody: (amount) =>
+    `该周的链上记录有误，所有用户暂时都无法领取该周的发行奖励。您的 ${amount} 已记录在案，将在 Glow V2 合约重新部署后开放领取，具体时间另行通知。协议存款奖励和其他周的奖励可照常领取。`,
+  emissionsOnHold: "暂缓",
+  emissionsOnHoldChip: (amount) => `${amount} 暂缓`,
+  emissionsOnHoldRowNote: "将在 Glow V2 合约重新部署后开放领取，时间另行通知。",
 
   reviewClaimTitle: "确认领取",
   claimCompleteTitle: "领取完成",
